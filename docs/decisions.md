@@ -1,0 +1,59 @@
+# Decision log
+
+Each entry: what was decided, what the options were, and why. Decisions D1–D10 were made on Sep 26, 2026 and are the basis for version 3 of the [product spec](product-spec.md).
+
+## D1 · Success model: an allowed miss in packs of 5 or more
+
+- **Decided:** a day is successful when at least one member fed and the misses didn't go over the allowed number: 0 in a pack of 2–4 counted members, 1 in a pack of 5–8. Every miss always costs 8 health, even on a successful day.
+- **Options:** "all or nothing"; an allowed miss in large packs; partial XP by the share of members who fed.
+- **Why:** with "all or nothing", the chance of a successful day drops exponentially with pack size, while the penalty grows linearly. In a pack of 8 where every member is covered on 90% of days, health drops by 2.1 a day on average, and Kid arrives only after about 16 days. With an allowed miss, such a pack gains health at any size and reaches Kid after 8–11 days, and packs of 2–4 are not affected. Partial XP was rejected because it blurs the moment of "we did it today".
+
+## D2 · Version 1 scope: full and expanded
+
+- **Decided:** everything in the spec goes into version 1, plus widgets, achievements and a wardrobe, a focus timer, the Me screen, QR invites, Onboarding and accessibility.
+- **Options:** a narrowed pilot (one species, no items and no story) or a full version.
+- **Why:** a product decision: a rich first version, not a thin one. The temporary character makes it possible to build all the features before the final illustration is ready.
+
+## D3 · Architecture: rules as a pure module, actions as Postgres functions
+
+- **Decided:** the game rules are in a pure TypeScript module with no dependencies (`packages/game-engine`). User actions are Postgres functions called through RPC. The day close is an Edge Function that runs the module and applies the result through one Postgres function (`apply_day_result`).
+- **Options:** everything in PL/pgSQL; an Edge Function with a direct connection to Postgres; the combination.
+- **Why:** supabase-js doesn't support a transaction across several operations, so every atomic write has to run inside Postgres. The rules themselves stay in TypeScript, so the same code serves the server, the tests and the simulator.
+
+## D4 · A dependency-free module that runs directly in Node
+
+- **Decided:** game-engine is written in TypeScript using only syntax that can simply be erased (no enum and no namespace), with `.ts` extensions in imports. The tests run with `node --test` and the simulator with `node`, with no build step.
+- **Why:** Node 24 runs TypeScript directly, Deno (Edge Functions) imports it as is, and Metro in the app compiles it. With no dependencies there is nothing to break between the environments.
+
+## D5 · A pilot on iOS and Android
+
+- **Decided:** 5–6 packs, at least half of them not close friends of the developer, on both platforms, for at least two weeks.
+- **Why:** almost every friend group has Android users. Google Play requires a closed test of 12 testers for 14 days before publishing from a new personal account anyway. 3 packs of friends are a small and biased sample.
+
+## D6 · The day ends at 03:00
+
+- **Decided:** the day ends at 03:00 in the pack's time zone, and the grace window lasts until 04:00.
+- **Options:** midnight or 03:00.
+- **Why:** the audience works out and studies late. The cost is that after midnight "today" doesn't match the calendar date, so the pack screen has a countdown to the end of the day.
+
+## D7 · Language
+
+- **Decided:** an English pilot, a public launch in English and Hebrew.
+- **Why:** the first audience is Israeli and starts at age 15. The creatures' humor is rewritten in Hebrew, not translated.
+
+## D8 · Transparency
+
+- **Decided:** the names of those who missed appear only in the members row and on the monthly board. Notifications don't say who missed. 🤨 is shown as a number without names.
+- **Why:** seeing who missed is the shared accountability itself. A "suspicious" reaction with a visible name can turn into a tool for bullying, especially at 15.
+
+## D9 · Widgets in version 1
+
+- **Decided:** home screen widgets on iOS and Android (small, medium, large) and a lock screen widget on iOS. On iOS: WidgetKit in SwiftUI through `@bacons/apple-targets`; on Android: `react-native-android-widget`.
+- **Options:** the official `expo-widgets` (widgets as React components through `@expo/ui`).
+- **Why:** `expo-widgets` is currently iOS only, in alpha and without image support, and the creature is an image. The widget shows no photos or names of members, because the home screen and the lock screen are visible to others.
+
+## D10 · Additions to version 1
+
+- **Decided:** achievements that unlock items for the wardrobe (with no payment), a focus timer for Study and Reading, the Me screen, QR invites, Onboarding and accessibility.
+- **Left for later versions:** feeding from the health app (it contradicts the photo proof and needs a lot of native code), on-device photo checks, and a paid shop and Pack+ (monetization only after retention is proven).
+- **Why:** the wardrobe is built now so that paid items can go into it later with no change in structure.
