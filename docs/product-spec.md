@@ -1,12 +1,12 @@
-# Pack — Product Spec (version 3)
+# Gozali — Product Spec (version 3.1)
 
 Sep 26, 2026 · @Ariel kuznets
 
-> Version 3: all the open decisions from version 2 are closed (details and reasoning in [decisions.md](decisions.md)), version 1 was expanded, and widgets were added for the home screen and the lock screen. The list of changes is in section 18.
+> Version 3.1: the app has a name, Gozali. Version 3 closed all the open decisions from version 2 (details and reasoning in [decisions.md](decisions.md)), expanded version 1 and added widgets for the home screen and the lock screen. The list of changes is in section 18.
 
 ## 1. Overview
 
-Pack is an app where a small group of friends raises one shared virtual creature that lives and grows only if every one of them does a real habit every day and proves it with a photo. "Pack" is a working name.
+Gozali ("my little chick" in Hebrew) is an app where a small group of friends raises one shared virtual creature that lives and grows only if every one of them does a real habit every day and proves it with a photo. The name tells the story: a creature that hatches from an egg, and the pack raises it together. Inside the app, a group is called a Pack.
 
 **Audience:** people aged 15–30, starting in Israel, who want to stick to a habit (gym, studying, reading) and find it hard to do alone.
 
@@ -496,7 +496,7 @@ Important: Rive, the widgets and some of the modules require a **development bui
   - `delete-account`: deletes the user, the photos and all the data. It needs service role permissions, so it must run on the server.
   - `on-report`: sends an email to the developer for every new report.
 
-**Invite links:** a simple landing page at an address like `pack.app/i/CODE`, which opens the app if it's installed (universal link on iOS, App Link on Android). If not, the page shows the code, copies it to the clipboard when the download button is tapped (Safari allows copying to the clipboard only in response to a tap), and sends to the store. On Android the code is also passed in the referrer parameter of the Google Play link, and the app reads it after installing (`getInstallReferrerAsync` from expo-application), so joining is automatic. On iOS there is no free equivalent: on the first open, "Have an invite code?" appears with a paste button (iOS shows a confirmation dialog for pasting from another app) or manual typing. That way a paid deferred deep link service isn't needed.
+**Invite links:** a simple landing page at an address like `gozali.app/i/CODE`, which opens the app if it's installed (universal link on iOS, App Link on Android). If not, the page shows the code, copies it to the clipboard when the download button is tapped (Safari allows copying to the clipboard only in response to a tap), and sends to the store. On Android the code is also passed in the referrer parameter of the Google Play link, and the app reads it after installing (`getInstallReferrerAsync` from expo-application), so joining is automatic. On iOS there is no free equivalent: on the first open, "Have an invite code?" appears with a paste button (iOS shows a confirmation dialog for pasting from another app) or manual typing. That way a paid deferred deep link service isn't needed.
 
 **Widgets:** the app writes the packs' state to shared storage (an App Group on iOS, the app's storage on Android) and asks for a widget refresh after every action. In addition, the widget pulls a fresh state from `widget-state` about every 30 minutes, and schedules a refresh for the end of the day. The official `expo-widgets` was checked and not chosen: right now it is iOS only, in alpha, and without image support.
 
@@ -529,7 +529,7 @@ Version 1 includes all of sections 3–12, including widgets, achievements and a
 
 - Automatic feeding from the health app (steps, workouts).
 - Automatic on-device photo checks.
-- A paid item shop and a Pack+ subscription (section 16).
+- A paid item shop and a Gozali+ subscription (section 16).
 - A Live Activity for the focus timer.
 - More creature species.
 
@@ -541,7 +541,7 @@ The game itself is completely free, and revenue comes from cosmetic items and an
 
 - **Cosmetic items for the creature:** hats, accessories, backgrounds and homes. An item that was bought appears on the whole pack's creature, so the members see it too, and that's part of the motivation to buy. Bought items go into the same wardrobe that already exists in version 1.
 - **A gift for the pack:** a member buys an item for the shared creature, with a message in the feed ("Dan got Pixel a crown").
-- **Pack+ subscription:** unlimited packs (instead of 3), more creature species, special colors, an exclusive item every month and advanced statistics. Initial test price: about $2.99 a month or $19.99 a year.
+- **Gozali+ subscription:** unlimited packs (instead of 3), more creature species, special colors, an exclusive item every month and advanced statistics. Initial test price: about $2.99 a month or $19.99 a year.
 
 **What is not sold:**
 
@@ -554,12 +554,16 @@ The game itself is completely free, and revenue comes from cosmetic items and an
 
 All the decisions that blocked version 1 are closed; the details and reasoning are in [decisions.md](decisions.md). What's left are decisions that don't block starting the build:
 
-- [ ] Final name for the app, and a check that the name and domain are free in the stores.
+- [ ] Register the gozali.app domain before the launch (it was free on Sep 26, 2026).
 - [ ] Design direction for the characters: illustrated pastel, clay or sticker.
 - [ ] Who illustrates the characters, and who animates them in Rive.
 - [ ] Whether 3 free packs is right, or a different limit is better (before monetization). Note: few users will reach a fourth pack, so it is a weak lever for payment; "a gift for the pack" looks stronger.
 
 ## 18. Change history
+
+### Version 3.1
+
+- **Name:** the app is called Gozali (decision D11). Pack stays the name of a group inside the app, and the future subscription is called Gozali+.
 
 ### Version 3
 
