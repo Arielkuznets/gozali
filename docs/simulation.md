@@ -5,7 +5,7 @@ Run: Sep 26, 2026, `npm run sim` in `packages/game-engine`, with the constants o
 **The model:** every member feeds on a given day with a fixed probability (`rate`). Rest days are used automatically, and a member who is about to miss uses the month's joker half of the time. Members count from their first feed, and fall asleep and wake up by the rules. In Gym, 0.55 is about 4 workouts a week (the quota with 3 rest days), and 0.4 is fewer than 3.
 
 ```text
-Pack simulator: 1000 runs per row, 60 days, seed 1
+Gozali simulator: 1000 runs per row, 60 days, seed 1
 rate: chance a member feeds on a given day; success: share of counted days that succeeded;
 avg health: after hatching, 0 while away; low: days below 40 health or away;
 ran away: packs whose critter ran away at least once;

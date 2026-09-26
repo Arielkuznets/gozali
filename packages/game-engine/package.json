@@ -1,8 +1,8 @@
 {
-  "name": "@pack/game-engine",
+  "name": "@gozali/game-engine",
   "version": "0.1.0",
   "private": true,
-  "description": "Pack game rules as a pure, dependency-free TypeScript module.",
+  "description": "Gozali game rules as a pure, dependency-free TypeScript module.",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"

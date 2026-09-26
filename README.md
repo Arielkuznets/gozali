@@ -1,6 +1,6 @@
-# Pack
+# Gozali
 
-A mobile app where a small group of friends raises one shared virtual creature. The creature only stays alive if every member does a real-world habit each day and proves it with a photo.
+Gozali (Hebrew for "my little chick") is a mobile app where a small group of friends raises one shared virtual creature. The creature only stays alive if every member does a real-world habit each day and proves it with a photo.
 
 ## Docs
 

@@ -1,6 +1,6 @@
 # Decision log
 
-Each entry: what was decided, what the options were, and why. Decisions D1–D10 were made on Sep 26, 2026 and are the basis for version 3 of the [product spec](product-spec.md).
+Each entry: what was decided, what the options were, and why. Decisions D1–D11 were made on Sep 26, 2026 and are the basis for version 3.1 of the [product spec](product-spec.md).
 
 ## D1 · Success model: an allowed miss in packs of 5 or more
 
@@ -55,5 +55,11 @@ Each entry: what was decided, what the options were, and why. Decisions D1–D10
 ## D10 · Additions to version 1
 
 - **Decided:** achievements that unlock items for the wardrobe (with no payment), a focus timer for Study and Reading, the Me screen, QR invites, Onboarding and accessibility.
-- **Left for later versions:** feeding from the health app (it contradicts the photo proof and needs a lot of native code), on-device photo checks, and a paid shop and Pack+ (monetization only after retention is proven).
+- **Left for later versions:** feeding from the health app (it contradicts the photo proof and needs a lot of native code), on-device photo checks, and a paid shop and Gozali+ (monetization only after retention is proven).
 - **Why:** the wardrobe is built now so that paid items can go into it later with no change in structure.
+
+## D11 · Name: Gozali
+
+- **Decided:** Gozali ("my little chick" in Hebrew). Pack stays the name of a group inside the app, and the future subscription is called Gozali+.
+- **Options checked:** Hatchmates, Bondling and Pactling (too advanced in English); SquadPet, YallaPet and FriendsPet (too generic); Blobbo. Many short, cute names (Zuzu, Munchi, Nomi, Buba, Feedo and more) are already taken.
+- **Why:** short, easy to say in Hebrew and in English, and it tells the story: a creature that hatches from an egg and the pack raises it together. On Sep 26, 2026 there was no app with this name on the App Store (US and Israel), and the gozali.app domain was free. There is an app called Gozal for service providers, in a different field. This is not a trademark search.
