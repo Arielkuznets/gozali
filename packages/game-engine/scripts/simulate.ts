@@ -234,7 +234,7 @@ const days = option('days', 60);
 const seed = option('seed', 1);
 const random = mulberry32(seed);
 
-console.log(`Pack simulator: ${runs} runs per row, ${days} days, seed ${seed}`);
+console.log(`Gozali simulator: ${runs} runs per row, ${days} days, seed ${seed}`);
 console.log('rate: chance a member feeds on a given day; success: share of counted days that succeeded;');
 console.log('avg health: after hatching, 0 while away; low: days below 40 health or away;');
 console.log('ran away: packs whose critter ran away at least once;');
