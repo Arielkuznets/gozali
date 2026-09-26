@@ -15,6 +15,13 @@
     "logIn": "Log in",
     "back": "Back"
   },
+  "profileSetup": {
+    "title": "About you",
+    "nameLabel": "Your name",
+    "namePlaceholder": "What do your friends call you?",
+    "agree": "I'm 13 or older, and I agree to the Terms and the Privacy Policy.",
+    "continue": "Continue"
+  },
   "home": {
     "title": "Your packs",
     "emptyTitle": "No packs yet",
@@ -26,6 +33,7 @@
   },
   "errors": {
     "notConfigured": "The app is not connected to the server yet.",
-    "signInFailed": "Sign-in didn't work. Please try again."
+    "signInFailed": "Sign-in didn't work. Please try again.",
+    "saveFailed": "Saving didn't work. Please try again."
   }
 }
