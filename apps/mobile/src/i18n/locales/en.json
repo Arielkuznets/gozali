@@ -29,11 +29,110 @@
     "eggLabel": "An egg waiting for a pack",
     "createPack": "Create a pack",
     "joinPack": "Join with a code",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "limitReached": "You're in 3 packs, the most for now."
   },
   "errors": {
     "notConfigured": "The app is not connected to the server yet.",
     "signInFailed": "Sign-in didn't work. Please try again.",
     "saveFailed": "Saving didn't work. Please try again."
+  },
+  "packs": {
+    "categories": {
+      "gym": "Gym",
+      "running": "Running",
+      "study": "Study",
+      "reading": "Reading",
+      "water": "Water",
+      "custom": "Custom"
+    },
+    "species": {
+      "blob": "Blob",
+      "spark": "Spark",
+      "mossy": "Mossy"
+    },
+    "colors": {
+      "peach": "Peach",
+      "butter": "Butter",
+      "sage": "Sage",
+      "sky": "Sky",
+      "blush": "Blush",
+      "sand": "Sand"
+    },
+    "members_one": "{{count}} member",
+    "members_other": "{{count}} members",
+    "restDays_one": "{{count}} rest day a week",
+    "restDays_other": "{{count}} rest days a week",
+    "errors": {
+      "limitReached": "You can be in up to 3 packs.",
+      "full": "This pack is full (8 members).",
+      "notFound": "No pack has this code.",
+      "adminOnly": "Only the pack admin can do that."
+    }
+  },
+  "create": {
+    "title": "New pack",
+    "step": "Step {{step}} of 4",
+    "nameLabel": "Pack name",
+    "namePlaceholder": "Gym squad",
+    "categoryTitle": "What's the habit?",
+    "customLabel": "Your habit",
+    "customPlaceholder": "Meditate 10 min",
+    "restTitle": "Rest days",
+    "restBody": "How many days a week each member can skip without hurting the pet.",
+    "eggTitle": "Pick an egg",
+    "colorTitle": "And a color",
+    "next": "Next",
+    "back": "Back",
+    "create": "Create pack"
+  },
+  "invite": {
+    "title": "Invite your friends",
+    "body": "The egg starts to crack when a friend joins, and it hatches on the first day two of you feed it.",
+    "code": "Invite code",
+    "share": "Share invite",
+    "copy": "Copy code",
+    "copied": "Copied!",
+    "message": "Join my pack \"{{name}}\" on Gozali! Code: {{code}}\n{{link}}",
+    "done": "Done"
+  },
+  "join": {
+    "title": "Join a pack",
+    "codeLabel": "Invite code",
+    "codePlaceholder": "8 letters and numbers",
+    "paste": "Paste",
+    "join": "Join pack",
+    "alreadyMember": "You're already in this pack.",
+    "open": "Open pack",
+    "back": "Back"
+  },
+  "pack": {
+    "settings": "Settings",
+    "invite": "Invite",
+    "back": "Back",
+    "eggWaiting": "Waiting for a friend to join.",
+    "eggCracking": "The egg is cracking! It hatches on the first day two of you feed it.",
+    "members": "Members",
+    "critterLabel": "{{name}}, the pack pet"
+  },
+  "settings": {
+    "title": "Pack settings",
+    "name": "Pack name",
+    "restDays": "Rest days a week",
+    "weekStart": "Week starts on",
+    "sunday": "Sunday",
+    "monday": "Monday",
+    "pending": "New rest days and week start apply from {{date}}.",
+    "save": "Save",
+    "saved": "Saved",
+    "members": "Members",
+    "admin": "Admin",
+    "remove": "Remove",
+    "removeConfirm": "Remove {{name}} from the pack?",
+    "invite": "Invite link and QR code",
+    "leave": "Leave pack",
+    "leaveConfirm": "Leave this pack?",
+    "cancel": "Cancel",
+    "confirm": "Yes"
   }
 }

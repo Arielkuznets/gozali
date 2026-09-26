@@ -43,7 +43,7 @@ function RootNavigator() {
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
       <Stack.Protected guard={signedIn && profileComplete}>
-        <Stack.Screen name="index" />
+        <Stack.Screen name="(app)" />
       </Stack.Protected>
       <Stack.Protected guard={signedIn && !profileComplete}>
         <Stack.Screen name="profile-setup" />

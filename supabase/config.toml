@@ -414,3 +414,12 @@ enabled = true
 # formatted with uppercase keywords, indent 2, max width 180, trailing commas,
 # and column/key alignment. Set to "null" to emit raw, unformatted SQL.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":180,\"commaStyle\":\"trailing\"}"
+
+# Sign-in emails carry the one-time code the app asks for (the development login).
+[auth.email.template.magic_link]
+subject = "Your Gozali code"
+content_path = "./supabase/templates/sign_in_code.html"
+
+[auth.email.template.confirmation]
+subject = "Your Gozali code"
+content_path = "./supabase/templates/sign_in_code.html"

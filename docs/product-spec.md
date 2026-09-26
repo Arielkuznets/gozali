@@ -424,7 +424,7 @@ Eighteen tables in Postgres (Supabase). All access is protected with Row Level S
 | Table | Main fields |
 | --- | --- |
 | profiles | id (the user in auth.users), display\_name, avatar\_path, timezone, locale, reminder\_time, notification\_prefs (jsonb), terms\_accepted\_at, created\_at |
-| packs | id, name, category, custom\_habit, rest\_days\_per\_week, week\_start, timezone, invite\_code (8 characters, without characters that are easy to confuse, like 0 and O), created\_at |
+| packs | id, name, category, custom\_habit, rest\_days\_per\_week, week\_start, timezone, invite\_code (8 characters, without characters that are easy to confuse, like 0 and O), pending\_rest\_days\_per\_week, pending\_week\_start, pending\_from (settings that apply from the next week start), created\_at |
 | critters | pack\_id (key: one creature per pack), species, name, color, health, xp, stage, status (egg / active / ran\_away), streak, marks, outfit (jsonb), hatched\_at |
 | pack\_members | pack\_id, user\_id, role (admin / member), status (active / sleeping / left), joined\_at, left\_at |
 | pauses | id, pack\_id, user\_id, starts\_on, ends\_on |
@@ -487,7 +487,11 @@ Important: Rive, the widgets and some of the modules require a **development bui
 - **Cron:** scheduled runs of day closing, recaps and notification sending.
 - **User actions (Postgres functions):**
   - `submit_feed`: verifies pack membership, computes "the day" by the pack's time zone (including the offline rule), saves the feed (the database constraint prevents duplicates), wakes a sleeping member, and cancels a joker or declared rest for the same day.
+  - `create_pack`: creates the pack, its egg and the admin membership, with a random invite code; limited to 3 packs per user.
+  - `pack_preview`: what someone sees before joining (name, habit, species and color, member count), by invite code.
   - `join_pack`: joining with an invite code, with locking and a check for a free spot.
+  - `update_pack` (admin): the name changes right away; rest days and week start are stored as pending and apply from the next week start.
+  - `remove_member` (admin).
   - `leave_pack`: leaving, including passing admin to the longest-standing member.
   - `use_day_pass` (joker or declaring a rest), `pause`, `nudge`, `react`, `dress_critter`, `suggest_name`, `choose_name`: each with its own checks and limits.
 - **Edge Functions:**
