@@ -24,7 +24,9 @@ npm run typecheck   # every workspace
 
 ```sh
 npx supabase start     # local Supabase in Docker
-npx supabase test db   # pgTAP tests in supabase/tests
+npm run db:test        # pgTAP tests in supabase/tests
+npm run db:types       # regenerate apps/mobile/src/lib/database.types.ts
+npm run smoke:packs    # pack flow against local Supabase (needs SUPABASE_PUBLISHABLE_KEY and SUPABASE_SECRET_KEY)
 ```
 
 ```sh
