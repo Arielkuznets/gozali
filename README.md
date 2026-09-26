@@ -6,3 +6,15 @@ A mobile app where a small group of friends raises one shared virtual creature. 
 
 - [Product spec](docs/product-spec.md)
 - [Decision log](docs/decisions.md)
+
+## Code
+
+- [`packages/game-engine`](packages/game-engine) – the game rules as a dependency-free TypeScript module. Node 24+ runs it directly, with no build step.
+
+## Development
+
+```sh
+cd packages/game-engine
+npm test            # unit tests (node:test)
+npm run typecheck   # tsc, fetched on demand
+```
