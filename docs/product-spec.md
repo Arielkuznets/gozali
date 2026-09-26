@@ -423,15 +423,15 @@ Eighteen tables in Postgres (Supabase). All access is protected with Row Level S
 
 | Table | Main fields |
 | --- | --- |
-| users | id, display\_name, avatar\_url, timezone, locale, reminder\_time, notification\_prefs (jsonb), terms\_accepted\_at, created\_at |
-| packs | id, name, category, custom\_habit, rest\_days\_per\_week, week\_start, timezone, invite\_code, created\_at |
-| critters | id, pack\_id, species, name, color, health, xp, stage, status (egg / active / ran\_away), streak, marks (jsonb), outfit (jsonb), hatched\_at |
-| pack\_members | pack\_id, user\_id, role (admin / member), status (active / sleeping / left), joined\_at |
+| profiles | id (the user in auth.users), display\_name, avatar\_path, timezone, locale, reminder\_time, notification\_prefs (jsonb), terms\_accepted\_at, created\_at |
+| packs | id, name, category, custom\_habit, rest\_days\_per\_week, week\_start, timezone, invite\_code (8 characters, without characters that are easy to confuse, like 0 and O), created\_at |
+| critters | pack\_id (key: one creature per pack), species, name, color, health, xp, stage, status (egg / active / ran\_away), streak, marks, outfit (jsonb), hatched\_at |
+| pack\_members | pack\_id, user\_id, role (admin / member), status (active / sleeping / left), joined\_at, left\_at |
 | pauses | id, pack\_id, user\_id, starts\_on, ends\_on |
 | feeds | id, pack\_id, user\_id, photo\_path, caption, day (date), is\_extra, focus\_minutes, captured\_at, created\_at, hidden\_at |
-| reactions | feed\_id, user\_id, emoji, created\_at (unique key: feed\_id + user\_id) |
+| reactions | feed\_id, user\_id, emoji (fire / muscle / laugh / clap / suspicious), created\_at (unique key: feed\_id + user\_id) |
 | day\_passes | pack\_id, user\_id, day (date), kind (joker / rest) |
-| day\_results | pack\_id, day, result (success / neutral / fail), fed\_ids, rested\_ids, joker\_ids, paused\_ids, sleeping\_ids, missed\_ids, health\_before, health\_after, early\_bird, full\_house |
+| day\_results | pack\_id, day, result (success / neutral / fail), applied, fed\_ids, rested\_ids, joker\_ids, paused\_ids, sleeping\_ids, missed\_ids, health\_before, health\_after, early\_bird, full\_house, night\_owl\_feeds, closed\_at |
 | achievements | pack\_id, key, unlocked\_at |
 | nudges | pack\_id, from\_user, to\_user, day |
 | name\_suggestions | id, pack\_id, user\_id, name, created\_at |
@@ -450,6 +450,8 @@ Eighteen tables in Postgres (Supabase). All access is protected with Row Level S
 - **Rules enforced in the database, not only in code**, so two parallel requests can't get around them (race condition): one counted feed per day (a partial unique index on pack\_id + user\_id + day where is\_extra = false), one day of joker or declared rest per member per day, one joker per member per month, one nudge per day per pair, one admin per pack, and a maximum of 8 members (locking the pack row while joining).
 - Every change to health, XP and the creature's state is made only on the server, in one transaction that also includes the day\_results row, the achievements and the notifications it creates. The app never writes them directly. supabase-js doesn't support a transaction across several operations (each call is a separate transaction), so every user action is a Postgres function, and the day close is applied through one Postgres function (section 14).
 - The widget token only allows reading the packs' state for the widget, is stored on the server only as a hash, and is deleted on sign-out or account deletion.
+- **Privacy in RLS:** who reacted with 🤨 isn't exposed through the API either: the policy hides those rows, and `feed_reaction_counts` returns only numbers. Hidden items and content from blocked users never reach the app.
+- The schema lives in `supabase/migrations`, and its tests (pgTAP) in `supabase/tests`.
 
 ## 14. Technology and architecture
 

@@ -9,6 +9,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 
 import { AuthProvider, useAuth } from '@/features/auth/AuthProvider';
+import { isProfileComplete, useProfile } from '@/features/profile/useProfile';
 import { colors } from '@/theme/tokens';
 
 void SplashScreen.preventAutoHideAsync();
@@ -28,7 +29,9 @@ export default function RootLayout() {
 function RootNavigator() {
   const [fontsLoaded] = useFonts({ VarelaRound_400Regular, Rubik_400Regular, Rubik_500Medium, Rubik_700Bold });
   const { session, loading } = useAuth();
-  const ready = fontsLoaded && !loading;
+  const signedIn = session !== null;
+  const profile = useProfile();
+  const ready = fontsLoaded && !loading && (!signedIn || !profile.isPending);
 
   useEffect(() => {
     if (ready) SplashScreen.hide();
@@ -36,11 +39,14 @@ function RootNavigator() {
 
   if (!ready) return null;
 
-  const signedIn = session !== null;
+  const profileComplete = isProfileComplete(profile.data);
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
-      <Stack.Protected guard={signedIn}>
+      <Stack.Protected guard={signedIn && profileComplete}>
         <Stack.Screen name="index" />
+      </Stack.Protected>
+      <Stack.Protected guard={signedIn && !profileComplete}>
+        <Stack.Screen name="profile-setup" />
       </Stack.Protected>
       <Stack.Protected guard={!signedIn}>
         <Stack.Screen name="welcome" />
