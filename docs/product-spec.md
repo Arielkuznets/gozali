@@ -230,7 +230,7 @@ Examples: in a pack of 6 where one missed, the day is successful, health goes up
 - Days close in order, because each day depends on the result of the previous one. If a close failed or was late, the next run fills in all the missing days.
 - The end of the day is computed by the pack's time zone (IANA), so on a daylight saving change the day lasts 23 or 25 hours.
 
-**The rules module and the simulator:** the rules are implemented as a pure TypeScript module with no dependencies (`packages/game-engine`): the previous state and the day's data go in, a result comes out. The same module is used by the server day close, the tests and the simulator, which runs the rules over simulated packs of different sizes, categories and reliability levels, and measures the rate of successful days, the rate of health change, the chance of running away and the time to each stage.
+**The rules module and the simulator:** the rules are implemented as a pure TypeScript module with no dependencies (`packages/game-engine`): the previous state and the day's data go in, a result comes out. The same module is used by the server day close, the tests and the simulator, which runs the rules over simulated packs of different sizes, categories and reliability levels, and measures the rate of successful days, average health, the chance of running away and the time to each stage. The latest results are in [simulation.md](simulation.md).
 
 ## 6. Feeding and proof
 

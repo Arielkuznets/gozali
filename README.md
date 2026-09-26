@@ -6,6 +6,7 @@ A mobile app where a small group of friends raises one shared virtual creature. 
 
 - [Product spec](docs/product-spec.md)
 - [Decision log](docs/decisions.md)
+- [Simulation results](docs/simulation.md)
 
 ## Code
 
@@ -17,4 +18,5 @@ A mobile app where a small group of friends raises one shared virtual creature. 
 cd packages/game-engine
 npm test            # unit tests (node:test)
 npm run typecheck   # tsc, fetched on demand
+npm run sim         # simulator, see docs/simulation.md
 ```
