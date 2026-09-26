@@ -1,19 +1,28 @@
+import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { CritterPlaceholder } from '@/components/CritterPlaceholder';
+import { PackCard } from '@/components/PackCard';
 import { Screen } from '@/components/Screen';
 import { signOut } from '@/features/auth/signIn';
+import { useMyPacks } from '@/features/packs/api';
 import { colors, critterColors, spacing } from '@/theme/tokens';
+
+const PACK_LIMIT = 3;
 
 export default function HomeScreen() {
   const { t } = useTranslation();
+  const { data: packs, isPending } = useMyPacks();
 
   const onSignOut = () => {
     signOut().catch(() => Alert.alert(t('errors.signInFailed')));
   };
+
+  const hasPacks = packs !== undefined && packs.length > 0;
+  const atLimit = packs !== undefined && packs.length >= PACK_LIMIT;
 
   return (
     <Screen>
@@ -24,18 +33,37 @@ export default function HomeScreen() {
         </Pressable>
       </View>
 
-      <View style={styles.empty}>
-        <CritterPlaceholder label={t('home.eggLabel')} size={120} color={critterColors.butter} />
-        <AppText variant="heading" style={styles.center}>
-          {t('home.emptyTitle')}
-        </AppText>
-        <AppText style={[styles.center, styles.muted]}>{t('home.emptyBody')}</AppText>
-      </View>
+      {isPending ? (
+        <View style={styles.center}>
+          <ActivityIndicator color={colors.accent} />
+        </View>
+      ) : hasPacks ? (
+        <ScrollView contentContainerStyle={styles.list}>
+          {packs.map((pack) => (
+            <PackCard key={pack.id} pack={pack} onPress={() => router.push(`/pack/${pack.id}`)} />
+          ))}
+        </ScrollView>
+      ) : (
+        <View style={styles.center}>
+          <CritterPlaceholder label={t('home.eggLabel')} size={120} color={critterColors.butter} status="egg" />
+          <AppText variant="heading" style={styles.centerText}>
+            {t('home.emptyTitle')}
+          </AppText>
+          <AppText style={[styles.centerText, styles.muted]}>{t('home.emptyBody')}</AppText>
+        </View>
+      )}
 
-      {/* Creating and joining packs arrive in phase 2. */}
       <View style={styles.actions}>
-        <Button label={t('home.createPack')} disabled />
-        <Button label={t('home.joinPack')} variant="secondary" disabled />
+        {atLimit ? (
+          <AppText variant="caption" style={styles.centerText}>
+            {t('home.limitReached')}
+          </AppText>
+        ) : (
+          <>
+            <Button label={t('home.createPack')} onPress={() => router.push('/create-pack')} />
+            <Button label={t('home.joinPack')} variant="secondary" onPress={() => router.push('/join')} />
+          </>
+        )}
       </View>
     </Screen>
   );
@@ -48,8 +76,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.md,
   },
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
-  center: { textAlign: 'center' },
+  list: { gap: spacing.sm, paddingBottom: spacing.md },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
+  centerText: { textAlign: 'center' },
   muted: { color: colors.inkMuted, maxWidth: 300 },
-  actions: { gap: spacing.sm },
+  actions: { gap: spacing.sm, paddingTop: spacing.sm },
 });
