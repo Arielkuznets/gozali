@@ -1,0 +1,31 @@
+{
+  "welcome": {
+    "tagline": "Raise a little pet together with your friends. Feed it every day by doing your habit.",
+    "critterLabel": "A little pet waiting for its pack",
+    "continueWithApple": "Continue with Apple",
+    "continueWithGoogle": "Continue with Google",
+    "devLogin": "Dev login with email",
+    "terms": "By continuing you agree to the Terms and the Privacy Policy."
+  },
+  "devLogin": {
+    "title": "Dev login",
+    "email": "Email",
+    "sendCode": "Send code",
+    "code": "Code from the email",
+    "logIn": "Log in",
+    "back": "Back"
+  },
+  "home": {
+    "title": "Your packs",
+    "emptyTitle": "No packs yet",
+    "emptyBody": "Start a pack and invite your friends, or join a pack with a code.",
+    "eggLabel": "An egg waiting for a pack",
+    "createPack": "Create a pack",
+    "joinPack": "Join with a code",
+    "signOut": "Sign out"
+  },
+  "errors": {
+    "notConfigured": "The app is not connected to the server yet.",
+    "signInFailed": "Sign-in didn't work. Please try again."
+  }
+}
