@@ -5,3 +5,4 @@ A mobile app where a small group of friends raises one shared virtual creature. 
 ## Docs
 
 - [Product spec](docs/product-spec.md)
+- [Decision log](docs/decisions.md)
