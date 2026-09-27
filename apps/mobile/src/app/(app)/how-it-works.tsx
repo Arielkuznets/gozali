@@ -9,7 +9,7 @@ export default function HowItWorksScreen() {
   const { t } = useTranslation();
   return (
     <Screen>
-      <RulesCards onDone={() => goBack('/settings')} doneLabel={t('onboarding.gotIt')} />
+      <RulesCards onDone={() => goBack('/settings')} doneLabel={t('onboarding.gotIt')} leaveLabel={t('feed.close')} />
     </Screen>
   );
 }

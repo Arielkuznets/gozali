@@ -369,7 +369,7 @@ The design should feel colorful, soft and hand-drawn, and in no way generic or "
 - **Soft shapes:** rounded corners, few and subtle shadows, a subtle paper texture or grain in backgrounds.
 - **Typography:** a rounded font with character for headings, and a clean readable font for text. Two fonts at most.
 - **Motion:** every action gets small satisfying feedback (a bounce, a light vibration). Animations are short (200–400ms) and fun.
-- **Accessibility:** support for dynamic text size, a screen reader description for every state of the creature (for example "Pixel is hungry, health 45"), and information that isn't carried by color alone: the circles in the members row are also marked with an icon.
+- **Accessibility:** support for dynamic text size, a screen reader description for every state of the creature (for example "Pixel is hungry, health 45"), information that isn't carried by color alone: the circles in the members row are also marked with an icon, and text contrast of at least 4.5:1 (WCAG AA): buttons in the accent color carry dark text, and links use a darker shade of the accent.
 
 **The character:**
 

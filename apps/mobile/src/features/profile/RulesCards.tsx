@@ -22,8 +22,11 @@ const CARDS: readonly { key: 'photo' | 'together' | 'neverDies' | 'dressUp'; art
   },
 ];
 
-/** The rules one card at a time. `onDone` runs on skip and after the last card. */
-export function RulesCards({ onDone, doneLabel }: { onDone: () => void; doneLabel: string }) {
+/**
+ * The rules one card at a time. `onDone` runs from the top corner link (Skip on a first launch,
+ * Close when reading them again) and after the last card.
+ */
+export function RulesCards({ onDone, doneLabel, leaveLabel }: { onDone: () => void; doneLabel: string; leaveLabel?: string }) {
   const { t } = useTranslation();
   const [index, setIndex] = useState(0);
   const card = CARDS[index] ?? CARDS[0]!;
@@ -34,7 +37,7 @@ export function RulesCards({ onDone, doneLabel }: { onDone: () => void; doneLabe
       <View style={styles.header}>
         {!last && (
           <Pressable accessibilityRole="button" onPress={onDone} hitSlop={12}>
-            <AppText variant="caption">{t('onboarding.skip')}</AppText>
+            <AppText variant="caption">{leaveLabel ?? t('onboarding.skip')}</AppText>
           </Pressable>
         )}
       </View>
