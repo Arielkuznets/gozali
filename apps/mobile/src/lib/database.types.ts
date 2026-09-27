@@ -409,6 +409,7 @@ export type Database = {
       };
       pack_members: {
         Row: {
+          awake_since: string | null;
           joined_at: string;
           left_at: string | null;
           pack_id: string;
@@ -417,6 +418,7 @@ export type Database = {
           user_id: string;
         };
         Insert: {
+          awake_since?: string | null;
           joined_at?: string;
           left_at?: string | null;
           pack_id: string;
@@ -425,6 +427,7 @@ export type Database = {
           user_id: string;
         };
         Update: {
+          awake_since?: string | null;
           joined_at?: string;
           left_at?: string | null;
           pack_id?: string;
@@ -755,6 +758,8 @@ export type Database = {
         };
         Returns: string;
       };
+      day_closes_at: { Args: { pack_date: string; tz: string }; Returns: string };
+      feed_day: { Args: { captured_at: string; received_at: string; tz: string }; Returns: string };
       feed_reaction_counts: {
         Args: { target_feed: string };
         Returns: {
@@ -791,6 +796,17 @@ export type Database = {
       require_admin: { Args: { target: string }; Returns: string };
       require_user: { Args: Record<PropertyKey, never>; Returns: string };
       shares_pack_with: { Args: { other_user: string }; Returns: boolean };
+      submit_feed: {
+        Args: {
+          extra?: boolean;
+          focus?: number;
+          note?: string;
+          photo: string;
+          taken_at?: string;
+          target: string;
+        };
+        Returns: string;
+      };
       update_pack: {
         Args: {
           pack_name: string;

@@ -5,8 +5,8 @@ select plan(2);
 
 select set_eq(
   $$ select tablename::text from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' $$,
-  array['critters', 'pack_members'],
-  'only the critter and member tables are published'
+  array['critters', 'pack_members', 'feeds'],
+  'only the tables the app listens to are published'
 );
 select ok(
   (select relrowsecurity from pg_class where oid = 'public.critters'::regclass),
