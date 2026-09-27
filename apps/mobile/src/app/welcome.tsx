@@ -3,7 +3,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Platform, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
@@ -11,6 +11,7 @@ import { Screen } from '@/components/Screen';
 import { isCancellation, signInWithApple, signInWithBrowser } from '@/features/auth/signIn';
 import { Critter } from '@/features/critter/Critter';
 import { ONBOARDED_KEY } from '@/features/profile/onboarding';
+import { notify } from '@/lib/confirm';
 import { NotConfiguredError } from '@/lib/supabase';
 import { critterColors, radii, spacing } from '@/theme/tokens';
 
@@ -33,7 +34,7 @@ export default function WelcomeScreen() {
       await (provider === 'apple' ? signInWithApple() : signInWithBrowser('google'));
     } catch (error) {
       if (!isCancellation(error)) {
-        Alert.alert(error instanceof NotConfiguredError ? t('errors.notConfigured') : t('errors.signInFailed'));
+        notify(error instanceof NotConfiguredError ? t('errors.notConfigured') : t('errors.signInFailed'));
       }
     } finally {
       setBusy(null);

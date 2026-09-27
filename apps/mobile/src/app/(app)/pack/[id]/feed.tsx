@@ -6,7 +6,6 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -27,6 +26,7 @@ import { compressPhoto } from '@/features/feeds/send';
 import { clearFocusSession } from '@/features/focus/session';
 import { usePack } from '@/features/packs/api';
 import { categoryInfo } from '@/features/packs/constants';
+import { notify } from '@/lib/confirm';
 import { isBlockedText } from '@/lib/errors';
 import { goBack } from '@/lib/navigation';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
@@ -82,7 +82,7 @@ export default function FeedScreen() {
         await new Promise((resolve) => setTimeout(resolve, CAPTURE_RETRY_MS));
       }
     }
-    Alert.alert(t('feed.captureFailed'));
+    notify(t('feed.captureFailed'));
   };
 
   const submit = async () => {
@@ -106,7 +106,7 @@ export default function FeedScreen() {
       if (focusMinutes !== null) await clearFocusSession();
       setResult(outcome);
     } catch (error) {
-      Alert.alert(isBlockedText(error) ? t('errors.textNotAllowed') : t('feed.failed'));
+      notify(isBlockedText(error) ? t('errors.textNotAllowed') : t('feed.failed'));
     } finally {
       sending.current = false;
       setBusy(false);

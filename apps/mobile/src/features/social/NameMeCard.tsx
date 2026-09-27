@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { TextField } from '@/components/TextField';
 import { socialErrorKey, useChooseName, useNameSuggestions, useSuggestName } from '@/features/social/api';
+import { notify } from '@/lib/confirm';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 const NAME_MAX = 20;
@@ -25,7 +26,7 @@ export function NameMeCard({ packId, critter, isAdmin, adminName, names }: Props
   const suggestions = useNameSuggestions(packId, true);
   const suggest = useSuggestName(packId);
   const choose = useChooseName(packId);
-  const fail = (error: unknown) => Alert.alert(t(socialErrorKey(error)));
+  const fail = (error: unknown) => notify(t(socialErrorKey(error)));
 
   return (
     <View style={styles.card}>

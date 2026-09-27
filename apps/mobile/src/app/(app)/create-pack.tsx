@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
@@ -19,6 +19,7 @@ import {
   type Category,
   type Species,
 } from '@/features/packs/constants';
+import { notify } from '@/lib/confirm';
 import { goBack } from '@/lib/navigation';
 import { critterColors, spacing } from '@/theme/tokens';
 
@@ -60,7 +61,7 @@ export default function CreatePackScreen() {
       },
       {
         onSuccess: (packId) => router.replace(`/pack/${packId}/invite`),
-        onError: (error) => Alert.alert(t(packErrorKey(error))),
+        onError: (error) => notify(t(packErrorKey(error))),
       },
     );
   };
