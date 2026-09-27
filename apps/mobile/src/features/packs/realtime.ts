@@ -7,7 +7,7 @@ import { packsKey } from '@/features/packs/api';
 import { supabase } from '@/lib/supabase';
 
 /**
- * Refetches when a pack's critter, members, feeds, events, reactions or day passes change on
+ * Refetches when a pack's critter, members, feeds, events, reactions, day passes or bought items change on
  * the server. Row level security
  * applies to Realtime too, so a user only hears about packs they belong to. Without an id the
  * subscription covers every pack of the user (the home screen).
@@ -35,6 +35,7 @@ export function usePackRealtime(packId?: string) {
       // Reactions have no pack column; the policy limits them to the user's packs.
       .on('postgres_changes', { event: '*', schema: 'public', table: 'reactions' }, refetchFeeds)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'name_suggestions', filter }, refetchSocial)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pack_items', filter }, refetchSocial)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'day_passes', filter }, refetchDays)
       .subscribe();
     return () => {

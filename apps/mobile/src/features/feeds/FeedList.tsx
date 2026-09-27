@@ -101,6 +101,8 @@ function eventText(event: PackEvent, t: Translate, nameOf: (id: string | null) =
         : t('events.undressed', { name, critter });
     case 'named':
       return t('events.named', { name, critter: event.payload.name ?? critter });
+    case 'bought':
+      return t('events.bought', { name, critter, item: t(`items.${event.payload.item as 'scarf'}`) });
   }
 }
 

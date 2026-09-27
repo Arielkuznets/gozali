@@ -21,6 +21,8 @@ export type PackCritter = {
   stage: CritterStage;
   status: CritterStatus;
   streak: number;
+  /** The pack's coins for the outfit shop. */
+  coins: number;
   marks: string[];
   outfit: unknown;
 };
@@ -56,7 +58,7 @@ export type PackPreview = {
 const PACK_FIELDS = `
   id, name, category, custom_habit, rest_days_per_week, week_start, timezone, invite_code,
   pending_rest_days_per_week, pending_week_start, pending_from,
-  critters ( species, name, health, xp, stage, status, streak, marks, outfit ),
+  critters ( species, name, health, xp, stage, status, streak, coins, marks, outfit ),
   pack_members ( user_id, role, status, joined_at, profiles ( display_name, avatar_path ) )
 `;
 

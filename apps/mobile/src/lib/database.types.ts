@@ -99,6 +99,7 @@ export type Database = {
       };
       critters: {
         Row: {
+          coins: number;
           hatched_at: string | null;
           health: number;
           marks: string[];
@@ -112,6 +113,7 @@ export type Database = {
           xp: number;
         };
         Insert: {
+          coins?: number;
           hatched_at?: string | null;
           health?: number;
           marks?: string[];
@@ -125,6 +127,7 @@ export type Database = {
           xp?: number;
         };
         Update: {
+          coins?: number;
           hatched_at?: string | null;
           health?: number;
           marks?: string[];
@@ -186,6 +189,7 @@ export type Database = {
         Row: {
           applied: boolean;
           closed_at: string;
+          coins: number;
           day: string;
           early_bird: boolean;
           fed_ids: string[];
@@ -204,6 +208,7 @@ export type Database = {
         Insert: {
           applied: boolean;
           closed_at?: string;
+          coins?: number;
           day: string;
           early_bird?: boolean;
           fed_ids?: string[];
@@ -222,6 +227,7 @@ export type Database = {
         Update: {
           applied?: boolean;
           closed_at?: string;
+          coins?: number;
           day?: string;
           early_bird?: boolean;
           fed_ids?: string[];
@@ -457,6 +463,49 @@ export type Database = {
           },
           {
             foreignKeyName: 'pack_events_pack_id_fkey';
+            columns: ['pack_id'];
+            isOneToOne: false;
+            referencedRelation: 'packs';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      pack_items: {
+        Row: {
+          bought_at: string;
+          bought_by: string | null;
+          item: string;
+          pack_id: string;
+        };
+        Insert: {
+          bought_at?: string;
+          bought_by?: string | null;
+          item: string;
+          pack_id: string;
+        };
+        Update: {
+          bought_at?: string;
+          bought_by?: string | null;
+          item?: string;
+          pack_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'pack_items_bought_by_fkey';
+            columns: ['bought_by'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'pack_items_item_fkey';
+            columns: ['item'];
+            isOneToOne: false;
+            referencedRelation: 'shop_items';
+            referencedColumns: ['item'];
+          },
+          {
+            foreignKeyName: 'pack_items_pack_id_fkey';
             columns: ['pack_id'];
             isOneToOne: false;
             referencedRelation: 'packs';
@@ -732,6 +781,27 @@ export type Database = {
           },
         ];
       };
+      shop_items: {
+        Row: {
+          item: string;
+          price: number;
+          slot: string;
+          sort: number;
+        };
+        Insert: {
+          item: string;
+          price: number;
+          slot: string;
+          sort: number;
+        };
+        Update: {
+          item?: string;
+          price?: number;
+          slot?: string;
+          sort?: number;
+        };
+        Relationships: [];
+      };
       weekly_recaps: {
         Row: {
           created_at: string;
@@ -808,6 +878,7 @@ export type Database = {
         Returns: boolean;
       };
       blocked_by_me: { Args: { other_user: string }; Returns: boolean };
+      buy_item: { Args: { target: string; wanted: string }; Returns: number };
       call_edge_function:
         | { Args: { name: string }; Returns: undefined }
         | { Args: { body: Json; name: string }; Returns: undefined };
@@ -895,6 +966,10 @@ export type Database = {
       };
       nudge: { Args: { member: string; target: string }; Returns: undefined };
       outcome_ids: { Args: { kind: string; outcomes: Json }; Returns: string[] };
+      owns_item: {
+        Args: { target: string; wanted_item: string; wanted_slot: string };
+        Returns: boolean;
+      };
       pack_day: { Args: { at_time?: string; tz: string }; Returns: string };
       pack_first_day: { Args: { target: string }; Returns: string };
       pack_limit: { Args: Record<PropertyKey, never>; Returns: number };
@@ -1024,7 +1099,8 @@ export type Database = {
         | 'achievement'
         | 'joker'
         | 'dressed'
-        | 'named';
+        | 'named'
+        | 'bought';
       push_platform: 'ios' | 'android';
       reaction_emoji: 'fire' | 'muscle' | 'laugh' | 'clap' | 'suspicious';
       week_start: 'sunday' | 'monday';
@@ -1185,6 +1261,7 @@ export const Constants = {
         'joker',
         'dressed',
         'named',
+        'bought',
       ],
       push_platform: ['ios', 'android'],
       reaction_emoji: ['fire', 'muscle', 'laugh', 'clap', 'suspicious'],

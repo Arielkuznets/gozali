@@ -344,6 +344,9 @@ function CritterPanel({ pack, critter, memberCount, mood, now }: PanelProps) {
           <HealthBar health={critter.health} />
           <View style={styles.statsRow}>
             <AppText variant="caption">{t('critter.health', { health: critter.health })}</AppText>
+            <AppText variant="caption" accessibilityLabel={t('critter.coinsLabel', { count: critter.coins })}>
+              {t('critter.coins', { count: critter.coins })}
+            </AppText>
             <AppText variant="caption">{t('critter.streak', { count: critter.streak })}</AppText>
           </View>
           <AppText variant="caption" style={styles.centerText}>
