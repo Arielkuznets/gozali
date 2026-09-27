@@ -75,3 +75,9 @@ Each entry: what was decided, what the options were, and why. Decisions D1–D11
 - **Decided:** the close-days Edge Function runs the game engine; the database gathers each day's input (`day_close_input`) and applies each result (`apply_day_result`) in one transaction. pg_cron calls the function every 15 minutes through pg_net; the function's address and a shared secret sit in Vault, and the function checks the secret instead of a user token.
 - **Options:** the whole close in plpgsql; a scheduler outside Supabase (for example GitHub Actions).
 - **Why:** the rules stay in one TypeScript module shared with the tests and the simulator (D3), while the queries that collect a day's facts stay in SQL, next to the data and covered by pgTAP. The function imports the engine from `packages/game-engine` directly, so there is no copy to drift; that works in local serving, and the first cloud deploy has to confirm it (the fallback is a copy in `supabase/functions/_shared` checked by a test). Keeping the secrets in Vault keeps them out of migrations and the public repo.
+
+## D14 · Feed events come from triggers
+
+- **Decided:** the system lines in the pack feed (joined, hatched, evolved, ran away, came back, achievement, joker, dressed, named) live in a `pack_events` table that database triggers fill when the critter, the achievements, the day passes or the members change.
+- **Options:** have each server function write its own events; or build the lines in the app from day results, achievements and passes.
+- **Why:** a trigger fires on every path that changes the data, including the day close run by the service role and future admin fixes, so no path can forget its event. Building the lines in the app would miss changes that leave no row behind (wardrobe changes, naming) and would repeat the logic on every device. Events use the clock time, not the transaction time, so a day close that hatches the critter and unlocks an achievement lists them in order.
