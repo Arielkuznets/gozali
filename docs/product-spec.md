@@ -323,11 +323,11 @@ Fourteen screens in version 1, plus widgets for the home screen and the lock scr
 | Profile setup | Display name, profile photo (optional), age 13+ declaration and accepting the terms, notification permission request with an explanation |
 | Home | The list of packs: for each pack the creature in its state, a health bar, how many members fed today (3/5) **and a direct Feed button**. A create pack button and join with a code |
 | Join pack | The pack name, the habit, the creature and the members, and a join button. On the first open after installing on iOS: "Have an invite code?" with paste or typing |
-| Pack | The animated creature in the center, health bar, streak, a countdown to the end of the day, a row of member circles (colored = fed, dashed = rest or joker, 💤 = asleep or paused, gray = not yet, including someone who hasn't started), a big Feed button with "Not today" next to it (rest or joker) and in Study and Reading packs also Focus, and the feed below |
+| Pack | The animated creature in the center, health bar, coins, streak, a countdown to the end of the day, a row of member circles (colored = fed, dashed = rest or joker, 💤 = asleep or paused, gray = not yet, including someone who hasn't started), a big Feed button with "Not today" next to it (rest or joker) and in Study and Reading packs also Focus, and the feed below |
 | Camera | Capture, switch camera, retake, caption, send |
 | Focus | The running timer, the creature "studying" or "reading" next to it, pause and cancel |
 | Create pack | Four steps: name, category, rest days, and the critter, then the link sharing screen |
-| Critter profile | Stage and progress to the next XP, monthly board, medals and marks, achievements, and a wardrobe for dressing the creature |
+| Critter profile | Stage and progress to the next XP, monthly board, medals and marks, achievements, a wardrobe for dressing the creature, and the outfit shop with the pack's coins |
 | Weekly recap | The weekly recap and the button to share it as a story |
 | Pack settings | Name, rest days, week start, members (removal for the admin), invite link and QR code, pause, joker, leave |
 | Me | Personal stats: total feeds, current and best personal streak (days in a row without a miss in any pack), and a personal monthly board across all packs |
