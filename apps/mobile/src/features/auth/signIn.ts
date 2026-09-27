@@ -3,6 +3,7 @@ import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
 
+import { clearWidgets } from '@/features/widgets/sync';
 import { unregisterPushToken } from '@/lib/push';
 import { requireSupabase } from '@/lib/supabase';
 
@@ -66,6 +67,7 @@ export async function verifyDevCode(email: string, token: string): Promise<void>
 
 export async function signOut(): Promise<void> {
   await unregisterPushToken().catch(() => undefined);
+  await clearWidgets().catch(() => undefined);
   const { error } = await requireSupabase().auth.signOut();
   if (error) throw error;
 }

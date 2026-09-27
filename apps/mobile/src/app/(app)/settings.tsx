@@ -97,6 +97,11 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
+          <AppText variant="caption">{t('settings.app.widgets')}</AppText>
+          <AppText style={styles.muted}>{t('widgets.howTo')}</AppText>
+        </View>
+
+        <View style={styles.section}>
           <AppText variant="caption">{t('settings.app.language')}</AppText>
           <View style={styles.row}>
             <Choice label={t('settings.app.english')} selected onPress={() => undefined}>

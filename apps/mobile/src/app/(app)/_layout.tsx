@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 
 import { useFeedQueue } from '@/features/feeds/api';
 import { useAccountSync } from '@/features/profile/useProfile';
+import { useWidgetSync } from '@/features/widgets/sync';
 import { useNotificationRoutes } from '@/lib/notifications';
 import { colors } from '@/theme/tokens';
 
@@ -9,6 +10,7 @@ import { colors } from '@/theme/tokens';
 export default function AppLayout() {
   useFeedQueue();
   useAccountSync();
+  useWidgetSync();
   useNotificationRoutes();
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>

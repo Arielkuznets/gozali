@@ -1,0 +1,5 @@
+{
+  "imports": {
+    "@gozali/game-engine": "../../../packages/game-engine/src/index.ts"
+  }
+}
