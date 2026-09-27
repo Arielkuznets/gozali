@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -10,6 +11,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { Critter } from '@/features/critter/Critter';
 import { fedToday, useCountedFeeds } from '@/features/feeds/api';
 import { useMyPacks } from '@/features/packs/api';
+import { takePendingInvite } from '@/features/packs/invites';
 import { usePackRealtime } from '@/features/packs/realtime';
 import { useNow } from '@/lib/useNow';
 import { colors, critterColors, spacing } from '@/theme/tokens';
@@ -22,6 +24,13 @@ export default function HomeScreen() {
   const counted = useCountedFeeds();
   const { session } = useAuth();
   usePackRealtime();
+
+  // An invite link or install referrer that arrived before sign-in opens the join screen now.
+  useEffect(() => {
+    void takePendingInvite().then((code) => {
+      if (code) router.push(`/join?code=${code}`);
+    });
+  }, []);
   const now = useNow(60_000);
 
 
