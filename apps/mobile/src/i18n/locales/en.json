@@ -40,7 +40,9 @@
     "signInFailed": "Sign-in didn't work. Please try again.",
     "saveFailed": "Saving didn't work. Please try again.",
     "loadFailed": "This didn't load. Check the connection and try again.",
-    "textNotAllowed": "Let's keep it friendly: that has a word we don't allow."
+    "textNotAllowed": "Let's keep it friendly: that has a word we don't allow.",
+    "crashTitle": "Something went wrong",
+    "crashBody": "This screen hit a problem. Try again, and if it keeps happening, write to hello@gozali.app."
   },
   "packs": {
     "categories": {
