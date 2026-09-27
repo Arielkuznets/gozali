@@ -18,7 +18,8 @@
     "smoke:critter": "node scripts/smoke-critter.mjs",
     "smoke:feeds": "node scripts/smoke-feeds.mjs",
     "smoke:day-close": "node scripts/smoke-day-close.mjs",
-    "typecheck:functions": "npx -y -p typescript@5 tsc --noEmit --allowImportingTsExtensions --module nodenext --moduleResolution nodenext --target es2022 --lib es2022 --strict --noUncheckedIndexedAccess --verbatimModuleSyntax --skipLibCheck supabase/functions/close-days/close.ts"
+    "typecheck:functions": "npx -y -p typescript@5 tsc --noEmit --allowImportingTsExtensions --module nodenext --moduleResolution nodenext --target es2022 --lib es2022 --strict --noUncheckedIndexedAccess --verbatimModuleSyntax --skipLibCheck supabase/functions/close-days/close.ts supabase/functions/send-push/push.ts",
+    "smoke:push": "node scripts/smoke-push.mjs"
   },
   "devDependencies": {
     "prettier": "^3",

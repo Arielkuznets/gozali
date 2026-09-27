@@ -6,6 +6,7 @@ import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { NAME_MAX_LENGTH, useCompleteProfile, useProfile } from '@/features/profile/useProfile';
+import { allowNotifications } from '@/lib/notifications';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 export default function ProfileSetupScreen() {
@@ -20,7 +21,11 @@ export default function ProfileSetupScreen() {
   const canContinue = trimmed.length > 0 && agreed;
 
   const onContinue = () => {
-    completeProfile.mutate(trimmed, { onError: () => Alert.alert(t('errors.saveFailed')) });
+    completeProfile.mutate(trimmed, {
+      // The system asks once; the line above the button says why.
+      onSuccess: () => void allowNotifications(),
+      onError: () => Alert.alert(t('errors.saveFailed')),
+    });
   };
 
   return (
@@ -50,6 +55,9 @@ export default function ProfileSetupScreen() {
           <AppText style={styles.agreeText}>{t('profileSetup.agree')}</AppText>
         </Pressable>
       </View>
+      <AppText variant="caption" style={styles.notice}>
+        {t('profileSetup.notifications')}
+      </AppText>
       <Button
         label={t('profileSetup.continue')}
         disabled={!canContinue}
@@ -88,4 +96,5 @@ const styles = StyleSheet.create({
   checkboxOn: { backgroundColor: colors.accent, borderColor: colors.accent },
   checkmark: { color: colors.onAccent, fontFamily: fonts.bodyBold },
   agreeText: { flex: 1 },
+  notice: { textAlign: 'center', paddingBottom: spacing.md },
 });

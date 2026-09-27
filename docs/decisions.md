@@ -81,3 +81,9 @@ Each entry: what was decided, what the options were, and why. Decisions D1–D11
 - **Decided:** the system lines in the pack feed (joined, hatched, evolved, ran away, came back, achievement, joker, dressed, named) live in a `pack_events` table that database triggers fill when the critter, the achievements, the day passes or the members change.
 - **Options:** have each server function write its own events; or build the lines in the app from day results, achievements and passes.
 - **Why:** a trigger fires on every path that changes the data, including the day close run by the service role and future admin fixes, so no path can forget its event. Building the lines in the app would miss changes that leave no row behind (wardrobe changes, naming) and would repeat the logic on every device. Events use the clock time, not the transaction time, so a day close that hatches the critter and unlocks an achievement lists them in order.
+
+## D15 · Notification rules run when a row is claimed
+
+- **Decided:** actions only queue rows; the rules of spec section 8 (preferences, quiet hours, the daily cap, and whether a reminder still makes sense) run in `claim_notifications`, in the database, at the moment a row is due. The send-push function only renders texts and talks to Expo Push.
+- **Options:** filter when queueing; or apply the rules in the Edge Function.
+- **Why:** most rules depend on the moment of sending, not of queueing: a reminder queued at 20:00 is pointless if the member fed at 20:03, and the daily cap depends on what already went out that day. Doing it at claim time, with `for update skip locked`, also keeps two overlapping runs from sending the same row. SQL makes each rule testable in pgTAP with a chosen clock.

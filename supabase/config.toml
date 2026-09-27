@@ -427,3 +427,7 @@ content_path = "./supabase/templates/sign_in_code.html"
 [functions.close-days]
 # Called by pg_cron with a shared secret (x-cron-secret), not with a user token.
 verify_jwt = false
+
+[functions.send-push]
+# Called by pg_cron with a shared secret (x-cron-secret), not with a user token.
+verify_jwt = false

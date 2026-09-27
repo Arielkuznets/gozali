@@ -20,7 +20,8 @@
     "nameLabel": "Your name",
     "namePlaceholder": "What do your friends call you?",
     "agree": "I'm 13 or older, and I agree to the Terms and the Privacy Policy.",
-    "continue": "Continue"
+    "continue": "Continue",
+    "notifications": "Next, we'll ask to send notifications: a reminder in the evening and news from your pack. You can turn each kind off later."
   },
   "home": {
     "title": "Your packs",
@@ -155,7 +156,33 @@
     "leave": "Leave pack",
     "leaveConfirm": "Leave this pack?",
     "cancel": "Cancel",
-    "confirm": "Yes"
+    "confirm": "Yes",
+    "app": {
+      "title": "Settings",
+      "open": "Settings",
+      "reminder": "Evening reminder time",
+      "reminderHint": "Sent only on days you haven't fed yet.",
+      "notifications": "Notifications",
+      "types": {
+        "friend_fed": "A friend fed",
+        "evening_reminder": "Evening reminder",
+        "last_one": "You're the last one",
+        "nudge": "Nudges",
+        "pet_state": "Pet is weak, sick or ran away",
+        "evolution": "Hatching, growing and achievements",
+        "still_in": "Still in?",
+        "weekly_recap": "Weekly recap"
+      },
+      "quietHours": "Nothing is sent between 23:00 and 07:00.",
+      "blocked": "Blocked people",
+      "noBlocked": "You haven't blocked anyone.",
+      "unblock": "Unblock",
+      "language": "Language",
+      "english": "English",
+      "privacy": "Privacy policy",
+      "terms": "Terms of use",
+      "contact": "Contact: hello@gozali.app"
+    }
   },
   "critter": {
     "a11y": {
