@@ -732,6 +732,8 @@
     "goodDays": "good days",
     "health": "health",
     "streak": "streak",
+    "coins_one": "🪙 The pack earned {{count}} coin this week",
+    "coins_other": "🪙 The pack earned {{count}} coins this week",
     "mostConsistent_one": "Most consistent: {{names}}, {{count}} feed",
     "mostConsistent_other": "Most consistent: {{names}}, {{count}} feeds",
     "share": "Share as a story",

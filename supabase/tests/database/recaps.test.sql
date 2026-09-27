@@ -1,7 +1,7 @@
 -- The weekly recap, created when the last day of a pack's week closes.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(8);
+select plan(9);
 
 -- Only this test's pack, whatever else the local database holds.
 delete from public.weekly_recaps;
@@ -27,7 +27,7 @@ where (not e or (u = '00000000-0000-0000-0000-0000000000a6' and d = '2026-09-08'
   and not (u = '00000000-0000-0000-0000-0000000000b6' and d in ('2026-09-07', '2026-09-09'));
 delete from public.notifications;
 
-insert into public.day_results (pack_id, day, result, applied, fed_ids, rested_ids, missed_ids, health_before, health_after)
+insert into public.day_results (pack_id, day, result, applied, fed_ids, rested_ids, missed_ids, health_before, health_after, coins)
 select '10000000-0000-0000-0000-000000000006', d::date,
   case when d::date = '2026-09-09' then 'fail' else 'success' end::public.day_type, true,
   case
@@ -41,14 +41,15 @@ select '10000000-0000-0000-0000-000000000006', d::date,
     when d::date = '2026-09-10' then array['00000000-0000-0000-0000-0000000000a6'::uuid]
     else '{}'
   end,
-  70 + extract(day from d)::int - 6, 71 + extract(day from d)::int - 6
+  70 + extract(day from d)::int - 6, 71 + extract(day from d)::int - 6,
+  case when d::date = '2026-09-09' then 0 else 2 end
 from generate_series('2026-09-06'::date, '2026-09-11'::date, interval '1 day') d;
 set constraints all immediate;
 select is((select count(*) from public.weekly_recaps), 0::bigint, 'no recap before the week''s last day closes');
 
-insert into public.day_results (pack_id, day, result, applied, fed_ids, health_before, health_after)
+insert into public.day_results (pack_id, day, result, applied, fed_ids, health_before, health_after, coins)
 values ('10000000-0000-0000-0000-000000000006', '2026-09-12', 'success', true,
-  array['00000000-0000-0000-0000-0000000000a6', '00000000-0000-0000-0000-0000000000b6']::uuid[], 76, 81);
+  array['00000000-0000-0000-0000-0000000000a6', '00000000-0000-0000-0000-0000000000b6']::uuid[], 76, 81, 3);
 set constraints all immediate;
 
 select is(
@@ -59,6 +60,7 @@ select is(
   (select (stats ->> 'days') || '/' || (stats ->> 'successDays') from public.weekly_recaps), '7/6',
   'six good days out of seven'
 );
+select is((select (stats ->> 'coins')::int from public.weekly_recaps), 13, 'and the coins the week earned');
 select is(
   (select (stats ->> 'healthStart') || ' -> ' || (stats ->> 'healthEnd') from public.weekly_recaps), '70 -> 81',
   'health from the start to the end of the week'

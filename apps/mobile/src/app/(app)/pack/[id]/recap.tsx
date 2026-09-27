@@ -126,6 +126,9 @@ function RecapView({ recap, packName, category, names }: ViewProps) {
           <Stat value={`${change >= 0 ? '+' : ''}${change}`} label={t('recap.health')} />
           <Stat value={`🔥 ${stats.critter.streak}`} label={t('recap.streak')} />
         </View>
+        {(stats.coins ?? 0) > 0 && (
+          <AppText style={styles.centerText}>{t('recap.coins', { count: stats.coins })}</AppText>
+        )}
         {stats.topMembers.length > 0 && (
           <AppText style={styles.centerText}>{t('recap.mostConsistent', { names: top, count: stats.topFeeds })}</AppText>
         )}

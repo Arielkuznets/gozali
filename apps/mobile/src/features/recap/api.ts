@@ -12,6 +12,8 @@ export type RecapStats = {
   successDays: number;
   healthStart: number;
   healthEnd: number;
+  /** Coins the week earned; recaps from before the shop have none. */
+  coins?: number;
   topMembers: string[];
   topFeeds: number;
   achievements: AchievementKey[];
