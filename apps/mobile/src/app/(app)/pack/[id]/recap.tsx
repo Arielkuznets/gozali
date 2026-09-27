@@ -2,7 +2,7 @@ import { ACHIEVEMENTS } from '@gozali/game-engine';
 import { critterArtFor } from '@gozali/critter-art';
 import * as Sharing from 'expo-sharing';
 import { Image } from 'expo-image';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -12,35 +12,40 @@ import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Choice } from '@/components/Choice';
 import { Screen } from '@/components/Screen';
+import { LoadingScreen, PackMissingScreen } from '@/components/ScreenStates';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { Critter } from '@/features/critter/Critter';
 import { usePack } from '@/features/packs/api';
 import { StoryCard, STORY_HEIGHT, STORY_WIDTH } from '@/features/recap/StoryCard';
 import { useRecapPhotos, useRecaps, type Recap } from '@/features/recap/api';
 import { formatDay } from '@/lib/dates';
+import { goBack } from '@/lib/navigation';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 /** The weekly recap (spec section 7) and sharing it as a story. */
 export default function RecapScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: pack } = usePack(id);
+  const { data: pack, isPending } = usePack(id);
   const recaps = useRecaps(id);
   const [week, setWeek] = useState<string | null>(null);
 
   const recap = recaps.data?.find((item) => item.week_start === week) ?? recaps.data?.[0];
 
+  if (isPending) return <LoadingScreen />;
+  if (!pack) return <PackMissingScreen />;
+
   return (
     <Screen>
       <View style={styles.header}>
-        <Pressable accessibilityRole="button" onPress={() => router.back()} hitSlop={12}>
+        <Pressable accessibilityRole="button" onPress={() => goBack(`/pack/${id}`)} hitSlop={12}>
           <AppText variant="caption">{t('pack.back')}</AppText>
         </Pressable>
         <AppText variant="heading">{t('recap.title')}</AppText>
         <View style={styles.headerSpacer} />
       </View>
 
-      {!pack || recaps.isPending ? (
+      {recaps.isPending ? (
         <View style={styles.center}>
           <ActivityIndicator color={colors.accent} />
         </View>

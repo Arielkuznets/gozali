@@ -11,6 +11,7 @@ import { signOut } from '@/features/auth/signIn';
 import { pickAvatar, useAvatarUrls, useSetAvatar } from '@/features/profile/avatar';
 import { useProfile } from '@/features/profile/useProfile';
 import { useMyStats } from '@/features/social/api';
+import { goBack } from '@/lib/navigation';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 const BOARD_DAYS = 35;
@@ -25,11 +26,11 @@ export default function MeScreen() {
   const avatarUrl = profile.data?.avatar_path ? avatar.data?.get(profile.data.avatar_path) : undefined;
 
   const changePhoto = () => {
-    const use = (source: 'camera' | 'library') => () =>
+    const pickFrom = (source: 'camera' | 'library') => () =>
       void pickAvatar(source).then((uri) => uri && setAvatar.mutate(uri, { onError: () => Alert.alert(t('errors.saveFailed')) }));
     Alert.alert(t('me.photo'), undefined, [
-      { text: t('me.takePhoto'), onPress: use('camera') },
-      { text: t('me.choosePhoto'), onPress: use('library') },
+      { text: t('me.takePhoto'), onPress: pickFrom('camera') },
+      { text: t('me.choosePhoto'), onPress: pickFrom('library') },
       ...(profile.data?.avatar_path ? [{ text: t('me.removePhoto'), style: 'destructive' as const, onPress: () => setAvatar.mutate(null) }] : []),
       { text: t('social.cancel'), style: 'cancel' as const },
     ]);
@@ -46,7 +47,7 @@ export default function MeScreen() {
   return (
     <Screen>
       <View style={styles.header}>
-        <Pressable accessibilityRole="button" onPress={() => router.back()} hitSlop={12}>
+        <Pressable accessibilityRole="button" onPress={() => goBack('/')} hitSlop={12}>
           <AppText variant="caption">{t('me.back')}</AppText>
         </Pressable>
         <AppText variant="heading">{profile.data?.display_name ?? t('me.title')}</AppText>

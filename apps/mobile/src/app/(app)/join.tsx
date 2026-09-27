@@ -11,6 +11,7 @@ import { TextField } from '@/components/TextField';
 import { Critter } from '@/features/critter/Critter';
 import { packErrorKey, useJoinPack, usePackPreview } from '@/features/packs/api';
 import { INVITE_CODE_LENGTH, categoryInfo, normalizeInviteCode } from '@/features/packs/constants';
+import { goBack } from '@/lib/navigation';
 import { colors, critterColors, radii, spacing } from '@/theme/tokens';
 
 /** Join with a code, typed, pasted or arriving through gozali://join?code=... */
@@ -91,7 +92,7 @@ export default function JoinScreen() {
             onPress={onJoin}
           />
         )}
-        <Button label={t('join.back')} variant="secondary" onPress={() => router.back()} />
+        <Button label={t('join.back')} variant="secondary" onPress={() => goBack('/')} />
       </View>
     </Screen>
   );

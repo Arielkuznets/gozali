@@ -86,10 +86,12 @@ export function useMyPacks() {
 export function usePack(id: string) {
   return useQuery({
     queryKey: packKey(id),
-    queryFn: async (): Promise<Pack> => {
-      const { data, error } = await requireSupabase().from('packs').select(PACK_FIELDS).eq('id', id).single();
+    // Null once the pack isn't visible (left or removed), so screens can say so instead of
+    // keeping the last copy on screen.
+    queryFn: async (): Promise<Pack | null> => {
+      const { data, error } = await requireSupabase().from('packs').select(PACK_FIELDS).eq('id', id).maybeSingle();
       if (error) throw error;
-      return data as unknown as Pack;
+      return data as unknown as Pack | null;
     },
   });
 }

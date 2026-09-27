@@ -63,7 +63,7 @@ export function useSetAvatar() {
 }
 
 /** Signed links for a set of avatar paths, by path. */
-export function useAvatarUrls(paths: ReadonlyArray<string | null | undefined>) {
+export function useAvatarUrls(paths: readonly (string | null | undefined)[]) {
   const wanted = [...new Set(paths.filter((path): path is string => Boolean(path)))].sort();
   return useQuery({
     queryKey: ['avatars', wanted.join()],

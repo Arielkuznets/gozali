@@ -21,7 +21,8 @@
     "typecheck:functions": "npx -y -p typescript@5 tsc --noEmit --allowImportingTsExtensions --module nodenext --moduleResolution nodenext --target es2022 --lib es2022 --strict --noUncheckedIndexedAccess --verbatimModuleSyntax --skipLibCheck supabase/functions/close-days/close.ts supabase/functions/send-push/push.ts supabase/functions/widget-state/state.ts",
     "smoke:push": "node scripts/smoke-push.mjs",
     "smoke:widgets": "node scripts/smoke-widgets.mjs",
-    "smoke:delete-account": "node scripts/smoke-delete-account.mjs"
+    "smoke:delete-account": "node scripts/smoke-delete-account.mjs",
+    "lint": "npm run lint --workspace @gozali/mobile"
   },
   "devDependencies": {
     "prettier": "^3",

@@ -42,22 +42,22 @@ export type MyStats = {
   totalFeeds: number;
   currentStreak: number;
   bestStreak: number;
-  days: Array<{ day: string; status: 'fed' | 'rest' | 'missed' }>;
+  days: { day: string; status: 'fed' | 'rest' | 'missed' }[];
 };
 
 const socialKey = ['social'] as const;
 const EVENT_PAGE = 30;
 
-export function usePackEvents(packId: string) {
+export function usePackEvents(packId: string, limit = EVENT_PAGE) {
   return useQuery({
-    queryKey: [...feedsKey, 'events', packId],
+    queryKey: [...feedsKey, 'events', packId, limit],
     queryFn: async (): Promise<PackEvent[]> => {
       const { data, error } = await requireSupabase()
         .from('pack_events')
         .select('id, kind, actor_id, payload, created_at')
         .eq('pack_id', packId)
         .order('created_at', { ascending: false })
-        .limit(EVENT_PAGE);
+        .limit(limit);
       if (error) throw error;
       return data as PackEvent[];
     },

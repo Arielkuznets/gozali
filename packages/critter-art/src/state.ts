@@ -1,5 +1,6 @@
 import { healthState, stageRank, type Mark, type Stage } from '@gozali/game-engine';
 
+import { isHoliday } from './holidays.ts';
 import { CRITTER_PALETTE, type CritterColor } from './palette.ts';
 import {
   BACKGROUND_ITEMS,
@@ -61,7 +62,14 @@ export function isNightHour(hour: number): boolean {
  */
 export function critterArtFor(
   critter: CritterRow,
-  context: { category: HabitCategory; mood?: number; sleeping?: boolean; cracking?: boolean },
+  context: {
+    category: HabitCategory;
+    mood?: number;
+    sleeping?: boolean;
+    cracking?: boolean;
+    /** The local calendar day (YYYY-MM-DD), for the holiday hat. */
+    day?: string;
+  },
 ): CritterArt {
   return {
     species: critter.species,
@@ -71,6 +79,7 @@ export function critterArtFor(
     mood: context.mood,
     sleeping: context.sleeping,
     cracking: context.cracking,
+    holiday: context.day ? isHoliday(context.day) : false,
     outfit: parseOutfit(critter.outfit),
     marks: critter.marks.filter((mark): mark is Mark => MARKS.includes(mark as Mark)),
     categoryItem: stageRank(critter.stage) >= stageRank('kid') ? CATEGORY_ITEMS[context.category] : undefined,

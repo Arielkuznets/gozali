@@ -1,13 +1,16 @@
 import { dayEnd, packDayOf } from '@gozali/game-engine';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { HealthBar } from '@/components/HealthBar';
 import { MemberCircles, type MemberState } from '@/components/MemberCircles';
 import { Screen } from '@/components/Screen';
+import { LoadingScreen, PackMissingScreen } from '@/components/ScreenStates';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useAvatarUrls } from '@/features/profile/avatar';
 import { Critter } from '@/features/critter/Critter';
@@ -15,7 +18,7 @@ import { critterArt, stageProgress } from '@/features/critter/art';
 import { useCritterText } from '@/features/critter/useCritterText';
 import { useDayStatus, useTodayPasses, type TodayPasses } from '@/features/days/api';
 import { FeedList } from '@/features/feeds/FeedList';
-import { fedToday, useCountedFeeds, usePackFeed, usePendingFeeds, type FeedItem } from '@/features/feeds/api';
+import { FEED_PAGE, fedToday, useCountedFeeds, usePackFeed, usePendingFeeds, type FeedItem } from '@/features/feeds/api';
 import { currentMembers, usePack, type Pack, type PackCritter, type PackMember } from '@/features/packs/api';
 import { PACK_SIZE_MAX, categoryInfo } from '@/features/packs/constants';
 import { usePackRealtime } from '@/features/packs/realtime';
@@ -30,6 +33,7 @@ import {
   type ReactionKey,
 } from '@/features/social/api';
 import { formatDay } from '@/lib/dates';
+import { goBack } from '@/lib/navigation';
 import { useNow } from '@/lib/useNow';
 import { colors, critterColors, fonts, spacing } from '@/theme/tokens';
 
@@ -38,29 +42,25 @@ export default function PackScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session } = useAuth();
   const { data: pack, isPending } = usePack(id);
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const [feedLimit, setFeedLimit] = useState(FEED_PAGE);
   const counted = useCountedFeeds();
-  const feed = usePackFeed(id);
+  const feed = usePackFeed(id, feedLimit);
   const pending = usePendingFeeds(id);
   const now = useNow(30_000);
-  const passes = useTodayPasses(pack, now);
+  const passes = useTodayPasses(pack ?? undefined, now);
   const dayStatus = useDayStatus(id);
-  const events = usePackEvents(id);
+  const events = usePackEvents(id, feedLimit);
   const avatars = useAvatarUrls(pack?.pack_members.map((member) => member.profiles?.avatar_path) ?? []);
   const react = useReact();
   const nudge = useNudge(id);
   const report = useReport();
-  const block = useBlock();
+  const blockMember = useBlock();
   usePackRealtime(id);
 
-  if (isPending || !pack) {
-    return (
-      <Screen>
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.accent} />
-        </View>
-      </Screen>
-    );
-  }
+  if (isPending) return <LoadingScreen />;
+  if (!pack) return <PackMissingScreen />;
 
   const members = currentMembers(pack);
   const habit = pack.custom_habit ?? t(`packs.categories.${pack.category}`);
@@ -73,11 +73,48 @@ export default function PackScreen() {
   const names = new Map(pack.pack_members.map((member) => [member.user_id, member.profiles?.display_name ?? null]));
   const focusable = pack.category === 'study' || pack.category === 'reading';
   const pendingCount = pending.data?.length ?? 0;
+  const pausedToday = Boolean(dayStatus.data?.pause && dayStatus.data.pause.startsOn <= dayStatus.data.day);
   const userId = session?.user.id;
   const critterName = pack.critters?.name ?? (pack.critters ? t(`packs.species.${pack.critters.species}`) : '');
   const admin = members.find((member) => member.role === 'admin');
   const isAdmin = admin?.user_id === userId;
   const fail = (error: unknown) => Alert.alert(t(socialErrorKey(error)));
+  const morePhotos = (feed.data?.length ?? 0) >= feedLimit;
+  // While older photos remain unloaded, older events wait too, so the merged list has no gap.
+  const oldestPhoto = feed.data?.at(-1)?.created_at;
+  const shownEvents = (events.data ?? []).filter((event) => !morePhotos || !oldestPhoto || event.created_at >= oldestPhoto);
+
+  const refresh = async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries();
+    setRefreshing(false);
+  };
+
+  const block = (memberId: string, name: string) => {
+    if (!userId) return;
+    Alert.alert(t('social.blockTitle', { name }), t('social.blockBody'), [
+      { text: t('social.cancel'), style: 'cancel' },
+      {
+        text: t('social.block', { name }),
+        style: 'destructive',
+        onPress: () =>
+          blockMember.mutate(
+            { blockerId: userId, blockedId: memberId },
+            { onSuccess: () => Alert.alert(t('social.blockedLeave')), onError: fail },
+          ),
+      },
+    ]);
+  };
+
+  const onMemberMenu = (member: { id: string; name: string | null; nudgeable?: boolean }) => {
+    if (member.id === userId) return;
+    const name = member.name ?? '…';
+    Alert.alert(t('pack.memberMenu', { name }), undefined, [
+      ...(member.nudgeable ? [{ text: t('social.nudge'), onPress: () => onNudge(member) }] : []),
+      { text: t('social.block', { name }), style: 'destructive' as const, onPress: () => block(member.id, name) },
+      { text: t('social.cancel'), style: 'cancel' as const },
+    ]);
+  };
 
   const onNudge = (member: { id: string; name: string | null }) => {
     const name = member.name ?? '…';
@@ -112,23 +149,7 @@ export default function PackScreen() {
             },
           ]),
       },
-      {
-        text: t('social.block', { name }),
-        style: 'destructive',
-        onPress: () =>
-          Alert.alert(t('social.blockTitle', { name }), t('social.blockBody'), [
-            { text: t('social.cancel'), style: 'cancel' },
-            {
-              text: t('social.block', { name }),
-              style: 'destructive',
-              onPress: () =>
-                block.mutate(
-                  { blockerId: userId, blockedId: item.user_id },
-                  { onSuccess: () => Alert.alert(t('social.blockedLeave')), onError: fail },
-                ),
-            },
-          ]),
-      },
+      { text: t('social.block', { name }), style: 'destructive', onPress: () => block(item.user_id, name) },
       { text: t('social.cancel'), style: 'cancel' },
     ]);
   };
@@ -136,7 +157,7 @@ export default function PackScreen() {
   return (
     <Screen>
       <View style={styles.header}>
-        <Pressable accessibilityRole="button" onPress={() => router.back()} hitSlop={12}>
+        <Pressable accessibilityRole="button" onPress={() => goBack('/')} hitSlop={12}>
           <AppText variant="caption">{t('pack.back')}</AppText>
         </Pressable>
         <View style={styles.headerLinks}>
@@ -151,7 +172,9 @@ export default function PackScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.body}>
+      <ScrollView
+        contentContainerStyle={styles.body}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={colors.accent} />}>
         <AppText variant="heading" style={styles.centerText}>
           {pack.name}
         </AppText>
@@ -187,6 +210,7 @@ export default function PackScreen() {
               !today.paused.has(member.user_id),
           }))}
           onNudge={onNudge}
+          onMenu={onMemberMenu}
         />
         {pendingCount > 0 && (
           <AppText variant="caption" style={styles.centerText}>
@@ -207,7 +231,7 @@ export default function PackScreen() {
         {feed.data && (
           <FeedList
             feeds={feed.data}
-            events={events.data ?? []}
+            events={shownEvents}
             names={names}
             critterName={critterName}
             emoji={categoryInfo(pack.category).emoji}
@@ -217,15 +241,23 @@ export default function PackScreen() {
             onMore={onMore}
           />
         )}
+        {morePhotos && (
+          <Button
+            label={t('pack.showOlder')}
+            variant="secondary"
+            size="small"
+            onPress={() => setFeedLimit((limit) => limit + FEED_PAGE)}
+          />
+        )}
       </ScrollView>
 
       <View style={styles.actions}>
-        {dayStatus.data?.pause && dayStatus.data.pause.startsOn <= dayStatus.data.day && (
+        {pausedToday && dayStatus.data?.pause && (
           <AppText variant="caption" style={styles.centerText}>
             {t('pack.pausedToday', { date: formatDay(dayStatus.data.pause.endsOn) })}
           </AppText>
         )}
-        {!iFed && dayStatus.data?.passToday && (
+        {!iFed && !pausedToday && dayStatus.data?.passToday && (
           <AppText variant="caption" style={styles.centerText}>
             {dayStatus.data.passToday === 'rest' ? t('pack.restingToday') : t('pack.jokerToday')}
           </AppText>
@@ -236,7 +268,7 @@ export default function PackScreen() {
           <Button label={t('pack.feed')} onPress={() => router.push(`/pack/${id}/feed`)} />
         )}
         <View style={styles.row}>
-          {!iFed && (
+          {!iFed && !pausedToday && (
             <View style={styles.fill}>
               <Button
                 label={dayStatus.data?.passToday ? t('pack.undo') : t('pack.notToday')}
@@ -342,7 +374,6 @@ const styles = StyleSheet.create({
   actions: { gap: spacing.sm, paddingTop: spacing.sm },
   row: { flexDirection: 'row', gap: spacing.sm },
   fill: { flex: 1 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   body: { gap: spacing.md, paddingBottom: spacing.lg },
   centerText: { textAlign: 'center' },
   muted: { color: colors.inkMuted },

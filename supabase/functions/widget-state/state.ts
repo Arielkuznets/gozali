@@ -45,10 +45,11 @@ export interface WidgetPack {
 
 const SPECIES_NAMES = { blob: 'Blob', spark: 'Spark', mossy: 'Mossy' } as const;
 
-export function widgetPack(row: WidgetPackRow): WidgetPack {
+/** `day` is the owner's calendar day (YYYY-MM-DD), for the holiday hat. */
+export function widgetPack(row: WidgetPackRow, day?: string): WidgetPack {
   const fed = row.members.filter((mark) => mark === 'fed').length;
   const total = row.members.filter((mark) => mark !== 'away').length;
-  const context = { category: row.category, mood: total > 0 ? fed / total : 0, cracking: row.daysRunning };
+  const context = { category: row.category, mood: total > 0 ? fed / total : 0, cracking: row.daysRunning, day };
   const art = critterArtFor(row.critter, { ...context, sleeping: false });
   const critterName = row.critter.name ?? SPECIES_NAMES[row.critter.species];
   const state = art.look === 'egg' ? 'an egg' : art.look === 'ran_away' ? 'away' : art.look;
@@ -78,6 +79,11 @@ export function artVersion(art: CritterArt): string {
     hash = Math.imul(hash, 0x01000193) >>> 0;
   }
   return hash.toString(36);
+}
+
+/** A calendar day in a time zone, YYYY-MM-DD (the en-CA format is already in that order). */
+export function dayIn(timeZone: string, at: Date): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(at);
 }
 
 export function artSvg(art: CritterArt): string {

@@ -6,6 +6,12 @@ import type { Category } from '@/features/packs/constants';
 
 export { parseOutfit } from '@gozali/critter-art';
 
+/** The device's calendar day, YYYY-MM-DD. */
+export function localDay(now: Date): string {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
 /** Night on the device clock (22:00-07:00), when the critter sleeps (spec section 4). */
 export function isNight(now: Date): boolean {
   return isNightHour(now.getHours());
@@ -26,6 +32,7 @@ export function critterArt(
     mood: context.mood,
     sleeping: isNight(context.now),
     cracking: context.cracking,
+    day: localDay(context.now),
   });
 }
 

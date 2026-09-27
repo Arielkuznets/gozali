@@ -5,7 +5,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { Resvg, initWasm } from 'npm:@resvg/resvg-wasm@2.6.2';
 
-import { artSvg, artVersion, widgetPack, type WidgetPackRow } from './state.ts';
+import { artSvg, artVersion, dayIn, widgetPack, type WidgetPackRow } from './state.ts';
 
 const RESVG_WASM = 'https://cdn.jsdelivr.net/npm/@resvg/resvg-wasm@2.6.2/index_bg.wasm';
 let resvgReady: Promise<void> | null = null;
@@ -26,7 +26,8 @@ Deno.serve(async (request) => {
   if (data === null) return new Response('unknown token', { status: 401 });
 
   const state = data as { timezone: string; packs: WidgetPackRow[] };
-  const packs = state.packs.map(widgetPack);
+  const day = dayIn(state.timezone, new Date());
+  const packs = state.packs.map((row) => widgetPack(row, day));
   const url = new URL(request.url);
   const imageFor = url.searchParams.get('image');
 
@@ -34,7 +35,11 @@ Deno.serve(async (request) => {
     const pack = packs.find((candidate) => candidate.id === imageFor);
     if (!pack) return new Response('not found', { status: 404 });
     const size = Math.min(600, Math.max(64, Number(url.searchParams.get('size') ?? 300)));
-    resvgReady ??= initWasm(fetch(RESVG_WASM));
+    // Loaded once per instance; a failed load is forgotten so the next request tries again.
+    resvgReady ??= initWasm(fetch(RESVG_WASM)).catch((error) => {
+      resvgReady = null;
+      throw error;
+    });
     await resvgReady;
     const art = url.searchParams.get('night') === '1' ? pack.nightArt : pack.art;
     return new Response(png(artSvg(art), size), {

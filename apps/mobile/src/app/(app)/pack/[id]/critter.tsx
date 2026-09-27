@@ -3,10 +3,11 @@ import { ACHIEVEMENTS, packDayOf, type WardrobeSlot } from '@gozali/game-engine'
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Screen } from '@/components/Screen';
+import { LoadingScreen, PackMissingScreen } from '@/components/ScreenStates';
 import { Critter } from '@/features/critter/Critter';
 import { critterArt, parseOutfit, stageProgress } from '@/features/critter/art';
 import { useCritterText } from '@/features/critter/useCritterText';
@@ -16,6 +17,7 @@ import { usePackRealtime } from '@/features/packs/realtime';
 import { MonthlyBoard } from '@/features/social/MonthlyBoard';
 import { socialErrorKey, useAchievements, useDress, useMonthResults } from '@/features/social/api';
 import { formatDay } from '@/lib/dates';
+import { goBack } from '@/lib/navigation';
 import { useNow } from '@/lib/useNow';
 import { colors, critterColors, fonts, radii, spacing } from '@/theme/tokens';
 
@@ -30,18 +32,11 @@ function shiftMonth(month: string, by: number): string {
 /** The critter profile (spec section 9): stage, marks, monthly board, achievements, wardrobe. */
 export default function CritterProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: pack } = usePack(id);
+  const { data: pack, isPending } = usePack(id);
   usePackRealtime(id);
 
-  if (!pack?.critters) {
-    return (
-      <Screen>
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.accent} />
-        </View>
-      </Screen>
-    );
-  }
+  if (isPending) return <LoadingScreen />;
+  if (!pack?.critters) return <PackMissingScreen />;
   return <Profile pack={pack} critter={pack.critters} />;
 }
 
@@ -69,7 +64,7 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
   return (
     <Screen>
       <View style={styles.header}>
-        <Pressable accessibilityRole="button" onPress={() => router.back()} hitSlop={12}>
+        <Pressable accessibilityRole="button" onPress={() => goBack(`/pack/${pack.id}`)} hitSlop={12}>
           <AppText variant="caption">{t('pack.back')}</AppText>
         </Pressable>
         <AppText variant="heading">{t('profile.title')}</AppText>
@@ -204,7 +199,6 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.md },
   headerSpacer: { width: 32 },
   body: { gap: spacing.lg, paddingBottom: spacing.xl },

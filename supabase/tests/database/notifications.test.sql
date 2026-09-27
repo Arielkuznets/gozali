@@ -89,7 +89,7 @@ select is(
 delete from public.notifications;
 insert into public.notifications (user_id, pack_id, type, payload, send_after) values
   ('00000000-0000-0000-0000-0000000000a5', '10000000-0000-0000-0000-000000000005', 'friend_fed',
-   jsonb_build_object('feeders', jsonb_build_array('00000000-0000-0000-0000-0000000000b5', '00000000-0000-0000-0000-0000000000c5')), now() - interval '1 hour');
+   jsonb_build_object('feeders', jsonb_build_array('00000000-0000-0000-0000-0000000000b5', '00000000-0000-0000-0000-0000000000c5')), timestamptz '2000-01-01');
 create temp table noon as select (((select day from today)::timestamp + interval '12 hours') at time zone 'Asia/Jerusalem') as at;
 create temp table claimed as select * from public.claim_notifications((select at from noon));
 select is(
@@ -102,8 +102,8 @@ select is((select status::text from public.notifications), 'sent', 'and is marke
 -- Quiet hours at 23:30: evolution waits for 07:00, friend fed is dropped.
 delete from public.notifications;
 insert into public.notifications (user_id, pack_id, type, send_after) values
-  ('00000000-0000-0000-0000-0000000000a5', '10000000-0000-0000-0000-000000000005', 'evolution', now() - interval '1 hour'),
-  ('00000000-0000-0000-0000-0000000000a5', '10000000-0000-0000-0000-000000000005', 'friend_fed', now() - interval '1 hour');
+  ('00000000-0000-0000-0000-0000000000a5', '10000000-0000-0000-0000-000000000005', 'evolution', timestamptz '2000-01-01'),
+  ('00000000-0000-0000-0000-0000000000a5', '10000000-0000-0000-0000-000000000005', 'friend_fed', timestamptz '2000-01-01');
 select is(
   (select count(*) from public.claim_notifications(((select day from today)::timestamp + interval '23 hours 30 minutes') at time zone 'Asia/Jerusalem')),
   0::bigint,
@@ -123,7 +123,7 @@ select is(
 delete from public.notifications;
 update public.profiles set notification_prefs = '{"nudge": false}' where id = '00000000-0000-0000-0000-0000000000a5';
 insert into public.notifications (user_id, pack_id, type, send_after)
-values ('00000000-0000-0000-0000-0000000000a5', '10000000-0000-0000-0000-000000000005', 'nudge', now() - interval '1 hour');
+values ('00000000-0000-0000-0000-0000000000a5', '10000000-0000-0000-0000-000000000005', 'nudge', timestamptz '2000-01-01');
 select is(
   (select count(*) from public.claim_notifications((select at from noon))), 0::bigint,
   'turned-off types are not sent'
@@ -136,8 +136,8 @@ insert into public.notifications (user_id, pack_id, type, status, sent_at)
 select '00000000-0000-0000-0000-0000000000a5', '10000000-0000-0000-0000-000000000005', 'pet_state', 'sent', (select at from noon) - interval '1 hour'
 from generate_series(1, 6);
 insert into public.notifications (user_id, pack_id, type, send_after, day) values
-  ('00000000-0000-0000-0000-0000000000a5', '10000000-0000-0000-0000-000000000005', 'evolution', now() - interval '1 hour', null),
-  ('00000000-0000-0000-0000-0000000000a5', '10000000-0000-0000-0000-000000000005', 'evening_reminder', now() - interval '1 hour', (select day from today));
+  ('00000000-0000-0000-0000-0000000000a5', '10000000-0000-0000-0000-000000000005', 'evolution', timestamptz '2000-01-01', null),
+  ('00000000-0000-0000-0000-0000000000a5', '10000000-0000-0000-0000-000000000005', 'evening_reminder', timestamptz '2000-01-01', (select day from today));
 select is(
   (select array_agg(type::text) from public.claim_notifications((select at from noon))),
   array['evening_reminder'],
@@ -147,7 +147,7 @@ select is(
 -- A reminder for someone who fed in the meantime is dropped.
 delete from public.notifications;
 insert into public.notifications (user_id, pack_id, type, send_after, day)
-values ('00000000-0000-0000-0000-0000000000c5', '10000000-0000-0000-0000-000000000005', 'evening_reminder', now() - interval '1 hour', (select day from today));
+values ('00000000-0000-0000-0000-0000000000c5', '10000000-0000-0000-0000-000000000005', 'evening_reminder', timestamptz '2000-01-01', (select day from today));
 select is(
   (select count(*) from public.claim_notifications((select at from noon))), 0::bigint,
   'Maya already fed, so her reminder is dropped'

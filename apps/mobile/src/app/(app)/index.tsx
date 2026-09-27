@@ -1,7 +1,8 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
@@ -20,7 +21,9 @@ const PACK_LIMIT = 3;
 
 export default function HomeScreen() {
   const { t } = useTranslation();
-  const { data: packs, isPending } = useMyPacks();
+  const { data: packs, isPending, isError, refetch } = useMyPacks();
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
   const counted = useCountedFeeds();
   const { session } = useAuth();
   usePackRealtime();
@@ -33,6 +36,11 @@ export default function HomeScreen() {
   }, []);
   const now = useNow(60_000);
 
+  const refresh = async () => {
+    setRefreshing(true);
+    await queryClient.invalidateQueries();
+    setRefreshing(false);
+  };
 
   const hasPacks = packs !== undefined && packs.length > 0;
   const atLimit = packs !== undefined && packs.length >= PACK_LIMIT;
@@ -50,8 +58,15 @@ export default function HomeScreen() {
         <View style={styles.center}>
           <ActivityIndicator color={colors.accent} />
         </View>
+      ) : isError && !packs ? (
+        <View style={styles.center}>
+          <AppText style={[styles.centerText, styles.muted]}>{t('home.loadFailed')}</AppText>
+          <Button label={t('home.retry')} variant="secondary" size="small" onPress={() => void refetch()} />
+        </View>
       ) : hasPacks ? (
-        <ScrollView contentContainerStyle={styles.list}>
+        <ScrollView
+          contentContainerStyle={styles.list}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={colors.accent} />}>
           {packs.map((pack) => (
             <PackCard
               key={pack.id}

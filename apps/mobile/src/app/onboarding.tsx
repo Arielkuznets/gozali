@@ -13,7 +13,7 @@ import { ONBOARDED_KEY } from '@/features/profile/onboarding';
 import { colors, critterColors, spacing } from '@/theme/tokens';
 
 /** The three rules, told by the critters (spec section 9). Shown once, and it can be skipped. */
-const CARDS: ReadonlyArray<{ key: 'photo' | 'together' | 'neverDies'; art: CritterArt }> = [
+const CARDS: readonly { key: 'photo' | 'together' | 'neverDies'; art: CritterArt }[] = [
   { key: 'photo', art: { species: 'blob', color: critterColors.peach, stage: 'kid', look: 'thriving' } },
   {
     key: 'together',

@@ -3,7 +3,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { Directory, File, Paths } from 'expo-file-system';
 import { Platform } from 'react-native';
 
-import { isFinalRejection, sendFeed, type OutgoingFeed } from '@/features/feeds/send';
+import { feedErrorCode, isFinalRejection, sendFeed, type OutgoingFeed } from '@/features/feeds/send';
 
 // Feeds taken without a connection wait here and go out when it returns (spec section 6).
 // The photo is copied into the app's documents so the system can't clear it meanwhile.
@@ -62,6 +62,8 @@ export function flushQueue(): Promise<number> {
           await sendFeed(feed);
         } catch (error) {
           if (!isFinalRejection(error)) break;
+          // Fed from another phone meanwhile: the photo still goes up, as an extra post.
+          if (feedErrorCode(error) === 'already_fed') await sendFeed({ ...feed, extra: true }).catch(() => undefined);
         }
         sent += 1;
         await write((await read()).filter((item) => item.id !== feed.id));

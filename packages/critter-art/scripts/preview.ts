@@ -32,6 +32,9 @@ const rows: { title: string; items: { label: string; art: CritterArt }[] }[] = [
       { label: 'blinking', art: { species: 'mossy', color: colors[2]!, stage: 'teen', look: 'happy', blinking: true } },
       { label: 'hungry, all fed', art: { species: 'spark', color: colors[4]!, stage: 'kid', look: 'hungry', mood: 1 } },
       { label: 'happy, half fed', art: { species: 'mossy', color: colors[1]!, stage: 'kid', look: 'happy', mood: 0.5 } },
+      { label: 'holiday', art: { species: 'spark', color: colors[0]!, stage: 'teen', look: 'happy', holiday: true } },
+      { label: 'looking left', art: { species: 'blob', color: colors[3]!, stage: 'teen', look: 'happy', gaze: { x: -1, y: 0.3 } } },
+      { label: 'holiday mossy', art: { species: 'mossy', color: colors[2]!, stage: 'adult', look: 'thriving', holiday: true } },
     ],
   },
   {

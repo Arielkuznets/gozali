@@ -14,9 +14,15 @@ type Member = { id: string; name: string | null; state: MemberState; nudgeable?:
  * rest or joker, 💤 = asleep or paused, gray = not yet. Each state also has its own mark or
  * outline, so color is not the only signal.
  */
-type Props = { members: Member[]; color: string; onNudge?: (member: Member) => void };
+type Props = {
+  members: Member[];
+  color: string;
+  onNudge?: (member: Member) => void;
+  /** A long press opens the member's menu (nudge, block). */
+  onMenu?: (member: Member) => void;
+};
 
-export function MemberCircles({ members, color, onNudge }: Props) {
+export function MemberCircles({ members, color, onNudge, onMenu }: Props) {
   const { t } = useTranslation();
   return (
     <View style={styles.row}>
@@ -30,8 +36,9 @@ export function MemberCircles({ members, color, onNudge }: Props) {
             style={styles.item}
             accessibilityRole={member.nudgeable && onNudge ? 'button' : undefined}
             accessibilityLabel={label}
-            disabled={!member.nudgeable || !onNudge}
-            onPress={() => onNudge?.(member)}>
+            disabled={!(member.nudgeable && onNudge) && !onMenu}
+            onPress={() => (member.nudgeable && onNudge ? onNudge(member) : onMenu?.(member))}
+            onLongPress={() => onMenu?.(member)}>
             <View
               style={[
                 styles.circle,
@@ -82,7 +89,7 @@ const styles = StyleSheet.create({
   faded: { opacity: 0.6 },
   badge: {
     position: 'absolute',
-    right: -4,
+    end: -4,
     bottom: -4,
     width: 20,
     height: 20,
