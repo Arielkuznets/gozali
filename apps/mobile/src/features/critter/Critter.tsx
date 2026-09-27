@@ -22,7 +22,7 @@ type Props = {
   size: number;
   /** Screen reader description, for example "Pixel is hungry, health 45". */
   label: string;
-  /** Idle breathing and blinking; off for small, static uses. */
+  /** Idle breathing, blinking and yawning; off for small, static uses. */
   animated?: boolean;
   /** Lines to say when petted. Without them the critter can't be petted. */
   lines?: readonly string[];
@@ -30,6 +30,9 @@ type Props = {
 };
 
 const BLINK_MS = 140;
+const YAWN_MS = 1300;
+// Seconds between yawns, the first number plus up to the second. Blob is the sleepy one.
+const YAWN_EVERY: Record<CritterArt['species'], [number, number]> = { blob: [12, 12], spark: [30, 30], mossy: [30, 30] };
 const LINE_MS = 2600;
 
 /**
@@ -38,6 +41,7 @@ const LINE_MS = 2600;
  */
 export function Critter({ art, size, label, animated = true, lines, petHint }: Props) {
   const [blinking, setBlinking] = useState(false);
+  const [yawning, setYawning] = useState(false);
   const [line, setLine] = useState<string | null>(null);
   const lineTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [gaze, setGaze] = useState<{ x: number; y: number } | undefined>(undefined);
@@ -82,6 +86,30 @@ export function Critter({ art, size, label, animated = true, lines, petHint }: P
     return () => clearTimeout(timer);
   }, [animated, awake]);
 
+  // Now and then a yawn.
+  useEffect(() => {
+    if (!animated || !awake || art.look === 'sick') return;
+    const [base, spread] = YAWN_EVERY[art.species];
+    let timer: ReturnType<typeof setTimeout>;
+    const schedule = () => {
+      timer = setTimeout(
+        () => {
+          setYawning(true);
+          timer = setTimeout(() => {
+            setYawning(false);
+            schedule();
+          }, YAWN_MS);
+        },
+        (base + Math.random() * spread) * 1000,
+      );
+    };
+    schedule();
+    return () => {
+      clearTimeout(timer);
+      setYawning(false);
+    };
+  }, [animated, awake, art.look, art.species]);
+
   useEffect(
     () => () => {
       clearTimeout(lineTimer.current);
@@ -111,7 +139,7 @@ export function Critter({ art, size, label, animated = true, lines, petHint }: P
     gazeTimer.current = setTimeout(() => setGaze(undefined), 700);
   };
 
-  const xml = useMemo(() => renderCritter({ ...art, blinking, gaze }), [art, blinking, gaze]);
+  const xml = useMemo(() => renderCritter({ ...art, blinking, yawning, gaze }), [art, blinking, yawning, gaze]);
 
   const motion = useAnimatedStyle(() => {
     const b = breath.value;
