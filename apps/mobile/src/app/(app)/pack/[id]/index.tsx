@@ -14,6 +14,8 @@ import { LoadingScreen, LoadFailedScreen, PackMissingScreen } from '@/components
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useAvatarUrls } from '@/features/profile/avatar';
 import { Critter } from '@/features/critter/Critter';
+import { MilestoneMoment } from '@/features/critter/MilestoneMoment';
+import { useMilestone } from '@/features/critter/milestones';
 import { critterArt, stageProgress } from '@/features/critter/art';
 import { useCritterText } from '@/features/critter/useCritterText';
 import { useDayStatus, useTodayPasses, type TodayPasses } from '@/features/days/api';
@@ -58,6 +60,7 @@ export default function PackScreen() {
   const report = useReport();
   const blockMember = useBlock();
   usePackRealtime(id);
+  const moment = useMilestone(pack?.id, pack?.critters);
 
   if (isPending) return <LoadingScreen />;
   if (!pack && isError) return <LoadFailedScreen onRetry={() => void refetch()} />;
@@ -291,6 +294,14 @@ export default function PackScreen() {
           )}
         </View>
       </View>
+      {moment.milestone && pack.critters && (
+        <MilestoneMoment
+          milestone={moment.milestone}
+          art={critterArt(pack.critters, { category: pack.category, now })}
+          name={critterName}
+          onClose={moment.dismiss}
+        />
+      )}
     </Screen>
   );
 }
