@@ -45,7 +45,8 @@ export async function clearWidgets(): Promise<void> {
   await publish(null, null);
 }
 
-const WATCHED = new Set(['packs', 'feeds', 'days', 'social']);
+// What the widgets show: the critter and the members (packs), who fed (feeds) and who rests (days).
+const WATCHED = new Set(['packs', 'feeds', 'days']);
 const DEBOUNCE_MS = 3000;
 
 /**
@@ -63,7 +64,14 @@ export function useWidgetSync() {
     };
     schedule();
     const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
-      if (event.type === 'updated' && event.action.type === 'success' && WATCHED.has(String(event.query.queryKey[0]))) {
+      // Fetches only: the app's own cache edits (a reaction shown before the server answers) change
+      // nothing the widgets draw.
+      if (
+        event.type === 'updated' &&
+        event.action.type === 'success' &&
+        !event.action.manual &&
+        WATCHED.has(String(event.query.queryKey[0]))
+      ) {
         schedule();
       }
     });
