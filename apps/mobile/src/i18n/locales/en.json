@@ -425,7 +425,7 @@
   "events": {
     "joined": "👋 {{name}} joined the pack",
     "hatched": "🐣 {{critter}} hatched!",
-    "evolved": "✨ {{critter}} grew into a {{stage}}",
+    "evolved": "✨ {{critter}} reached the {{stage}} stage",
     "ran_away": "🏃 {{critter}} ran away to find food",
     "returned": "🩹 {{critter}} came back!",
     "achievement": "🏆 {{critter}} unlocked {{title}}: a new {{item}} for the wardrobe",
