@@ -134,7 +134,7 @@
     "critterLabel": "{{name}}, the pack pet",
     "feed": "Feed",
     "fed": "Fed today",
-    "postExtra": "Post extra",
+    "postExtra": "Post another photo",
     "focus": "Focus",
     "feedTitle": "Pack feed",
     "feedEmpty": "No feeds yet. Be the first today!",
@@ -461,7 +461,7 @@
   },
   "feed": {
     "title": "Feed {{name}}",
-    "extraTitle": "Post extra",
+    "extraTitle": "Another photo",
     "capture": "Take photo",
     "flip": "Switch camera",
     "close": "Close",

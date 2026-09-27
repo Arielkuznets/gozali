@@ -108,6 +108,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeText: { color: colors.onAccent, fontSize: 11, lineHeight: 14, fontFamily: fonts.bodyBold },
+  badgeText: { color: colors.onDark, fontSize: 11, lineHeight: 14, fontFamily: fonts.bodyBold },
   name: { maxWidth: 60 },
 });

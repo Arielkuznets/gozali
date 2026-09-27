@@ -30,5 +30,5 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     backgroundColor: colors.ink,
   },
-  text: { color: colors.onAccent },
+  text: { color: colors.onDark },
 });
