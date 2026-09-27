@@ -38,12 +38,12 @@ update public.critters set status = 'active', stage = 'baby', xp = 1, health = 8
 insert into public.achievements (pack_id, key) values ((select id from pack), 'hatched');
 update public.critters set stage = 'kid', xp = 7 where pack_id = (select id from pack);
 select is(
-  (select array_agg(kind::text order by created_at, kind) from public.pack_events where kind <> 'joined'),
+  (select array_agg(kind::text order by created_at, kind) from public.pack_events where kind <> 'joined' and pack_id = (select id from pack)),
   array['hatched', 'achievement', 'evolved'],
   'hatching, the achievement and the evolution appear as events'
 );
 select is(
-  (select payload ->> 'to' from public.pack_events where kind = 'evolved'), 'kid',
+  (select payload ->> 'to' from public.pack_events where kind = 'evolved' and pack_id = (select id from pack)), 'kid',
   'the evolution names the new stage'
 );
 
@@ -152,7 +152,7 @@ select lives_ok(
 );
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000a4');
 select is(
-  (select type::text || ':' || (payload ->> 'from') from public.notifications where user_id = '00000000-0000-0000-0000-0000000000a4'),
+  (select type::text || ':' || (payload ->> 'from') from public.notifications where user_id = '00000000-0000-0000-0000-0000000000a4' and type = 'nudge'),
   'nudge:00000000-0000-0000-0000-0000000000b4',
   'Noa gets a nudge notification'
 );
