@@ -68,7 +68,7 @@ Each entry: what was decided, what the options were, and why. Decisions D1–D11
 
 - **Decided:** until the illustrated critter exists, the critter is SVG markup generated from its state by a pure TypeScript package (`packages/critter-art`). The app shows it with `react-native-svg` inside one `Critter` component, which adds the idle motion (breathing, blinking, a bounce when thriving, a wobble when the egg cracks) and petting.
 - **Options:** fixed image files per species, stage and state; or drawing with react-native-svg components directly.
-- **Why:** 3 species × 5 stages × 6 states × 6 colors × the wardrobe is too many image files, and layers in code cover every combination. Markup (rather than components) is plain text, so the same function can feed the Android widget (which takes SVG), images for the iOS widget, and a contact sheet for review, and Node tests every combination without a device. When the Rive character arrives, only the `Critter` component changes.
+- **Why:** 3 species × 5 stages × 6 states × 6 colors × the wardrobe is too many image files, and layers in code cover every combination. Markup (rather than components) is plain text, so the same function can feed the Android widget (which takes SVG), images for the iOS widget, and a contact sheet for review, and Node tests every combination without a device. D19 later made this drawing the final character.
 
 ## D13 · Running the day close
 
@@ -92,7 +92,7 @@ Each entry: what was decided, what the options were, and why. Decisions D1–D11
 
 - **Decided:** the widgets draw the critter with the same code as the app. `widget-state` renders it to PNG with resvg (WebAssembly) for the iOS widget, in a day and a night version with a versioned address so the widget can cache it; the Android widget receives the drawing input and renders the SVG itself (`SvgWidget`).
 - **Options:** image files exported per species, stage, state and color with the wardrobe layered on top (spec section 10, step 4); the app saving screenshots of the critter into the App Group; drawing the critter again in SwiftUI.
-- **Why:** the exported set would be hundreds of files for the temporary character, and redone for the final one. App screenshots go stale overnight, when the day close changes the critter and the app isn't running. A second drawing in Swift would drift from the app. Rendering on the server keeps one drawing, and it costs one small image per pack per change. When the illustrated critter arrives, only the drawing function changes.
+- **Why:** the exported set would be hundreds of files for the temporary character, and redone for the final one. App screenshots go stale overnight, when the day close changes the critter and the app isn't running. A second drawing in Swift would drift from the app. Rendering on the server keeps one drawing, and it costs one small image per pack per change. Any change to the drawing reaches the widgets with no extra work.
 
 ## D17 · Moderation before the developer looks
 
@@ -105,3 +105,9 @@ Each entry: what was decided, what the options were, and why. Decisions D1–D11
 - **Decided:** five layers, all run in CI on every push: unit tests (the game engine, the critter drawing, and the app's logic with Jest); pgTAP tests of the database rules; smoke scripts that drive the real API, storage, realtime and Edge Functions of a local Supabase; end-to-end tests with Playwright on the web build of the app, in a phone-sized browser against that same local stack; and typechecks and lint.
 - **Options:** only unit and database tests; end-to-end tests on devices with Detox or Maestro.
 - **Why:** most of the product's rules live in the database and the Edge Functions, so tests have to run against a real Supabase, not mocks. The web build covers the screens and flows (create, join, feed with a fake camera, settings) in minutes on a plain CI runner, with no emulator or Mac. It doesn't cover native-only parts (widgets, push, the real camera, sign-in providers); those are checked on devices with the EAS builds.
+
+## D19 · The final critter is drawn in code
+
+- **Decided:** there is no illustrator and no Rive. The critter drawn in code (D12) becomes the final character, gets a full design pass in code before the launch, and is animated in the app with Reanimated.
+- **Options:** a human illustrator for the characters and Rive for the animation (the plan in spec version 3.1); images from an image generator.
+- **Why:** the owner's choice. The code drawing already covers every species, stage, state, color, outfit and mark, and it feeds the widgets and the story image from one function (D16). An illustrated set would have to be redrawn for every new item or state and exported for the widgets, and Rive would add a second drawing to keep in step. Design changes stay reviewable in git and testable in Node.

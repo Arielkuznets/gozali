@@ -1,8 +1,8 @@
-# Gozali — Product Spec (version 3.1)
+# Gozali — Product Spec (version 3.2)
 
 Sep 26, 2026 · @Ariel kuznets
 
-> Version 3.1: the app has a name, Gozali. Version 3 closed all the open decisions from version 2 (details and reasoning in [decisions.md](decisions.md)), expanded version 1 and added widgets for the home screen and the lock screen. The list of changes is in section 18.
+> Version 3.2: the critter is designed and animated in code, with no illustrator and no Rive (decision D19), and Hebrew in the app is postponed. Version 3.1: the app has a name, Gozali. Version 3 closed all the open decisions from version 2 (details and reasoning in [decisions.md](decisions.md)), expanded version 1 and added widgets for the home screen and the lock screen. The list of changes is in section 18.
 
 ## 1. Overview
 
@@ -376,12 +376,10 @@ The design should feel colorful, soft and hand-drawn, and in no way generic or "
 
 **Process:**
 
-1. Mood board, then sketches of 2–3 directions. Choosing one.
-2. Final design of the characters by a human illustrator, to keep consistency across all states and stages. Image generators are used only for exploration.
-3. Animation in Rive, with one state machine per creature species. Inputs: health, stage, mood, isSleeping, wardrobe items (head, neck, background), and triggers for feed, pet, crack (the egg cracking) and hatch.
-4. Static images for widgets: for every species, stage and state an image is exported, and the color and wardrobe items are layered on top of it.
-
-**In version 1, until the final design is ready:** use a simple temporary character (a basic shape with eyes) so development isn't held up, and replace it later, both in the app and in the widgets. The code should treat the character as one component that receives state, so the replacement is a single change. The temporary character is drawn in code as SVG (`packages/critter-art`): a pure function from state (species, color, stage, health state, mood, night, wardrobe, marks and the habit item) to SVG markup, so the same drawing serves the app and the widget images.
+1. The character is drawn in code as SVG (`packages/critter-art`): a pure function from state (species, color, stage, health state, mood, night, wardrobe, marks and the habit item) to SVG markup, so the same drawing serves the app and the widget images (decisions D12, D16 and D19). The app treats the character as one component that receives state.
+2. Before the launch the drawing gets a full design pass, still in code: richer shapes, soft shading and texture, clearer expressions, a distinct look for each species and stage, reviewed on contact sheets of every combination.
+3. Animation in the app with react-native-reanimated: breathing, blinking and yawning when idle, following a finger, petting, eating the photo, the egg cracking and hatching, and growing into a new stage.
+4. The widgets show the same drawing as a static image (section 9).
 
 ## 11. Privacy, safety and store policy
 
@@ -468,7 +466,7 @@ Expo on the app side and Supabase on the server side, with all the game logic on
 | Game rules | packages/game-engine (TypeScript with no dependencies) |
 | Camera and photos | expo-camera, expo-image-manipulator (compression), expo-image (display and cache) |
 | Notifications | expo-notifications + Expo Push Service, including local notifications for the timer |
-| Animations | react-native-reanimated, Rive (@rive-app/react-native) |
+| Animations | react-native-reanimated |
 | Data | @supabase/supabase-js, TanStack Query, Supabase Realtime |
 | Widgets | iOS: WidgetKit in SwiftUI as a separate target through @bacons/apple-targets, with an App Group and ExtensionStorage. Android: react-native-android-widget |
 | Invite links | expo-clipboard (pasting a code), expo-application (Install Referrer on Android), react-native-qrcode-svg (QR) |
@@ -477,7 +475,7 @@ Expo on the app side and Supabase on the server side, with all the game logic on
 | Share image | react-native-view-shot |
 | Monitoring | Sentry (crashes), PostHog (analytics) |
 
-Important: Rive, the widgets and some of the modules require a **development build**, not Expo Go. You build it on EAS and install it on the device.
+Important: the widgets and some of the modules require a **development build**, not Expo Go. You build it on EAS and install it on the device.
 
 **Server (Supabase):**
 
@@ -518,7 +516,7 @@ Important: Rive, the widgets and some of the modules require a **development bui
 
 ## 15. Scope and build phases
 
-Version 1 includes all of sections 3–12, including widgets, achievements and a wardrobe, a focus timer and the Me screen, with a temporary character until the final design is ready. The build is split into twelve phases, and each phase ends with something that can be tested, and from phase 1 also on an iOS device and an Android device.
+Version 1 includes all of sections 3–12, including widgets, achievements and a wardrobe, a focus timer and the Me screen, with the critter drawn in code. The build is split into twelve phases, and each phase ends with something that can be tested, and from phase 1 also on an iOS device and an Android device.
 
 | Phase | What gets built | Done when... |
 | --- | --- | --- |
@@ -533,7 +531,7 @@ Version 1 includes all of sections 3–12, including widgets, achievements and a
 | 8. Widgets | iOS (home screen and lock screen) and Android, widget-state | The widget updates after a feed and at the end of the day |
 | 9. Recap and sharing | weekly-recap, story image | A recap can be shared to Instagram |
 | 10. Store readiness | Onboarding, account deletion, filtering, reporting with an alert to the developer, blocking, privacy policy, icon, screenshots | A two-week pilot is running |
-| 11. Public launch | Hebrew and RTL, the creatures' lines in Hebrew, final design in Rive | The app is in the stores |
+| 11. Public launch | The design pass of the critter in code; Hebrew and RTL with the creatures' lines in Hebrew, postponed for now | The app is in the stores |
 
 **Pilot:** 5–6 packs, at least half of them not close friends of the developer, on iOS and Android, for at least two weeks.
 
@@ -569,11 +567,14 @@ The game itself is completely free, and revenue comes from cosmetic items and an
 All the decisions that blocked version 1 are closed; the details and reasoning are in [decisions.md](decisions.md). What's left are decisions that don't block starting the build:
 
 - [ ] Register the gozali.app domain before the launch (it was free on Sep 26, 2026).
-- [ ] Design direction for the characters: illustrated pastel, clay or sticker.
-- [ ] Who illustrates the characters, and who animates them in Rive.
 - [ ] Whether 3 free packs is right, or a different limit is better (before monetization). Note: few users will reach a fourth pack, so it is a weak lever for payment; "a gift for the pack" looks stronger.
 
 ## 18. Change history
+
+### Version 3.2
+
+- **The critter:** designed and animated in code, as SVG with Reanimated; no illustrator and no Rive (decision D19).
+- **Language:** Hebrew in the app is postponed; the pilot is in English.
 
 ### Version 3.1
 
