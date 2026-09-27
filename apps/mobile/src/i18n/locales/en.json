@@ -118,6 +118,7 @@
     "feed": "Feed",
     "fed": "Fed today",
     "postExtra": "Post extra",
+    "focus": "Focus",
     "feedTitle": "Pack feed",
     "feedEmpty": "No feeds yet. Be the first today!",
     "pending_one": "{{count}} feed waiting for a connection",
@@ -313,5 +314,22 @@
     "permissionBody": "Feeding takes a live photo in the app. Photos are seen only by your pack.",
     "allowCamera": "Allow camera",
     "openSettings": "Open settings"
+  },
+  "focus": {
+    "title": "Focus",
+    "body": "Pick a length. When time is up the camera opens, and your feed shows how long you focused.",
+    "min": "min",
+    "minutes": "{{minutes}} minutes",
+    "open": "No time limit",
+    "running": "{{minutes}} minute session",
+    "openRunning": "Open session",
+    "paused": "Paused",
+    "otherRunning": "A session for another pack is running; starting here ends it.",
+    "pause": "Pause",
+    "resume": "Resume",
+    "cancel": "Cancel",
+    "takePhoto": "Done, take the photo",
+    "doneTitle": "Time is up!",
+    "doneBody": "Take the photo to feed your pack."
   }
 }

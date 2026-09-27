@@ -48,6 +48,7 @@ export default function PackScreen() {
   const awake = members.filter((member) => member.status === 'active');
   const fedCount = awake.filter((member) => fed.has(member.user_id)).length;
   const names = new Map(pack.pack_members.map((member) => [member.user_id, member.profiles?.display_name ?? null]));
+  const focusable = pack.category === 'study' || pack.category === 'reading';
   const pendingCount = pending.data?.length ?? 0;
 
   return (
@@ -116,6 +117,11 @@ export default function PackScreen() {
             <Button label={t('pack.feed')} onPress={() => router.push(`/pack/${id}/feed`)} />
           )}
         </View>
+        {focusable && (
+          <View style={styles.sideAction}>
+            <Button label={t('pack.focus')} variant="secondary" onPress={() => router.push(`/pack/${id}/focus`)} />
+          </View>
+        )}
       </View>
     </Screen>
   );
@@ -193,6 +199,7 @@ const styles = StyleSheet.create({
   membersHeader: { flexDirection: 'row', justifyContent: 'space-between' },
   actions: { flexDirection: 'row', gap: spacing.sm, paddingTop: spacing.sm },
   mainAction: { flex: 2 },
+  sideAction: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   body: { gap: spacing.md, paddingBottom: spacing.lg },
   centerText: { textAlign: 'center' },
