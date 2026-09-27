@@ -561,5 +561,19 @@
     "openFirst": "Open Gozali first, then add the widget again.",
     "cancel": "Cancel",
     "howTo": "Add a widget: long-press the home screen, tap + (iPhone) or Widgets (Android), and pick Gozali."
+  },
+  "recap": {
+    "title": "Weekly recap",
+    "open": "Weekly recaps",
+    "none": "The first recap arrives when your first full week closes.",
+    "weekOf": "Week of {{date}}",
+    "goodDays": "good days",
+    "health": "health",
+    "streak": "streak",
+    "mostConsistent_one": "Most consistent: {{names}}, {{count}} feed",
+    "mostConsistent_other": "Most consistent: {{names}}, {{count}} feeds",
+    "share": "Share as a story",
+    "shareFailed": "Sharing didn't work. Please try again.",
+    "storyFooter": "Raise a pet with your friends · gozali.app"
   }
 }
