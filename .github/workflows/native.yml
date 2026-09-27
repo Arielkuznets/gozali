@@ -68,3 +68,13 @@ jobs:
       - name: Build the app and the widgets
         working-directory: apps/mobile/android
         run: ./gradlew assembleDebug -PreactNativeArchitectures=arm64-v8a --no-daemon
+      # What the store's data safety form and reviewers see: the permissions after every library
+      # merged its own.
+      - name: List the Android permissions
+        working-directory: apps/mobile/android
+        run: |
+          manifest=$(find app/build/intermediates -path '*merged_manifest*' -name AndroidManifest.xml | head -1)
+          {
+            echo '### Android permissions'
+            grep -o 'uses-permission[^>]*android:name="[^"]*"' "$manifest" | sed 's/.*android:name="\([^"]*\)"/- \1/' | sort -u
+          } | tee -a "$GITHUB_STEP_SUMMARY"
