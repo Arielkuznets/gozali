@@ -168,6 +168,13 @@ for (const size of SIZES) {
       await page.getByRole('button', { name: 'Next' }).click();
       await shot(page, 'create-4');
 
+      // A member who already fed today.
+      const fedPage = await browser.newPage({ viewport: { width: size.width, height: size.height } });
+      await signIn(fedPage, dan);
+      await fedPage.goto(`/pack/${runs.id}`);
+      await shot(fedPage, 'pack-fed');
+      await fedPage.close();
+
       // Someone new: an empty home and joining with a code.
       const newcomer = await browser.newPage({ viewport: { width: size.width, height: size.height } });
       await signIn(newcomer, ben);
