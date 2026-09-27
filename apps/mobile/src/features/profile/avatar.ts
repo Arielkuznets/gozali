@@ -43,7 +43,8 @@ export function useSetAvatar() {
       let path: string | null = null;
       if (uri) {
         const context = ImageManipulator.manipulate(uri);
-        context.resize({ width: SIZE, height: SIZE });
+        // Width only: a photo the platform didn't crop to a square keeps its shape (the circle crops it).
+        context.resize({ width: SIZE });
         const image = await (await context.renderAsync()).saveAsync({ compress: 0.8, format: SaveFormat.JPEG });
         // A new name each time, so cached copies of the old photo don't linger.
         path = `${userId}/${Date.now()}.jpg`;
@@ -52,7 +53,11 @@ export function useSetAvatar() {
       }
       const previous = profile.data?.avatar_path ?? null;
       const { error } = await supabase.from('profiles').update({ avatar_path: path }).eq('id', userId);
-      if (error) throw error;
+      if (error) {
+        // The profile still points at the old photo; don't leave the new file behind.
+        if (path) await supabase.storage.from(BUCKET).remove([path]);
+        throw error;
+      }
       if (previous) await supabase.storage.from(BUCKET).remove([previous]);
     },
     onSettled: () => {
