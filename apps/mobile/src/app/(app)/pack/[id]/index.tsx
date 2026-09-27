@@ -346,6 +346,9 @@ function CritterPanel({ pack, critter, memberCount, mood, now }: PanelProps) {
           {daysRun ? t('pack.eggCracking') : t('pack.eggWaiting')}
         </AppText>
       )}
+      {memberCount < 2 && (
+        <Button label={t('pack.inviteFriends')} variant="secondary" size="small" onPress={() => router.push(`/pack/${pack.id}/invite`)} />
+      )}
 
       {art.look === 'ran_away' && (
         <>
