@@ -15,6 +15,7 @@ import { Screen } from '@/components/Screen';
 import { LoadingScreen, PackMissingScreen } from '@/components/ScreenStates';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { Critter } from '@/features/critter/Critter';
+import { PhotoViewer, type ViewedPhoto } from '@/features/feeds/PhotoViewer';
 import { usePack } from '@/features/packs/api';
 import { StoryCard, STORY_HEIGHT, STORY_WIDTH } from '@/features/recap/StoryCard';
 import { useRecapPhotos, useRecaps, type Recap } from '@/features/recap/api';
@@ -88,6 +89,7 @@ function RecapView({ recap, packName, category, names }: ViewProps) {
   const photos = useRecapPhotos(recap);
   const story = useRef<View>(null);
   const [sharing, setSharing] = useState(false);
+  const [open, setOpen] = useState<ViewedPhoto | null>(null);
   const stats = recap.stats;
   const art = critterArtFor(stats.critter, { category, mood: 1, sleeping: false });
   const change = stats.healthEnd - stats.healthStart;
@@ -114,7 +116,7 @@ function RecapView({ recap, packName, category, names }: ViewProps) {
           {t('recap.weekOf', { date: formatDay(stats.weekStart) })}
         </AppText>
         <View style={styles.hero}>
-          <Critter art={art} size={160} label={stats.critter.name ?? ''} animated={false} />
+          <Critter art={art} size={160} label={stats.critter.name ?? t(`packs.species.${stats.critter.species}`)} animated={false} />
         </View>
         <View style={styles.stats}>
           <Stat value={`${stats.successDays}/${stats.days}`} label={t('recap.goodDays')} />
@@ -132,12 +134,24 @@ function RecapView({ recap, packName, category, names }: ViewProps) {
         ))}
         {photos.data && photos.data.length > 0 && (
           <View style={styles.collage}>
-            {photos.data.map((photo) => (
-              <Image key={photo.id} source={{ uri: photo.url, cacheKey: photo.id }} style={styles.tile} contentFit="cover" />
-            ))}
+            {photos.data.map((photo) => {
+              const name = names.get(photo.userId) ?? '…';
+              return (
+                <Pressable
+                  key={photo.id}
+                  style={styles.tile}
+                  accessibilityRole="imagebutton"
+                  accessibilityLabel={t('feed.photoBy', { name })}
+                  accessibilityHint={t('feed.openPhoto')}
+                  onPress={() => setOpen({ id: photo.id, url: photo.url, caption: null, name })}>
+                  <Image source={{ uri: photo.url, cacheKey: photo.id }} style={styles.fill} contentFit="cover" />
+                </Pressable>
+              );
+            })}
           </View>
         )}
       </ScrollView>
+      <PhotoViewer photo={open} onClose={() => setOpen(null)} />
 
       {Platform.OS !== 'web' && (
         <Button label={t('recap.share')} loading={sharing} onPress={() => void share()} />
@@ -181,6 +195,7 @@ const styles = StyleSheet.create({
   },
   statValue: { fontFamily: fonts.heading, fontSize: 26, lineHeight: 34 },
   collage: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
-  tile: { width: '32.5%', aspectRatio: 3 / 4, borderRadius: radii.sm, backgroundColor: colors.border },
+  tile: { width: '32.5%', aspectRatio: 3 / 4, borderRadius: radii.sm, overflow: 'hidden', backgroundColor: colors.border },
+  fill: { width: '100%', height: '100%' },
   offscreen: { position: 'absolute', left: -STORY_WIDTH * 3, top: 0, width: STORY_WIDTH, height: STORY_HEIGHT },
 });

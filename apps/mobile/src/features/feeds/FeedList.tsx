@@ -6,7 +6,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import type { FeedItem } from '@/features/feeds/api';
-import { PhotoViewer } from '@/features/feeds/PhotoViewer';
+import { PhotoViewer, type ViewedPhoto } from '@/features/feeds/PhotoViewer';
 import { REACTIONS, type PackEvent, type ReactionKey } from '@/features/social/api';
 import { formatMoment } from '@/lib/dates';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
@@ -30,7 +30,7 @@ type Props = {
  */
 export function FeedList({ feeds, events, names, critterName, emoji, now, userId, onReact, onMore }: Props) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState<FeedItem | null>(null);
+  const [open, setOpen] = useState<ViewedPhoto | null>(null);
   const entries = [
     ...feeds.map((feed) => ({ kind: 'photo' as const, at: feed.created_at, feed })),
     ...events.map((event) => ({ kind: 'event' as const, at: event.created_at, event })),
@@ -58,11 +58,13 @@ export function FeedList({ feeds, events, names, critterName, emoji, now, userId
             own={entry.feed.user_id === userId}
             onReact={onReact}
             onMore={onMore}
-            onOpen={setOpen}
+            onOpen={(feed) =>
+              setOpen({ id: feed.id, url: feed.photoUrl, caption: feed.caption, name: nameOf(feed.user_id) })
+            }
           />
         ),
       )}
-      <PhotoViewer feed={open} name={nameOf(open?.user_id ?? null)} onClose={() => setOpen(null)} />
+      <PhotoViewer photo={open} onClose={() => setOpen(null)} />
     </View>
   );
 }
