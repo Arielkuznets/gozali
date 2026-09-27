@@ -25,6 +25,11 @@ test('feeding: camera, caption, send, and the photo shows in the pack', async ({
   await expect(page.getByText('Finished the problem set')).toBeVisible();
   await page.getByRole('button', { name: 'Feed', exact: true }).click();
 
+  // The camera says it's ready a moment before its first frame; wait for the picture itself.
+  await page.waitForFunction(() => {
+    const video = document.querySelector('video');
+    return video !== null && video.readyState >= 2 && video.videoWidth > 0;
+  });
   await page.getByRole('button', { name: 'Take photo' }).click();
   await page.getByPlaceholder('Add a caption (optional)').fill('Chapter 4, done');
   await page.getByRole('button', { name: 'Send' }).click();
