@@ -131,7 +131,8 @@ export function render(row: ClaimedRow): Rendered {
       const stage = STAGES[String(row.payload.to)];
       return { title: pack, body: stage ? `✨ ${critter} reached the ${stage} stage!` : `✨ ${critter} grew up!`, url: home };
     case 'still_in':
-      return { title: pack, body: 'Still in? Your pack misses you 💛', url: row.pack_id ? `/pack/${row.pack_id}/settings` : '/' };
+      // The pack, where one photo brings them back.
+      return { title: pack, body: 'Still in? Your pack misses you 💛', url: home };
     case 'weekly_recap':
       return { title: pack, body: 'Your weekly recap is ready 📊', url: row.pack_id ? `/pack/${row.pack_id}/recap` : '/' };
   }
