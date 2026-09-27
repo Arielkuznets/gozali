@@ -563,6 +563,7 @@ export type Database = {
           joined_at: string;
           left_at: string | null;
           pack_id: string;
+          removed_at: string | null;
           role: Database['public']['Enums']['member_role'];
           status: Database['public']['Enums']['member_status'];
           user_id: string;
@@ -572,6 +573,7 @@ export type Database = {
           joined_at?: string;
           left_at?: string | null;
           pack_id: string;
+          removed_at?: string | null;
           role?: Database['public']['Enums']['member_role'];
           status?: Database['public']['Enums']['member_status'];
           user_id: string;
@@ -581,6 +583,7 @@ export type Database = {
           joined_at?: string;
           left_at?: string | null;
           pack_id?: string;
+          removed_at?: string | null;
           role?: Database['public']['Enums']['member_role'];
           status?: Database['public']['Enums']['member_status'];
           user_id?: string;

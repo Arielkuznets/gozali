@@ -198,6 +198,7 @@ export function packErrorKey(error: unknown) {
   if (message.includes('pack_limit_reached')) return 'packs.errors.limitReached' as const;
   if (message.includes('pack_full')) return 'packs.errors.full' as const;
   if (message.includes('invite_not_found')) return 'packs.errors.notFound' as const;
+  if (message.includes('removed_from_pack')) return 'packs.errors.removed' as const;
   if (message.includes('admin_only')) return 'packs.errors.adminOnly' as const;
   if (isBlockedText(error)) return 'errors.textNotAllowed' as const;
   return 'errors.saveFailed' as const;

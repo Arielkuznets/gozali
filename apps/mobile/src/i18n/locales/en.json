@@ -77,6 +77,7 @@
       "limitReached": "You can be in up to 3 packs.",
       "full": "This pack is full (8 members).",
       "notFound": "No pack has this code.",
+      "removed": "The pack admin removed you from this pack, so this code can't bring you back.",
       "adminOnly": "Only the pack admin can do that."
     }
   },
