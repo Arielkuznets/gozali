@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getCalendars } from 'expo-localization';
 
 import type { Category, CritterColor, CritterStage, CritterStatus, Species, WeekStart } from '@/features/packs/constants';
+import { isBlockedText } from '@/lib/errors';
 import { requireSupabase } from '@/lib/supabase';
 
 export type PackMember = {
@@ -192,5 +193,6 @@ export function packErrorKey(error: unknown) {
   if (message.includes('pack_full')) return 'packs.errors.full' as const;
   if (message.includes('invite_not_found')) return 'packs.errors.notFound' as const;
   if (message.includes('admin_only')) return 'packs.errors.adminOnly' as const;
+  if (isBlockedText(error)) return 'errors.textNotAllowed' as const;
   return 'errors.saveFailed' as const;
 }

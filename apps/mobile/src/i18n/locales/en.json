@@ -36,7 +36,8 @@
   "errors": {
     "notConfigured": "The app is not connected to the server yet.",
     "signInFailed": "Sign-in didn't work. Please try again.",
-    "saveFailed": "Saving didn't work. Please try again."
+    "saveFailed": "Saving didn't work. Please try again.",
+    "textNotAllowed": "Let's keep it friendly: that has a word we don't allow."
   },
   "packs": {
     "categories": {
@@ -182,7 +183,12 @@
       "privacy": "Privacy policy",
       "terms": "Terms of use",
       "contact": "Contact: hello@gozali.app",
-      "widgets": "Widgets"
+      "widgets": "Widgets",
+      "deleteAccount": "Delete account",
+      "deleteTitle": "Delete your account?",
+      "deleteBody": "This deletes your account, your photos and your feeds for good, including photos in weekly recaps. Your packs go on without you.",
+      "deleteConfirm": "Delete for good",
+      "deleteFailed": "The account wasn't deleted. Please try again."
     }
   },
   "critter": {
@@ -575,5 +581,23 @@
     "share": "Share as a story",
     "shareFailed": "Sharing didn't work. Please try again.",
     "storyFooter": "Raise a pet with your friends · gozali.app"
+  },
+  "onboarding": {
+    "skip": "Skip",
+    "next": "Next",
+    "start": "Let's go",
+    "progress": "Step {{step}} of {{count}}",
+    "photo": {
+      "title": "Feed me with a photo",
+      "body": "Every day you do your habit, take a photo in the app. That is what feeds me. No gallery, no faking."
+    },
+    "together": {
+      "title": "We do it together",
+      "body": "I count on the whole pack. Rest days, a monthly joker and pauses keep it fair when life happens."
+    },
+    "neverDies": {
+      "title": "I never die",
+      "body": "If nobody feeds me, I go off to find food. Three good days in a row and I come back."
+    }
   }
 }

@@ -7,7 +7,9 @@ import { AppText } from '@/components/AppText';
 import { Choice } from '@/components/Choice';
 import { Screen } from '@/components/Screen';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { deleteAccount } from '@/features/auth/signIn';
 import { NOTIFICATION_TYPES, useProfile, useUpdateProfile, type NotificationType } from '@/features/profile/useProfile';
+import { isBlockedText } from '@/lib/errors';
 import { requireSupabase } from '@/lib/supabase';
 import { colors, radii, spacing } from '@/theme/tokens';
 
@@ -32,8 +34,21 @@ export default function SettingsScreen() {
   const prefs = profile.data.notification_prefs ?? {};
   const reminder = profile.data.reminder_time.slice(0, 5);
   const save = (settings: Parameters<typeof update.mutate>[0]) =>
-    update.mutate(settings, { onError: () => Alert.alert(t('errors.saveFailed')) });
+    update.mutate(settings, {
+      onError: (error) => Alert.alert(isBlockedText(error) ? t('errors.textNotAllowed') : t('errors.saveFailed')),
+    });
   const toggle = (type: NotificationType, on: boolean) => save({ notification_prefs: { ...prefs, [type]: on } });
+
+  const onDelete = () => {
+    Alert.alert(t('settings.app.deleteTitle'), t('settings.app.deleteBody'), [
+      { text: t('settings.cancel'), style: 'cancel' },
+      {
+        text: t('settings.app.deleteConfirm'),
+        style: 'destructive',
+        onPress: () => void deleteAccount().catch(() => Alert.alert(t('settings.app.deleteFailed'))),
+      },
+    ]);
+  };
 
   return (
     <Screen>
@@ -119,6 +134,10 @@ export default function SettingsScreen() {
           </Pressable>
           <AppText variant="caption">{t('settings.app.contact')}</AppText>
         </View>
+
+        <Pressable accessibilityRole="button" onPress={onDelete} hitSlop={8}>
+          <AppText style={styles.danger}>{t('settings.app.deleteAccount')}</AppText>
+        </Pressable>
       </ScrollView>
     </Screen>
   );
@@ -175,4 +194,5 @@ const styles = StyleSheet.create({
   fill: { flex: 1 },
   muted: { color: colors.inkMuted },
   link: { color: colors.accent },
+  danger: { color: colors.danger, paddingVertical: spacing.sm },
 });

@@ -2,6 +2,7 @@ import { packDayOf } from '@gozali/game-engine';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import type { Pack } from '@/features/packs/api';
+import { isBlockedText } from '@/lib/errors';
 import { requireSupabase } from '@/lib/supabase';
 
 /** my_day_status: what the caller can do today in a pack. */
@@ -105,5 +106,6 @@ export function dayErrorKey(error: unknown) {
   ] as const) {
     if (message.includes(code)) return `days.errors.${code}` as const;
   }
+  if (isBlockedText(error)) return 'errors.textNotAllowed' as const;
   return 'errors.saveFailed' as const;
 }

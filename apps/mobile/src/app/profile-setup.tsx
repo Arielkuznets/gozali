@@ -6,6 +6,7 @@ import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { NAME_MAX_LENGTH, useCompleteProfile, useProfile } from '@/features/profile/useProfile';
+import { isBlockedText } from '@/lib/errors';
 import { allowNotifications } from '@/lib/notifications';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
@@ -24,7 +25,7 @@ export default function ProfileSetupScreen() {
     completeProfile.mutate(trimmed, {
       // The system asks once; the line above the button says why.
       onSuccess: () => void allowNotifications(),
-      onError: () => Alert.alert(t('errors.saveFailed')),
+      onError: (error) => Alert.alert(isBlockedText(error) ? t('errors.textNotAllowed') : t('errors.saveFailed')),
     });
   };
 

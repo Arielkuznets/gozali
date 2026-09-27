@@ -26,6 +26,7 @@ import { useSendFeed } from '@/features/feeds/api';
 import { compressPhoto } from '@/features/feeds/send';
 import { usePack } from '@/features/packs/api';
 import { categoryInfo } from '@/features/packs/constants';
+import { isBlockedText } from '@/lib/errors';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 const CAPTION_MAX = 80;
@@ -81,8 +82,8 @@ export default function FeedScreen() {
       });
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setResult(outcome);
-    } catch {
-      Alert.alert(t('feed.failed'));
+    } catch (error) {
+      Alert.alert(isBlockedText(error) ? t('errors.textNotAllowed') : t('feed.failed'));
     }
   };
 
