@@ -1,6 +1,6 @@
 import { addDays, packDayOf } from '@gozali/game-engine';
 import NetInfo from '@react-native-community/netinfo';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
 
@@ -70,10 +70,24 @@ async function fetchReactions(feedIds: string[]): Promise<Map<string, ReactionTo
   return byFeed;
 }
 
+/** Every cached page of every pack feed. */
+export const packFeedsKey = [...feedsKey, 'pack'] as const;
+
+/**
+ * Fetches one photo's reactions again and puts them into the cached feed pages, without
+ * refetching the feed and signing its photo links again.
+ */
+export async function refreshReactions(queryClient: QueryClient, feedId: string): Promise<void> {
+  const fresh = await fetchReactions([feedId]);
+  queryClient.setQueriesData<FeedItem[]>({ queryKey: packFeedsKey }, (feeds) =>
+    feeds?.map((feed) => (feed.id === feedId ? { ...feed, reactions: fresh.get(feedId) ?? [] } : feed)),
+  );
+}
+
 /** The pack's feed, newest first, with signed links to the photos and the reactions. */
 export function usePackFeed(packId: string, limit = FEED_PAGE) {
   return useQuery({
-    queryKey: [...feedsKey, 'pack', packId, limit],
+    queryKey: [...packFeedsKey, packId, limit],
     // Links last an hour; refetch well before they run out.
     staleTime: (PHOTO_LINK_SECONDS / 2) * 1000,
     queryFn: async (): Promise<FeedItem[]> => {

@@ -1,10 +1,11 @@
 import type { AchievementKey } from '@gozali/game-engine';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { feedsKey } from '@/features/feeds/api';
+import { feedsKey, packFeedsKey, refreshReactions, type FeedItem } from '@/features/feeds/api';
 import { packsKey } from '@/features/packs/api';
 import { shiftMonth } from '@/lib/dates';
 import { isBlockedText } from '@/lib/errors';
+import { withMyReaction } from '@/features/social/reactions';
 import { requireSupabase } from '@/lib/supabase';
 
 export const REACTIONS = [
@@ -65,6 +66,10 @@ export function usePackEvents(packId: string, limit = EVENT_PAGE) {
   });
 }
 
+/**
+ * Reacting shows at once: the cached feed changes before the server answers, goes back if the
+ * request fails, and then takes the photo's real totals.
+ */
 export function useReact() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -72,7 +77,19 @@ export function useReact() {
       const { error } = await requireSupabase().rpc('react', { target_feed: feedId, emoji: emoji as ReactionKey });
       if (error) throw error;
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: feedsKey }),
+    onMutate: async ({ feedId, emoji }) => {
+      await queryClient.cancelQueries({ queryKey: packFeedsKey });
+      const before = queryClient.getQueriesData<FeedItem[]>({ queryKey: packFeedsKey });
+      queryClient.setQueriesData<FeedItem[]>({ queryKey: packFeedsKey }, (feeds) =>
+        feeds?.map((feed) => (feed.id === feedId ? { ...feed, reactions: withMyReaction(feed.reactions, emoji) } : feed)),
+      );
+      return { before };
+    },
+    onError: (_error, _variables, context) => {
+      for (const [key, feeds] of context?.before ?? []) queryClient.setQueryData(key, feeds);
+    },
+    onSettled: (_data, _error, { feedId }) =>
+      refreshReactions(queryClient, feedId).catch(() => queryClient.invalidateQueries({ queryKey: feedsKey })),
   });
 }
 
