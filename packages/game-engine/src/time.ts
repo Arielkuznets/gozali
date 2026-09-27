@@ -80,16 +80,27 @@ export function minuteOfPackDay(instant: Date, timeZone: string): number {
   return minutesIntoPackDay(local.hour, local.minute);
 }
 
-/** The instant at which a local date and hour happen in a time zone. */
+/** Local wall-clock time of an instant, read as if it were UTC, in milliseconds. */
+function localAsUtc(instant: number, timeZone: string): number {
+  const local = wallClock(new Date(instant), timeZone);
+  return Date.UTC(local.year, local.month - 1, local.day, local.hour, local.minute, local.second);
+}
+
+/**
+ * The instant at which a local date and hour happen in a time zone. When the clocks go back
+ * over that hour it happens twice, and the first time is returned.
+ */
 export function zonedTimeToUtc(day: string, hour: number, timeZone: string): Date {
   const target = Date.parse(`${day}T00:00:00Z`) + hour * 60 * MS_PER_MINUTE;
   let guess = target;
   // Shift the guess by the zone offset; the second pass settles days with a DST change.
   for (let pass = 0; pass < 2; pass += 1) {
-    const local = wallClock(new Date(guess), timeZone);
-    const shown = Date.UTC(local.year, local.month - 1, local.day, local.hour, local.minute, local.second);
-    guess += target - shown;
+    guess += target - localAsUtc(guess, timeZone);
   }
+  // The passes settle on either occurrence of a repeated hour, so also try the offset in
+  // force a day earlier (the one before the change) and keep the earliest exact match.
+  const earlier = target - (localAsUtc(target - MS_PER_DAY, timeZone) - (target - MS_PER_DAY));
+  if (earlier < guess && localAsUtc(earlier, timeZone) === target) guess = earlier;
   return new Date(guess);
 }
 
