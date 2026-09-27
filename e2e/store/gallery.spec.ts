@@ -42,13 +42,13 @@ for (const size of SIZES) {
 
       // Signed out.
       const outside = await browser.newPage({ viewport: { width: size.width, height: size.height } });
+      // A first launch shows the rules, then the sign-in screen.
       await outside.goto('/welcome');
-      await shot(outside, 'welcome');
-      await outside.goto('/onboarding');
       for (let card = 1; card <= 4; card++) {
         await shot(outside, `onboarding-${card}`);
-        if (card < 4) await outside.getByRole('button', { name: 'Next' }).click();
+        await outside.getByRole('button', { name: card < 4 ? 'Next' : "Let's go" }).click();
       }
+      await shot(outside, 'welcome');
       await outside.close();
 
       // Someone who signed in but hasn't set up a profile.
