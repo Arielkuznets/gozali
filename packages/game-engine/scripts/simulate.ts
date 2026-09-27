@@ -61,6 +61,7 @@ interface PackRun {
   kidDay: number | null;
   teenDay: number | null;
   asleepMemberDays: number;
+  coins: number;
 }
 
 function reached(stage: Stage, target: Stage): boolean {
@@ -86,6 +87,7 @@ function simulatePack(size: number, rate: number, restDays: number, days: number
     kidDay: null,
     teenDay: null,
     asleepMemberDays: 0,
+    coins: 0,
   };
 
   for (let day = 0; day < days; day += 1) {
@@ -118,6 +120,7 @@ function simulatePack(size: number, rate: number, restDays: number, days: number
 
     const result = closeDay({ critter, members: inputs, restDaysPerWeek: restDays });
     critter = result.critter;
+    run.coins += result.coins;
 
     result.outcomes.forEach(({ outcome }, index) => {
       const member = members[index]!;
@@ -158,6 +161,7 @@ interface Row {
   kidDay: number | null;
   teenDay: number | null;
   asleep: number;
+  coinsPerWeek: number;
 }
 
 /** Median over all runs, counting runs that never got there as the latest; null if most never did. */
@@ -182,6 +186,7 @@ function summarize(
   let lowDays = 0;
   let ranAway = 0;
   let asleep = 0;
+  let coins = 0;
   const kidDays: number[] = [];
   const teenDays: number[] = [];
   for (let i = 0; i < runs; i += 1) {
@@ -192,6 +197,7 @@ function summarize(
     healthSum += run.healthSum;
     lowDays += run.lowDays;
     asleep += run.asleepMemberDays;
+    coins += run.coins;
     if (run.ranAway) ranAway += 1;
     if (run.kidDay !== null) kidDays.push(run.kidDay);
     if (run.teenDay !== null) teenDays.push(run.teenDay);
@@ -206,13 +212,14 @@ function summarize(
     kidDay: median(kidDays, runs),
     teenDay: median(teenDays, runs),
     asleep: asleep / (runs * days * size),
+    coinsPerWeek: (coins / runs / days) * 7,
   };
 }
 
 function table(rows: readonly Row[], days: number): string[] {
   const percent = (value: number) => `${Math.round(value * 100)}%`;
   const day = (value: number | null) => (value === null ? `>${days}` : String(value));
-  const header = ['rate', 'size', 'success', 'avg health', 'low', 'ran away', 'kid', 'teen', 'asleep'];
+  const header = ['rate', 'size', 'success', 'avg health', 'low', 'ran away', 'kid', 'teen', 'asleep', 'coins/week'];
   const lines = rows.map((row) => [
     row.rate.toFixed(2),
     String(row.size),
@@ -223,6 +230,7 @@ function table(rows: readonly Row[], days: number): string[] {
     day(row.kidDay),
     day(row.teenDay),
     percent(row.asleep),
+    row.coinsPerWeek.toFixed(1),
   ]);
   const widths = header.map((title, column) => Math.max(title.length, ...lines.map((line) => line[column]!.length)));
   const format = (cells: string[]) => cells.map((cell, column) => cell.padEnd(widths[column]!)).join('  ').trimEnd();
@@ -238,7 +246,8 @@ console.log(`Gozali simulator: ${runs} runs per row, ${days} days, seed ${seed}`
 console.log('rate: chance a member feeds on a given day; success: share of counted days that succeeded;');
 console.log('avg health: after hatching, 0 while away; low: days below 40 health or away;');
 console.log('ran away: packs whose critter ran away at least once;');
-console.log('kid, teen: median day the stage was reached; asleep: share of member-days spent asleep.');
+console.log('kid, teen: median day the stage was reached; asleep: share of member-days spent asleep;');
+console.log('coins/week: coins the pack earned per week on average over the whole run.');
 for (const scenario of SCENARIOS) {
   console.log('');
   console.log(`${scenario.category} (${scenario.restDays} rest days a week)`);

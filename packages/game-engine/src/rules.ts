@@ -1,4 +1,5 @@
 import {
+  COINS_BY_STREAK,
   EARLY_BIRD_BEFORE_HOUR,
   EARLY_BIRD_MIN_FEEDERS,
   FEEDERS_TO_HATCH,
@@ -89,6 +90,7 @@ export function closeDay(input: DayInput): DayResult {
     allowedMisses: allowed,
     healthBefore: before.health,
     critter: after,
+    coins: coinsFor(type, before, after),
     newlySleeping,
     events,
     facts: advanced.applied ? dayFacts(type, counted, feeders) : NO_FACTS,
@@ -162,6 +164,12 @@ function dayFacts(type: DayType, counted: number, feeders: readonly MemberDay[])
       (member) => member.fedAtMinute !== undefined && member.fedAtMinute >= nightStart,
     ).length,
   };
+}
+
+/** A successful day while the critter is home earns more the longer the streak (decision D21). */
+export function coinsFor(type: DayType, before: CritterState, after: CritterState): number {
+  if (type !== 'success' || before.status === 'ran_away' || after.status !== 'active') return 0;
+  return COINS_BY_STREAK.find(([streak]) => after.streak >= streak)?.[1] ?? 0;
 }
 
 function nextStreak(streak: number, type: DayType): number {
