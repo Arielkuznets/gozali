@@ -13,6 +13,7 @@ import { critterArt } from '@/features/critter/art';
 import { packErrorKey, useJoinPack, usePackPreview } from '@/features/packs/api';
 import { INVITE_CODE_LENGTH, categoryInfo, normalizeInviteCode } from '@/features/packs/constants';
 import { notify } from '@/lib/confirm';
+import { haptics } from '@/lib/haptics';
 import { goBack } from '@/lib/navigation';
 import { colors, radii, spacing } from '@/theme/tokens';
 
@@ -30,7 +31,10 @@ export default function JoinScreen() {
 
   const onJoin = () => {
     joinPack.mutate(code, {
-      onSuccess: (packId) => router.replace(`/pack/${packId}`),
+      onSuccess: (packId) => {
+        haptics.success();
+        router.replace(`/pack/${packId}`);
+      },
       onError: (error) => notify(t(packErrorKey(error))),
     });
   };

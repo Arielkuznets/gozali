@@ -1,8 +1,7 @@
 import type { CritterArt } from '@gozali/critter-art';
-import * as Haptics from 'expo-haptics';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, Platform, StyleSheet, View } from 'react-native';
+import { Modal, StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -18,6 +17,7 @@ import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Critter } from '@/features/critter/Critter';
 import type { Milestone } from '@/features/critter/milestones';
+import { haptics } from '@/lib/haptics';
 import { colors, radii, spacing } from '@/theme/tokens';
 
 const SIZE = 200;
@@ -50,7 +50,7 @@ export function MilestoneMoment({ milestone, art, name, onClose }: Props) {
     pop.value = withDelay(reveal, withSpring(1, { damping: 7, stiffness: 140 }));
     text.value = withDelay(reveal + 350, withTiming(1, { duration: 300 }));
     const buzz = setTimeout(() => {
-      if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      haptics.success();
     }, reveal);
     return () => clearTimeout(buzz);
   }, [milestone.kind, shake, eggGone, pop, text]);

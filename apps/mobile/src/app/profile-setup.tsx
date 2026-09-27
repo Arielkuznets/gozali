@@ -4,7 +4,9 @@ import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
+import { LegalLinks } from '@/components/LegalLinks';
 import { Screen } from '@/components/Screen';
+import { AvatarButton } from '@/features/profile/AvatarButton';
 import { suggestedName } from '@/features/profile/suggestedName';
 import { NAME_MAX_LENGTH, useCompleteProfile, useProfile } from '@/features/profile/useProfile';
 import { notify } from '@/lib/confirm';
@@ -35,6 +37,7 @@ export default function ProfileSetupScreen() {
     <Screen>
       <View style={styles.form}>
         <AppText variant="heading">{t('profileSetup.title')}</AppText>
+        <AvatarButton name={name} />
         <View style={styles.field}>
           <AppText variant="caption" aria-hidden>
             {t('profileSetup.nameLabel')}
@@ -60,6 +63,7 @@ export default function ProfileSetupScreen() {
           </View>
           <AppText style={styles.agreeText}>{t('profileSetup.agree')}</AppText>
         </Pressable>
+        <LegalLinks />
       </View>
       <AppText variant="caption" style={styles.notice}>
         {t('profileSetup.notifications')}

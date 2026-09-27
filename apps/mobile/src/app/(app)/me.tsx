@@ -1,17 +1,14 @@
 import { addDays, packDayOf } from '@gozali/game-engine';
-import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
-import { ActionMenu, type Menu } from '@/components/ActionMenu';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { LoadFailed } from '@/components/ScreenStates';
 import { signOut } from '@/features/auth/signIn';
-import { pickAvatar, useAvatarUrls, useSetAvatar } from '@/features/profile/avatar';
+import { AvatarButton } from '@/features/profile/AvatarButton';
 import { useProfile } from '@/features/profile/useProfile';
 import { useMyStats } from '@/features/social/api';
 import { notify } from '@/lib/confirm';
@@ -27,24 +24,6 @@ export default function MeScreen() {
   const { t } = useTranslation();
   const profile = useProfile();
   const stats = useMyStats();
-  const avatar = useAvatarUrls([profile.data?.avatar_path]);
-  const setAvatar = useSetAvatar();
-  const avatarUrl = profile.data?.avatar_path ? avatar.data?.get(profile.data.avatar_path) : undefined;
-  const [menu, setMenu] = useState<Menu | null>(null);
-
-  const changePhoto = () => {
-    const removePhoto = () => setAvatar.mutate(null, { onError: () => notify(t('errors.saveFailed')) });
-    const pickFrom = (source: 'camera' | 'library') => () =>
-      void pickAvatar(source).then((uri) => uri && setAvatar.mutate(uri, { onError: () => notify(t('errors.saveFailed')) }));
-    setMenu({
-      title: t('me.photo'),
-      actions: [
-        { label: t('me.takePhoto'), onPress: pickFrom('camera') },
-        { label: t('me.choosePhoto'), onPress: pickFrom('library') },
-        ...(profile.data?.avatar_path ? [{ label: t('me.removePhoto'), destructive: true, onPress: removePhoto }] : []),
-      ],
-    });
-  };
 
   const onSignOut = () => {
     signOut().catch(() => notify(t('errors.signInFailed')));
@@ -77,16 +56,7 @@ export default function MeScreen() {
         )
       ) : (
         <ScrollView contentContainerStyle={styles.body}>
-          <Pressable accessibilityRole="button" accessibilityLabel={t('me.photo')} onPress={changePhoto} style={styles.avatarWrap}>
-            {avatarUrl ? (
-              <Image source={{ uri: avatarUrl }} style={styles.avatar} contentFit="cover" />
-            ) : (
-              <View style={[styles.avatar, styles.avatarEmpty]}>
-                <AppText style={styles.avatarInitial}>{(profile.data?.display_name?.trim()[0] ?? '?').toUpperCase()}</AppText>
-              </View>
-            )}
-            <AppText variant="caption">{avatarUrl ? t('me.changePhoto') : t('me.addPhoto')}</AppText>
-          </Pressable>
+          <AvatarButton name={profile.data?.display_name} />
           <View style={styles.stats}>
             {(
               [
@@ -141,7 +111,6 @@ export default function MeScreen() {
       )}
 
       <Button label={t('me.signOut')} variant="secondary" onPress={onSignOut} />
-      <ActionMenu menu={menu} cancel={t('social.cancel')} onClose={() => setMenu(null)} />
     </Screen>
   );
 }
@@ -150,10 +119,6 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.md },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   body: { gap: spacing.md, paddingBottom: spacing.lg },
-  avatarWrap: { alignItems: 'center', gap: spacing.xs },
-  avatar: { width: 88, height: 88, borderRadius: 44 },
-  avatarEmpty: { backgroundColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  avatarInitial: { fontFamily: fonts.heading, fontSize: 36, lineHeight: 44 },
   centerText: { textAlign: 'center' },
   stats: { flexDirection: 'row', gap: spacing.sm },
   stat: {

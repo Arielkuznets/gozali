@@ -1,5 +1,4 @@
 import { CameraView, useCameraPermissions, type CameraType } from 'expo-camera';
-import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -28,6 +27,7 @@ import { usePack } from '@/features/packs/api';
 import { categoryInfo } from '@/features/packs/constants';
 import { notify } from '@/lib/confirm';
 import { isBlockedText } from '@/lib/errors';
+import { haptics } from '@/lib/haptics';
 import { goBack } from '@/lib/navigation';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
@@ -70,7 +70,7 @@ export default function FeedScreen() {
   const capture = async () => {
     if (!camera.current || !ready) return;
     const capturedAt = new Date().toISOString();
-    if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    haptics.bump('medium');
     for (let attempt = 1; attempt <= CAPTURE_TRIES; attempt++) {
       // The screen may have closed while waiting.
       if (!camera.current) return;
@@ -101,7 +101,7 @@ export default function FeedScreen() {
         focusMinutes,
         extra,
       });
-      if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      haptics.success();
       // The photo that ends a focus session also ends it, whichever way the camera was opened.
       if (focusMinutes !== null) await clearFocusSession();
       setResult(outcome);

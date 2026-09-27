@@ -1,12 +1,12 @@
 import { renderCritter, type CritterArt } from '@gozali/critter-art';
-import * as Haptics from 'expo-haptics';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Platform, Pressable, StyleSheet, View, type GestureResponderEvent } from 'react-native';
+import { Pressable, StyleSheet, View, type GestureResponderEvent } from 'react-native';
 import Animated, {
   Easing,
   cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withRepeat,
   withSequence,
   withSpring,
@@ -15,6 +15,7 @@ import Animated, {
 import { SvgXml } from 'react-native-svg';
 
 import { AppText } from '@/components/AppText';
+import { haptics } from '@/lib/haptics';
 import { colors, radii, spacing } from '@/theme/tokens';
 
 type Props = {
@@ -31,6 +32,7 @@ type Props = {
 
 const BLINK_MS = 140;
 const YAWN_MS = 1300;
+const YAWN_FADE_MS = 150;
 // Seconds between yawns, the first number plus up to the second. Mochi and Bun are the sleepy ones.
 const YAWN_EVERY: Record<CritterArt['species'], [number, number]> = {
   mochi: [12, 12],
@@ -47,8 +49,6 @@ const LINE_MS = 2600;
  * critter from its state, so the final illustrated character replaces only this file.
  */
 export function Critter({ art, size, label, animated = true, lines, petHint }: Props) {
-  const [blinking, setBlinking] = useState(false);
-  const [yawning, setYawning] = useState(false);
   const [line, setLine] = useState<string | null>(null);
   const lineTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [gaze, setGaze] = useState<{ x: number; y: number } | undefined>(undefined);
@@ -57,6 +57,10 @@ export function Critter({ art, size, label, animated = true, lines, petHint }: P
   const origin = useRef<{ x: number; y: number } | null>(null);
   const breath = useSharedValue(0);
   const jump = useSharedValue(0);
+  // Blinks and yawns are drawings of their own laid over the critter and shown for a moment on
+  // the animation thread, so idle animation never redraws or re-parses the SVG.
+  const blink = useSharedValue(0);
+  const yawn = useSharedValue(0);
 
   const present = art.look !== 'ran_away';
   const awake = present && art.look !== 'egg' && !art.sleeping;
@@ -80,18 +84,18 @@ export function Critter({ art, size, label, animated = true, lines, petHint }: P
     const schedule = () => {
       timer = setTimeout(
         () => {
-          setBlinking(true);
-          timer = setTimeout(() => {
-            setBlinking(false);
-            schedule();
-          }, BLINK_MS);
+          blink.value = withSequence(withTiming(1, { duration: 0 }), withDelay(BLINK_MS, withTiming(0, { duration: 0 })));
+          schedule();
         },
         2200 + Math.random() * 3200,
       );
     };
     schedule();
-    return () => clearTimeout(timer);
-  }, [animated, awake]);
+    return () => {
+      clearTimeout(timer);
+      blink.value = 0;
+    };
+  }, [animated, awake, blink]);
 
   // Now and then a yawn.
   useEffect(() => {
@@ -101,11 +105,11 @@ export function Critter({ art, size, label, animated = true, lines, petHint }: P
     const schedule = () => {
       timer = setTimeout(
         () => {
-          setYawning(true);
-          timer = setTimeout(() => {
-            setYawning(false);
-            schedule();
-          }, YAWN_MS);
+          yawn.value = withSequence(
+            withTiming(1, { duration: YAWN_FADE_MS }),
+            withDelay(YAWN_MS - 2 * YAWN_FADE_MS, withTiming(0, { duration: YAWN_FADE_MS })),
+          );
+          schedule();
         },
         (base + Math.random() * spread) * 1000,
       );
@@ -113,9 +117,9 @@ export function Critter({ art, size, label, animated = true, lines, petHint }: P
     schedule();
     return () => {
       clearTimeout(timer);
-      setYawning(false);
+      yawn.value = 0;
     };
-  }, [animated, awake, art.look, art.species]);
+  }, [animated, awake, art.look, art.species, yawn]);
 
   useEffect(
     () => () => {
@@ -148,10 +152,19 @@ export function Critter({ art, size, label, animated = true, lines, petHint }: P
 
   // Ids inside the drawing are unique per critter: on the web every screen shares one page.
   const svgId = `gz${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
-  const xml = useMemo(
-    () => renderCritter({ ...art, blinking, yawning, gaze }, { id: svgId }),
-    [art, blinking, yawning, gaze, svgId],
+  const xml = useMemo(() => renderCritter({ ...art, gaze }, { id: svgId }), [art, gaze, svgId]);
+  const blinks = animated && awake;
+  const yawns = blinks && art.look !== 'sick';
+  const blinkXml = useMemo(
+    () => (blinks ? renderCritter({ ...art, blinking: true }, { id: `${svgId}b` }) : null),
+    [art, blinks, svgId],
   );
+  const yawnXml = useMemo(
+    () => (yawns ? renderCritter({ ...art, yawning: true }, { id: `${svgId}y` }) : null),
+    [art, yawns, svgId],
+  );
+  const blinkStyle = useAnimatedStyle(() => ({ opacity: blink.value }));
+  const yawnStyle = useAnimatedStyle(() => ({ opacity: yawn.value }));
 
   const motion = useAnimatedStyle(() => {
     const b = breath.value;
@@ -168,7 +181,7 @@ export function Critter({ art, size, label, animated = true, lines, petHint }: P
   const canPet = present && lines !== undefined && lines.length > 0;
   const onPet = () => {
     if (!canPet) return;
-    if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    haptics.bump();
     jump.value = withSequence(withTiming(1, { duration: 150 }), withSpring(0, { damping: 6, stiffness: 180 }));
     setLine(lines[Math.floor(Math.random() * lines.length)] ?? null);
     clearTimeout(lineTimer.current);
@@ -178,6 +191,16 @@ export function Critter({ art, size, label, animated = true, lines, petHint }: P
   const drawing = (
     <Animated.View style={[{ width: size, height: size, transformOrigin: 'bottom' }, motion]}>
       <SvgXml xml={xml} width={size} height={size} />
+      {blinkXml && (
+        <Animated.View style={[StyleSheet.absoluteFill, blinkStyle]} pointerEvents="none">
+          <SvgXml xml={blinkXml} width={size} height={size} />
+        </Animated.View>
+      )}
+      {yawnXml && (
+        <Animated.View style={[StyleSheet.absoluteFill, yawnStyle]} pointerEvents="none">
+          <SvgXml xml={yawnXml} width={size} height={size} />
+        </Animated.View>
+      )}
     </Animated.View>
   );
 
