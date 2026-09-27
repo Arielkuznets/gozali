@@ -41,7 +41,7 @@ export default function FeedScreen() {
   const params = useLocalSearchParams<{ id: string; extra?: string; focus?: string }>();
   const packId = params.id;
   const extra = params.extra === '1';
-  const focusMinutes = params.focus ? Number(params.focus) : null;
+  const focusMinutes = params.focus && /^[0-9]{1,3}$/.test(params.focus) ? Number(params.focus) : null;
   const { session } = useAuth();
   const { data: pack } = usePack(packId);
   const [permission, requestPermission] = useCameraPermissions();
@@ -51,6 +51,9 @@ export default function FeedScreen() {
   const [shot, setShot] = useState<Shot | null>(null);
   const [caption, setCaption] = useState('');
   const [result, setResult] = useState<'sent' | 'queued' | null>(null);
+  // Set from the tap on Send, so a second tap while the photo is compressed doesn't send it twice.
+  const [busy, setBusy] = useState(false);
+  const sending = useRef(false);
   const send = useSendFeed();
 
   // After a successful feed, the critter eats for a moment and the screen closes by itself.
@@ -64,12 +67,18 @@ export default function FeedScreen() {
     if (!camera.current || !ready) return;
     const capturedAt = new Date().toISOString();
     if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    const photo = await camera.current.takePictureAsync({ quality: 0.9 });
-    if (photo) setShot({ uri: photo.uri, width: photo.width, capturedAt });
+    try {
+      const photo = await camera.current.takePictureAsync({ quality: 0.9 });
+      if (photo) setShot({ uri: photo.uri, width: photo.width, capturedAt });
+    } catch {
+      Alert.alert(t('feed.captureFailed'));
+    }
   };
 
   const submit = async () => {
-    if (!shot || !session) return;
+    if (!shot || !session || sending.current) return;
+    sending.current = true;
+    setBusy(true);
     try {
       const photoUri = await compressPhoto(shot.uri, shot.width);
       const outcome = await send.mutateAsync({
@@ -88,19 +97,30 @@ export default function FeedScreen() {
       setResult(outcome);
     } catch (error) {
       Alert.alert(isBlockedText(error) ? t('errors.textNotAllowed') : t('feed.failed'));
+    } finally {
+      sending.current = false;
+      setBusy(false);
     }
   };
 
-  if (result && pack?.critters) {
-    const critter = pack.critters;
-    const name = critter.name ?? t(`packs.species.${critter.species}`);
-    const art = { ...critterArt(critter, { category: pack.category, now: new Date() }), mood: 1, sleeping: false };
+  if (result) {
+    // Opened from a link while offline, the pack may not be loaded: then no animation.
+    const critter = pack?.critters;
+    const name = critter ? (critter.name ?? t(`packs.species.${critter.species}`)) : null;
     return (
       <SafeAreaView style={styles.doneScreen}>
-        <EatingMoment art={art} photoUri={shot?.uri ?? null} label={t('feed.ateLabel', { name })} />
+        {pack && critter && name ? (
+          <EatingMoment
+            art={{ ...critterArt(critter, { category: pack.category, now: new Date() }), mood: 1, sleeping: false }}
+            photoUri={shot?.uri ?? null}
+            label={t('feed.ateLabel', { name })}
+          />
+        ) : (
+          <View style={styles.done} />
+        )}
         <View style={styles.doneText}>
           <AppText variant="heading" style={styles.centerText}>
-            {result === 'sent' ? t('feed.sent', { name }) : t('feed.queuedTitle')}
+            {result === 'queued' ? t('feed.queuedTitle') : name ? t('feed.sent', { name }) : t('feed.sentPlain')}
           </AppText>
           {result === 'queued' && <AppText style={[styles.centerText, styles.muted]}>{t('feed.queuedBody')}</AppText>}
         </View>
@@ -156,10 +176,10 @@ export default function FeedScreen() {
             />
             <View style={styles.row}>
               <View style={styles.fill}>
-                <Button label={t('feed.retake')} variant="secondary" onPress={() => setShot(null)} disabled={send.isPending} />
+                <Button label={t('feed.retake')} variant="secondary" onPress={() => setShot(null)} disabled={busy} />
               </View>
               <View style={styles.fill}>
-                <Button label={t('feed.send')} onPress={() => void submit()} loading={send.isPending} />
+                <Button label={t('feed.send')} onPress={() => void submit()} loading={busy} />
               </View>
             </View>
           </View>
