@@ -42,9 +42,12 @@ function SettingsForm({ pack }: { pack: Pack }) {
   const isAdmin = members.some((member) => member.user_id === userId && member.role === 'admin');
 
   // Pending values are what the pack will use from next week, so they are what the form edits.
+  const savedRestDays = pack.pending_rest_days_per_week ?? pack.rest_days_per_week;
+  const savedWeekStart = pack.pending_week_start ?? pack.week_start;
   const [name, setName] = useState(pack.name);
-  const [restDays, setRestDays] = useState(pack.pending_rest_days_per_week ?? pack.rest_days_per_week);
-  const [weekStart, setWeekStart] = useState<WeekStart>(pack.pending_week_start ?? pack.week_start);
+  const [restDays, setRestDays] = useState(savedRestDays);
+  const [weekStart, setWeekStart] = useState<WeekStart>(savedWeekStart);
+  const changed = name.trim() !== pack.name || restDays !== savedRestDays || weekStart !== savedWeekStart;
 
   const updatePack = useUpdatePack(pack.id);
   const removeMember = useRemoveMember(pack.id);
@@ -130,8 +133,8 @@ function SettingsForm({ pack }: { pack: Pack }) {
 
         {isAdmin && (
           <Button
-            label={updatePack.isSuccess ? t('settings.saved') : t('settings.save')}
-            disabled={name.trim().length === 0}
+            label={updatePack.isSuccess && !changed ? t('settings.saved') : t('settings.save')}
+            disabled={!changed || name.trim().length === 0}
             loading={updatePack.isPending}
             onPress={onSave}
           />
