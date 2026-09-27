@@ -26,7 +26,7 @@ test('creating a pack takes four steps and ends on the invite', async ({ page })
   await page.getByRole('button', { name: 'Next' }).click();
   await expect(page.getByText('Rest days', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Next' }).click();
-  await page.getByRole('radio', { name: 'Mossy' }).click();
+  await page.getByRole('radio', { name: /^Hoot/ }).click();
   await page.getByRole('button', { name: 'Create pack' }).click();
 
   await expect(page.getByText('Invite your friends')).toBeVisible();
@@ -40,7 +40,7 @@ test('creating a pack takes four steps and ends on the invite', async ({ page })
 });
 
 test('joining with a code shows the pack first, then opens it', async ({ page }) => {
-  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'spark' });
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' });
   await signIn(page, dan);
   await page.goto('/');
   await page.getByRole('button', { name: 'Join with a code' }).click();

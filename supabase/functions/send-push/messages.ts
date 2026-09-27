@@ -1,7 +1,7 @@
-// Notification texts in the critter's voice (spec sections 4 and 8). English for the pilot;
-// Hebrew lines are written, not translated, for the launch. Texts never say who missed.
+// Notification texts in the critter's voice (spec sections 4 and 8), one personality per
+// creature. English for the pilot. Texts never say who missed.
 
-export type Species = 'blob' | 'spark' | 'mossy';
+export type Species = 'mochi' | 'kit' | 'axo' | 'ribbit' | 'hoot' | 'bun';
 export type NotificationType =
   | 'friend_fed'
   | 'evening_reminder'
@@ -34,7 +34,14 @@ export interface Rendered {
   url: string;
 }
 
-const SPECIES_NAMES: Record<Species, string> = { blob: 'Blob', spark: 'Spark', mossy: 'Mossy' };
+const SPECIES_NAMES: Record<Species, string> = {
+  mochi: 'Mochi',
+  kit: 'Kit',
+  axo: 'Axo',
+  ribbit: 'Ribbit',
+  hoot: 'Hoot',
+  bun: 'Bun',
+};
 const STAGES: Record<string, string> = { baby: 'Baby', kid: 'Kid', teen: 'Teen', adult: 'Adult', legend: 'Legend' };
 const ACHIEVEMENTS: Record<string, string> = {
   hatched: 'Hello world',
@@ -53,29 +60,41 @@ const ACHIEVEMENTS: Record<string, string> = {
 
 const VOICE: Record<'reminder' | 'last' | 'weak' | 'sick', Record<Species, string>> = {
   reminder: {
-    blob: 'I was napping but also... starving? Feed me today 🥺',
-    spark: 'Still waiting for your feed today. Dramatically. 🎭',
-    mossy: "Fun fact: you haven't fed me today yet 🌱",
+    mochi: 'I was napping but also... starving? Feed me today 🥺',
+    kit: 'Still waiting for your feed today. Dramatically. 🎭',
+    axo: 'Hiii! Snack time? Feed me today! 🫧',
+    ribbit: 'Ribbit. A gentle reminder: feed me today 🍃',
+    hoot: "Fun fact: you haven't fed me today yet 🦉",
+    bun: 'Um... sorry to bother you... could you feed me today? 🥕',
   },
   last: {
-    blob: "Everyone fed me but you. I'll just... wait here 😴",
-    spark: 'Everyone fed me. Everyone. Except. You. 👀',
-    mossy: "Observation: you're the last one left today 🌱",
+    mochi: "Everyone fed me but you. I'll just... wait here 😴",
+    kit: 'Everyone fed me. Everyone. Except. You. 👀',
+    axo: 'Everyone fed me! Well... almost everyone 👀',
+    ribbit: 'The pond is almost complete. Only you are missing 🍃',
+    hoot: "Observation: you're the last one left today 🦉",
+    bun: "Everyone fed me... except you. It's okay... 🥺",
   },
   weak: {
-    blob: "I'm getting a little floppy... a feed would help 🥺",
-    spark: "I'm fading... tragically. Feed me? 🥀",
-    mossy: 'My energy readings are low. Feeds recharge me 🔋',
+    mochi: "I'm getting a little floppy... a feed would help 🥺",
+    kit: "I'm fading... tragically. Feed me? 🥀",
+    axo: 'My frills are getting floppy... a feed, please? 🫧',
+    ribbit: 'Even calm frogs need to eat... 🍃',
+    hoot: 'My energy readings are low. Feeds recharge me 🔋',
+    bun: "I'm a little tired... a feed would help 🥕",
   },
   sick: {
-    blob: "I'm sick and I need a blanket. And feeds. Mostly feeds 🤒",
-    spark: "I'm too gorgeous to be this sick. Help 🤒",
-    mossy: 'Diagnosis: underfed. Prescription: feeds from the pack 🤒',
+    mochi: "I'm sick and I need a blanket. And feeds. Mostly feeds 🤒",
+    kit: "I'm too gorgeous to be this sick. Help 🤒",
+    axo: 'Not feeling bubbly today. A feed would help 🤒',
+    ribbit: 'Resting under my blanket. A feed would help 🤒',
+    hoot: 'Diagnosis: underfed. Prescription: feeds from the pack 🤒',
+    bun: 'I feel a little sick... could I have a feed? 🤒',
   },
 };
 
 export function render(row: ClaimedRow): Rendered {
-  const species = row.species ?? 'blob';
+  const species = row.species ?? 'mochi';
   const critter = row.critter_name ?? SPECIES_NAMES[species];
   const pack = row.pack_name ?? 'Gozali';
   const home = row.pack_id ? `/pack/${row.pack_id}` : '/';

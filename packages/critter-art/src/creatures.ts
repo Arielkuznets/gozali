@@ -1,24 +1,27 @@
 import { CHEEK, INK, darken, lighten, mix } from './palette.ts';
-import type { Geometry } from './species.ts';
+import type { Geometry } from './geometry.ts';
 import { circle, el, ellipse, g, path } from './svg.ts';
 import type { Creature } from './types.ts';
 
 /**
  * Fills with soft 3D lighting: light from the top left, shade toward the bottom right. Each
  * shape gets its own gradient box, so every part of the body looks round on its own.
- * Gradient ids come from the color, so two critters on one web page can't clash.
+ * Every id starts with `prefix`: on the web all drawings share one page, and a critter on a
+ * hidden screen must not lend its gradients to one on the visible screen.
  */
 export class Paint {
   private readonly defs = new Map<string, string>();
   readonly color: string;
+  readonly prefix: string;
 
-  constructor(color: string) {
+  constructor(color: string, prefix: string) {
     this.color = color;
+    this.prefix = prefix;
   }
 
   /** A lit fill for `base` (the creature's color by default). */
   fill(base: string = this.color): string {
-    const id = `gz-v${base.slice(1)}`;
+    const id = `${this.prefix}-v${base.slice(1)}`;
     if (!this.defs.has(id)) {
       this.defs.set(
         id,
@@ -36,7 +39,7 @@ export class Paint {
 
   /** A soft spot of `base` that fades out toward its edge (highlights and shade). */
   glow(base: string, opacity: number): string {
-    const id = `gz-g${base.slice(1)}${Math.round(opacity * 100)}`;
+    const id = `${this.prefix}-g${base.slice(1)}${Math.round(opacity * 100)}`;
     if (!this.defs.has(id)) {
       this.defs.set(
         id,
@@ -194,7 +197,7 @@ export const CREATURE_COLORS: Record<Creature, string> = {
 export function bodyLight(creature: Creature, p: Paint): string {
   const art = CREATURE_ART[creature];
   return g(
-    { 'clip-path': p.clip(`gz-clip-${creature}`, art.body) },
+    { 'clip-path': p.clip(`${p.prefix}-clip-${creature}`, art.body) },
     ellipse(100, 190, 80, 24, { fill: p.glow(darken(p.color, 0.55), 0.4) }),
     ellipse(80, 104, 22, 14, { fill: p.glow('#FFFFFF', 0.85), transform: rot(80, 104, -20) }),
   );

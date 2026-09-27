@@ -34,7 +34,7 @@ function check(condition, message) {
 const noa = await signedInUser('Noa');
 const dan = await signedInUser('Dan');
 const pack = async (client, name) =>
-  (await client.rpc('create_pack', { pack_name: name, habit: 'gym', rest_days: 1, species: 'blob', critter_color: 'peach', time_zone: 'UTC' })).data;
+  (await client.rpc('create_pack', { pack_name: name, habit: 'gym', rest_days: 1, species: 'mochi', time_zone: 'UTC' })).data;
 const shared = await pack(noa.client, 'Gym squad');
 const solo = await pack(noa.client, 'Just me');
 const { data: invite } = await noa.client.from('packs').select('invite_code').eq('id', shared).single();

@@ -1,4 +1,4 @@
-import { critterColors } from '@/theme/tokens';
+import { CREATURES } from '@gozali/critter-art';
 
 /** Habit categories with the default rest days from spec section 3. */
 export const CATEGORIES = [
@@ -12,11 +12,9 @@ export const CATEGORIES = [
 
 export type Category = (typeof CATEGORIES)[number]['key'];
 
-export const SPECIES = ['blob', 'spark', 'mossy'] as const;
+/** The six creatures a pack can raise, each with its own color and personality. */
+export const SPECIES = CREATURES;
 export type Species = (typeof SPECIES)[number];
-
-export type CritterColor = keyof typeof critterColors;
-export const CRITTER_COLORS = Object.keys(critterColors) as CritterColor[];
 
 export type CritterStage = 'egg' | 'baby' | 'kid' | 'teen' | 'adult' | 'legend';
 export type CritterStatus = 'egg' | 'active' | 'ran_away';

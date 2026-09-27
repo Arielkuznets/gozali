@@ -13,7 +13,7 @@ test.afterEach(async () => {
 });
 
 test('a pack that fails to load offers to try again, not "pack missing"', async ({ page }) => {
-  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'spark' });
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' });
   const packRequests = '**/rest/v1/packs?**';
   await page.route(packRequests, (route) => route.abort('internetdisconnected'));
   await signIn(page, noa);

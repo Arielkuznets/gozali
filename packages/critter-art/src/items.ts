@@ -1,5 +1,5 @@
 import { ACCENT, GOLD, INK, WHITE, darken, lighten } from './palette.ts';
-import { GROUND, type Geometry } from './species.ts';
+import { GROUND, type Geometry } from './geometry.ts';
 import { circle, el, ellipse, g, line, path, rect } from './svg.ts';
 import type { BackgroundItem, CategoryItem, HeadItem, NeckItem } from './types.ts';
 
@@ -224,15 +224,6 @@ export const snore = () =>
 
 export const EGG = 'M100 68 C131 68 150 114 150 140 C150 168 128 184 100 184 C72 184 50 168 50 140 C50 114 69 68 100 68 Z';
 
-export function egg(color: string, cracking: boolean): string {
-  return (
-    ellipse(100, 185, 44, 5, { fill: INK, opacity: 0.08 }) +
-    path(EGG, { fill: lighten(color, 0.2) }) +
-    g({ fill: darken(color, 0.12), opacity: 0.55 }, ellipse(80, 104, 8, 10), ellipse(120, 132, 11, 9), ellipse(86, 158, 6, 5), ellipse(128, 96, 4, 5)) +
-    (cracking ? path('M62 126 L74 118 L84 130 L96 119 L106 132 L118 121 L128 131 L138 124', line(INK, 3)) : '')
-  );
-}
-
 /** Where the critter used to be: a pinned note and footprints walking off. */
 export function note(): string {
   const prints = [
@@ -305,24 +296,24 @@ const BACKGROUNDS: Record<BackgroundItem, string> = {
     path('M0 168 Q100 156 200 168 V200 H0 Z', { fill: '#474D6E' }),
 };
 
-export function background(item: BackgroundItem): string {
+export function background(item: BackgroundItem, prefix: string): string {
   return (
-    el('defs', {}, el('clipPath', { id: 'gz-card' }, rect(0, 0, 200, 200, { rx: 28 }))) +
-    g({ 'clip-path': 'url(#gz-card)' }, BACKGROUNDS[item])
+    el('defs', {}, el('clipPath', { id: `${prefix}-card` }, rect(0, 0, 200, 200, { rx: 28 }))) +
+    g({ 'clip-path': `url(#${prefix}-card)` }, BACKGROUNDS[item])
   );
 }
 
-export function aura(): string {
+export function aura(prefix: string): string {
   return (
     el(
       'defs',
       {},
       el(
         'radialGradient',
-        { id: 'gz-aura' },
+        { id: `${prefix}-aura` },
         el('stop', { offset: '0', 'stop-color': GOLD, 'stop-opacity': 0.45 }),
         el('stop', { offset: '1', 'stop-color': GOLD, 'stop-opacity': 0 }),
       ),
-    ) + circle(100, 128, 92, { fill: 'url(#gz-aura)' })
+    ) + circle(100, 128, 92, { fill: `url(#${prefix}-aura)` })
   );
 }

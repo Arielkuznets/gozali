@@ -17,7 +17,7 @@ $$;
 set local role authenticated;
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000a4');
 create temp table pack as
-  select public.create_pack('Gym squad', 'gym', 0::smallint, 'blob', 'peach', 'Asia/Jerusalem') as id;
+  select public.create_pack('Gym squad', 'gym', 0::smallint, 'mochi', 'Asia/Jerusalem') as id;
 create temp table code as select invite_code from public.packs;
 grant select on pack, code to authenticated;
 select is((select count(*) from public.pack_events), 0::bigint, 'creating a pack is not a join event');

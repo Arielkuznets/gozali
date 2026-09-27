@@ -2,8 +2,7 @@ import { critterArt, isNight, localDay, parseOutfit, stageProgress } from '@/fea
 import type { PackCritter } from '@/features/packs/api';
 
 const critter: PackCritter = {
-  species: 'spark',
-  color: 'sky',
+  species: 'kit',
   name: 'Pixel',
   health: 50,
   xp: 10,

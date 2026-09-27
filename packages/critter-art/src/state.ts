@@ -2,12 +2,10 @@ import { healthState, stageRank, type Mark, type Stage } from '@gozali/game-engi
 
 import { CREATURE_COLORS } from './creatures.ts';
 import { isHoliday } from './holidays.ts';
-import { CRITTER_PALETTE, type CritterColor } from './palette.ts';
 import {
   BACKGROUND_ITEMS,
   HEAD_ITEMS,
   NECK_ITEMS,
-  isCreature,
   type CategoryItem,
   type CritterArt,
   type Outfit,
@@ -17,7 +15,6 @@ import {
 /** A critters row as the database stores it. */
 export interface CritterRow {
   species: Species;
-  color: CritterColor;
   health: number;
   stage: Stage;
   status: 'egg' | 'active' | 'ran_away';
@@ -75,8 +72,7 @@ export function critterArtFor(
 ): CritterArt {
   return {
     species: critter.species,
-    // A creature always wears its own color; the stored color is for the first three species.
-    color: isCreature(critter.species) ? CREATURE_COLORS[critter.species] : CRITTER_PALETTE[critter.color],
+    color: CREATURE_COLORS[critter.species],
     stage: critter.stage,
     look: critter.status === 'egg' ? 'egg' : healthState(critter),
     mood: context.mood,

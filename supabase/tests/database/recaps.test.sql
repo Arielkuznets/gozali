@@ -11,8 +11,8 @@ insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000b6', 'dan@test.local');
 insert into public.packs (id, name, category, rest_days_per_week, week_start, timezone, invite_code)
 values ('10000000-0000-0000-0000-000000000006', 'Readers', 'reading', 1, 'sunday', 'Asia/Jerusalem', 'READ2345');
-insert into public.critters (pack_id, species, color, status, stage, health, streak, name)
-values ('10000000-0000-0000-0000-000000000006', 'mossy', 'sage', 'active', 'kid', 81, 5, 'Moss');
+insert into public.critters (pack_id, species, status, stage, health, streak, name)
+values ('10000000-0000-0000-0000-000000000006', 'hoot', 'active', 'kid', 81, 5, 'Moss');
 insert into public.pack_members (pack_id, user_id, role) values
   ('10000000-0000-0000-0000-000000000006', '00000000-0000-0000-0000-0000000000a6', 'admin'),
   ('10000000-0000-0000-0000-000000000006', '00000000-0000-0000-0000-0000000000b6', 'member');

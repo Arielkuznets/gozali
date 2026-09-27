@@ -37,7 +37,7 @@ const { data: pack } = await admin
   .insert({ name: 'Runners', category: 'running', rest_days_per_week: 0, timezone: tz, invite_code: `R${String(run).slice(-7)}`.replace(/[01IO]/g, '2') })
   .select('id')
   .single();
-await admin.from('critters').insert({ pack_id: pack.id, species: 'spark', color: 'sky', status: 'active', stage: 'kid', name: 'Pixel' });
+await admin.from('critters').insert({ pack_id: pack.id, species: 'kit', status: 'active', stage: 'kid', name: 'Pixel' });
 const joined = await admin.from('pack_members').insert([
   { pack_id: pack.id, user_id: noa, role: 'admin' },
   { pack_id: pack.id, user_id: dan, role: 'member' },
@@ -78,7 +78,7 @@ const result = await sendAll(mine, async (batch) => {
 const bodyFor = (id, text) => sentMessages.some((m) => m.to.includes(id) && m.body === text);
 check(bodyFor('Noa', '2 friends fed Pixel 🍽️'), 'Noa reads "2 friends fed Pixel"');
 check(bodyFor('Dan', 'Maya fed Pixel 🍽️'), 'Dan reads "Maya fed Pixel"');
-check(bodyFor('Noa', 'Everyone fed me. Everyone. Except. You. 👀'), 'the "last one" line is in Spark\'s voice');
+check(bodyFor('Noa', 'Everyone fed me. Everyone. Except. You. 👀'), 'the "last one" line is in Kit\'s voice');
 check(sentMessages.find((m) => m.body.startsWith('Everyone fed me'))?.data.url === `/pack/${pack.id}/feed`, '"last one" opens the camera');
 check(result.sent === 3 && result.deadTokens.length === 1, "Maya's dead token is reported");
 await admin.rpc('forget_push_tokens', { dead: result.deadTokens });

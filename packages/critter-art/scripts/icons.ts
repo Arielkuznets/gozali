@@ -1,15 +1,15 @@
 // Draws the app icons from the critter itself: node scripts/icons.ts [output folder]
-// (defaults to apps/mobile/assets/images). When the illustrated critter arrives, run it again.
+// (defaults to apps/mobile/assets/images). Run it again whenever the drawing changes.
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { Resvg } from '@resvg/resvg-js';
 
-import { CRITTER_PALETTE, renderCritter, type CritterArt } from '../src/index.ts';
+import { CREATURE_COLORS, renderCritter, type CritterArt } from '../src/index.ts';
 
 const output = process.argv[2] ?? join(import.meta.dirname, '../../../apps/mobile/assets/images');
 const CREAM = '#FBF6EE';
-const CRITTER: CritterArt = { species: 'blob', color: CRITTER_PALETTE.peach, stage: 'adult', look: 'happy' };
+const CRITTER: CritterArt = { species: 'mochi', color: CREATURE_COLORS.mochi, stage: 'adult', look: 'happy' };
 // The critter's middle in its own 200 x 200 drawing, so it can be centered on a canvas.
 const CENTER = { x: 100, y: 122 };
 
@@ -21,7 +21,7 @@ function canvas(size: number, scale: number, options: { background?: string; mon
   );
   if (options.monochrome) {
     // Android themed icons use a single-color silhouette.
-    inner = inner.replace(/(fill|stroke)="#[0-9A-Fa-f]{6}"/g, '$1="#FFFFFF"');
+    inner = inner.replace(/(fill|stroke|stop-color)="#[0-9A-Fa-f]{6}"/g, '$1="#FFFFFF"');
   }
   const background = options.background ? `<rect width="${size}" height="${size}" fill="${options.background}"/>` : '';
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${background}${inner}</svg>`;

@@ -137,7 +137,7 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
               .map((member) => ({ id: member.user_id, name: member.profiles?.display_name ?? null }))}
             today={today}
             fedToday={fedToday(counted.data, pack, now)}
-            color={critterColors[critter.color]}
+            color={critterColors[critter.species]}
           />
         </View>
 

@@ -47,7 +47,7 @@ export async function signIn(page: Page, user: TestUser): Promise<void> {
   }, user.session);
 }
 
-type NewPack = { name: string; habit: 'gym' | 'study' | 'reading' | 'running' | 'water'; species: 'blob' | 'spark' | 'mossy' };
+type NewPack = { name: string; habit: 'gym' | 'study' | 'reading' | 'running' | 'water'; species: 'mochi' | 'kit' | 'axo' | 'ribbit' | 'hoot' | 'bun' };
 
 /** A pack made by `owner`, with the others joined. Returns its id and invite code. */
 export async function createPack(owner: TestUser, pack: NewPack, others: TestUser[] = []) {
@@ -56,7 +56,6 @@ export async function createPack(owner: TestUser, pack: NewPack, others: TestUse
     habit: pack.habit,
     rest_days: 1,
     species: pack.species,
-    critter_color: 'peach',
     time_zone: 'Asia/Jerusalem',
   });
   if (created.error) throw created.error;

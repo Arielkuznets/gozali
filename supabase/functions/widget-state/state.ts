@@ -44,9 +44,6 @@ export interface WidgetPack {
 }
 
 const SPECIES_NAMES: Record<CritterRow['species'], string> = {
-  blob: 'Blob',
-  spark: 'Spark',
-  mossy: 'Mossy',
   mochi: 'Mochi',
   kit: 'Kit',
   axo: 'Axo',

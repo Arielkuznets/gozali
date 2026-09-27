@@ -52,9 +52,6 @@
       "custom": "Custom"
     },
     "species": {
-      "blob": "Blob",
-      "spark": "Spark",
-      "mossy": "Mossy",
       "mochi": "Mochi",
       "kit": "Kit",
       "axo": "Axo",
@@ -62,13 +59,13 @@
       "hoot": "Hoot",
       "bun": "Bun"
     },
-    "colors": {
-      "peach": "Peach",
-      "butter": "Butter",
-      "sage": "Sage",
-      "sky": "Sky",
-      "blush": "Blush",
-      "sand": "Sand"
+    "personality": {
+      "mochi": "Lazy, loves naps",
+      "kit": "Dramatic, easily offended",
+      "axo": "Cheerful, always smiling",
+      "ribbit": "Calm and peaceful",
+      "hoot": "Nerdy, loves facts",
+      "bun": "Shy and sweet"
     },
     "members_one": "{{count}} member",
     "members_other": "{{count}} members",
@@ -91,8 +88,7 @@
     "customPlaceholder": "Meditate 10 min",
     "restTitle": "Rest days",
     "restBody": "How many days a week each member can skip without hurting the pet.",
-    "eggTitle": "Pick an egg",
-    "colorTitle": "And a color",
+    "eggTitle": "Pick your critter",
     "next": "Next",
     "back": "Back",
     "create": "Create pack"
@@ -252,7 +248,7 @@
         "*wobble wobble*",
         "Something is moving in there!"
       ],
-      "blob": {
+      "mochi": {
         "thriving": [
           "This is the best nap spot. Thanks, team.",
           "I'm so happy I might lie down.",
@@ -284,7 +280,7 @@
           "Zzz... wake me if there's food..."
         ]
       },
-      "spark": {
+      "kit": {
         "thriving": [
           "I am a STAR. You may clap now.",
           "Look at me. Glowing. Iconic.",
@@ -316,16 +312,80 @@
           "Zzz... encore..."
         ]
       },
-      "mossy": {
+      "axo": {
         "thriving": [
-          "Fun fact: I'm at peak photosynthesis.",
+          "Best day EVER! Again!",
+          "I'm so happy my frills are wiggling!",
+          "You're the best pack in the whole pond!"
+        ],
+        "happy": [
+          "Hiii! Pet me again!",
+          "I can smile forever. Watch!",
+          "Wiggle wiggle! That's my happy dance."
+        ],
+        "hungry": [
+          "My tummy is singing. It's the hungry song.",
+          "Snack time? Snack time!",
+          "Still smiling, but it's a hungry smile."
+        ],
+        "weak": [
+          "My frills are a bit floppy today...",
+          "Could I have a feed? Just a tiny one?",
+          "Still smiling! Barely."
+        ],
+        "sick": [
+          "I don't feel very bubbly...",
+          "Achoo! Bubbles everywhere.",
+          "A feed would make me smile for real."
+        ],
+        "sleeping": [
+          "Zzz... blub... blub...",
+          "Zzz... dreaming of snacks...",
+          "Zzz... wiggle..."
+        ]
+      },
+      "ribbit": {
+        "thriving": [
+          "Everything is in balance. Thank you.",
+          "The pond is calm. My heart is full.",
+          "Breathe in, breathe out. Life is good."
+        ],
+        "happy": [
+          "Ribbit. All is well.",
+          "A gentle pat. How peaceful.",
+          "I'm enjoying this quiet moment with you."
+        ],
+        "hungry": [
+          "A calm frog is a fed frog. Just saying.",
+          "My belly speaks softly: food, please.",
+          "No rush. But also, some rush."
+        ],
+        "weak": [
+          "Even calm frogs need to eat...",
+          "I'm saving energy. Very slowly.",
+          "One feed would bring back my calm."
+        ],
+        "sick": [
+          "I'm resting under my blanket. Feeds help.",
+          "Deep breaths... and maybe a feed.",
+          "The pond feels far away today."
+        ],
+        "sleeping": [
+          "Zzz... ribbit...",
+          "Zzz... floating on a lily pad...",
+          "Zzz... so peaceful..."
+        ]
+      },
+      "hoot": {
+        "thriving": [
+          "Fun fact: I'm at peak owl.",
           "Data shows this pack is excellent.",
           "Statistically, I'm thriving."
         ],
         "happy": [
           "Fun fact: petting lowers stress. For both of us.",
-          "Did you know moss can live for centuries?",
-          "All systems normal."
+          "Did you know a group of owls is called a parliament?",
+          "All systems normal. Hoo."
         ],
         "hungry": [
           "Fun fact: I haven't eaten in 14 hours.",
@@ -334,18 +394,50 @@
         ],
         "weak": [
           "My energy readings are concerning.",
-          "Fun fact: I need food to function.",
+          "Fun fact: owls need food to function.",
           "Running in low power mode."
         ],
         "sick": [
           "Diagnosis: very underfed.",
           "Prescription: one feed, taken today.",
-          "My leaf is drooping. That's not great."
+          "My feathers are drooping. That's not great."
         ],
         "sleeping": [
           "Zzz... sorting facts...",
-          "Zzz... photosynthesizing...",
+          "Zzz... counting stars...",
           "Zzz... dreaming of data..."
+        ]
+      },
+      "bun": {
+        "thriving": [
+          "You all... make me so happy.",
+          "*happy ear wiggle*",
+          "I'm glad I'm in this pack."
+        ],
+        "happy": [
+          "Oh! Hi... that tickles.",
+          "*shy smile*",
+          "You're really nice to me."
+        ],
+        "hungry": [
+          "Um... sorry... is there food?",
+          "I don't want to bother anyone, but... I'm hungry.",
+          "*tummy rumbles quietly*"
+        ],
+        "weak": [
+          "I'm okay... just a little tired...",
+          "Could someone... feed me? If it's okay?",
+          "*droopy ears*"
+        ],
+        "sick": [
+          "I feel a little sick... sorry...",
+          "Could I have a blanket and a feed?",
+          "*sniff*"
+        ],
+        "sleeping": [
+          "Zzz... carrots...",
+          "Zzz... *tiny snore*",
+          "Zzz... cozy..."
         ]
       }
     }

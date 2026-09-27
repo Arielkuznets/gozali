@@ -44,7 +44,7 @@ export default function WelcomeScreen() {
     <Screen>
       <View style={styles.hero}>
         <Critter
-          art={{ species: 'blob', color: critterColors.peach, stage: 'kid', look: 'happy' }}
+          art={{ species: 'mochi', color: critterColors.mochi, stage: 'kid', look: 'happy' }}
           size={180}
           label={t('welcome.critterLabel')}
         />

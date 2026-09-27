@@ -18,17 +18,17 @@ set local role authenticated;
 -- Create.
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000a1');
 create temp table created as
-  select public.create_pack('Gym squad', 'gym', 3::smallint, 'blob', 'peach', 'Asia/Jerusalem') as id;
+  select public.create_pack('Gym squad', 'gym', 3::smallint, 'mochi', 'Asia/Jerusalem') as id;
 select is((select count(*) from public.packs), 1::bigint, 'the creator sees the new pack');
 select is((select status::text from public.critters), 'egg', 'the critter starts as an egg');
 select is((select role::text from public.pack_members), 'admin', 'the creator is the admin');
 select matches((select invite_code from public.packs), '^[A-HJ-NP-Z2-9]{8}$', 'the invite code has the expected format');
 select throws_ok(
-  $$ select public.create_pack('Nowhere', 'gym', 3::smallint, 'blob', 'peach', 'Mars/Olympus') $$,
+  $$ select public.create_pack('Nowhere', 'gym', 3::smallint, 'mochi', 'Mars/Olympus') $$,
   '22023', 'unknown_time_zone', 'the time zone must be a real one'
 );
 select throws_ok(
-  $$ select public.create_pack('Wrong', 'custom', 1::smallint, 'blob', 'peach', 'UTC') $$,
+  $$ select public.create_pack('Wrong', 'custom', 1::smallint, 'mochi', 'UTC') $$,
   '23514', null, 'custom packs need a habit text'
 );
 

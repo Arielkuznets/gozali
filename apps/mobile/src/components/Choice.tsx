@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 
 import { colors, radii, spacing } from '@/theme/tokens';
 
@@ -8,17 +8,18 @@ type Props = {
   onPress: () => void;
   label: string;
   children: ReactNode;
+  style?: StyleProp<ViewStyle>;
 };
 
 /** A selectable tile for single-choice lists (category, species, color, numbers). */
-export function Choice({ selected, onPress, label, children }: Props) {
+export function Choice({ selected, onPress, label, children, style }: Props) {
   return (
     <Pressable
       accessibilityRole="radio"
       accessibilityLabel={label}
       accessibilityState={{ selected }}
       onPress={onPress}
-      style={({ pressed }) => [styles.base, selected && styles.selected, pressed && styles.pressed]}>
+      style={({ pressed }) => [styles.base, selected && styles.selected, pressed && styles.pressed, style]}>
       {children}
     </Pressable>
   );

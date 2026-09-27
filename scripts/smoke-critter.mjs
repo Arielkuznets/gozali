@@ -61,8 +61,7 @@ const created = await noa.client.rpc('create_pack', {
   pack_name: 'Readers',
   habit: 'reading',
   rest_days: 1,
-  species: 'mossy',
-  critter_color: 'sage',
+  species: 'ribbit',
   time_zone: 'Asia/Jerusalem',
 });
 check(!created.error, 'Noa creates a pack');

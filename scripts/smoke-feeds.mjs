@@ -43,8 +43,7 @@ const created = await noa.client.rpc('create_pack', {
   pack_name: 'Study buddies',
   habit: 'study',
   rest_days: 1,
-  species: 'blob',
-  critter_color: 'butter',
+  species: 'mochi',
   time_zone: 'Asia/Jerusalem',
 });
 const packId = created.data;
