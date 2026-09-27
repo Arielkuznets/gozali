@@ -41,6 +41,17 @@ export const EARLY_BIRD_BEFORE_HOUR = 12;
 export const EARLY_BIRD_MIN_FEEDERS = 2;
 export const NIGHT_OWL_FROM_HOUR = 23;
 
+/**
+ * Coins a successful day earns the pack, by the streak after the day, from the longest streak
+ * down (decision D21). Coins buy outfits in the shop.
+ */
+export const COINS_BY_STREAK = [
+  [30, 5],
+  [14, 3],
+  [7, 2],
+  [0, 1],
+] as const;
+
 /** XP each stage needs once the egg hatched, from the highest stage down. */
 export const STAGE_XP = [
   ['legend', 100],

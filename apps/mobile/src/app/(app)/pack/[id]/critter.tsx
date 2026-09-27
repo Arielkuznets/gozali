@@ -15,7 +15,8 @@ import { fedToday, useCountedFeeds } from '@/features/feeds/api';
 import { currentMembers, usePack, type Pack, type PackCritter } from '@/features/packs/api';
 import { usePackRealtime } from '@/features/packs/realtime';
 import { MonthlyBoard } from '@/features/social/MonthlyBoard';
-import { socialErrorKey, useAchievements, useDress, useMonthResults } from '@/features/social/api';
+import { socialErrorKey, useAchievements, useBuy, useDress, useMonthResults, usePackItems, useShop, type ShopItem } from '@/features/social/api';
+import { confirm, notify } from '@/lib/confirm';
 import { formatDay } from '@/lib/dates';
 import { goBack } from '@/lib/navigation';
 import { useNow } from '@/lib/useNow';
@@ -50,6 +51,9 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
   const achievements = useAchievements(pack.id);
   const counted = useCountedFeeds();
   const dress = useDress(pack.id);
+  const buy = useBuy(pack.id);
+  const shop = useShop();
+  const bought = usePackItems(pack.id);
 
   const members = currentMembers(pack);
   const art = critterArt(critter, { category: pack.category, now, cracking: members.length >= 2 });
@@ -61,6 +65,30 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
 
   const wear = (slot: WardrobeSlot, item: string | null) =>
     dress.mutate({ slot, item }, { onError: (error) => Alert.alert(t(socialErrorKey(error))) });
+
+  // The wardrobe: what achievements unlocked, then what the pack bought, per slot.
+  const owned = (slot: WardrobeSlot) => [
+    ...ACHIEVEMENTS.filter((a) => a.item.slot === slot && unlocked.has(a.key)).map((a) => a.item.key),
+    ...(shop.data ?? []).filter((s) => s.slot === slot && bought.data?.has(s.item)).map((s) => s.item),
+  ];
+  const ownsSomething = SLOTS.some((slot) => owned(slot).length > 0);
+  const forSale = (shop.data ?? []).filter((s) => !owned(s.slot).includes(s.item));
+  const itemName = (item: string) => t(`items.${item as HeadItem | NeckItem | BackgroundItem}`);
+
+  const offer = (entry: ShopItem) => {
+    const name = itemName(entry.item);
+    if (critter.coins < entry.price) {
+      notify(t('profile.needMore', { count: entry.price - critter.coins, item: name }));
+      return;
+    }
+    confirm({
+      title: t('profile.buyTitle', { item: name }),
+      message: t('profile.buyBody', { price: entry.price, critter: text.name }),
+      confirm: t('profile.buy'),
+      cancel: t('profile.cancel'),
+      onConfirm: () => buy.mutate(entry.item, { onError: (error) => notify(t(socialErrorKey(error))) }),
+    });
+  };
 
   return (
     <Screen>
@@ -142,10 +170,13 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
         </View>
 
         <View style={styles.section}>
-          <AppText style={styles.sectionTitle}>{t('profile.wardrobe')}</AppText>
-          {unlocked.size === 0 && <AppText style={styles.muted}>{t('profile.wardrobeEmpty')}</AppText>}
+          <View style={styles.titleRow}>
+            <AppText style={styles.sectionTitle}>{t('profile.wardrobe')}</AppText>
+            <AppText variant="caption">{t('profile.coins', { count: critter.coins })}</AppText>
+          </View>
+          {!ownsSomething && <AppText style={styles.muted}>{t('profile.wardrobeEmpty')}</AppText>}
           {SLOTS.map((slot) => {
-            const items = ACHIEVEMENTS.filter((a) => a.item.slot === slot && unlocked.has(a.key)).map((a) => a.item.key);
+            const items = owned(slot);
             if (items.length === 0) return null;
             return (
               <View key={slot} style={styles.slot}>
@@ -159,13 +190,13 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
                         key={item ?? 'none'}
                         accessibilityRole="radio"
                         accessibilityState={{ selected: worn, disabled: !canDress }}
-                        accessibilityLabel={item ? t(`items.${item as HeadItem | NeckItem | BackgroundItem}`) : t('profile.none')}
+                        accessibilityLabel={item ? itemName(item) : t('profile.none')}
                         disabled={!canDress || worn}
                         onPress={() => wear(slot, item)}
                         style={[styles.item, worn && styles.itemWorn]}>
                         <Critter art={{ ...art, outfit: preview, sleeping: false, mood: 0 }} size={64} label="" animated={false} />
                         <AppText variant="caption" numberOfLines={1}>
-                          {item ? t(`items.${item as HeadItem | NeckItem | BackgroundItem}`) : t('profile.none')}
+                          {item ? itemName(item) : t('profile.none')}
                         </AppText>
                       </Pressable>
                     );
@@ -174,6 +205,32 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
               </View>
             );
           })}
+        </View>
+
+        <View style={styles.section}>
+          <AppText style={styles.sectionTitle}>{t('profile.shop')}</AppText>
+          <AppText variant="caption">{t('profile.shopBody')}</AppText>
+          {shop.data && forSale.length === 0 && <AppText style={styles.muted}>{t('profile.soldOut')}</AppText>}
+          <View style={styles.shop}>
+            {forSale.map((entry) => {
+              const affordable = critter.coins >= entry.price;
+              const preview: Outfit = { ...outfit, [entry.slot]: entry.item } as Outfit;
+              return (
+                <Pressable
+                  key={entry.item}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${itemName(entry.item)}, ${t('critter.coinsLabel', { count: entry.price })}`}
+                  onPress={() => offer(entry)}
+                  style={[styles.item, styles.shopItem, !affordable && styles.unaffordable]}>
+                  <Critter art={{ ...art, outfit: preview, sleeping: false, mood: 0 }} size={64} label="" animated={false} />
+                  <AppText variant="caption" numberOfLines={2} style={styles.itemName}>
+                    {itemName(entry.item)}
+                  </AppText>
+                  <AppText style={styles.price}>{t('profile.price', { price: entry.price })}</AppText>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -225,6 +282,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   itemWorn: { borderColor: colors.accent, borderWidth: 2.5 },
+  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  shop: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  unaffordable: { opacity: 0.55 },
+  shopItem: { width: 100 },
+  itemName: { textAlign: 'center' },
+  price: { fontFamily: fonts.bodyMedium, fontSize: 13 },
   achievement: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   locked: { opacity: 0.55 },
   badge: { fontSize: 22, lineHeight: 28 },

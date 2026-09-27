@@ -79,6 +79,8 @@ export interface DayResult {
   allowedMisses: number;
   healthBefore: number;
   critter: CritterState;
+  /** Coins the day earned the pack: only a successful day while the critter is home. */
+  coins: number;
   newlySleeping: readonly string[];
   events: readonly DayEvent[];
   facts: DayFacts;

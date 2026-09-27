@@ -235,6 +235,9 @@
     "health": "Health {{health}}",
     "streak_one": "🔥 {{count}} day",
     "streak_other": "🔥 {{count}} days",
+    "coins": "🪙 {{count}}",
+    "coinsLabel_one": "{{count}} coin",
+    "coinsLabel_other": "{{count}} coins",
     "xp": "{{xp}} / {{to}} XP to {{stage}}",
     "xpMax": "{{xp}} XP, the last stage",
     "ranAwayNote": "\"Gone to find food\"",
@@ -531,7 +534,8 @@
     "joker": "🃏 {{name}} is taking a joker today",
     "dressed": "👗 {{name}} gave {{critter}} a {{item}}",
     "undressed": "👗 {{name}} changed {{critter}}'s look",
-    "named": "🏷️ {{name}} named the pet {{critter}}"
+    "named": "🏷️ {{name}} named the pet {{critter}}",
+    "bought": "🛍️ {{name}} bought {{critter}} a {{item}}"
   },
   "achievements": {
     "hatched": {
@@ -595,7 +599,17 @@
     "park": "park background",
     "party": "party background",
     "space": "space background",
-    "halo": "halo"
+    "halo": "halo",
+    "cap": "cap",
+    "bow": "bow",
+    "wizard_hat": "wizard hat",
+    "crown": "crown",
+    "bandana": "bandana",
+    "bell": "bell collar",
+    "pearls": "pearl necklace",
+    "beach": "beach background",
+    "snow": "snow background",
+    "stars": "starry sky"
   },
   "social": {
     "react": "React with {{emoji}}",
@@ -629,7 +643,10 @@
       "too_many_suggestions": "You can suggest up to 3 names.",
       "name_not_open": "The pet already has a name.",
       "item_locked": "Unlock this item with its achievement first.",
-      "critter_not_here": "The pet is not here right now."
+      "critter_not_here": "The pet is not here right now.",
+      "not_enough_coins": "The pack doesn't have enough coins for that yet.",
+      "already_owned": "The pack already has it.",
+      "not_for_sale": "That item isn't for sale."
     }
   },
   "profile": {
@@ -649,7 +666,19 @@
     "unlocked": "Unlocked {{date}}",
     "locked": "Locked",
     "wardrobe": "Wardrobe",
-    "wardrobeEmpty": "Achievements unlock items for the wardrobe.",
+    "wardrobeEmpty": "Items from achievements and the shop show up here.",
+    "shop": "Shop",
+    "shopBody": "Every good day earns the pack coins, and a longer streak earns more: 1 a day, 2 from a 7-day streak, 3 from 14, 5 from 30.",
+    "coins_one": "🪙 {{count}} coin",
+    "coins_other": "🪙 {{count}} coins",
+    "price": "🪙 {{price}}",
+    "buyTitle": "Buy the {{item}}?",
+    "buyBody": "It costs {{price}} coins from the pack. Everyone in the pack can wear it on {{critter}}.",
+    "buy": "Buy",
+    "cancel": "Cancel",
+    "needMore_one": "The pack needs {{count}} more coin for the {{item}}. Keep the streak going!",
+    "needMore_other": "The pack needs {{count}} more coins for the {{item}}. Keep the streak going!",
+    "soldOut": "The pack owns everything in the shop.",
     "slots": {
       "head": "Head",
       "neck": "Neck",

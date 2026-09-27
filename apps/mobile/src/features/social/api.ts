@@ -19,7 +19,7 @@ export type ReactionTotal = { emoji: ReactionKey; total: number; mine: boolean; 
 
 export type PackEvent = {
   id: string;
-  kind: 'joined' | 'hatched' | 'evolved' | 'ran_away' | 'returned' | 'achievement' | 'joker' | 'dressed' | 'named';
+  kind: 'joined' | 'hatched' | 'evolved' | 'ran_away' | 'returned' | 'achievement' | 'joker' | 'dressed' | 'named' | 'bought';
   actor_id: string | null;
   payload: Record<string, string | null>;
   created_at: string;
@@ -139,6 +139,48 @@ export function useAchievements(packId: string) {
   });
 }
 
+export type ShopItem = { item: string; slot: 'head' | 'neck' | 'background'; price: number };
+
+/** Everything the outfit shop sells, cheapest first. */
+export function useShop() {
+  return useQuery({
+    queryKey: [...socialKey, 'shop'],
+    staleTime: Infinity,
+    queryFn: async (): Promise<ShopItem[]> => {
+      const { data, error } = await requireSupabase().from('shop_items').select('item, slot, price').order('sort');
+      if (error) throw error;
+      return data as ShopItem[];
+    },
+  });
+}
+
+/** The items the pack bought. */
+export function usePackItems(packId: string) {
+  return useQuery({
+    queryKey: [...socialKey, 'items', packId],
+    queryFn: async (): Promise<Set<string>> => {
+      const { data, error } = await requireSupabase().from('pack_items').select('item').eq('pack_id', packId);
+      if (error) throw error;
+      return new Set(data.map((row) => row.item));
+    },
+  });
+}
+
+export function useBuy(packId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (item: string) => {
+      const { error } = await requireSupabase().rpc('buy_item', { target: packId, wanted: item });
+      if (error) throw error;
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: packsKey });
+      void queryClient.invalidateQueries({ queryKey: socialKey });
+      void queryClient.invalidateQueries({ queryKey: feedsKey });
+    },
+  });
+}
+
 export function useDress(packId: string) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -217,6 +259,9 @@ export function socialErrorKey(error: unknown) {
     'name_not_open',
     'item_locked',
     'critter_not_here',
+    'not_enough_coins',
+    'already_owned',
+    'not_for_sale',
   ] as const) {
     if (message.includes(code)) return `social.errors.${code}` as const;
   }

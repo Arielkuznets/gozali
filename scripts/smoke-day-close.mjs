@@ -93,6 +93,10 @@ check(
   `the critter ends at health 52, 3 XP, streak 1 (got ${critter.health}, ${critter.xp}, ${critter.streak})`,
 );
 check(critter.hatched_at !== null, 'the hatch time is saved');
+check(
+  critter.coins === 3 && closed.reduce((sum, c) => sum + c.result.coins, 0) === 3,
+  `three successful days earn the pack 3 coins (got ${critter.coins})`,
+);
 const { data: members } = await admin.from('pack_members').select('user_id, status').eq('pack_id', packId);
 check(members.find((m) => m.user_id === maya.id).status === 'sleeping', 'Maya\'s membership is now sleeping');
 

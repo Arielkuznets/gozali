@@ -244,3 +244,25 @@ describe('facts', () => {
     assert.equal(facts.nightOwlFeeds, 2);
   });
 });
+
+describe('coins', () => {
+  it('a successful day earns one coin, more as the streak grows', () => {
+    assert.equal(close([fed(), fed()], { streak: 0 }).coins, 1);
+    assert.equal(close([fed(), fed()], { streak: 6 }).coins, 2, 'the 7th day in a row');
+    assert.equal(close([fed(), fed()], { streak: 13 }).coins, 3);
+    assert.equal(close([fed(), fed()], { streak: 29 }).coins, 5);
+    assert.equal(close([fed(), fed()], { streak: 80 }).coins, 5);
+  });
+
+  it('neutral and failed days earn nothing', () => {
+    assert.equal(close([member({ restDaysUsedThisWeek: 0 })], { streak: 10 }, 1).coins, 0, 'neutral');
+    assert.equal(close([fed(), member()], { streak: 10 }).coins, 0, 'failed');
+  });
+
+  it('the hatching day earns its coin, egg and away days earn nothing', () => {
+    assert.equal(close([fed(), fed()], { status: 'egg', stage: 'egg', xp: 0, streak: 0 }).coins, 1);
+    assert.equal(close([fed()], { status: 'egg', stage: 'egg', xp: 0, streak: 0 }).coins, 0);
+    assert.equal(close([fed(), fed()], { status: 'ran_away', health: 0, streak: 0 }).coins, 0);
+    assert.equal(close([fed(), fed()], { status: 'ran_away', health: 0, streak: 2 }).coins, 0, 'not even the day it returns');
+  });
+});

@@ -7,9 +7,9 @@ export type Creature = (typeof CREATURES)[number];
 /** The name the database and the app use for the kind of critter. */
 export type Species = Creature;
 
-export const HEAD_ITEMS = ['beanie', 'flower_crown', 'sun_hat', 'headlamp', 'halo'] as const;
-export const NECK_ITEMS = ['scarf', 'cape', 'bow_tie'] as const;
-export const BACKGROUND_ITEMS = ['sunrise', 'park', 'party', 'space'] as const;
+export const HEAD_ITEMS = ['beanie', 'flower_crown', 'sun_hat', 'headlamp', 'halo', 'cap', 'bow', 'wizard_hat', 'crown'] as const;
+export const NECK_ITEMS = ['scarf', 'cape', 'bow_tie', 'bandana', 'bell', 'pearls'] as const;
+export const BACKGROUND_ITEMS = ['sunrise', 'park', 'party', 'space', 'beach', 'snow', 'stars'] as const;
 
 export type HeadItem = (typeof HEAD_ITEMS)[number];
 export type NeckItem = (typeof NECK_ITEMS)[number];
