@@ -124,7 +124,9 @@ export function render(row: ClaimedRow): Rendered {
       if (event === 'hatched') return { title: pack, body: '🐣 The egg hatched! Come meet your new pet.', url: home };
       if (event === 'achievement') {
         const title = ACHIEVEMENTS[String(row.payload.key)] ?? 'an achievement';
-        return { title: pack, body: `🏆 ${critter} unlocked ${title}! There's something new in the wardrobe.`, url: home };
+        // The new item waits in the wardrobe on the critter's profile.
+        const wardrobe = row.pack_id ? `/pack/${row.pack_id}/critter` : '/';
+        return { title: pack, body: `🏆 ${critter} unlocked ${title}! There's something new in the wardrobe.`, url: wardrobe };
       }
       const stage = STAGES[String(row.payload.to)];
       return { title: pack, body: stage ? `✨ ${critter} reached the ${stage} stage!` : `✨ ${critter} grew up!`, url: home };
