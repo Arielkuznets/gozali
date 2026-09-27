@@ -88,6 +88,8 @@ export default function CreatePackScreen() {
             value={name}
             onChangeText={setName}
             autoFocus
+            returnKeyType="next"
+            onSubmitEditing={() => stepDone && onNext()}
           />
         )}
 

@@ -55,6 +55,8 @@ export default function JoinScreen() {
               autoCorrect={false}
               value={code}
               onChangeText={(text) => setCode(normalizeInviteCode(text))}
+              returnKeyType="join"
+              onSubmitEditing={() => pack && !pack.is_full && onJoin()}
             />
           </View>
           {/* Wrapped so the button keeps its own height instead of stretching to the field and its label. */}
