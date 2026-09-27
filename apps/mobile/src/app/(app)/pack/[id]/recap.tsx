@@ -12,7 +12,7 @@ import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Choice } from '@/components/Choice';
 import { Screen } from '@/components/Screen';
-import { LoadingScreen, LoadFailedScreen, PackMissingScreen } from '@/components/ScreenStates';
+import { LoadFailed, LoadFailedScreen, LoadingScreen, PackMissingScreen } from '@/components/ScreenStates';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { Critter } from '@/features/critter/Critter';
 import { PhotoViewer, type ViewedPhoto } from '@/features/feeds/PhotoViewer';
@@ -51,6 +51,8 @@ export default function RecapScreen() {
         <View style={styles.center}>
           <ActivityIndicator color={colors.accent} />
         </View>
+      ) : !recap && recaps.isError ? (
+        <LoadFailed onRetry={() => void recaps.refetch()} />
       ) : !recap ? (
         <View style={styles.center}>
           <AppText style={styles.muted}>{t('recap.none')}</AppText>
