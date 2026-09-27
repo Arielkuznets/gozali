@@ -7,7 +7,9 @@ import { Button } from '@/components/Button';
 import { PackCard } from '@/components/PackCard';
 import { Screen } from '@/components/Screen';
 import { signOut } from '@/features/auth/signIn';
+import { useAuth } from '@/features/auth/AuthProvider';
 import { Critter } from '@/features/critter/Critter';
+import { fedToday, useCountedFeeds } from '@/features/feeds/api';
 import { useMyPacks } from '@/features/packs/api';
 import { usePackRealtime } from '@/features/packs/realtime';
 import { useNow } from '@/lib/useNow';
@@ -18,6 +20,8 @@ const PACK_LIMIT = 3;
 export default function HomeScreen() {
   const { t } = useTranslation();
   const { data: packs, isPending } = useMyPacks();
+  const counted = useCountedFeeds();
+  const { session } = useAuth();
   usePackRealtime();
   const now = useNow(60_000);
 
@@ -44,7 +48,15 @@ export default function HomeScreen() {
       ) : hasPacks ? (
         <ScrollView contentContainerStyle={styles.list}>
           {packs.map((pack) => (
-            <PackCard key={pack.id} pack={pack} now={now} onPress={() => router.push(`/pack/${pack.id}`)} />
+            <PackCard
+              key={pack.id}
+              pack={pack}
+              now={now}
+              fed={fedToday(counted.data, pack, now)}
+              userId={session?.user.id}
+              onPress={() => router.push(`/pack/${pack.id}`)}
+              onFeed={() => router.push(`/pack/${pack.id}/feed`)}
+            />
           ))}
         </ScrollView>
       ) : (

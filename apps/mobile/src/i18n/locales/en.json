@@ -30,7 +30,8 @@
     "createPack": "Create a pack",
     "joinPack": "Join with a code",
     "signOut": "Sign out",
-    "limitReached": "You're in 3 packs, the most for now."
+    "limitReached": "You're in 3 packs, the most for now.",
+    "feedPack": "Feed {{name}}"
   },
   "errors": {
     "notConfigured": "The app is not connected to the server yet.",
@@ -113,7 +114,19 @@
     "eggWaiting": "Waiting for a friend to join.",
     "eggCracking": "The egg is cracking! It hatches on the first day two of you feed it.",
     "members": "Members",
-    "critterLabel": "{{name}}, the pack pet"
+    "critterLabel": "{{name}}, the pack pet",
+    "feed": "Feed",
+    "fed": "Fed today",
+    "postExtra": "Post extra",
+    "feedTitle": "Pack feed",
+    "feedEmpty": "No feeds yet. Be the first today!",
+    "pending_one": "{{count}} feed waiting for a connection",
+    "pending_other": "{{count}} feeds waiting for a connection",
+    "extra": "extra",
+    "fedCount": "{{fed}}/{{total}} fed today",
+    "memberFed": "{{name}}, fed today",
+    "memberWaiting": "{{name}}, not yet today",
+    "memberAsleep": "{{name}}, asleep"
   },
   "settings": {
     "title": "Pack settings",
@@ -278,5 +291,27 @@
         ]
       }
     }
+  },
+  "feed": {
+    "title": "Feed {{name}}",
+    "extraTitle": "Post extra",
+    "capture": "Take photo",
+    "flip": "Switch camera",
+    "close": "Close",
+    "retake": "Retake",
+    "send": "Send",
+    "photoLabel": "Your photo",
+    "captionLabel": "Caption",
+    "captionPlaceholder": "Add a caption (optional)",
+    "focusChip": "{{emoji}} {{minutes}} min",
+    "sent": "{{name}} loved it!",
+    "ateLabel": "{{name}} eating",
+    "queuedTitle": "Saved for later",
+    "queuedBody": "You're offline. The feed goes out when you're back online, and it still counts for the day you took it if that's within an hour after the day ends.",
+    "failed": "The feed didn't go through. Please try again.",
+    "permissionTitle": "Camera needed",
+    "permissionBody": "Feeding takes a live photo in the app. Photos are seen only by your pack.",
+    "allowCamera": "Allow camera",
+    "openSettings": "Open settings"
   }
 }
