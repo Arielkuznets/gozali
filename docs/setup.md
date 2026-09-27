@@ -60,6 +60,15 @@ Everything runs locally without accounts (see the README). This is the one-time 
 
    EAS creates the App Group `group.app.gozali` for the app and the widget. Then `npx expo start` in `apps/mobile` and open the build.
 5. For push notifications on iOS, let EAS create the push key when it asks during the first build.
+6. Push notifications on Android go through Firebase Cloud Messaging:
+   - In the Firebase console, create a project and add an Android app with the package `app.gozali`. Download `google-services.json` and hand it to EAS as a file variable (`app.config.js` reads it; the file stays out of git):
+
+     ```sh
+     eas env:create --name GOOGLE_SERVICES_JSON --type file --value ./google-services.json --environment development
+     ```
+
+     Repeat for `preview` and `production`.
+   - Firebase → Project settings → Service accounts → Generate new private key, then `eas credentials` → Android → Push Notifications (FCM V1) and upload that key. Keep the key file out of the repo too.
 
 ## 3. gozali.app
 

@@ -39,6 +39,7 @@ export function focusedMinutes(session: FocusSession, now: number): number {
 async function scheduleEnd(session: FocusSession, text: { title: string; body: string }): Promise<string | null> {
   const left = remainingMs(session, Date.now());
   if (Platform.OS === 'web' || left === null || session.minutes === null) return null;
+  // Without the notification the timer still runs; the screen opens the camera if it's open.
   return Notifications.scheduleNotificationAsync({
     content: { ...text, data: { url: `/pack/${session.packId}/feed?focus=${session.minutes}` } },
     trigger: {
@@ -46,11 +47,13 @@ async function scheduleEnd(session: FocusSession, text: { title: string; body: s
       date: Date.now() + left,
       channelId: FOCUS_CHANNEL,
     },
-  });
+  }).catch(() => null);
 }
 
 async function cancelEnd(session: FocusSession | null) {
-  if (session?.notificationId) await Notifications.cancelScheduledNotificationAsync(session.notificationId);
+  if (session?.notificationId) {
+    await Notifications.cancelScheduledNotificationAsync(session.notificationId).catch(() => undefined);
+  }
 }
 
 async function save(session: FocusSession | null) {
