@@ -595,7 +595,17 @@
     "park": "park background",
     "party": "party background",
     "space": "space background",
-    "halo": "halo"
+    "halo": "halo",
+    "cap": "cap",
+    "bow": "bow",
+    "wizard_hat": "wizard hat",
+    "crown": "crown",
+    "bandana": "bandana",
+    "bell": "bell collar",
+    "pearls": "pearl necklace",
+    "beach": "beach background",
+    "snow": "snow background",
+    "stars": "starry sky"
   },
   "social": {
     "react": "React with {{emoji}}",

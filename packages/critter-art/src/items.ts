@@ -15,6 +15,9 @@ const flower = (x: number, y: number, petals: string) =>
     circle(0, 0, 2.6, { fill: GOLD }),
   );
 
+const star = (x: number, y: number, r: number, fill: string) =>
+  path(`M${x} ${y - r} Q${x} ${y} ${x + r} ${y} Q${x} ${y} ${x} ${y + r} Q${x} ${y} ${x - r} ${y} Q${x} ${y} ${x} ${y - r} Z`, { fill });
+
 const HEAD_ITEMS: Record<HeadItem | 'nightcap' | 'party_hat', string> = {
   beanie:
     path('M-38 10 C-40 -30 40 -30 38 10 Z', { fill: '#D96C5F' }) +
@@ -50,6 +53,32 @@ const HEAD_ITEMS: Record<HeadItem | 'nightcap' | 'party_hat', string> = {
     g({ fill: '#BCD9E8' }, circle(-10, 2, 3), circle(12, -16, 2.6), circle(-2, -36, 2)) +
     path('M-26 10 Q0 18 28 10', line(darken('#F7E3A1', 0.25), 3)) +
     circle(2, -48, 6, { fill: '#F2B8C6' }),
+  cap:
+    path('M-36 10 C-36 -24 36 -24 36 10 Z', { fill: '#5B8DB8' }) +
+    path('M-12 -18 C-8 -8 -8 2 -10 10 M12 -18 C8 -8 8 2 10 10', line('#4A7AA3', 1.6)) +
+    path('M30 4 Q58 2 66 12 Q48 18 30 12 Z', { fill: '#4A7AA3' }) +
+    circle(0, -20, 4, { fill: '#4A7AA3' }),
+  bow:
+    g(
+      { transform: 'translate(24 -4) rotate(-12)' },
+      path('M0 0 C-12 -16 -26 -8 -20 2 C-26 12 -12 18 0 0 Z', { fill: '#F28CA8' }),
+      path('M0 0 C12 -16 26 -8 20 2 C26 12 12 18 0 0 Z', { fill: '#F28CA8' }),
+      path('M-4 -4 C-10 -8 -16 -4 -14 0 M4 -4 C10 -8 16 -4 14 0', line('#E06F91', 1.6)),
+      circle(0, 0, 5.5, { fill: '#E06F91' }),
+    ),
+  wizard_hat:
+    path('M-30 8 C-22 -12 -6 -40 10 -62 C8 -46 14 -24 30 8 Z', { fill: '#6C6FB8' }) +
+    ellipse(0, 8, 46, 9, { fill: '#5A5DA3' }) +
+    star(-6, -14, 5, GOLD) +
+    star(10, -34, 4, GOLD) +
+    star(14, -4, 3, '#FFF3B0'),
+  crown:
+    path('M-30 10 L-32 -16 L-16 -2 L0 -24 L16 -2 L32 -16 L30 10 Z', { fill: GOLD, stroke: darken(GOLD, 0.3), 'stroke-width': 1.5, 'stroke-linejoin': 'round' }) +
+    rect(-30, 2, 60, 8, { fill: darken(GOLD, 0.12) }) +
+    circle(0, -24, 3.5, { fill: '#E0615A' }) +
+    circle(-32, -16, 3, { fill: '#5B8DB8' }) +
+    circle(32, -16, 3, { fill: '#5B8DB8' }) +
+    circle(0, 6, 3.5, { fill: '#7FB069' }),
   nightcap:
     path('M-38 12 C-32 -26 8 -44 48 -20 C30 -22 14 -14 36 12 Z', { fill: '#8FA8D8' }) +
     g({ fill: '#FFFFFF', opacity: 0.55 }, circle(-18, -6, 2.5), circle(4, -16, 2), circle(-4, 2, 2.2), circle(22, -10, 1.8)) +
@@ -67,6 +96,16 @@ const NECK_ITEMS: Record<NeckItem, string> = {
     path('M0 2 L19 -9 Q22 2 19 13 Z', { fill: '#D95F5F' }) +
     circle(0, 2, 5.5, { fill: '#B84A4A' }),
   cape: circle(0, 0, 6, { fill: GOLD, stroke: darken(GOLD, 0.3), 'stroke-width': 1.5 }),
+  bandana:
+    path('M-52 -7 Q0 8 52 -7 L4 34 Q0 37 -4 34 Z', { fill: '#D95F5F' }) +
+    g({ fill: '#FFFDF9', opacity: 0.85 }, circle(-24, 2, 2.4), circle(0, 8, 2.4), circle(24, 2, 2.4), circle(-10, 18, 2.2), circle(10, 18, 2.2), circle(0, 27, 2)),
+  bell:
+    path('M-52 -6 Q0 9 52 -6 L50 3 Q0 18 -50 3 Z', { fill: '#E8795A' }) +
+    path('M-8 10 C-8 2 8 2 8 10 L10 20 L-10 20 Z', { fill: GOLD, stroke: darken(GOLD, 0.3), 'stroke-width': 1.2 }) +
+    circle(0, 21, 2.6, { fill: darken(GOLD, 0.35) }),
+  pearls: [-46, -35, -24, -12, 0, 12, 24, 35, 46]
+    .map((x) => circle(x, -4 + 12 * (1 - (x / 50) ** 2), 4.6, { fill: '#FFFDF9', stroke: '#BFB3A6', 'stroke-width': 1.2 }))
+    .join(''),
 };
 
 /** The cape's cloth hangs behind the body; its clasp is a neck item. */
@@ -160,9 +199,6 @@ export function bandage(geometry: Geometry): string {
     g({ fill: darken('#F3D9B1', 0.3) }, circle(-8, -1, 0.8), circle(-8, 1.5, 0.8), circle(8, -1, 0.8), circle(8, 1.5, 0.8)),
   );
 }
-
-const star = (x: number, y: number, r: number, fill: string) =>
-  path(`M${x} ${y - r} Q${x} ${y} ${x + r} ${y} Q${x} ${y} ${x} ${y + r} Q${x} ${y} ${x - r} ${y} Q${x} ${y} ${x} ${y - r} Z`, { fill });
 
 const heart = (x: number, y: number, size: number) =>
   path(
@@ -279,6 +315,38 @@ const BACKGROUNDS: Record<BackgroundItem, string> = {
       circle(150, 100, 3, { fill: '#BFD8B8' }),
       circle(46, 116, 3, { fill: '#F2B8C6' }),
     ),
+  beach:
+    rect(0, 0, 200, 200, { fill: '#D6EEF7' }) +
+    circle(160, 44, 18, { fill: '#F7D56A' }) +
+    path('M0 118 Q50 110 100 118 T200 116 V150 H0 Z', { fill: '#7FC4DD' }) +
+    path('M0 124 Q30 120 60 126 M90 128 Q120 122 150 128', { ...line('#FFFFFF', 2), opacity: 0.7 }) +
+    path('M0 146 Q100 136 200 146 V200 H0 Z', { fill: '#F2DDB3' }) +
+    g({ fill: '#E9CD9A' }, circle(40, 172, 2), circle(150, 180, 2.4), circle(170, 160, 1.8)),
+  snow:
+    rect(0, 0, 200, 200, { fill: '#E3ECF3' }) +
+    path('M24 150 L40 112 L56 150 Z M30 132 L40 104 L50 132 Z', { fill: '#7FA36B' }) +
+    path('M0 150 Q100 136 200 150 V200 H0 Z', { fill: '#FFFFFF' }) +
+    g(
+      { fill: '#FFFFFF' },
+      circle(30, 30, 2.6),
+      circle(80, 20, 2),
+      circle(130, 40, 2.8),
+      circle(172, 24, 2.2),
+      circle(150, 80, 2),
+      circle(60, 70, 2.4),
+      circle(186, 110, 2.2),
+      circle(12, 100, 2),
+    ),
+  stars:
+    rect(0, 0, 200, 200, { fill: '#1F2847' }) +
+    path('M154 28 A22 22 0 1 0 172 62 A17 17 0 1 1 154 28 Z', { fill: '#F7E3A1' }) +
+    star(30, 36, 6, '#F7E3A1') +
+    star(96, 22, 4, '#FFFFFF') +
+    star(62, 88, 5, '#F7E3A1') +
+    star(180, 120, 4, '#FFFFFF') +
+    star(24, 140, 4, '#FFFFFF') +
+    g({ fill: '#FFFFFF', opacity: 0.8 }, circle(130, 50, 1.4), circle(46, 60, 1.2), circle(110, 96, 1.2), circle(160, 96, 1.4), circle(84, 130, 1.2)) +
+    path('M0 170 Q100 158 200 170 V200 H0 Z', { fill: '#2B3560' }),
   space:
     rect(0, 0, 200, 200, { fill: '#2E3350' }) +
     g(
