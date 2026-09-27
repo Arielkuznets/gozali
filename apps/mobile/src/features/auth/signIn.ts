@@ -3,6 +3,7 @@ import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
 
+import { suggestName } from '@/features/profile/suggestedName';
 import { clearWidgets } from '@/features/widgets/sync';
 import { unregisterPushToken } from '@/lib/push';
 import { requireSupabase } from '@/lib/supabase';
@@ -38,6 +39,7 @@ async function signInWithAppleNative(): Promise<void> {
     ],
   });
   if (!credential.identityToken) throw new Error('Apple returned no identity token');
+  suggestName([credential.fullName?.givenName, credential.fullName?.familyName].filter(Boolean).join(' '));
   const { error } = await requireSupabase().auth.signInWithIdToken({
     provider: 'apple',
     token: credential.identityToken,

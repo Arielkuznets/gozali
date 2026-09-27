@@ -5,6 +5,7 @@ import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
+import { suggestedName } from '@/features/profile/suggestedName';
 import { NAME_MAX_LENGTH, useCompleteProfile, useProfile } from '@/features/profile/useProfile';
 import { isBlockedText } from '@/lib/errors';
 import { allowNotifications } from '@/lib/notifications';
@@ -14,7 +15,7 @@ export default function ProfileSetupScreen() {
   const { t } = useTranslation();
   const { data: profile } = useProfile();
   // The name from Apple or Google is only a suggestion.
-  const [name, setName] = useState(profile?.display_name ?? '');
+  const [name, setName] = useState((profile?.display_name ?? suggestedName() ?? '').slice(0, NAME_MAX_LENGTH));
   const [agreed, setAgreed] = useState(false);
   const completeProfile = useCompleteProfile();
 
@@ -34,9 +35,12 @@ export default function ProfileSetupScreen() {
       <View style={styles.form}>
         <AppText variant="heading">{t('profileSetup.title')}</AppText>
         <View style={styles.field}>
-          <AppText variant="caption">{t('profileSetup.nameLabel')}</AppText>
+          <AppText variant="caption" aria-hidden>
+            {t('profileSetup.nameLabel')}
+          </AppText>
           <TextInput
             style={styles.input}
+            accessibilityLabel={t('profileSetup.nameLabel')}
             placeholder={t('profileSetup.namePlaceholder')}
             placeholderTextColor={colors.inkMuted}
             maxLength={NAME_MAX_LENGTH}
