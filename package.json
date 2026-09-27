@@ -10,7 +10,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "test": "npm test --workspace @gozali/game-engine --workspace @gozali/critter-art",
+    "test": "npm test --workspace @gozali/game-engine --workspace @gozali/critter-art --workspace @gozali/mobile",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "db:types": "supabase gen types typescript --local > apps/mobile/src/lib/database.types.ts && prettier --print-width 100 --single-quote --write apps/mobile/src/lib/database.types.ts",
     "db:test": "supabase test db",
