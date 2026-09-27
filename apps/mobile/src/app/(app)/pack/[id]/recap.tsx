@@ -151,7 +151,7 @@ function RecapView({ recap, packName, category, names }: ViewProps) {
                   accessibilityLabel={t('feed.photoBy', { name })}
                   accessibilityHint={t('feed.openPhoto')}
                   onPress={() => setOpen({ id: photo.id, url: photo.url, caption: null, name })}>
-                  <Image source={{ uri: photo.url, cacheKey: photo.id }} style={styles.fill} contentFit="cover" />
+                  <Image source={{ uri: photo.url, cacheKey: photo.id }} style={styles.fill} contentFit="cover" transition={200} />
                 </Pressable>
               );
             })}

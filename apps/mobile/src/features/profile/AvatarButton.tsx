@@ -42,7 +42,7 @@ export function AvatarButton({ name }: { name: string | null | undefined }) {
     <>
       <Pressable accessibilityRole="button" accessibilityLabel={t('me.photo')} onPress={open} style={styles.wrap}>
         {url ? (
-          <Image source={{ uri: url }} style={styles.avatar} contentFit="cover" />
+          <Image source={{ uri: url }} style={styles.avatar} contentFit="cover" transition={200} />
         ) : (
           <View style={[styles.avatar, styles.empty]}>
             <AppText style={styles.initial}>{(name?.trim()[0] ?? '?').toUpperCase()}</AppText>

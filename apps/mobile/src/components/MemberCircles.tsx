@@ -51,7 +51,12 @@ export function MemberCircles({ members, color, onNudge, onMenu }: Props) {
                 member.state === 'pass' && styles.dashed,
               ]}>
               {member.avatarUrl && !resting ? (
-                <Image source={{ uri: member.avatarUrl }} style={[styles.avatar, member.state === 'pass' && styles.faded]} contentFit="cover" />
+                <Image
+                  source={{ uri: member.avatarUrl }}
+                  style={[styles.avatar, member.state === 'pass' && styles.faded]}
+                  contentFit="cover"
+                  transition={200}
+                />
               ) : (
                 <AppText style={styles.initial}>{resting ? '💤' : initial(member.name)}</AppText>
               )}
