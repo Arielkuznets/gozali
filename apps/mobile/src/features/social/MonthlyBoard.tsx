@@ -64,21 +64,29 @@ export function MonthlyBoard({ month, results, members, today, fedToday, color }
           );
         })}
       </View>
-      {members.map((member) => (
-        <View key={member.id} style={styles.row}>
-          <AppText variant="caption" numberOfLines={1} style={styles.nameColumn}>
-            {member.name ?? '…'}
-          </AppText>
-          {days.map((day) => {
-            const cell = cellFor(member.id, day, byDay.get(day), today, fedToday);
-            return (
-              <View key={day} style={cellStyle(cell)}>
+      {members.map((member) => {
+        const cells = days.map((day) => cellFor(member.id, day, byDay.get(day), today, fedToday));
+        const count = (kind: Cell) => cells.filter((cell) => cell === kind).length;
+        const summary = t('profile.boardRow', {
+          name: member.name ?? '…',
+          fed: count('fed'),
+          rest: count('rest'),
+          away: count('away'),
+          missed: count('missed'),
+        });
+        return (
+          <View key={member.id} style={styles.row} accessible accessibilityLabel={summary}>
+            <AppText variant="caption" numberOfLines={1} style={styles.nameColumn}>
+              {member.name ?? '…'}
+            </AppText>
+            {cells.map((cell, index) => (
+              <View key={days[index]} style={cellStyle(cell)}>
                 {cell === 'missed' && <View style={styles.missedMark} />}
               </View>
-            );
-          })}
-        </View>
-      ))}
+            ))}
+          </View>
+        );
+      })}
       <View style={styles.legend}>
         {(
           [

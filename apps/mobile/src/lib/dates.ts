@@ -1,3 +1,5 @@
+import { getCalendars } from 'expo-localization';
+
 import i18n from '@/i18n';
 
 const formatters = new Map<string, Intl.DateTimeFormat>();
@@ -24,6 +26,11 @@ export function formatMoment(at: string, now: Date): string {
   const time = formatter({ hour: '2-digit', minute: '2-digit' }).format(date);
   if (date.toDateString() === now.toDateString()) return time;
   return `${formatter({ month: 'short', day: 'numeric' }).format(date)}, ${time}`;
+}
+
+/** The phone's time zone, like "Asia/Jerusalem". */
+export function deviceTimeZone(): string {
+  return getCalendars()[0]?.timeZone ?? 'UTC';
 }
 
 /** The month (YYYY-MM) `by` months before or after `month`. */

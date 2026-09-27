@@ -1,4 +1,4 @@
-import { addDays } from '@gozali/game-engine';
+import { addDays, packDayOf } from '@gozali/game-engine';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useState } from 'react';
@@ -15,10 +15,12 @@ import { pickAvatar, useAvatarUrls, useSetAvatar } from '@/features/profile/avat
 import { useProfile } from '@/features/profile/useProfile';
 import { useMyStats } from '@/features/social/api';
 import { notify } from '@/lib/confirm';
+import { deviceTimeZone, formatDay } from '@/lib/dates';
 import { goBack } from '@/lib/navigation';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 const BOARD_DAYS = 35;
+const STATUS_LABELS = { fed: 'profile.legendFed', rest: 'profile.legendRest', missed: 'profile.legendMissed' } as const;
 
 /** Personal stats across all packs (spec section 9). */
 export default function MeScreen() {
@@ -49,7 +51,8 @@ export default function MeScreen() {
   };
 
   const byDay = new Map((stats.data?.days ?? []).map((entry) => [entry.day, entry.status]));
-  const last = new Date().toISOString().slice(0, 10);
+  // The pack day on this phone: until 03:00 it is still yesterday's.
+  const last = packDayOf(new Date(), deviceTimeZone());
   const days = Array.from({ length: BOARD_DAYS }, (_, index) => addDays(last, index - BOARD_DAYS + 1));
 
   return (
@@ -109,13 +112,17 @@ export default function MeScreen() {
               return (
                 <View
                   key={day}
+                  accessible
+                  accessibilityLabel={status ? t('me.boardDay', { day: formatDay(day), status: t(STATUS_LABELS[status]) }) : formatDay(day)}
                   style={[
                     styles.cell,
                     status === 'fed' && styles.fed,
                     status === 'rest' && styles.rest,
                     status === 'missed' && styles.missed,
                   ]}>
-                  <AppText style={styles.cellText}>{Number(day.slice(8))}</AppText>
+                  <AppText style={[styles.cellText, status === 'fed' && styles.fedText, status === 'missed' && styles.missedText]}>
+                    {Number(day.slice(8))}
+                  </AppText>
                 </View>
               );
             })}
@@ -125,7 +132,9 @@ export default function MeScreen() {
             <AppText variant="caption">{t('profile.legendFed')}</AppText>
             <View style={[styles.legendCell, styles.rest]} />
             <AppText variant="caption">{t('profile.legendRest')}</AppText>
-            <View style={[styles.legendCell, styles.missed]} />
+            <View style={[styles.legendCell, styles.missed]}>
+              <View style={styles.legendMissedMark} />
+            </View>
             <AppText variant="caption">{t('profile.legendMissed')}</AppText>
           </View>
         </ScrollView>
@@ -168,9 +177,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cellText: { fontSize: 11, color: colors.inkMuted },
+  fedText: { fontFamily: fonts.bodyBold, color: colors.ink },
+  missedText: { color: colors.danger, textDecorationLine: 'line-through' },
   fed: { backgroundColor: '#BFD8B8' },
   rest: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.inkMuted },
   missed: { backgroundColor: '#F4CFC9' },
   legend: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' },
-  legendCell: { width: 12, height: 12, borderRadius: 3 },
+  legendCell: { width: 12, height: 12, borderRadius: 3, overflow: 'hidden' },
+  legendMissedMark: { position: 'absolute', left: 2, right: 2, top: 5, height: 1.5, backgroundColor: colors.danger },
 });
