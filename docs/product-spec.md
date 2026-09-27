@@ -381,7 +381,7 @@ The design should feel colorful, soft and hand-drawn, and in no way generic or "
 3. Animation in Rive, with one state machine per creature species. Inputs: health, stage, mood, isSleeping, wardrobe items (head, neck, background), and triggers for feed, pet, crack (the egg cracking) and hatch.
 4. Static images for widgets: for every species, stage and state an image is exported, and the color and wardrobe items are layered on top of it.
 
-**In version 1, until the final design is ready:** use a simple temporary character (a basic shape with eyes) so development isn't held up, and replace it later, both in the app and in the widgets. The code should treat the character as one component that receives state, so the replacement is a single change.
+**In version 1, until the final design is ready:** use a simple temporary character (a basic shape with eyes) so development isn't held up, and replace it later, both in the app and in the widgets. The code should treat the character as one component that receives state, so the replacement is a single change. The temporary character is drawn in code as SVG (`packages/critter-art`): a pure function from state (species, color, stage, health state, mood, night, wardrobe, marks and the habit item) to SVG markup, so the same drawing serves the app and the widget images.
 
 ## 11. Privacy, safety and store policy
 
