@@ -136,7 +136,8 @@ struct MediumPackView: View {
           Link(destination: pack.feedURL) {
             Text(Texts.feed)
               .font(.subheadline.weight(.semibold))
-              .foregroundStyle(.white)
+              // Dark on the accent, like the app's buttons: white on it is too faint to read.
+              .foregroundStyle(Color.ink)
               .padding(.horizontal, 14)
               .padding(.vertical, 5)
               .background(Capsule().fill(Color.accent))

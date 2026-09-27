@@ -140,7 +140,7 @@ export function PackWideWidget({ pack }: { pack: Pack | undefined }) {
             clickAction="OPEN_URI"
             clickActionData={{ uri: `gozali://pack/${pack.id}/feed` }}
             style={{ marginTop: 8, backgroundColor: ACCENT, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 6 }}>
-            <TextWidget text={i18n.t('widgets.feed')} style={{ fontSize: 14, color: '#FFFFFF', fontFamily: 'sans-serif-medium' }} />
+            <TextWidget text={i18n.t('widgets.feed')} style={{ fontSize: 14, color: INK, fontFamily: 'sans-serif-medium' }} />
           </FlexWidget>
         )}
       </FlexWidget>
