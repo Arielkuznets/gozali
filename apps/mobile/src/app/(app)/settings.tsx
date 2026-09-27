@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 
@@ -126,6 +127,9 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.section}>
+          <Pressable accessibilityRole="link" onPress={() => router.push('/how-it-works')}>
+            <AppText style={styles.link}>{t('settings.app.howItWorks')}</AppText>
+          </Pressable>
           <Pressable accessibilityRole="link" onPress={() => void Linking.openURL('https://gozali.app/privacy')}>
             <AppText style={styles.link}>{t('settings.app.privacy')}</AppText>
           </Pressable>

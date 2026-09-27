@@ -185,6 +185,7 @@
       "blocked": "Blocked people",
       "noBlocked": "You haven't blocked anyone.",
       "unblock": "Unblock",
+      "howItWorks": "How Gozali works",
       "language": "Language",
       "english": "English",
       "privacy": "Privacy policy",
@@ -599,6 +600,7 @@
     "skip": "Skip",
     "next": "Next",
     "start": "Let's go",
+    "gotIt": "Got it",
     "progress": "Step {{step}} of {{count}}",
     "photo": {
       "title": "Feed me with a photo",
