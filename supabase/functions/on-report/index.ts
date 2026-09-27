@@ -3,6 +3,7 @@
 // RESEND_API_KEY and REPORT_EMAIL are set; otherwise the report only goes to the function log.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
+import { hasCronSecret } from '../_shared/secret.ts';
 const PHOTO_LINK_SECONDS = 7 * 24 * 60 * 60;
 
 type Details = {
@@ -20,10 +21,7 @@ function escape(text: string): string {
 }
 
 Deno.serve(async (request) => {
-  const secret = Deno.env.get('CRON_SECRET');
-  if (!secret || request.headers.get('x-cron-secret') !== secret) {
-    return new Response('forbidden', { status: 403 });
-  }
+  if (!hasCronSecret(request)) return new Response('forbidden', { status: 403 });
   const { reportId } = (await request.json()) as { reportId?: string };
   if (!reportId) return new Response('missing report', { status: 400 });
 
