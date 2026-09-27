@@ -283,7 +283,8 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   shop: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   unaffordable: { opacity: 0.55 },
-  shopItem: { width: 100 },
+  // Three to a row across the whole width, on any phone; a short last row keeps the same size.
+  shopItem: { width: undefined, flexBasis: '30%', flexGrow: 1, maxWidth: '32%' },
   itemName: { textAlign: 'center' },
   price: { fontFamily: fonts.bodyMedium, fontSize: 13 },
   achievement: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
