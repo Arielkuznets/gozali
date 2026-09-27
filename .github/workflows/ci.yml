@@ -10,8 +10,8 @@ jobs:
     name: Tests, types and lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -31,15 +31,14 @@ jobs:
     name: Database, API and end-to-end tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
       - run: npm ci
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
+      # The CLI version comes from package-lock.json, the same one used locally.
+      - uses: supabase/setup-cli@v3
       - name: Start Supabase
         run: supabase start -x studio,imgproxy,logflare,vector,supavisor,mailpit
       - name: Serve the Edge Functions
@@ -72,7 +71,7 @@ jobs:
           npm run e2e
       - name: Keep the traces of failed end-to-end tests
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-results
           path: e2e/test-results

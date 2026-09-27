@@ -1,5 +1,5 @@
 // Test data for the end-to-end tests, made through the local Supabase API like the smoke scripts.
-import type { Browser, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js';
 
 const url = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
@@ -69,16 +69,17 @@ export async function createPack(owner: TestUser, pack: NewPack, others: TestUse
   return { id, inviteCode: data!.invite_code as string };
 }
 
-/** A JPEG to stand in for a photo: an emoji on a gradient, drawn by the browser. */
-export async function photo(browser: Browser, emoji: string): Promise<Buffer> {
-  const page = await browser.newPage({ viewport: { width: 540, height: 720 } });
+/**
+ * A JPEG to stand in for a photo: an emoji on a gradient, drawn on the test's own page before it
+ * opens the app. A second window would push the test page to the background, where Chromium
+ * stops painting camera frames.
+ */
+export async function photo(page: Page, emoji: string): Promise<Buffer> {
   await page.setContent(
-    `<body style="margin:0;height:720px;display:flex;align-items:center;justify-content:center;` +
+    `<body style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;` +
       `background:linear-gradient(160deg,#BCD9E8,#5B8DB8);font:140px system-ui">${emoji}</body>`,
   );
-  const image = await page.screenshot({ type: 'jpeg', quality: 80 });
-  await page.close();
-  return image;
+  return await page.screenshot({ type: 'jpeg', quality: 80 });
 }
 
 /** Posts a feed for `member` the way the app does: upload, then submit_feed. */

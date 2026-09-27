@@ -10,7 +10,8 @@ export default defineConfig({
   // The tests share one local database, so they run one at a time.
   workers: 1,
   retries: process.env.CI ? 1 : 0,
-  reporter: 'list',
+  // In CI the github reporter turns failures into annotations on the run.
+  reporter: process.env.CI ? [['github'], ['list']] : 'list',
   use: {
     baseURL: 'http://127.0.0.1:8088',
     viewport: { width: 390, height: 844 },
