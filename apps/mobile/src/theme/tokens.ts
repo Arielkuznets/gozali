@@ -1,6 +1,6 @@
 // Design tokens from spec section 10: warm pastels on cream, one accent, soft shapes.
 
-import { CREATURE_COLORS } from '@gozali/critter-art';
+import { CREATURE_ACCENTS, CREATURE_COLORS } from '@gozali/critter-art';
 
 export const colors = {
   background: '#FBF6EE',
@@ -15,6 +15,8 @@ export const colors = {
 
 /** Each creature's own color; the critter drawing owns them. */
 export const critterColors = CREATURE_COLORS;
+/** A stronger shade of each creature for the circles and boards around it. */
+export const critterAccents = CREATURE_ACCENTS;
 
 export const spacing = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48 } as const;
 

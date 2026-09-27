@@ -49,6 +49,28 @@ h1 {
   height: 180px;
 }
 
+.creatures {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  margin: 8px 0 20px;
+}
+
+.creatures figure {
+  margin: 0;
+}
+
+.creatures svg {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+}
+
+.creatures figcaption {
+  font-size: 14px;
+  color: var(--muted);
+}
+
 .code {
   font-size: 34px;
   letter-spacing: 6px;

@@ -20,7 +20,7 @@ import { confirm, notify } from '@/lib/confirm';
 import { formatDay } from '@/lib/dates';
 import { goBack } from '@/lib/navigation';
 import { useNow } from '@/lib/useNow';
-import { colors, critterColors, fonts, radii, spacing } from '@/theme/tokens';
+import { colors, critterAccents, fonts, radii, spacing } from '@/theme/tokens';
 
 const SLOTS: readonly WardrobeSlot[] = ['head', 'neck', 'background'];
 
@@ -165,7 +165,7 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
               .map((member) => ({ id: member.user_id, name: member.profiles?.display_name ?? null }))}
             today={today}
             fedToday={fedToday(counted.data, pack, now)}
-            color={critterColors[critter.species]}
+            color={critterAccents[critter.species]}
           />
         </View>
 

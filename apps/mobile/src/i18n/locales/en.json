@@ -537,6 +537,15 @@
     "named": "🏷️ {{name}} named the pet {{critter}}",
     "bought": "🛍️ {{name}} bought {{critter}} a {{item}}"
   },
+  "moments": {
+    "hatchedTitle": "{{name}} hatched!",
+    "hatchedBody": "Say hi to your pack's new pet. Keep feeding it together and it grows.",
+    "evolvedTitle": "{{name}} reached the {{stage}} stage!",
+    "evolvedBody": "All those days of feeding paid off.",
+    "returnedTitle": "{{name}} is back!",
+    "returnedBody": "Three good days in a row brought it home. It wears a little bandage now.",
+    "close": "Yay!"
+  },
   "achievements": {
     "hatched": {
       "title": "Hello world",
@@ -723,6 +732,8 @@
     "goodDays": "good days",
     "health": "health",
     "streak": "streak",
+    "coins_one": "🪙 The pack earned {{count}} coin this week",
+    "coins_other": "🪙 The pack earned {{count}} coins this week",
     "mostConsistent_one": "Most consistent: {{names}}, {{count}} feed",
     "mostConsistent_other": "Most consistent: {{names}}, {{count}} feeds",
     "share": "Share as a story",

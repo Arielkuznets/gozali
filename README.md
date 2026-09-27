@@ -8,6 +8,7 @@ Gozali (Hebrew for "my little chick") is a mobile app where a small group of fri
 - [Decision log](docs/decisions.md)
 - [Simulation results](docs/simulation.md)
 - [Cloud setup](docs/setup.md): Supabase, EAS builds, sign-in providers and the gozali.app site
+- [Store listing](docs/store-listing.md): texts, keywords, privacy answers and review notes for the App Store and Google Play
 - [Privacy policy](docs/legal/privacy-policy.md) and [terms of use](docs/legal/terms-of-use.md) (drafts for the pilot)
 
 ## Code
