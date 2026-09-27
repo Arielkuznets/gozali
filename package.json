@@ -25,7 +25,8 @@
     "lint": "npm run lint --workspace @gozali/mobile",
     "e2e:build": "npm run build:web --workspace @gozali/mobile",
     "e2e": "playwright test -c e2e",
-    "store:shots": "playwright test -c e2e/store",
+    "store:shots": "playwright test -c e2e/store shots",
+    "ui:gallery": "playwright test -c e2e/store gallery",
     "typecheck:e2e": "npx -y -p typescript@5 tsc -p e2e",
     "functions:bundle": "node scripts/bundle-functions.mjs"
   },
