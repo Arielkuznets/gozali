@@ -10,7 +10,8 @@
     "web": "expo start --web",
     "lint": "eslint src index.ts test",
     "typecheck": "tsc --noEmit && tsc --noEmit -p test",
-    "test": "jest"
+    "test": "jest",
+    "build:web": "expo export -p web --output-dir web-build"
   },
   "dependencies": {
     "@bacons/apple-targets": "^5.0.0",

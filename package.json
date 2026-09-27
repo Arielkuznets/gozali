@@ -22,9 +22,13 @@
     "smoke:push": "node scripts/smoke-push.mjs",
     "smoke:widgets": "node scripts/smoke-widgets.mjs",
     "smoke:delete-account": "node scripts/smoke-delete-account.mjs",
-    "lint": "npm run lint --workspace @gozali/mobile"
+    "lint": "npm run lint --workspace @gozali/mobile",
+    "e2e:build": "npm run build:web --workspace @gozali/mobile",
+    "e2e": "playwright test -c e2e",
+    "typecheck:e2e": "npx -y -p typescript@5 tsc -p e2e"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "prettier": "^3",
     "supabase": "^2"
   }
