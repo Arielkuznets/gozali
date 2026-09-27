@@ -88,3 +88,11 @@ Everything runs locally without accounts (see the README). This is the one-time 
 - The widgets on both platforms (they have only been built by EAS, never tried by hand).
 - A day close on the cloud: the next morning, `select * from day_results order by closed_at desc` shows the night's results.
 - Google Play closed testing needs at least 12 testers for 14 days in a row before publishing.
+
+## 5. During the pilot
+
+The success numbers of spec sections 1 and 15 (active packs, active packs 14 days after they were created, pack size, and invited users who opened a pack of their own):
+
+```sh
+npx supabase db query --linked "select public.pilot_metrics()"
+```
