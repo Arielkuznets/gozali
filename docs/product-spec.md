@@ -1,8 +1,8 @@
-# Gozali — Product Spec (version 3.2)
+# Gozali — Product Spec (version 3.3)
 
 Sep 26, 2026 · @Ariel kuznets
 
-> Version 3.2: the critter is designed and animated in code, with no illustrator and no Rive (decision D19), and Hebrew in the app is postponed. Version 3.1: the app has a name, Gozali. Version 3 closed all the open decisions from version 2 (details and reasoning in [decisions.md](decisions.md)), expanded version 1 and added widgets for the home screen and the lock screen. The list of changes is in section 18.
+> Version 3.3: removed members stay out, the admin can replace the invite code, and errors are reported to the database (decision D22). Version 3.2: the critter is designed and animated in code, with no illustrator and no Rive (decision D19), and Hebrew in the app is postponed. Version 3.1: the app has a name, Gozali. Version 3 closed all the open decisions from version 2 (details and reasoning in [decisions.md](decisions.md)), expanded version 1 and added widgets for the home screen and the lock screen. The list of changes is in section 18.
 
 ## 1. Overview
 
@@ -329,7 +329,7 @@ Fourteen screens in version 1, plus widgets for the home screen and the lock scr
 | Create pack | Four steps: name, category, rest days, and the critter, then the link sharing screen |
 | Critter profile | Stage and progress to the next XP, monthly board, medals and marks, achievements, a wardrobe for dressing the creature, and the outfit shop with the pack's coins |
 | Weekly recap | The weekly recap and the button to share it as a story |
-| Pack settings | Name, rest days, week start, members (removal for the admin), invite link and QR code, pause, joker, leave |
+| Pack settings | Name, rest days, week start, members (removal for the admin), invite link and QR code (the admin can replace the code), pause, joker, leave |
 | Me | Personal stats: total feeds, current and best personal streak (days in a row without a miss in any pack), and a personal monthly board across all packs |
 | Settings | Reminder time, notifications by type, language, privacy, blocked users, how to add widgets, delete account |
 
@@ -406,7 +406,7 @@ The app includes content that users upload (photos), so it must meet Apple's and
 - **Sign in with Apple** next to Google, to meet Apple's requirement for a privacy-preserving sign-in option.
 - **Filtering:** captions are filtered for offensive words before they are posted.
 - **Reporting content:** every photo has a Report option. Every report sends an email to the developer and is handled within 24 hours: hiding the item, and if needed removing the user.
-- **Blocking:** a user can block another user. The blocked user's photos and reactions are hidden for them, and the blocked user can't nudge them; if they are in the same pack, leaving is offered too. In addition, anyone can leave a pack at any moment, and an admin can remove a member.
+- **Blocking:** a user can block another user. The blocked user's photos and reactions are hidden for them, and the blocked user can't nudge them; if they are in the same pack, leaving is offered too. In addition, anyone can leave a pack at any moment, and an admin can remove a member, who then can't come back with the invite code. If a link reached the wrong people, the admin replaces the code and the old one stops working.
 - **Terms of use** that forbid offensive content, and a way to get in touch (an email address).
 - **Minimum age 13**, with a declaration at sign-up.
 
@@ -481,7 +481,7 @@ Expo on the app side and Supabase on the server side, with all the game logic on
 | Language | expo-localization + an i18n library |
 | Haptics | expo-haptics |
 | Share image | react-native-view-shot |
-| Monitoring | Sentry (crashes), PostHog (analytics) |
+| Monitoring | Error reports in the database (`app_errors`), pilot numbers from `pilot_metrics` (decision D22) |
 
 Important: the widgets and some of the modules require a **development build**, not Expo Go. You build it on EAS and install it on the device.
 
@@ -496,9 +496,9 @@ Important: the widgets and some of the modules require a **development build**, 
   - `submit_feed`: verifies pack membership, computes "the day" by the pack's time zone (including the offline rule), saves the feed (the database constraint prevents duplicates), wakes a sleeping member, and cancels a joker or declared rest for the same day.
   - `create_pack`: creates the pack, its egg and the admin membership, with a random invite code; limited to 3 packs per user.
   - `pack_preview`: what someone sees before joining (name, habit, the critter as it is now, and who is in the pack), by invite code.
-  - `join_pack`: joining with an invite code, with locking and a check for a free spot.
+  - `join_pack`: joining with an invite code, with locking and a check for a free spot; a member the admin removed can't rejoin this way.
   - `update_pack` (admin): the name changes right away; rest days and week start are stored as pending and apply from the next week start.
-  - `remove_member` (admin).
+  - `remove_member` (admin) and `renew_invite_code` (admin: a new code; the old code and link stop working).
   - `leave_pack`: leaving, including passing admin to the longest-standing member.
   - `use_day_pass` (joker or declaring a rest, today only) and `cancel_day_pass`; `start_pause` and `end_pause`; `my_day_status` (rest days left this week, the month's joker, today's pass, the current pause and when the next one is allowed).
   - `react` (one reaction per member per item, changeable) and `feed_reactions` (totals for a page of items, names for every emoji but 🤨).
@@ -507,6 +507,7 @@ Important: the widgets and some of the modules require a **development build**, 
   - `buy_item`: any member buys a shop item with the pack's coins; the check and the payment are one statement, so two members buying at once can't overspend.
   - `dress_critter`: any member, one owned item per slot (unlocked or bought).
   - `my_stats`: the Me screen (total feeds, current and best personal streak, the last weeks).
+  - `report_app_error`: an error from a member's phone, at most 50 a day per member (decision D22).
 - **Edge Functions:**
   - `close-days`: runs every 15 minutes. **State-based, not time-based:** for every pack it runs game-engine on every day that has ended (including the grace window) and has no day\_results row yet, in order, and applies each result through one Postgres function (`apply_day_result`). The function checks that the day isn't closed yet and that the previous day is, and writes in one transaction the day\_results row, the creature, the members' state, the achievements and the notifications. Idempotent, and it takes "now" as a parameter so it can be tested without waiting for the end of the day. The database gathers each day's input (`day_close_input`: members with their feed, pass, pause, rest days used and recent misses, the critter, and the pack totals for achievements), the function runs game-engine on it, and `apply_day_result` writes the outcome. The same run deletes photo files older than 30 days (`expired_photos`, then `forget_photos`), and packs nobody has been in for 30 days, their photo files first (`empty_pack_photos`, then `drop_empty_packs`).
   - `weekly-recap`: creates the recap data at the end of each pack's week and saves it in weekly\_recaps. Built as a database trigger rather than a separate function: when the last day of a pack's week closes, a deferred trigger (it runs at commit, after the critter is updated) saves the numbers, the most consistent members, the week's achievements, the critter as the week ended and up to 9 photos for the collage (one per member before a second from anyone), and queues the "recap ready" notification. The story image is made in the app (`react-native-view-shot`, 1080×1920) and shared through the share sheet.
@@ -521,7 +522,7 @@ Important: the widgets and some of the modules require a **development build**, 
 
 **Testing:** unit, database (pgTAP), API smoke and end-to-end tests run in CI on every push; see [decision D18](decisions.md).
 
-**Build and distribution:** EAS Build for iPhone and Android, EAS Submit to TestFlight and the stores, EAS Update for fast JavaScript updates without a new review. The pilot runs on TestFlight and in Google Play closed testing, which for a new personal developer account requires at least 12 testers for 14 days in a row before publishing.
+**Build and distribution:** EAS Build for iPhone and Android, EAS Submit to TestFlight and the stores, EAS Update for fast JavaScript updates without a new review (a channel per build profile, and a fingerprint runtime version so an update only reaches builds with the same native code). CI also compiles the iOS app for the simulator and the Android app, widgets included, without signing. The pilot runs on TestFlight and in Google Play closed testing, which for a new personal developer account requires at least 12 testers for 14 days in a row before publishing.
 
 ## 15. Scope and build phases
 
@@ -579,6 +580,12 @@ All the decisions that blocked version 1 are closed; the details and reasoning a
 - [ ] Whether 3 free packs is right, or a different limit is better (before monetization). Note: few users will reach a fourth pack, so it is a weak lever for payment; "a gift for the pack" looks stronger.
 
 ## 18. Change history
+
+### Version 3.3
+
+- **Safety:** a member the admin removed can't rejoin with the invite code, and the admin can replace the code.
+- **Errors:** the app reports errors to the database instead of Sentry, and there is no analytics service; the pilot numbers come from the database (decision D22).
+- **Updates:** EAS Update is in the first builds, for fixes during the pilot.
 
 ### Version 3.2
 

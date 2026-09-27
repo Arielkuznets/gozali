@@ -6,6 +6,7 @@ import { AppState } from 'react-native';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { deviceTimeZone } from '@/lib/dates';
 import { registerPushToken } from '@/lib/push';
+import { sendPendingCrash } from '@/lib/reportError';
 import { requireSupabase } from '@/lib/supabase';
 
 /** Notification types a member can turn off (spec section 8); all are on by default. */
@@ -117,6 +118,7 @@ export function useAccountSync() {
   useEffect(() => {
     if (!userId) return;
     void registerPushToken();
+    void sendPendingCrash();
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') void registerPushToken();
     });

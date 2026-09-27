@@ -4,8 +4,20 @@ import { colors, fonts } from '@/theme/tokens';
 
 type Variant = 'title' | 'heading' | 'body' | 'caption';
 
-export function AppText({ variant = 'body', style, ...props }: TextProps & { variant?: Variant }) {
-  return <Text {...props} style={[styles.base, styles[variant], style]} />;
+/**
+ * Text follows the phone's text size setting, up to a limit per variant: body text may double,
+ * headings grow less, so the largest accessibility sizes stay readable without breaking layouts.
+ */
+const MAX_SCALE: Record<Variant, number> = { title: 1.3, heading: 1.6, body: 2, caption: 2 };
+
+export function AppText({ variant = 'body', style, maxFontSizeMultiplier, ...props }: TextProps & { variant?: Variant }) {
+  return (
+    <Text
+      {...props}
+      maxFontSizeMultiplier={maxFontSizeMultiplier ?? MAX_SCALE[variant]}
+      style={[styles.base, styles[variant], style]}
+    />
+  );
 }
 
 const styles = StyleSheet.create({

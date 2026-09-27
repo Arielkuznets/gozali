@@ -2,6 +2,7 @@
 // policy and terms (from docs/legal), and the files that let https://gozali.app/i/CODE open the
 // app. Run: APP_STORE_URL=... APPLE_TEAM_ID=... ANDROID_SHA256=... node web/build.mjs
 // Missing values become placeholders, with a warning, so a preview build still works.
+import { createHash } from 'node:crypto';
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -99,5 +100,33 @@ writeFileSync(
 // Cloudflare Pages / Netlify style rules: every invite path serves the invite page, and the
 // association file is JSON even without an extension.
 writeFileSync(join(dist, '_redirects'), '/i/*  /i/index.html  200\n');
-writeFileSync(join(dist, '_headers'), '/.well-known/apple-app-site-association\n  Content-Type: application/json\n');
+// Security headers for every page. The invite page's one inline script is allowed by its hash, so
+// the policy needs no 'unsafe-inline'; fonts come from Google Fonts.
+const scriptHashes = [...readFileSync(join(dist, 'i/index.html'), 'utf8').matchAll(/<script>([\s\S]*?)<\/script>/g)].map(
+  ([, body]) => `'sha256-${createHash('sha256').update(body).digest('base64')}'`,
+);
+const policy = [
+  "default-src 'self'",
+  `script-src 'self' ${scriptHashes.join(' ')}`,
+  "style-src 'self' https://fonts.googleapis.com",
+  'font-src https://fonts.gstatic.com',
+  "img-src 'self' data:",
+  "connect-src 'none'",
+  "form-action 'none'",
+  "frame-ancestors 'none'",
+  "base-uri 'none'",
+].join('; ');
+writeFileSync(
+  join(dist, '_headers'),
+  [
+    '/*',
+    `  Content-Security-Policy: ${policy}`,
+    '  X-Content-Type-Options: nosniff',
+    '  Referrer-Policy: strict-origin-when-cross-origin',
+    '  Permissions-Policy: camera=(), microphone=(), geolocation=()',
+    '/.well-known/apple-app-site-association',
+    '  Content-Type: application/json',
+    '',
+  ].join('\n'),
+);
 console.log(`built ${dist}`);

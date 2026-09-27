@@ -13,6 +13,7 @@ Gozali is an app where a small group of friends (a "pack") raises a shared pet b
 - **What you do in packs:** the packs you create or join, your photos, their captions and time, focus session lengths, rest days, jokers and pauses you take, reactions, nudges, name suggestions and changes to the pet's outfit.
 - **Safety:** reports you send and people you block.
 - **Devices:** a push notification token for each phone you sign in on, and a token that lets your widgets read your packs' state (we keep only a scrambled form of it).
+- **Errors:** when something goes wrong in the app, a short technical report (the error, the screen, the app version and whether it's an iPhone or Android phone) so we can fix it. Reports are deleted after 30 days.
 
 We do **not** collect your location or contacts, we don't use advertising or tracking identifiers, and we don't sell or rent your data.
 
@@ -23,7 +24,7 @@ We do **not** collect your location or contacts, we don't use advertising or tra
 - Pack members see who fed, rested, used a joker, was paused or missed on each day, because that is how the pack works together. Notifications never say who missed.
 - Widgets on your home screen and lock screen show only the pet and numbers, never photos or names.
 - A weekly recap you share as a story contains the pet, the pack's numbers and **only your own** photos.
-- People you block don't see your content, and you don't see theirs.
+- You don't see the photos and reactions of people you block, and they can't nudge you. If you share a pack with them, they can still see what you post there; you can leave the pack at any time.
 
 ## How long we keep it
 
@@ -35,11 +36,15 @@ We do **not** collect your location or contacts, we don't use advertising or tra
 ## Services we use
 
 - **Supabase** stores the data and runs the server (database, file storage, sign-in).
-- **Expo** delivers push notifications.
+- **Expo** delivers push notifications, through Apple's and Google's push services.
 - **Apple** and **Google** provide sign-in.
 - **Resend** delivers report alerts to the developer.
 
 They process data only to provide these services to Gozali.
+
+## Your rights
+
+You can see and change your profile in the app, and delete your account and everything in it from Settings. You can also ask us at hello@gozali.app for a copy of your data or to correct it, and we will answer within 30 days. If you live in the European Union or the UK, you may also complain to your data protection authority. The data is stored in the European Union (Ireland).
 
 ## Age
 

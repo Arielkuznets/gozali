@@ -3,6 +3,12 @@
     "name": "Gozali",
     "slug": "gozali",
     "version": "0.1.0",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/e2b9dd73-d05e-4ee1-834d-dbcf6d26cc0a"
+    },
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "gozali",
@@ -57,6 +63,7 @@
     },
     "android": {
       "package": "app.gozali",
+      "allowBackup": false,
       "blockedPermissions": [
         "android.permission.SYSTEM_ALERT_WINDOW"
       ],

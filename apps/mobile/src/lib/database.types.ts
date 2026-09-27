@@ -49,6 +49,50 @@ export type Database = {
           },
         ];
       };
+      app_errors: {
+        Row: {
+          app_version: string | null;
+          created_at: string;
+          fatal: boolean;
+          id: number;
+          message: string;
+          platform: string;
+          screen: string | null;
+          stack: string | null;
+          user_id: string | null;
+        };
+        Insert: {
+          app_version?: string | null;
+          created_at?: string;
+          fatal?: boolean;
+          id?: never;
+          message: string;
+          platform: string;
+          screen?: string | null;
+          stack?: string | null;
+          user_id?: string | null;
+        };
+        Update: {
+          app_version?: string | null;
+          created_at?: string;
+          fatal?: boolean;
+          id?: never;
+          message?: string;
+          platform?: string;
+          screen?: string | null;
+          stack?: string | null;
+          user_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'app_errors_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       blocked_words: {
         Row: {
           match: string;
@@ -519,6 +563,7 @@ export type Database = {
           joined_at: string;
           left_at: string | null;
           pack_id: string;
+          removed_at: string | null;
           role: Database['public']['Enums']['member_role'];
           status: Database['public']['Enums']['member_status'];
           user_id: string;
@@ -528,6 +573,7 @@ export type Database = {
           joined_at?: string;
           left_at?: string | null;
           pack_id: string;
+          removed_at?: string | null;
           role?: Database['public']['Enums']['member_role'];
           status?: Database['public']['Enums']['member_status'];
           user_id: string;
@@ -537,6 +583,7 @@ export type Database = {
           joined_at?: string;
           left_at?: string | null;
           pack_id?: string;
+          removed_at?: string | null;
           role?: Database['public']['Enums']['member_role'];
           status?: Database['public']['Enums']['member_status'];
           user_id?: string;
@@ -1008,6 +1055,18 @@ export type Database = {
         Returns: undefined;
       };
       remove_member: { Args: { member: string; target: string }; Returns: undefined };
+      renew_invite_code: { Args: { target: string }; Returns: string };
+      report_app_error: {
+        Args: {
+          app_version?: string;
+          device?: string;
+          error_message: string;
+          error_stack?: string;
+          fatal?: boolean;
+          screen?: string;
+        };
+        Returns: undefined;
+      };
       report_details: { Args: { report: string }; Returns: Json };
       requeue_notifications: { Args: { ids: string[] }; Returns: undefined };
       require_admin: { Args: { target: string }; Returns: string };

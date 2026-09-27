@@ -54,3 +54,21 @@ test('joining with a code shows the pack first, then opens it', async ({ page })
   const { data: members } = await dan.client.from('pack_members').select('user_id').eq('pack_id', pack.id);
   expect(members).toHaveLength(2);
 });
+
+test('the admin replaces a leaked invite code, and only the admin can', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
+  page.on('dialog', (dialog) => void dialog.accept());
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}/invite`);
+  await expect(page.getByText(pack.inviteCode)).toBeVisible();
+
+  await page.getByRole('button', { name: 'Get a new code' }).click();
+  await expect(page.getByText(pack.inviteCode)).toBeHidden();
+  const { data } = await noa.client.from('packs').select('invite_code').eq('id', pack.id).single();
+  expect(data!.invite_code).not.toBe(pack.inviteCode);
+  await expect(page.getByText(data!.invite_code)).toBeVisible();
+
+  // Other members can't replace it.
+  const { error } = await dan.client.rpc('renew_invite_code', { target: pack.id });
+  expect(error?.message).toContain('admin_only');
+});

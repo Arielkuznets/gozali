@@ -34,7 +34,9 @@ Deno.serve(async (request) => {
   if (imageFor) {
     const pack = packs.find((candidate) => candidate.id === imageFor);
     if (!pack) return new Response('not found', { status: 404 });
-    const size = Math.min(600, Math.max(64, Number(url.searchParams.get('size') ?? 300)));
+    // 64 to 600 pixels; a missing or broken size gets the default.
+    const asked = Number(url.searchParams.get('size'));
+    const size = Number.isFinite(asked) && asked > 0 ? Math.min(600, Math.max(64, asked)) : 300;
     // Loaded once per instance; a failed load is forgotten so the next request tries again.
     resvgReady ??= initWasm(fetch(RESVG_WASM)).catch((error) => {
       resvgReady = null;
