@@ -74,7 +74,7 @@ function isAlreadyUploaded(error: object): boolean {
 export function isFinalRejection(error: unknown): boolean {
   if (typeof error !== 'object' || error === null) return false;
   if ('code' in error && /^[0-9A-Z]{5}$/.test(String(error.code))) return true;
-  return 'statusCode' in error && /^4dd$/.test(String(error.statusCode));
+  return 'statusCode' in error && /^4[0-9]{2}$/.test(String(error.statusCode));
 }
 
 export function feedErrorCode(error: unknown): 'already_fed' | 'not_a_member' | 'other' {
