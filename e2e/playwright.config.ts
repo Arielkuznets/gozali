@@ -4,6 +4,8 @@ import { defineConfig } from '@playwright/test';
 // Supabase stack. The README (Development) says how to run them.
 export default defineConfig({
   testDir: '.',
+  // The store screenshots have their own config (e2e/store).
+  testIgnore: 'store/**',
   outputDir: 'test-results',
   timeout: 60_000,
   expect: { timeout: 10_000 },

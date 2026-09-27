@@ -67,12 +67,19 @@ Data is encrypted in transit, and users can delete their account and all its dat
 
 ## Screenshots
 
-App Store needs 6.9" (1320 × 2868) or 6.7" (1290 × 2796) iPhone screenshots; Google Play needs at least two phone screenshots (1080 × 1920 or larger). Suggested set, in order:
+App Store needs 6.9" (1320 × 2868) or 6.7" (1290 × 2796) iPhone screenshots; Google Play needs at least two phone screenshots, no longer than twice their width. Five are made from the app itself, with sample data and a caption over each:
+
+```sh
+npm run e2e:build
+npm run store:shots
+```
+
+With the local Supabase stack running (the same setup as the end-to-end tests), this writes `e2e/store/output/app-store` (1320 × 2868) and `e2e/store/output/google-play` (1080 × 2160):
 
 1. The pack screen with a happy critter, the members row and the Feed button: "Raise a pet with your friends".
-2. The camera and the eating moment: "Feed it with a photo of your habit".
-3. The pack feed with reactions: "Cheer each other on".
-4. Picking one of the six critters: "Six critters, six personalities".
-5. The outfit shop: "Keep the streak, earn coins, dress it up".
-6. The widgets on a home screen: "Your pet on your home screen".
-7. The weekly recap story: "Share your week".
+2. The pack feed with reactions: "Feed it a photo, cheer each other on".
+3. Picking one of the six critters: "Six critters, six personalities".
+4. The wardrobe and the outfit shop: "Keep the streak, dress it up".
+5. The weekly recap: "Look back on your week together".
+
+Two more need a real phone, taken from the first builds: the camera with the eating moment, and the widgets on a home screen ("Your pet on your home screen").
