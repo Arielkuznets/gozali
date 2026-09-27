@@ -195,6 +195,7 @@ export default function PackScreen() {
       </View>
 
       <ScrollView
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.body}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={colors.accent} />}>
         <AppText variant="heading" style={styles.centerText}>

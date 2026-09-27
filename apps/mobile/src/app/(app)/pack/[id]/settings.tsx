@@ -96,7 +96,7 @@ function SettingsForm({ pack }: { pack: Pack }) {
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.body}>
+      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         <TextField
           label={t('settings.name')}
           value={name}
