@@ -71,6 +71,7 @@ function drawCritter(art: CritterArt & { look: Level }): string {
   if (mood >= 0.5 && art.look !== 'sick') face = { ...face, cheeks: true };
   if (sleeping) face = { eyes: 'closed', mouth: 'sleep', brows: 'none', cheeks: face.cheeks };
   if (art.look === 'sick' && !sleeping) face = { ...face, mouth: 'thermometer' };
+  else if (art.yawning && !sleeping) face = { ...face, eyes: 'squeezed', mouth: 'yawn', brows: 'none' };
 
   const color =
     art.look === 'weak' ? mix(art.color, '#D8D2CB', 0.45) : art.look === 'sick' ? mix(art.color, '#CFE0B8', 0.35) : art.color;

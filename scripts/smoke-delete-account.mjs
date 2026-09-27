@@ -1,6 +1,6 @@
 // Account deletion against the local stack (store requirement, spec section 11): the member
 // leaves every pack with admin passing on, their photo files go, their account and data go, and
-// a pack only they were in is removed.
+// a pack only they were in is left empty (close-days deletes it 30 days later).
 // Run with `npx supabase start` and `npx supabase functions serve` up: node scripts/smoke-delete-account.mjs
 import { createClient } from '@supabase/supabase-js';
 
@@ -65,10 +65,10 @@ const { data: feeds } = await admin.from('feeds').select('id').eq('user_id', noa
 check(feeds.length === 0, 'and the feeds');
 const { data: members } = await admin.from('pack_members').select('user_id, role').eq('pack_id', shared);
 check(members.length === 1 && members[0].user_id === dan.id && members[0].role === 'admin', 'Dan is now the admin of the shared pack');
-const { data: soloPack } = await admin.from('packs').select('id').eq('id', solo);
-check(soloPack.length === 0, 'the pack only Noa was in is removed');
+const { data: soloMembers } = await admin.from('pack_members').select('user_id').eq('pack_id', solo);
+check(soloMembers.length === 0, 'the pack only Noa was in is left empty');
 
-await admin.from('packs').delete().eq('id', shared);
+await admin.from('packs').delete().in('id', [shared, solo]);
 await admin.auth.admin.deleteUser(dan.id);
 console.log('all good');
 process.exit(0);

@@ -47,7 +47,6 @@ Deno.serve(async (request) => {
   // The rest goes with the auth user: profile, memberships, feeds, reactions, passes, tokens.
   const { error: deleteError } = await admin.auth.admin.deleteUser(user.id);
   if (deleteError) return Response.json({ error: deleteError.message }, { status: 500 });
-  await admin.rpc('drop_empty_packs');
 
   return Response.json({ deleted: true, photos: files.length });
 });

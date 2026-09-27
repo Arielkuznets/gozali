@@ -33,6 +33,8 @@ export interface CritterArt {
   sleeping?: boolean;
   /** One animation frame with the eyes shut. */
   blinking?: boolean;
+  /** An idle yawn: eyes squeezed shut and the mouth wide open. Not while asleep or sick. */
+  yawning?: boolean;
   /** Where the eyes look, each axis from -1 to 1 (following a finger). */
   gaze?: { x: number; y: number };
   /** A holiday: the holiday hat takes the place of the head item (spec section 4). */

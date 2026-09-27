@@ -1,10 +1,12 @@
 import { ACHIEVEMENTS, type AchievementKey } from '@gozali/game-engine';
 import { Image } from 'expo-image';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import type { FeedItem } from '@/features/feeds/api';
+import { PhotoViewer } from '@/features/feeds/PhotoViewer';
 import { REACTIONS, type PackEvent, type ReactionKey } from '@/features/social/api';
 import { formatMoment } from '@/lib/dates';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
@@ -23,10 +25,12 @@ type Props = {
 
 /**
  * The pack feed (spec section 7): photos and system events, newest first. Photos carry the
- * reactions and a menu to report the photo or block the member who posted it.
+ * reactions and a menu to report the photo or block the member who posted it. A tap on a photo
+ * opens it on the whole screen.
  */
 export function FeedList({ feeds, events, names, critterName, emoji, now, userId, onReact, onMore }: Props) {
   const { t } = useTranslation();
+  const [open, setOpen] = useState<FeedItem | null>(null);
   const entries = [
     ...feeds.map((feed) => ({ kind: 'photo' as const, at: feed.created_at, feed })),
     ...events.map((event) => ({ kind: 'event' as const, at: event.created_at, event })),
@@ -54,9 +58,11 @@ export function FeedList({ feeds, events, names, critterName, emoji, now, userId
             own={entry.feed.user_id === userId}
             onReact={onReact}
             onMore={onMore}
+            onOpen={setOpen}
           />
         ),
       )}
+      <PhotoViewer feed={open} name={nameOf(open?.user_id ?? null)} onClose={() => setOpen(null)} />
     </View>
   );
 }
@@ -104,9 +110,10 @@ type CardProps = {
   own: boolean;
   onReact: (feed: FeedItem, emoji: ReactionKey | null) => void;
   onMore: (feed: FeedItem) => void;
+  onOpen: (feed: FeedItem) => void;
 };
 
-function PhotoCard({ feed, name, emoji, now, own, onReact, onMore }: CardProps) {
+function PhotoCard({ feed, name, emoji, now, own, onReact, onMore, onOpen }: CardProps) {
   const { t } = useTranslation();
   const totals = new Map(feed.reactions.map((reaction) => [reaction.emoji, reaction]));
   const reactedBy = feed.reactions.filter((reaction) => reaction.emoji !== 'suspicious').flatMap((reaction) => reaction.names);
@@ -127,13 +134,15 @@ function PhotoCard({ feed, name, emoji, now, own, onReact, onMore }: CardProps) 
         </View>
       </View>
       {feed.photoUrl ? (
-        <Image
-          source={{ uri: feed.photoUrl, cacheKey: feed.id }}
-          style={styles.photo}
-          contentFit="cover"
-          transition={150}
-          accessibilityLabel={feed.caption ?? t('feed.photoLabel')}
-        />
+        <Pressable accessibilityRole="imagebutton" accessibilityHint={t('feed.openPhoto')} onPress={() => onOpen(feed)}>
+          <Image
+            source={{ uri: feed.photoUrl, cacheKey: feed.id }}
+            style={styles.photo}
+            contentFit="cover"
+            transition={150}
+            accessibilityLabel={feed.caption ?? t('feed.photoBy', { name })}
+          />
+        </Pressable>
       ) : (
         <View style={[styles.photo, styles.noPhoto]} />
       )}

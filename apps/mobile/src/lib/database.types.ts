@@ -850,7 +850,9 @@ export type Database = {
       day_close_input: { Args: { pack_date: string; target: string }; Returns: Json };
       day_closes_at: { Args: { pack_date: string; tz: string }; Returns: string };
       dress_critter: { Args: { item: string; slot: string; target: string }; Returns: undefined };
-      drop_empty_packs: { Args: Record<PropertyKey, never>; Returns: number };
+      drop_empty_packs: { Args: { at_time: string }; Returns: number };
+      empty_pack_photos: { Args: { at_time: string }; Returns: string[] };
+      empty_packs: { Args: { at_time: string }; Returns: string[] };
       end_pause: { Args: { target: string }; Returns: undefined };
       expired_photos: {
         Args: { at_time?: string; max_rows?: number };
@@ -905,13 +907,13 @@ export type Database = {
         Returns: {
           already_member: boolean;
           category: Database['public']['Enums']['habit_category'];
-          color: Database['public']['Enums']['critter_color'];
+          critter: Json;
           custom_habit: string;
           is_full: boolean;
           member_count: number;
+          member_names: string[];
           pack_id: string;
           pack_name: string;
-          species: Database['public']['Enums']['critter_species'];
         }[];
       };
       pack_rules_on: {

@@ -16,7 +16,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Game engine and critter art tests
+      - name: Unit tests (game engine, critter art, app)
         run: npm test
       - name: Typecheck the workspaces
         run: npm run typecheck
@@ -26,14 +26,35 @@ jobs:
         run: npm run lint
 
   database:
-    name: Database tests (pgTAP)
+    name: Database and API tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
       - uses: supabase/setup-cli@v1
         with:
           version: latest
       - name: Start Supabase
-        run: supabase start -x studio,imgproxy,logflare,vector,supavisor,edge-runtime,mailpit
+        run: supabase start -x studio,imgproxy,logflare,vector,supavisor,mailpit
+      - name: Serve the Edge Functions
+        run: |
+          echo "CRON_SECRET=local-cron-secret" > supabase/functions/.env
+          nohup supabase functions serve > functions.log 2>&1 &
       - name: Run the database tests
         run: supabase test db
+      - name: Run the smoke tests against the local API
+        run: |
+          eval "$(supabase status -o env | grep -E '^(PUBLISHABLE_KEY|SECRET_KEY)=')"
+          export SUPABASE_PUBLISHABLE_KEY="$PUBLISHABLE_KEY" SUPABASE_SECRET_KEY="$SECRET_KEY"
+          for name in packs critter feeds day-close push widgets delete-account; do
+            echo "::group::smoke:$name"
+            npm run "smoke:$name"
+            echo "::endgroup::"
+          done
+      - name: Edge Function logs
+        if: failure()
+        run: cat functions.log

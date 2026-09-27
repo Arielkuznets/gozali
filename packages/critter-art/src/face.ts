@@ -2,8 +2,8 @@ import { CHEEK, INK, WHITE } from './palette.ts';
 import type { Geometry } from './species.ts';
 import { circle, ellipse, g, line, path, rect } from './svg.ts';
 
-export type Eyes = 'open' | 'sparkle' | 'down' | 'lidded' | 'droopy' | 'tired' | 'closed' | 'happy';
-export type Mouth = 'smile' | 'grin' | 'o' | 'wavy' | 'flat' | 'sleep' | 'thermometer';
+export type Eyes = 'open' | 'sparkle' | 'down' | 'lidded' | 'droopy' | 'tired' | 'closed' | 'happy' | 'squeezed';
+export type Mouth = 'smile' | 'grin' | 'o' | 'wavy' | 'flat' | 'sleep' | 'thermometer' | 'yawn';
 export type Brows = 'none' | 'worried' | 'sad' | 'proud' | 'offended';
 
 export interface Face {
@@ -56,6 +56,9 @@ function eye(kind: Eyes, blinking: boolean, shadow: string, skin: string, mirror
       return path('M-9 -1 Q0 7 9 -1', line(INK, 3));
     case 'happy':
       return path('M-9 3 Q0 -8 9 3', line(INK, 3.2));
+    case 'squeezed':
+      // A ">" for the left eye and a "<" for the right, pressed shut mid-yawn.
+      return g({ transform: mirror ? 'scale(-1 1)' : undefined }, path('M-8 -5 L4 0.5 L-8 6', line(INK, 3)));
   }
 }
 
@@ -94,6 +97,8 @@ function mouth(kind: Mouth, buckTooth: boolean): string {
       return path('M-7 0 L7 0', line(INK, 2.8)) + (buckTooth ? tooth(1) : '');
     case 'sleep':
       return ellipse(0, 1, 3.2, 2.4, { fill: INK });
+    case 'yawn':
+      return ellipse(0, 4, 7.5, 10.5, { fill: INK }) + ellipse(0, 10, 4.8, 3.6, { fill: '#E98B8B' });
     case 'thermometer':
       return (
         path('M-5 0 L3 0', line(INK, 2.6)) +

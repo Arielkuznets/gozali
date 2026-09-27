@@ -98,6 +98,15 @@ test('the holiday hat replaces the head item, but not the nightcap', () => {
   assert.match(renderCritter({ ...art, holiday: true, sleeping: true }), /#8FA8D8/, 'asleep: the nightcap');
 });
 
+test('a yawn changes the face, but not in sleep or when sick', () => {
+  const art: CritterArt = { species: 'blob', color: CRITTER_PALETTE.peach, stage: 'kid', look: 'happy' };
+  const yawn = renderCritter({ ...art, yawning: true });
+  assert.notEqual(yawn, renderCritter(art));
+  assert.ok(balanced(yawn));
+  assert.equal(renderCritter({ ...art, sleeping: true, yawning: true }), renderCritter({ ...art, sleeping: true }));
+  assert.equal(renderCritter({ ...art, look: 'sick', yawning: true }), renderCritter({ ...art, look: 'sick' }));
+});
+
 test('the eyes follow a gaze and stay put without one', () => {
   const art: CritterArt = { species: 'mossy', color: CRITTER_PALETTE.sage, stage: 'teen', look: 'happy' };
   assert.notEqual(renderCritter({ ...art, gaze: { x: 1, y: 0 } }), renderCritter(art));

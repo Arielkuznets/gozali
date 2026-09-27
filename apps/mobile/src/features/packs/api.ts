@@ -47,9 +47,9 @@ export type PackPreview = {
   pack_name: string;
   category: Category;
   custom_habit: string | null;
-  species: Species;
-  color: CritterColor;
+  critter: PackCritter;
   member_count: number;
+  member_names: string[];
   is_full: boolean;
   already_member: boolean;
 };

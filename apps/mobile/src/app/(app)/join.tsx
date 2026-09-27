@@ -9,10 +9,11 @@ import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { TextField } from '@/components/TextField';
 import { Critter } from '@/features/critter/Critter';
+import { critterArt } from '@/features/critter/art';
 import { packErrorKey, useJoinPack, usePackPreview } from '@/features/packs/api';
 import { INVITE_CODE_LENGTH, categoryInfo, normalizeInviteCode } from '@/features/packs/constants';
 import { goBack } from '@/lib/navigation';
-import { colors, critterColors, radii, spacing } from '@/theme/tokens';
+import { colors, radii, spacing } from '@/theme/tokens';
 
 /** Join with a code, typed, pasted or arriving through gozali://join?code=... */
 export default function JoinScreen() {
@@ -51,7 +52,10 @@ export default function JoinScreen() {
               onChangeText={(text) => setCode(normalizeInviteCode(text))}
             />
           </View>
-          <Button label={t('join.paste')} variant="secondary" onPress={() => void onPaste()} />
+          {/* Wrapped so the button keeps its own height instead of stretching to the field and its label. */}
+          <View>
+            <Button label={t('join.paste')} variant="secondary" onPress={() => void onPaste()} />
+          </View>
         </View>
 
         {complete && preview.isPending && <ActivityIndicator color={colors.accent} />}
@@ -61,9 +65,9 @@ export default function JoinScreen() {
         {pack && (
           <View style={styles.preview}>
             <Critter
-              art={{ species: pack.species, color: critterColors[pack.color], stage: 'egg', look: 'egg' }}
+              art={critterArt(pack.critter, { category: pack.category, now: new Date() })}
               size={72}
-              label={t(`packs.species.${pack.species}`)}
+              label={pack.critter.name ?? t(`packs.species.${pack.critter.species}`)}
               animated={false}
             />
             <View style={styles.previewText}>
@@ -72,6 +76,11 @@ export default function JoinScreen() {
                 {categoryInfo(pack.category).emoji} {pack.custom_habit ?? t(`packs.categories.${pack.category}`)} ·{' '}
                 {t('packs.members', { count: pack.member_count })}
               </AppText>
+              {pack.member_names.length > 0 && (
+                <AppText variant="caption" numberOfLines={2}>
+                  {pack.member_names.join(', ')}
+                </AppText>
+              )}
               {pack.already_member && <AppText variant="caption">{t('join.alreadyMember')}</AppText>}
               {pack.is_full && !pack.already_member && (
                 <AppText style={styles.error}>{t('packs.errors.full')}</AppText>

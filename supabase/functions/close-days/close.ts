@@ -114,3 +114,14 @@ export async function cleanupPhotos(
   await call(client, 'forget_photos', { feed_ids: expired.map((row) => row.feed_id) });
   return expired.length;
 }
+
+/** Deletes packs nobody has been in for 30 days (spec section 3), their photo files first. */
+export async function dropEmptyPacks(
+  client: RpcClient,
+  removeFiles: (paths: string[]) => Promise<void>,
+  now: Date,
+): Promise<number> {
+  const paths = await call<string[]>(client, 'empty_pack_photos', { at_time: now.toISOString() });
+  if (paths.length > 0) await removeFiles(paths);
+  return await call<number>(client, 'drop_empty_packs', { at_time: now.toISOString() });
+}

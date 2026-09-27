@@ -63,6 +63,10 @@ check(pack.pack_members[0]?.profiles?.display_name === 'Noa', 'member names come
 
 const preview = await dan.client.rpc('pack_preview', { code: pack.invite_code.toLowerCase() });
 check(!preview.error && preview.data[0]?.member_count === 1, 'Dan previews the pack with a lower-case code');
+check(
+  preview.data[0].critter.species === 'spark' && preview.data[0].member_names.join() === 'Noa',
+  'the preview shows the critter and who is in the pack',
+);
 
 const joined = await dan.client.rpc('join_pack', { code: pack.invite_code });
 check(joined.data === packId, 'Dan joins the pack');
