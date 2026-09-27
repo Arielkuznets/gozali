@@ -997,6 +997,7 @@ export type Database = {
           time_zone: string;
         }[];
       };
+      pilot_metrics: { Args: { at_time?: string }; Returns: Json };
       queue_evening_reminders: { Args: { at_time?: string }; Returns: number };
       react: {
         Args: { emoji: Database['public']['Enums']['reaction_emoji']; target_feed: string };
