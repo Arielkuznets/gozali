@@ -9,6 +9,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 
 import { AuthProvider, useAuth } from '@/features/auth/AuthProvider';
+import { readInstallReferrer } from '@/features/packs/invites';
 import { isProfileComplete, useProfile } from '@/features/profile/useProfile';
 import { colors } from '@/theme/tokens';
 
@@ -37,6 +38,10 @@ function RootNavigator() {
     if (ready) SplashScreen.hide();
   }, [ready]);
 
+  useEffect(() => {
+    void readInstallReferrer();
+  }, []);
+
   if (!ready) return null;
 
   const profileComplete = isProfileComplete(profile.data);
@@ -54,6 +59,7 @@ function RootNavigator() {
         <Stack.Screen name="dev-login" />
       </Stack.Protected>
       <Stack.Screen name="auth/callback" />
+      <Stack.Screen name="i/[code]" />
     </Stack>
   );
 }

@@ -15,7 +15,10 @@
         "com.apple.security.application-groups": [
           "group.app.gozali"
         ]
-      }
+      },
+      "associatedDomains": [
+        "applinks:gozali.app"
+      ]
     },
     "android": {
       "package": "app.gozali",
@@ -25,7 +28,24 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "gozali.app",
+              "pathPrefix": "/i/"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
     },
     "web": {
       "output": "single",
