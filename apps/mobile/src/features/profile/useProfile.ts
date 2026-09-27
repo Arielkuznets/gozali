@@ -23,6 +23,7 @@ export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 export type Profile = {
   id: string;
   display_name: string | null;
+  avatar_path: string | null;
   terms_accepted_at: string | null;
   timezone: string;
   locale: string;
@@ -49,7 +50,7 @@ export function useProfile() {
     queryFn: async (): Promise<Profile> => {
       const { data, error } = await requireSupabase()
         .from('profiles')
-        .select('id, display_name, terms_accepted_at, timezone, locale, reminder_time, notification_prefs')
+        .select('id, display_name, avatar_path, terms_accepted_at, timezone, locale, reminder_time, notification_prefs')
         .eq('id', userId ?? '')
         .single();
       if (error) throw error;

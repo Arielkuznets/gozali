@@ -1,4 +1,5 @@
 import { addDays } from '@gozali/game-engine';
+import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
@@ -7,6 +8,7 @@ import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { signOut } from '@/features/auth/signIn';
+import { pickAvatar, useAvatarUrls, useSetAvatar } from '@/features/profile/avatar';
 import { useProfile } from '@/features/profile/useProfile';
 import { useMyStats } from '@/features/social/api';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
@@ -18,6 +20,20 @@ export default function MeScreen() {
   const { t } = useTranslation();
   const profile = useProfile();
   const stats = useMyStats();
+  const avatar = useAvatarUrls([profile.data?.avatar_path]);
+  const setAvatar = useSetAvatar();
+  const avatarUrl = profile.data?.avatar_path ? avatar.data?.get(profile.data.avatar_path) : undefined;
+
+  const changePhoto = () => {
+    const use = (source: 'camera' | 'library') => () =>
+      void pickAvatar(source).then((uri) => uri && setAvatar.mutate(uri, { onError: () => Alert.alert(t('errors.saveFailed')) }));
+    Alert.alert(t('me.photo'), undefined, [
+      { text: t('me.takePhoto'), onPress: use('camera') },
+      { text: t('me.choosePhoto'), onPress: use('library') },
+      ...(profile.data?.avatar_path ? [{ text: t('me.removePhoto'), style: 'destructive' as const, onPress: () => setAvatar.mutate(null) }] : []),
+      { text: t('social.cancel'), style: 'cancel' as const },
+    ]);
+  };
 
   const onSignOut = () => {
     signOut().catch(() => Alert.alert(t('errors.signInFailed')));
@@ -45,6 +61,16 @@ export default function MeScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.body}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('me.photo')} onPress={changePhoto} style={styles.avatarWrap}>
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={styles.avatar} contentFit="cover" />
+            ) : (
+              <View style={[styles.avatar, styles.avatarEmpty]}>
+                <AppText style={styles.avatarInitial}>{(profile.data?.display_name?.trim()[0] ?? '?').toUpperCase()}</AppText>
+              </View>
+            )}
+            <AppText variant="caption">{avatarUrl ? t('me.changePhoto') : t('me.addPhoto')}</AppText>
+          </Pressable>
           <View style={styles.stats}>
             {(
               [
@@ -101,6 +127,10 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.md },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   body: { gap: spacing.md, paddingBottom: spacing.lg },
+  avatarWrap: { alignItems: 'center', gap: spacing.xs },
+  avatar: { width: 88, height: 88, borderRadius: 44 },
+  avatarEmpty: { backgroundColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  avatarInitial: { fontFamily: fonts.heading, fontSize: 36, lineHeight: 44 },
   centerText: { textAlign: 'center' },
   stats: { flexDirection: 'row', gap: spacing.sm },
   stat: {

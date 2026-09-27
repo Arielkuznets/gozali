@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -6,7 +7,7 @@ import { colors, fonts } from '@/theme/tokens';
 
 export type MemberState = 'fed' | 'pass' | 'waiting' | 'asleep' | 'paused';
 
-type Member = { id: string; name: string | null; state: MemberState; nudgeable?: boolean };
+type Member = { id: string; name: string | null; state: MemberState; nudgeable?: boolean; avatarUrl?: string };
 
 /**
  * The row of member circles on the pack screen (spec section 9): filled = fed today, dashed =
@@ -37,7 +38,11 @@ export function MemberCircles({ members, color, onNudge }: Props) {
                 member.state === 'fed' && { backgroundColor: color, borderColor: color },
                 member.state === 'pass' && styles.dashed,
               ]}>
-              <AppText style={styles.initial}>{resting ? '💤' : initial(member.name)}</AppText>
+              {member.avatarUrl && !resting ? (
+                <Image source={{ uri: member.avatarUrl }} style={[styles.avatar, member.state === 'pass' && styles.faded]} contentFit="cover" />
+              ) : (
+                <AppText style={styles.initial}>{resting ? '💤' : initial(member.name)}</AppText>
+              )}
               {member.state === 'fed' && (
                 <View style={styles.badge}>
                   <AppText style={styles.badgeText}>✓</AppText>
@@ -73,6 +78,8 @@ const styles = StyleSheet.create({
   },
   dashed: { borderStyle: 'dashed', borderColor: colors.inkMuted, backgroundColor: colors.surface },
   initial: { fontFamily: fonts.bodyMedium, fontSize: 17 },
+  avatar: { width: 40, height: 40, borderRadius: 20 },
+  faded: { opacity: 0.6 },
   badge: {
     position: 'absolute',
     right: -4,

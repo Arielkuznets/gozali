@@ -557,7 +557,13 @@
     "streakHint": "Days in a row without a miss in any pack.",
     "board": "Last days",
     "signOut": "Sign out",
-    "back": "Back"
+    "back": "Back",
+    "photo": "Profile photo",
+    "addPhoto": "Add a photo",
+    "changePhoto": "Change photo",
+    "takePhoto": "Take a photo",
+    "choosePhoto": "Choose from library",
+    "removePhoto": "Remove photo"
   },
   "widgets": {
     "signedOut": "Open Gozali to see your pack",
