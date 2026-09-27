@@ -7,6 +7,7 @@ import { Platform, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
+import { LegalLinks } from '@/components/LegalLinks';
 import { Screen } from '@/components/Screen';
 import { isCancellation, signInWithApple, signInWithBrowser } from '@/features/auth/signIn';
 import { Critter } from '@/features/critter/Critter';
@@ -78,6 +79,7 @@ export default function WelcomeScreen() {
         <AppText variant="caption" style={styles.terms}>
           {t('welcome.terms')}
         </AppText>
+        <LegalLinks />
       </View>
     </Screen>
   );

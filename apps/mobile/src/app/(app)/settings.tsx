@@ -6,6 +6,7 @@ import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Switch, 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Choice } from '@/components/Choice';
+import { PRIVACY_URL, TERMS_URL } from '@/components/LegalLinks';
 import { Screen } from '@/components/Screen';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { deleteAccount } from '@/features/auth/signIn';
@@ -144,10 +145,10 @@ export default function SettingsScreen() {
           <Pressable accessibilityRole="link" onPress={() => router.push('/how-it-works')}>
             <AppText style={styles.link}>{t('settings.app.howItWorks')}</AppText>
           </Pressable>
-          <Pressable accessibilityRole="link" onPress={() => void Linking.openURL('https://gozali.app/privacy')}>
+          <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(PRIVACY_URL)}>
             <AppText style={styles.link}>{t('settings.app.privacy')}</AppText>
           </Pressable>
-          <Pressable accessibilityRole="link" onPress={() => void Linking.openURL('https://gozali.app/terms')}>
+          <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(TERMS_URL)}>
             <AppText style={styles.link}>{t('settings.app.terms')}</AppText>
           </Pressable>
           <AppText variant="caption">{t('settings.app.contact')}</AppText>

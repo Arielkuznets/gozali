@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
+import { LegalLinks } from '@/components/LegalLinks';
 import { Screen } from '@/components/Screen';
 import { suggestedName } from '@/features/profile/suggestedName';
 import { NAME_MAX_LENGTH, useCompleteProfile, useProfile } from '@/features/profile/useProfile';
@@ -60,6 +61,7 @@ export default function ProfileSetupScreen() {
           </View>
           <AppText style={styles.agreeText}>{t('profileSetup.agree')}</AppText>
         </Pressable>
+        <LegalLinks />
       </View>
       <AppText variant="caption" style={styles.notice}>
         {t('profileSetup.notifications')}
