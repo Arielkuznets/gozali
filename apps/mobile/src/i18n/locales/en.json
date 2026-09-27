@@ -489,6 +489,10 @@
     "pause": "Pause",
     "resume": "Resume",
     "cancel": "Cancel",
+    "cancelTitle": "Stop this session?",
+    "cancelBody": "The time so far won't count. You can still feed with a regular photo.",
+    "cancelConfirm": "Stop",
+    "keepGoing": "Keep going",
     "takePhoto": "Done, take the photo",
     "doneTitle": "Time is up!",
     "doneBody": "Take the photo to feed your pack."
