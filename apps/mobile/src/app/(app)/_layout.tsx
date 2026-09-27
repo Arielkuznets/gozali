@@ -1,4 +1,7 @@
 import { Stack } from 'expo-router';
+import { View } from 'react-native';
+
+import { OfflineBanner } from '@/components/OfflineBanner';
 
 import { useFeedQueue } from '@/features/feeds/api';
 import { useAccountSync } from '@/features/profile/useProfile';
@@ -16,9 +19,12 @@ export default function AppLayout() {
   useWidgetSync();
   useNotificationRoutes();
   return (
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+    <View style={{ flex: 1 }}>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
       <Stack.Screen name="pack/[id]/feed" options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
       <Stack.Screen name="pack/[id]/not-today" options={{ presentation: 'modal' }} />
-    </Stack>
+      </Stack>
+      <OfflineBanner />
+    </View>
   );
 }

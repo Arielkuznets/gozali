@@ -612,5 +612,8 @@
       "title": "I never die",
       "body": "If nobody feeds me, I go off to find food. Three good days in a row and I come back."
     }
+  },
+  "offline": {
+    "banner": "You're offline. Feeds wait and go out when you're back."
   }
 }

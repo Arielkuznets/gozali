@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
   faded: { opacity: 0.6 },
   badge: {
     position: 'absolute',
-    right: -4,
+    end: -4,
     bottom: -4,
     width: 20,
     height: 20,
