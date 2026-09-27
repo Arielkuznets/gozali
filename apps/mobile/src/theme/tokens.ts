@@ -1,5 +1,7 @@
 // Design tokens from spec section 10: warm pastels on cream, one accent, soft shapes.
 
+import { CRITTER_PALETTE } from '@gozali/critter-art';
+
 export const colors = {
   background: '#FBF6EE',
   surface: '#FFFDF9',
@@ -11,15 +13,8 @@ export const colors = {
   danger: '#C95D51',
 } as const;
 
-/** The six critter colors a pack can pick from. */
-export const critterColors = {
-  peach: '#F6C9A8',
-  butter: '#F7E3A1',
-  sage: '#BFD8B8',
-  sky: '#BCD9E8',
-  blush: '#F2B8C6',
-  sand: '#E6D3B8',
-} as const;
+/** The six critter colors a pack can pick from; the critter drawing owns the palette. */
+export const critterColors = CRITTER_PALETTE;
 
 export const spacing = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48 } as const;
 

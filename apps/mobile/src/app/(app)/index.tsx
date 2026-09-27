@@ -4,11 +4,13 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } fro
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
-import { CritterPlaceholder } from '@/components/CritterPlaceholder';
 import { PackCard } from '@/components/PackCard';
 import { Screen } from '@/components/Screen';
 import { signOut } from '@/features/auth/signIn';
+import { Critter } from '@/features/critter/Critter';
 import { useMyPacks } from '@/features/packs/api';
+import { usePackRealtime } from '@/features/packs/realtime';
+import { useNow } from '@/lib/useNow';
 import { colors, critterColors, spacing } from '@/theme/tokens';
 
 const PACK_LIMIT = 3;
@@ -16,6 +18,8 @@ const PACK_LIMIT = 3;
 export default function HomeScreen() {
   const { t } = useTranslation();
   const { data: packs, isPending } = useMyPacks();
+  usePackRealtime();
+  const now = useNow(60_000);
 
   const onSignOut = () => {
     signOut().catch(() => Alert.alert(t('errors.signInFailed')));
@@ -40,12 +44,16 @@ export default function HomeScreen() {
       ) : hasPacks ? (
         <ScrollView contentContainerStyle={styles.list}>
           {packs.map((pack) => (
-            <PackCard key={pack.id} pack={pack} onPress={() => router.push(`/pack/${pack.id}`)} />
+            <PackCard key={pack.id} pack={pack} now={now} onPress={() => router.push(`/pack/${pack.id}`)} />
           ))}
         </ScrollView>
       ) : (
         <View style={styles.center}>
-          <CritterPlaceholder label={t('home.eggLabel')} size={120} color={critterColors.butter} status="egg" />
+          <Critter
+            art={{ species: 'blob', color: critterColors.butter, stage: 'egg', look: 'egg' }}
+            size={140}
+            label={t('home.eggLabel')}
+          />
           <AppText variant="heading" style={styles.centerText}>
             {t('home.emptyTitle')}
           </AppText>

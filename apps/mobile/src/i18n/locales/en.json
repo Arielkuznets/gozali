@@ -134,5 +134,149 @@
     "leaveConfirm": "Leave this pack?",
     "cancel": "Cancel",
     "confirm": "Yes"
+  },
+  "critter": {
+    "a11y": {
+      "egg": "{{name}}, an egg",
+      "eggCracking": "{{name}}, an egg that is starting to crack",
+      "thriving": "{{name}} is thriving, health {{health}}",
+      "happy": "{{name}} is happy, health {{health}}",
+      "hungry": "{{name}} is hungry, health {{health}}",
+      "weak": "{{name}} is weak, health {{health}}",
+      "sick": "{{name}} is sick, health {{health}}",
+      "ran_away": "{{name}} ran away to find food",
+      "sleeping": "{{name}} is sleeping, health {{health}}"
+    },
+    "petHint": "Pet the critter",
+    "states": {
+      "egg": "Egg",
+      "thriving": "Thriving",
+      "happy": "Happy",
+      "hungry": "Hungry",
+      "weak": "Weak",
+      "sick": "Sick",
+      "ran_away": "Ran away"
+    },
+    "stages": {
+      "egg": "Egg",
+      "baby": "Baby",
+      "kid": "Kid",
+      "teen": "Teen",
+      "adult": "Adult",
+      "legend": "Legend"
+    },
+    "health": "Health {{health}}",
+    "streak_one": "🔥 {{count}} day",
+    "streak_other": "🔥 {{count}} days",
+    "xp": "{{xp}} / {{to}} XP to {{stage}}",
+    "xpMax": "{{xp}} XP, the last stage",
+    "ranAwayNote": "\"Gone to find food\"",
+    "ranAwayBody": "Three good days in a row bring {{name}} back.",
+    "dayEndsIn": "Day ends in {{time}}",
+    "hoursMinutes": "{{hours}}h {{minutes}}m",
+    "minutes": "{{minutes}}m",
+    "lines": {
+      "egg": [
+        "*tap tap*",
+        "*wobble wobble*",
+        "Something is moving in there!"
+      ],
+      "blob": {
+        "thriving": [
+          "This is the best nap spot. Thanks, team.",
+          "I'm so happy I might lie down.",
+          "Peak comfort achieved."
+        ],
+        "happy": [
+          "Five more minutes...",
+          "Pet me again. Slower.",
+          "Life's good. Also, snacks?"
+        ],
+        "hungry": [
+          "I was napping but also... starving?",
+          "My tummy is louder than my snoring.",
+          "Is it snack o'clock? It feels like snack o'clock."
+        ],
+        "weak": [
+          "Too hungry to nap. That's new.",
+          "I'll just... lie here... dramatically.",
+          "Could someone feed me? No rush. Yes rush."
+        ],
+        "sick": [
+          "I need a blanket. And a feed. Mostly a feed.",
+          "Sniff. I feel so floppy.",
+          "Please feed me back to napping health."
+        ],
+        "sleeping": [
+          "Zzz... five more hours...",
+          "Mmm... pillow...",
+          "Zzz... wake me if there's food..."
+        ]
+      },
+      "spark": {
+        "thriving": [
+          "I am a STAR. You may clap now.",
+          "Look at me. Glowing. Iconic.",
+          "Best. Pack. Ever. Obviously."
+        ],
+        "happy": [
+          "Oh, you came to see me? Good choice.",
+          "I accept your petting.",
+          "Today I'm only a little dramatic."
+        ],
+        "hungry": [
+          "Wow. Nobody fed me. I see how it is.",
+          "Fine. I'll just starve. Beautifully.",
+          "I'm not upset. I'm HUNGRY and upset."
+        ],
+        "weak": [
+          "Tell my fans I tried.",
+          "This is the saddest day of my whole life.",
+          "I'm fading... tragically... feed me."
+        ],
+        "sick": [
+          "I'm too gorgeous to be this sick.",
+          "Call a doctor. Or a snack.",
+          "This is a tragedy in three acts."
+        ],
+        "sleeping": [
+          "Zzz... applause... zzz...",
+          "Do not disturb the star.",
+          "Zzz... encore..."
+        ]
+      },
+      "mossy": {
+        "thriving": [
+          "Fun fact: I'm at peak photosynthesis.",
+          "Data shows this pack is excellent.",
+          "Statistically, I'm thriving."
+        ],
+        "happy": [
+          "Fun fact: petting lowers stress. For both of us.",
+          "Did you know moss can live for centuries?",
+          "All systems normal."
+        ],
+        "hungry": [
+          "Fun fact: I haven't eaten in 14 hours.",
+          "Hypothesis: someone will feed me soon.",
+          "Observation: my stomach is growling."
+        ],
+        "weak": [
+          "My energy readings are concerning.",
+          "Fun fact: I need food to function.",
+          "Running in low power mode."
+        ],
+        "sick": [
+          "Diagnosis: very underfed.",
+          "Prescription: one feed, taken today.",
+          "My leaf is drooping. That's not great."
+        ],
+        "sleeping": [
+          "Zzz... sorting facts...",
+          "Zzz... photosynthesizing...",
+          "Zzz... dreaming of data..."
+        ]
+      }
+    }
   }
 }

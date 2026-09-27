@@ -13,6 +13,7 @@ Gozali (Hebrew for "my little chick") is a mobile app where a small group of fri
 - [`apps/mobile`](apps/mobile) – the Expo app (iOS and Android).
 - [`supabase`](supabase) – database schema (migrations), row level security and database tests.
 - [`packages/game-engine`](packages/game-engine) – the game rules as a dependency-free TypeScript module. Node 24+ runs it directly, with no build step.
+- [`packages/critter-art`](packages/critter-art) – the temporary critter, drawn as SVG markup from its state (species, stage, health, outfit, night).
 
 ## Development
 
@@ -27,6 +28,7 @@ npx supabase start     # local Supabase in Docker
 npm run db:test        # pgTAP tests in supabase/tests
 npm run db:types       # regenerate apps/mobile/src/lib/database.types.ts
 npm run smoke:packs    # pack flow against local Supabase (needs SUPABASE_PUBLISHABLE_KEY and SUPABASE_SECRET_KEY)
+npm run smoke:critter  # a critter change reaches pack members live, and only them (same keys)
 ```
 
 ```sh
@@ -34,4 +36,10 @@ cd packages/game-engine
 npm test            # unit tests (node:test)
 npm run typecheck   # tsc, fetched on demand
 npm run sim         # simulator, see docs/simulation.md
+```
+
+```sh
+cd packages/critter-art
+npm test                           # every combination renders valid SVG
+npm run preview -- critters.html   # contact sheet of all states, stages and items
 ```

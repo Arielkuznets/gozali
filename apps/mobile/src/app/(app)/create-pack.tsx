@@ -6,9 +6,9 @@ import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Choice } from '@/components/Choice';
-import { CritterPlaceholder } from '@/components/CritterPlaceholder';
 import { Screen } from '@/components/Screen';
 import { TextField } from '@/components/TextField';
+import { Critter } from '@/features/critter/Critter';
 import { packErrorKey, useCreatePack } from '@/features/packs/api';
 import {
   CATEGORIES,
@@ -145,11 +145,11 @@ export default function CreatePackScreen() {
                   label={t(`packs.species.${item}`)}
                   selected={species === item}
                   onPress={() => setSpecies(item)}>
-                  <CritterPlaceholder
+                  <Critter
+                    art={{ species: item, color: critterColors[color], stage: 'kid', look: 'happy' }}
+                    size={72}
                     label={t(`packs.species.${item}`)}
-                    size={56}
-                    color={critterColors[color]}
-                    species={item}
+                    animated={false}
                   />
                   <AppText variant="caption">{t(`packs.species.${item}`)}</AppText>
                 </Choice>

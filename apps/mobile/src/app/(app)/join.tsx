@@ -6,9 +6,9 @@ import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
-import { CritterPlaceholder } from '@/components/CritterPlaceholder';
 import { Screen } from '@/components/Screen';
 import { TextField } from '@/components/TextField';
+import { Critter } from '@/features/critter/Critter';
 import { packErrorKey, useJoinPack, usePackPreview } from '@/features/packs/api';
 import { INVITE_CODE_LENGTH, categoryInfo, normalizeInviteCode } from '@/features/packs/constants';
 import { colors, critterColors, radii, spacing } from '@/theme/tokens';
@@ -59,11 +59,11 @@ export default function JoinScreen() {
         )}
         {pack && (
           <View style={styles.preview}>
-            <CritterPlaceholder
-              label={t(`packs.species.${pack.species}`)}
+            <Critter
+              art={{ species: pack.species, color: critterColors[pack.color], stage: 'egg', look: 'egg' }}
               size={72}
-              color={critterColors[pack.color]}
-              status="egg"
+              label={t(`packs.species.${pack.species}`)}
+              animated={false}
             />
             <View style={styles.previewText}>
               <AppText variant="heading">{pack.pack_name}</AppText>

@@ -12,6 +12,19 @@ export type PackMember = {
   profiles: { display_name: string | null } | null;
 };
 
+export type PackCritter = {
+  species: Species;
+  color: CritterColor;
+  name: string | null;
+  health: number;
+  xp: number;
+  stage: CritterStage;
+  status: CritterStatus;
+  streak: number;
+  marks: string[];
+  outfit: unknown;
+};
+
 export type Pack = {
   id: string;
   name: string;
@@ -23,15 +36,8 @@ export type Pack = {
   pending_rest_days_per_week: number | null;
   pending_week_start: WeekStart | null;
   pending_from: string | null;
-  critters: {
-    species: Species;
-    color: CritterColor;
-    name: string | null;
-    health: number;
-    stage: CritterStage;
-    status: CritterStatus;
-    streak: number;
-  } | null;
+  timezone: string;
+  critters: PackCritter | null;
   pack_members: PackMember[];
 };
 
@@ -48,13 +54,13 @@ export type PackPreview = {
 };
 
 const PACK_FIELDS = `
-  id, name, category, custom_habit, rest_days_per_week, week_start, invite_code,
+  id, name, category, custom_habit, rest_days_per_week, week_start, timezone, invite_code,
   pending_rest_days_per_week, pending_week_start, pending_from,
-  critters ( species, color, name, health, stage, status, streak ),
+  critters ( species, color, name, health, xp, stage, status, streak, marks, outfit ),
   pack_members ( user_id, role, status, joined_at, profiles ( display_name ) )
 `;
 
-const packsKey = ['packs'] as const;
+export const packsKey = ['packs'] as const;
 const packKey = (id: string) => ['packs', id] as const;
 
 /** Members who still belong to the pack, oldest first. */
