@@ -107,7 +107,8 @@ export function render(row: ClaimedRow): Rendered {
         const title = ACHIEVEMENTS[String(row.payload.key)] ?? 'an achievement';
         return { title: pack, body: `🏆 ${critter} unlocked ${title}! There's something new in the wardrobe.`, url: home };
       }
-      return { title: pack, body: `✨ ${critter} grew into a ${STAGES[String(row.payload.to)] ?? 'new stage'}!`, url: home };
+      const stage = STAGES[String(row.payload.to)];
+      return { title: pack, body: stage ? `✨ ${critter} reached the ${stage} stage!` : `✨ ${critter} grew up!`, url: home };
     case 'still_in':
       return { title: pack, body: 'Still in? Your pack misses you 💛', url: row.pack_id ? `/pack/${row.pack_id}/settings` : '/' };
     case 'weekly_recap':

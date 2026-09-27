@@ -4,17 +4,18 @@ import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/AppText';
-import type { FeedItem } from '@/features/feeds/api';
 import { spacing } from '@/theme/tokens';
 
+export type ViewedPhoto = { id: string; url: string | null; caption: string | null; name: string };
+
 /** A feed photo on the whole screen. Pinch to zoom where the platform's scroll view can. */
-export function PhotoViewer({ feed, name, onClose }: { feed: FeedItem | null; name: string; onClose: () => void }) {
+export function PhotoViewer({ photo, onClose }: { photo: ViewedPhoto | null; onClose: () => void }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   return (
-    <Modal visible={feed !== null} animationType="fade" onRequestClose={onClose} statusBarTranslucent>
+    <Modal visible={photo !== null} animationType="fade" onRequestClose={onClose} statusBarTranslucent>
       <View style={styles.backdrop}>
-        {feed?.photoUrl && (
+        {photo?.url && (
           <ScrollView
             style={styles.fill}
             contentContainerStyle={styles.fill}
@@ -24,23 +25,23 @@ export function PhotoViewer({ feed, name, onClose }: { feed: FeedItem | null; na
             showsVerticalScrollIndicator={false}>
             <Pressable style={styles.fill} onPress={onClose} accessibilityLabel={t('feed.closePhoto')}>
               <Image
-                source={{ uri: feed.photoUrl, cacheKey: feed.id }}
+                source={{ uri: photo.url, cacheKey: photo.id }}
                 style={styles.fill}
                 contentFit="contain"
-                accessibilityLabel={feed.caption ?? t('feed.photoBy', { name })}
+                accessibilityLabel={photo.caption ?? t('feed.photoBy', { name: photo.name })}
               />
             </Pressable>
           </ScrollView>
         )}
         <View style={[styles.top, { paddingTop: insets.top + spacing.sm }]}>
-          <AppText style={styles.light}>{name}</AppText>
+          <AppText style={styles.light}>{photo?.name}</AppText>
           <Pressable accessibilityRole="button" accessibilityLabel={t('feed.closePhoto')} onPress={onClose} hitSlop={12}>
             <AppText style={[styles.light, styles.close]}>✕</AppText>
           </Pressable>
         </View>
-        {feed?.caption && (
+        {photo?.caption && (
           <View style={[styles.bottom, { paddingBottom: insets.bottom + spacing.md }]}>
-            <AppText style={styles.light}>{feed.caption}</AppText>
+            <AppText style={styles.light}>{photo.caption}</AppText>
           </View>
         )}
       </View>

@@ -32,6 +32,10 @@ import { goBack } from '@/lib/navigation';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 const CAPTION_MAX = 80;
+// Right after the camera reports ready, or after switching cameras, the first frame may not be
+// there yet; a few quick retries cover that before the tap counts as failed.
+const CAPTURE_TRIES = 4;
+const CAPTURE_RETRY_MS = 250;
 
 type Shot = { uri: string; width: number; capturedAt: string };
 
@@ -67,12 +71,18 @@ export default function FeedScreen() {
     if (!camera.current || !ready) return;
     const capturedAt = new Date().toISOString();
     if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    try {
-      const photo = await camera.current.takePictureAsync({ quality: 0.9 });
-      if (photo) setShot({ uri: photo.uri, width: photo.width, capturedAt });
-    } catch {
-      Alert.alert(t('feed.captureFailed'));
+    for (let attempt = 1; attempt <= CAPTURE_TRIES; attempt++) {
+      // The screen may have closed while waiting.
+      if (!camera.current) return;
+      try {
+        const photo = await camera.current.takePictureAsync({ quality: 0.9 });
+        if (photo) setShot({ uri: photo.uri, width: photo.width, capturedAt });
+        return;
+      } catch {
+        await new Promise((resolve) => setTimeout(resolve, CAPTURE_RETRY_MS));
+      }
     }
+    Alert.alert(t('feed.captureFailed'));
   };
 
   const submit = async () => {
@@ -208,6 +218,7 @@ export default function FeedScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('feed.capture')}
+          accessibilityState={{ disabled: !ready }}
           onPress={() => void capture()}
           disabled={!ready}
           style={({ pressed }) => [styles.shutter, pressed && styles.shutterPressed, !ready && styles.disabled]}>

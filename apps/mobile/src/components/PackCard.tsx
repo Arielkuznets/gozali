@@ -6,7 +6,8 @@ import { HealthBar } from '@/components/HealthBar';
 import { Critter } from '@/features/critter/Critter';
 import { critterArt } from '@/features/critter/art';
 import { useCritterText } from '@/features/critter/useCritterText';
-import { currentMembers, type Pack, type PackCritter } from '@/features/packs/api';
+import { useTodayPasses } from '@/features/days/api';
+import { countedToday, currentMembers, type Pack, type PackCritter } from '@/features/packs/api';
 import { categoryInfo } from '@/features/packs/constants';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
@@ -23,7 +24,8 @@ type Props = {
 export function PackCard({ pack, now, fed, userId, onPress, onFeed }: Props) {
   const { t } = useTranslation();
   const members = currentMembers(pack);
-  const awake = members.filter((member) => member.status === 'active');
+  const passes = useTodayPasses(pack, now);
+  const awake = countedToday(pack, passes.data?.paused ?? new Set());
   const fedCount = awake.filter((member) => fed.has(member.user_id)).length;
   const iFed = userId !== undefined && fed.has(userId);
   const category = categoryInfo(pack.category);

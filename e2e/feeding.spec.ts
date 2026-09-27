@@ -14,11 +14,11 @@ test.afterEach(async () => {
   await removeUsers(noa, dan);
 });
 
-test('feeding: camera, caption, send, and the photo shows in the pack', async ({ browser, context, page }) => {
+test('feeding: camera, caption, send, and the photo shows in the pack', async ({ context, page }) => {
   await context.grantPermissions(['camera']);
   const pack = await createPack(noa, { name: 'Study buddies', habit: 'study', species: 'blob' }, [dan]);
   await admin.from('critters').update({ status: 'active', stage: 'kid', health: 64, xp: 9 }).eq('pack_id', pack.id);
-  await feed(dan, pack.id, await photo(browser, '📚'), 'Finished the problem set');
+  await feed(dan, pack.id, await photo(page, '📚'), 'Finished the problem set');
 
   await signIn(page, noa);
   await page.goto(`/pack/${pack.id}`);

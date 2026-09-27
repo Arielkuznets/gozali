@@ -19,7 +19,7 @@ import { useCritterText } from '@/features/critter/useCritterText';
 import { useDayStatus, useTodayPasses, type TodayPasses } from '@/features/days/api';
 import { FeedList } from '@/features/feeds/FeedList';
 import { FEED_PAGE, fedToday, useCountedFeeds, usePackFeed, usePendingFeeds, type FeedItem } from '@/features/feeds/api';
-import { currentMembers, usePack, type Pack, type PackCritter, type PackMember } from '@/features/packs/api';
+import { countedToday, currentMembers, usePack, type Pack, type PackCritter, type PackMember } from '@/features/packs/api';
 import { PACK_SIZE_MAX, categoryInfo } from '@/features/packs/constants';
 import { usePackRealtime } from '@/features/packs/realtime';
 import { NameMeCard } from '@/features/social/NameMeCard';
@@ -68,7 +68,7 @@ export default function PackScreen() {
   const iFed = members.some((member) => member.user_id === session?.user.id && fed.has(member.user_id));
   const today: TodayPasses = passes.data ?? { passes: new Map(), paused: new Set() };
   // Counted today: not asleep and not on a pause.
-  const awake = members.filter((member) => member.status === 'active' && !today.paused.has(member.user_id));
+  const awake = countedToday(pack, today.paused);
   const fedCount = awake.filter((member) => fed.has(member.user_id)).length;
   const names = new Map(pack.pack_members.map((member) => [member.user_id, member.profiles?.display_name ?? null]));
   const focusable = pack.category === 'study' || pack.category === 'reading';
