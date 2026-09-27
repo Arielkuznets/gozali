@@ -2,7 +2,9 @@
 // shared secret in x-cron-secret; the function itself uses the service role.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-import { cleanupPhotos, closeDueDays } from './close.ts';
+import { cleanupPhotos, closeDueDays, dropEmptyPacks } from './close.ts';
+
+const REMOVE_BATCH = 100;
 
 Deno.serve(async (request) => {
   const secret = Deno.env.get('CRON_SECRET');
@@ -14,14 +16,17 @@ Deno.serve(async (request) => {
   });
   const now = new Date();
   const { closed, failed } = await closeDueDays(client, now);
-  const photos = await cleanupPhotos(
-    client,
-    async (paths) => {
-      const { error } = await client.storage.from('feed-photos').remove(paths);
+  const removeFiles = async (paths: string[]) => {
+    for (let start = 0; start < paths.length; start += REMOVE_BATCH) {
+      const { error } = await client.storage.from('feed-photos').remove(paths.slice(start, start + REMOVE_BATCH));
       if (error) throw error;
-    },
-    now,
-  );
+    }
+  };
+  const photos = await cleanupPhotos(client, removeFiles, now);
+  const packs = await dropEmptyPacks(client, removeFiles, now);
   if (failed.length > 0) console.error('close-days failures', JSON.stringify(failed));
-  return Response.json({ closed: closed.length, failed: failed.length, photos }, { status: failed.length ? 500 : 200 });
+  return Response.json(
+    { closed: closed.length, failed: failed.length, photos, droppedPacks: packs },
+    { status: failed.length ? 500 : 200 },
+  );
 });

@@ -850,7 +850,9 @@ export type Database = {
       day_close_input: { Args: { pack_date: string; target: string }; Returns: Json };
       day_closes_at: { Args: { pack_date: string; tz: string }; Returns: string };
       dress_critter: { Args: { item: string; slot: string; target: string }; Returns: undefined };
-      drop_empty_packs: { Args: Record<PropertyKey, never>; Returns: number };
+      drop_empty_packs: { Args: { at_time: string }; Returns: number };
+      empty_pack_photos: { Args: { at_time: string }; Returns: string[] };
+      empty_packs: { Args: { at_time: string }; Returns: string[] };
       end_pause: { Args: { target: string }; Returns: undefined };
       expired_photos: {
         Args: { at_time?: string; max_rows?: number };

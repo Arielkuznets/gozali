@@ -1,10 +1,10 @@
 // Six pack days closed by the real close-days code against the local stack: hatching, a joker,
 // failed days, a member falling asleep, the notifications they cause, and a second run that
-// changes nothing. Run with `npx supabase start` up: node scripts/smoke-day-close.mjs
+// changes nothing. Then everyone leaves, and the pack goes with its photo files 30 days later. Run with `npx supabase start` up: node scripts/smoke-day-close.mjs
 import { createClient } from '@supabase/supabase-js';
 
 import { addDays, closesAt, packDayOf, zonedTimeToUtc } from '../packages/game-engine/src/index.ts';
-import { closeDueDays } from '../supabase/functions/close-days/close.ts';
+import { closeDueDays, dropEmptyPacks } from '../supabase/functions/close-days/close.ts';
 
 const url = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY;
@@ -113,6 +113,29 @@ const seen = await dan.client.from('day_results').select('day').eq('pack_id', pa
 check(seen.data.length === 6, 'members can read the day results for the monthly board');
 const forbidden = await dan.client.rpc('apply_day_result', { target: packId, pack_date: day(7), outcome: {} });
 check(forbidden.error !== null, 'members cannot apply results themselves');
+
+// Everyone leaves; the pack stays 30 days in case someone comes back, then goes with its photos.
+const photoPath = `${packId}/${noa.id}/smoke.jpg`;
+const upload = await noa.client.storage.from('feed-photos').upload(photoPath, new Uint8Array([0xff, 0xd8, 0xff, 0xd9]), {
+  contentType: 'image/jpeg',
+});
+if (upload.error) throw upload.error;
+await admin.from('feeds').update({ photo_path: photoPath }).eq('pack_id', packId).eq('user_id', noa.id).eq('day', day(1));
+for (const user of [noa, dan, maya]) await user.client.rpc('leave_pack', { target: packId });
+const removeFiles = async (paths) => {
+  const { error } = await admin.storage.from('feed-photos').remove(paths);
+  if (error) throw error;
+};
+await dropEmptyPacks(admin, removeFiles, new Date());
+const kept = await admin.from('packs').select('id').eq('id', packId);
+check(kept.data.length === 1, 'a pack everyone left is kept for now');
+const monthAgo = new Date(Date.now() - 31 * 86_400_000).toISOString();
+await admin.from('pack_members').update({ left_at: monthAgo }).eq('pack_id', packId);
+await dropEmptyPacks(admin, removeFiles, new Date());
+const gone = await admin.from('packs').select('id').eq('id', packId);
+check(gone.data.length === 0, 'after 30 days it is deleted');
+const files = await admin.storage.from('feed-photos').list(`${packId}/${noa.id}`);
+check(files.data.length === 0, 'and its photo files with it');
 
 for (const user of [noa, dan, maya]) await admin.auth.admin.deleteUser(user.id);
 console.log('all good');
