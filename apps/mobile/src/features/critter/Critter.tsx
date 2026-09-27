@@ -3,6 +3,8 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View, type GestureResponderEvent } from 'react-native';
 import Animated, {
   Easing,
+  FadeIn,
+  FadeOut,
   cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
@@ -219,11 +221,15 @@ export function Critter({ art: given, size, label, animated = true, lines, petHi
       onTouchEnd={stopFollowing}
       onTouchCancel={stopFollowing}>
       {line !== null && (
-        <View style={[styles.bubble, { bottom: size * 0.88 }]} pointerEvents="none">
+        <Animated.View
+          entering={FadeIn.duration(160)}
+          exiting={FadeOut.duration(200)}
+          style={[styles.bubble, { bottom: size * 0.88 }]}
+          pointerEvents="none">
           <AppText variant="caption" style={styles.bubbleText}>
             {line}
           </AppText>
-        </View>
+        </Animated.View>
       )}
       {canPet ? (
         <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityHint={petHint} onPress={onPet}>
