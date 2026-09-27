@@ -96,3 +96,12 @@ The success numbers of spec sections 1 and 15 (active packs, active packs 14 day
 ```sh
 npx supabase db query --linked "select public.pilot_metrics()"
 ```
+
+A fix that touches only JavaScript reaches the installed apps without a new build or a store review, through EAS Update. Each build profile has its own channel, and the runtime version is a fingerprint of the native code, so an update only goes to builds it can run on:
+
+```sh
+cd apps/mobile
+eas update --channel production --message "Fix the monthly board"
+```
+
+A change to native code (a new native package, app.json plugins, the widgets) needs a new build instead.
