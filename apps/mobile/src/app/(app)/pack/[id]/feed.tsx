@@ -142,7 +142,7 @@ export default function FeedScreen() {
   if (!permission) {
     return (
       <SafeAreaView style={styles.dark}>
-        <ActivityIndicator color={colors.onAccent} />
+        <ActivityIndicator color={colors.onDark} />
       </SafeAreaView>
     );
   }
@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
   doneText: { alignItems: 'center', gap: spacing.sm, paddingBottom: spacing.xl },
   centerText: { textAlign: 'center' },
   muted: { color: colors.inkMuted },
-  light: { color: colors.onAccent },
+  light: { color: colors.onDark },
   title: { flex: 1, textAlign: 'center', fontFamily: fonts.bodyMedium },
   topBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
   frame: { flex: 1, marginHorizontal: spacing.sm, borderRadius: radii.lg, overflow: 'hidden', backgroundColor: '#000' },
@@ -272,11 +272,11 @@ const styles = StyleSheet.create({
     height: 76,
     borderRadius: 38,
     borderWidth: 4,
-    borderColor: colors.onAccent,
+    borderColor: colors.onDark,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  shutterInner: { width: 60, height: 60, borderRadius: 30, backgroundColor: colors.onAccent },
+  shutterInner: { width: 60, height: 60, borderRadius: 30, backgroundColor: colors.onDark },
   shutterPressed: { transform: [{ scale: 0.92 }] },
   disabled: { opacity: 0.4 },
   sheet: { padding: spacing.md, gap: spacing.sm, backgroundColor: colors.background, borderRadius: radii.lg, margin: spacing.sm },
