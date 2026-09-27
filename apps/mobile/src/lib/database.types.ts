@@ -930,13 +930,6 @@ export type Database = {
       };
       fed_on: { Args: { member: string; pack_date: string; target: string }; Returns: boolean };
       feed_day: { Args: { captured_at: string; received_at: string; tz: string }; Returns: string };
-      feed_reaction_counts: {
-        Args: { target_feed: string };
-        Returns: {
-          emoji: Database['public']['Enums']['reaction_emoji'];
-          total: number;
-        }[];
-      };
       feed_reactions: {
         Args: { feed_ids: string[] };
         Returns: {

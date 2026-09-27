@@ -1,7 +1,7 @@
 -- Coins from the day close and the outfit shop (decision D21).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(17);
+select plan(18);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000aa', 'noa@test.local'),
@@ -63,6 +63,10 @@ select throws_ok($$ select public.buy_item((select id from pack), 'rocket') $$, 
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000cc');
 select throws_ok($$ select public.buy_item((select id from pack), 'bow') $$, '42501', null, 'outsiders can''t shop for the pack');
 select is((select count(*) from public.pack_items), 0::bigint, 'and don''t see what it bought');
+select throws_ok(
+  $$ select public.owns_item((select id from pack), 'head', 'cap') $$,
+  '42501', null, 'nor ask whether it owns an item'
+);
 
 -- Wearing what the pack owns.
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000aa');

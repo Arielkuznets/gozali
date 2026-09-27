@@ -87,8 +87,8 @@ select is((select count(*) from public.packs), 1::bigint, 'a member sees their p
 select is((select count(*) from public.pack_members), 2::bigint, 'a member sees the other members');
 select is((select count(*) from public.reactions), 0::bigint, 'nobody sees who reacted with the suspicious emoji');
 select results_eq(
-  $$ select emoji::text, total from public.feed_reaction_counts('20000000-0000-0000-0000-000000000001') $$,
-  $$ values ('suspicious', 1::bigint) $$,
+  $$ select emoji::text, total, cardinality(names) from public.feed_reactions(array['20000000-0000-0000-0000-000000000001'::uuid]) $$,
+  $$ values ('suspicious', 1::bigint, 0) $$,
   'but members see how many did'
 );
 select throws_ok(
