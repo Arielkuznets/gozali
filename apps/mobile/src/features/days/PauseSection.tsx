@@ -1,11 +1,12 @@
 import { addDays } from '@gozali/game-engine';
 import { useTranslation } from 'react-i18next';
-import { Alert, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Choice } from '@/components/Choice';
 import { PAUSE_LENGTHS, dayErrorKey, useDayStatus, useEndPause, useStartPause } from '@/features/days/api';
+import { confirm, notify } from '@/lib/confirm';
 import { formatDay } from '@/lib/dates';
 import { colors, spacing } from '@/theme/tokens';
 
@@ -19,15 +20,14 @@ export function PauseSection({ packId }: { packId: string }) {
   if (!day) return null;
 
   const onStart = (days: number) => {
-    Alert.alert(t('days.pauseConfirm', { count: days }), undefined, [
-      { text: t('settings.cancel'), style: 'cancel' },
-      {
-        text: t('settings.confirm'),
-        onPress: () => startPause.mutate(days, { onError: (error) => Alert.alert(t(dayErrorKey(error))) }),
-      },
-    ]);
+    confirm({
+      title: t('days.pauseConfirm', { count: days }),
+      confirm: t('settings.confirm'),
+      cancel: t('settings.cancel'),
+      onConfirm: () => startPause.mutate(days, { onError: (error) => notify(t(dayErrorKey(error))) }),
+    });
   };
-  const onEnd = () => endPause.mutate(undefined, { onError: (error) => Alert.alert(t(dayErrorKey(error))) });
+  const onEnd = () => endPause.mutate(undefined, { onError: (error) => notify(t(dayErrorKey(error))) });
 
   const pause = day.pause;
   const upcoming = pause !== null && pause.startsOn > day.day;

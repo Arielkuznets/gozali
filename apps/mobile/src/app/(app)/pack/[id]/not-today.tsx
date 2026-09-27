@@ -1,12 +1,13 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { LoadFailed } from '@/components/ScreenStates';
 import { dayErrorKey, useCancelDayPass, useDayPass, useDayStatus } from '@/features/days/api';
+import { notify } from '@/lib/confirm';
 import { goBack } from '@/lib/navigation';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
@@ -21,7 +22,7 @@ export default function NotTodayScreen() {
   const choose = (pass: 'rest' | 'joker') =>
     dayPass.mutate(pass, {
       onSuccess: () => goBack(`/pack/${id}`),
-      onError: (error) => Alert.alert(t(dayErrorKey(error))),
+      onError: (error) => notify(t(dayErrorKey(error))),
     });
 
   if (!status.data) {
@@ -55,7 +56,7 @@ export default function NotTodayScreen() {
               variant="secondary"
               size="small"
               loading={cancelPass.isPending}
-              onPress={() => cancelPass.mutate(undefined, { onError: (error) => Alert.alert(t(dayErrorKey(error))) })}
+              onPress={() => cancelPass.mutate(undefined, { onError: (error) => notify(t(dayErrorKey(error))) })}
             />
           </View>
         ) : (

@@ -3,7 +3,7 @@ import { ACHIEVEMENTS, packDayOf, type WardrobeSlot } from '@gozali/game-engine'
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Screen } from '@/components/Screen';
@@ -64,7 +64,7 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
   const canDress = critter.status === 'active';
 
   const wear = (slot: WardrobeSlot, item: string | null) =>
-    dress.mutate({ slot, item }, { onError: (error) => Alert.alert(t(socialErrorKey(error))) });
+    dress.mutate({ slot, item }, { onError: (error) => notify(t(socialErrorKey(error))) });
 
   // The wardrobe: what achievements unlocked, then what the pack bought, per slot.
   const owned = (slot: WardrobeSlot) => [

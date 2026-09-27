@@ -30,14 +30,19 @@ export function MemberCircles({ members, color, onNudge, onMenu }: Props) {
         const name = member.name ?? '…';
         const label = t(`pack.member.${member.state}`, { name });
         const resting = member.state === 'asleep' || member.state === 'paused';
+        const nudges = Boolean(member.nudgeable && onNudge);
         return (
           <Pressable
             key={member.id}
             style={styles.item}
-            accessibilityRole={member.nudgeable && onNudge ? 'button' : undefined}
+            accessibilityRole={nudges || onMenu ? 'button' : undefined}
             accessibilityLabel={label}
-            disabled={!(member.nudgeable && onNudge) && !onMenu}
-            onPress={() => (member.nudgeable && onNudge ? onNudge(member) : onMenu?.(member))}
+            accessibilityHint={nudges ? t('social.nudge') : undefined}
+            // A screen reader can't long-press, so the menu is also an action there.
+            accessibilityActions={nudges && onMenu ? [{ name: 'longpress', label: t('social.more') }] : undefined}
+            onAccessibilityAction={() => onMenu?.(member)}
+            disabled={!nudges && !onMenu}
+            onPress={() => (nudges ? onNudge?.(member) : onMenu?.(member))}
             onLongPress={() => onMenu?.(member)}>
             <View
               style={[

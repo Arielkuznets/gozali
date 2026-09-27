@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, StyleSheet, TextInput, View } from 'react-native';
+import { StyleSheet, TextInput, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { sendDevCode, verifyDevCode } from '@/features/auth/signIn';
+import { notify } from '@/lib/confirm';
 import { NotConfiguredError } from '@/lib/supabase';
 import { goBack } from '@/lib/navigation';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
@@ -23,7 +24,7 @@ export default function DevLoginScreen() {
     try {
       await action();
     } catch (error) {
-      Alert.alert(error instanceof NotConfiguredError ? t('errors.notConfigured') : t('errors.signInFailed'));
+      notify(error instanceof NotConfiguredError ? t('errors.notConfigured') : t('errors.signInFailed'));
     } finally {
       setBusy(false);
     }

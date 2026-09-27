@@ -5,7 +5,7 @@ import { Image } from 'expo-image';
 import { useLocalSearchParams } from 'expo-router';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 
 import { AppText } from '@/components/AppText';
@@ -19,6 +19,7 @@ import { PhotoViewer, type ViewedPhoto } from '@/features/feeds/PhotoViewer';
 import { usePack } from '@/features/packs/api';
 import { StoryCard, STORY_HEIGHT, STORY_WIDTH } from '@/features/recap/StoryCard';
 import { useRecapPhotos, useRecaps, type Recap } from '@/features/recap/api';
+import { notify } from '@/lib/confirm';
 import { formatDay } from '@/lib/dates';
 import { goBack } from '@/lib/navigation';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
@@ -106,7 +107,7 @@ function RecapView({ recap, packName, category, names }: ViewProps) {
       const uri = await captureRef(story, { format: 'png', quality: 1, width: 1080, height: 1920 });
       await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: t('recap.share'), UTI: 'public.png' });
     } catch {
-      Alert.alert(t('recap.shareFailed'));
+      notify(t('recap.shareFailed'));
     } finally {
       setSharing(false);
     }

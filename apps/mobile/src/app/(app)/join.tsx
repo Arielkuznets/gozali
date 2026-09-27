@@ -2,7 +2,7 @@ import * as Clipboard from 'expo-clipboard';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
@@ -12,6 +12,7 @@ import { Critter } from '@/features/critter/Critter';
 import { critterArt } from '@/features/critter/art';
 import { packErrorKey, useJoinPack, usePackPreview } from '@/features/packs/api';
 import { INVITE_CODE_LENGTH, categoryInfo, normalizeInviteCode } from '@/features/packs/constants';
+import { notify } from '@/lib/confirm';
 import { goBack } from '@/lib/navigation';
 import { colors, radii, spacing } from '@/theme/tokens';
 
@@ -30,7 +31,7 @@ export default function JoinScreen() {
   const onJoin = () => {
     joinPack.mutate(code, {
       onSuccess: (packId) => router.replace(`/pack/${packId}`),
-      onError: (error) => Alert.alert(t(packErrorKey(error))),
+      onError: (error) => notify(t(packErrorKey(error))),
     });
   };
 

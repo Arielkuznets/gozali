@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Choice } from '@/components/Choice';
@@ -9,6 +9,7 @@ import { Screen } from '@/components/Screen';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { deleteAccount } from '@/features/auth/signIn';
 import { NOTIFICATION_TYPES, useProfile, useUpdateProfile, type NotificationType } from '@/features/profile/useProfile';
+import { confirm, notify } from '@/lib/confirm';
 import { isBlockedText } from '@/lib/errors';
 import { requireSupabase } from '@/lib/supabase';
 import { goBack } from '@/lib/navigation';
@@ -36,19 +37,19 @@ export default function SettingsScreen() {
   const reminder = profile.data.reminder_time.slice(0, 5);
   const save = (settings: Parameters<typeof update.mutate>[0]) =>
     update.mutate(settings, {
-      onError: (error) => Alert.alert(isBlockedText(error) ? t('errors.textNotAllowed') : t('errors.saveFailed')),
+      onError: (error) => notify(isBlockedText(error) ? t('errors.textNotAllowed') : t('errors.saveFailed')),
     });
   const toggle = (type: NotificationType, on: boolean) => save({ notification_prefs: { ...prefs, [type]: on } });
 
   const onDelete = () => {
-    Alert.alert(t('settings.app.deleteTitle'), t('settings.app.deleteBody'), [
-      { text: t('settings.cancel'), style: 'cancel' },
-      {
-        text: t('settings.app.deleteConfirm'),
-        style: 'destructive',
-        onPress: () => void deleteAccount().catch(() => Alert.alert(t('settings.app.deleteFailed'))),
-      },
-    ]);
+    confirm({
+      title: t('settings.app.deleteTitle'),
+      message: t('settings.app.deleteBody'),
+      confirm: t('settings.app.deleteConfirm'),
+      cancel: t('settings.cancel'),
+      destructive: true,
+      onConfirm: () => void deleteAccount().catch(() => notify(t('settings.app.deleteFailed'))),
+    });
   };
 
   return (

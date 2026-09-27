@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
@@ -21,6 +21,7 @@ import {
   type Pack,
 } from '@/features/packs/api';
 import { PACK_NAME_MAX, REST_DAYS_MAX, type WeekStart } from '@/features/packs/constants';
+import { confirm, notify } from '@/lib/confirm';
 import { formatDay } from '@/lib/dates';
 import { goBack } from '@/lib/navigation';
 import { colors, radii, spacing } from '@/theme/tokens';
@@ -57,34 +58,32 @@ function SettingsForm({ pack }: { pack: Pack }) {
   const onSave = () => {
     updatePack.mutate(
       { name: name.trim(), restDays, weekStart },
-      { onError: (error) => Alert.alert(t(packErrorKey(error))) },
+      { onError: (error) => notify(t(packErrorKey(error))) },
     );
   };
 
   const onRemove = (memberId: string, memberName: string) => {
-    Alert.alert(t('settings.removeConfirm', { name: memberName }), undefined, [
-      { text: t('settings.cancel'), style: 'cancel' },
-      {
-        text: t('settings.remove'),
-        style: 'destructive',
-        onPress: () => removeMember.mutate(memberId, { onError: (error) => Alert.alert(t(packErrorKey(error))) }),
-      },
-    ]);
+    confirm({
+      title: t('settings.removeConfirm', { name: memberName }),
+      confirm: t('settings.remove'),
+      cancel: t('settings.cancel'),
+      destructive: true,
+      onConfirm: () => removeMember.mutate(memberId, { onError: (error) => notify(t(packErrorKey(error))) }),
+    });
   };
 
   const onLeave = () => {
-    Alert.alert(t('settings.leaveConfirm'), undefined, [
-      { text: t('settings.cancel'), style: 'cancel' },
-      {
-        text: t('settings.confirm'),
-        style: 'destructive',
-        onPress: () =>
-          leavePack.mutate(pack.id, {
-            onSuccess: () => router.replace('/'),
-            onError: (error) => Alert.alert(t(packErrorKey(error))),
-          }),
-      },
-    ]);
+    confirm({
+      title: t('settings.leaveConfirm'),
+      confirm: t('settings.confirm'),
+      cancel: t('settings.cancel'),
+      destructive: true,
+      onConfirm: () =>
+        leavePack.mutate(pack.id, {
+          onSuccess: () => router.replace('/'),
+          onError: (error) => notify(t(packErrorKey(error))),
+        }),
+    });
   };
 
   return (
