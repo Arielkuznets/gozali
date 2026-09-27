@@ -49,6 +49,21 @@ export type Database = {
           },
         ];
       };
+      blocked_words: {
+        Row: {
+          match: string;
+          word: string;
+        };
+        Insert: {
+          match?: string;
+          word: string;
+        };
+        Update: {
+          match?: string;
+          word?: string;
+        };
+        Relationships: [];
+      };
       blocks: {
         Row: {
           blocked_id: string;
@@ -789,13 +804,16 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      account_photo_paths: { Args: { member: string }; Returns: string[] };
       active_pack_count: { Args: { member: string }; Returns: number };
       apply_day_result: {
         Args: { outcome: Json; pack_date: string; target: string };
         Returns: boolean;
       };
       blocked_by_me: { Args: { other_user: string }; Returns: boolean };
-      call_edge_function: { Args: { name: string }; Returns: undefined };
+      call_edge_function:
+        | { Args: { name: string }; Returns: undefined }
+        | { Args: { body: Json; name: string }; Returns: undefined };
       cancel_day_pass: { Args: { target: string }; Returns: undefined };
       choose_name: { Args: { suggestion: string; target: string }; Returns: undefined };
       claim_notifications: {
@@ -831,6 +849,7 @@ export type Database = {
       day_close_input: { Args: { pack_date: string; target: string }; Returns: Json };
       day_closes_at: { Args: { pack_date: string; tz: string }; Returns: string };
       dress_critter: { Args: { item: string; slot: string; target: string }; Returns: undefined };
+      drop_empty_packs: { Args: Record<PropertyKey, never>; Returns: number };
       end_pause: { Args: { target: string }; Returns: undefined };
       expired_photos: {
         Args: { at_time?: string; max_rows?: number };
@@ -860,6 +879,7 @@ export type Database = {
       };
       forget_photos: { Args: { feed_ids: string[] }; Returns: undefined };
       forget_push_tokens: { Args: { dead: string[] }; Returns: undefined };
+      is_clean: { Args: { input: string }; Returns: boolean };
       is_pack_member: { Args: { target_pack: string }; Returns: boolean };
       join_pack: { Args: { code: string }; Returns: string };
       keeps_overnight: {
@@ -916,6 +936,7 @@ export type Database = {
         Returns: undefined;
       };
       remove_member: { Args: { member: string; target: string }; Returns: undefined };
+      report_details: { Args: { report: string }; Returns: Json };
       requeue_notifications: { Args: { ids: string[] }; Returns: undefined };
       require_admin: { Args: { target: string }; Returns: string };
       require_membership: { Args: { member: string; target: string }; Returns: string };
