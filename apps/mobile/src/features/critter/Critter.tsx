@@ -48,7 +48,13 @@ const LINE_MS = 2600;
  * The one component every screen uses for the critter (spec section 10): it draws the
  * critter from its state, so the final illustrated character replaces only this file.
  */
-export function Critter({ art, size, label, animated = true, lines, petHint }: Props) {
+export function Critter({ art: given, size, label, animated = true, lines, petHint }: Props) {
+  // Screens build the art object again on every render (their clock ticks every 30 seconds);
+  // the drawings are made again only when what they show changes.
+  const artKey = JSON.stringify(given);
+  const [kept, setKept] = useState({ key: artKey, art: given });
+  if (kept.key !== artKey) setKept({ key: artKey, art: given });
+  const art = kept.key === artKey ? kept.art : given;
   const [line, setLine] = useState<string | null>(null);
   const lineTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [gaze, setGaze] = useState<{ x: number; y: number } | undefined>(undefined);
