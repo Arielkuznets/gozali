@@ -193,6 +193,19 @@ export const CREATURE_COLORS: Record<Creature, string> = {
   bun: '#F3EFE9',
 };
 
+/**
+ * A stronger shade of each creature for the app around it (the fed circles, the monthly board),
+ * readable on the cream background. Bun is white, so its shade is the pink of its ears.
+ */
+export const CREATURE_ACCENTS: Record<Creature, string> = {
+  mochi: '#E8965C',
+  kit: '#E2B437',
+  axo: '#6BAAD8',
+  ribbit: '#6FA85A',
+  hoot: '#8A6247',
+  bun: '#E595AB',
+};
+
 /** Lighting inside the body outline: a soft highlight up top and shade along the bottom. */
 export function bodyLight(creature: Creature, p: Paint): string {
   const art = CREATURE_ART[creature];

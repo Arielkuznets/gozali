@@ -37,7 +37,7 @@ import {
 import { formatDay } from '@/lib/dates';
 import { goBack } from '@/lib/navigation';
 import { useNow } from '@/lib/useNow';
-import { colors, critterColors, fonts, spacing } from '@/theme/tokens';
+import { colors, critterAccents, fonts, spacing } from '@/theme/tokens';
 
 export default function PackScreen() {
   const { t } = useTranslation();
@@ -201,7 +201,7 @@ export default function PackScreen() {
           <AppText variant="caption">{t('pack.fedCount', { fed: fedCount, total: awake.length })}</AppText>
         </View>
         <MemberCircles
-          color={pack.critters ? critterColors[pack.critters.species] : colors.accent}
+          color={pack.critters ? critterAccents[pack.critters.species] : colors.accent}
           members={members.map((member) => ({
             id: member.user_id,
             name: member.profiles?.display_name ?? null,
