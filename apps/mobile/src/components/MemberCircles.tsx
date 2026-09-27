@@ -1,19 +1,21 @@
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { colors, fonts } from '@/theme/tokens';
 
 export type MemberState = 'fed' | 'pass' | 'waiting' | 'asleep' | 'paused';
 
-type Member = { id: string; name: string | null; state: MemberState };
+type Member = { id: string; name: string | null; state: MemberState; nudgeable?: boolean };
 
 /**
  * The row of member circles on the pack screen (spec section 9): filled = fed today, dashed =
  * rest or joker, 💤 = asleep or paused, gray = not yet. Each state also has its own mark or
  * outline, so color is not the only signal.
  */
-export function MemberCircles({ members, color }: { members: Member[]; color: string }) {
+type Props = { members: Member[]; color: string; onNudge?: (member: Member) => void };
+
+export function MemberCircles({ members, color, onNudge }: Props) {
   const { t } = useTranslation();
   return (
     <View style={styles.row}>
@@ -22,7 +24,13 @@ export function MemberCircles({ members, color }: { members: Member[]; color: st
         const label = t(`pack.member.${member.state}`, { name });
         const resting = member.state === 'asleep' || member.state === 'paused';
         return (
-          <View key={member.id} style={styles.item} accessible accessibilityLabel={label}>
+          <Pressable
+            key={member.id}
+            style={styles.item}
+            accessibilityRole={member.nudgeable && onNudge ? 'button' : undefined}
+            accessibilityLabel={label}
+            disabled={!member.nudgeable || !onNudge}
+            onPress={() => onNudge?.(member)}>
             <View
               style={[
                 styles.circle,
@@ -39,7 +47,7 @@ export function MemberCircles({ members, color }: { members: Member[]; color: st
             <AppText variant="caption" numberOfLines={1} style={styles.name}>
               {name}
             </AppText>
-          </View>
+          </Pressable>
         );
       })}
     </View>

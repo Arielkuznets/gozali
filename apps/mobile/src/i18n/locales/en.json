@@ -29,7 +29,6 @@
     "eggLabel": "An egg waiting for a pack",
     "createPack": "Create a pack",
     "joinPack": "Join with a code",
-    "signOut": "Sign out",
     "limitReached": "You're in 3 packs, the most for now.",
     "feedPack": "Feed {{name}}"
   },
@@ -375,5 +374,155 @@
       "pause_too_short": "A pause lasts at least 3 days."
     },
     "daysUnit": "days"
+  },
+  "events": {
+    "joined": "👋 {{name}} joined the pack",
+    "hatched": "🐣 {{critter}} hatched!",
+    "evolved": "✨ {{critter}} grew into a {{stage}}",
+    "ran_away": "🏃 {{critter}} ran away to find food",
+    "returned": "🩹 {{critter}} came back!",
+    "achievement": "🏆 {{critter}} unlocked {{title}}: a new {{item}} for the wardrobe",
+    "joker": "🃏 {{name}} is taking a joker today",
+    "dressed": "👗 {{name}} put a {{item}} on {{critter}}",
+    "undressed": "👗 {{name}} changed {{critter}}'s look",
+    "named": "🏷️ {{name}} named the pet {{critter}}"
+  },
+  "achievements": {
+    "hatched": {
+      "title": "Hello world",
+      "condition": "Hatch the egg"
+    },
+    "streak_7": {
+      "title": "One week strong",
+      "condition": "A 7-day streak"
+    },
+    "streak_14": {
+      "title": "Two weeks strong",
+      "condition": "A 14-day streak"
+    },
+    "streak_30": {
+      "title": "Unbreakable",
+      "condition": "A 30-day streak"
+    },
+    "full_house": {
+      "title": "Full house",
+      "condition": "Everyone fed on one day, with at least 4 counted"
+    },
+    "early_birds": {
+      "title": "Early birds",
+      "condition": "5 good days where everyone fed before noon"
+    },
+    "night_owls": {
+      "title": "Night owls",
+      "condition": "5 feeds between 23:00 and 03:00"
+    },
+    "comeback": {
+      "title": "Comeback",
+      "condition": "Bring the pet back after it ran away"
+    },
+    "century": {
+      "title": "Century",
+      "condition": "100 feeds in the pack"
+    },
+    "full_pack": {
+      "title": "Full pack",
+      "condition": "8 members in the pack"
+    },
+    "grown_up": {
+      "title": "Grown up",
+      "condition": "Reach the Adult stage"
+    },
+    "legend": {
+      "title": "Legend",
+      "condition": "Reach the Legend stage"
+    }
+  },
+  "items": {
+    "scarf": "scarf",
+    "beanie": "beanie",
+    "flower_crown": "flower crown",
+    "cape": "cape",
+    "bow_tie": "bow tie",
+    "sun_hat": "sun hat",
+    "headlamp": "headlamp",
+    "sunrise": "sunrise background",
+    "park": "park background",
+    "party": "party background",
+    "space": "space background",
+    "halo": "halo"
+  },
+  "social": {
+    "react": "React with {{emoji}}",
+    "reactedBy": "{{names}}",
+    "more": "More",
+    "report": "Report photo",
+    "reportTitle": "Report this photo?",
+    "reportBody": "We look at every report within 24 hours.",
+    "reported": "Thanks. We will look at it within 24 hours.",
+    "block": "Block {{name}}",
+    "blockTitle": "Block {{name}}?",
+    "blockBody": "You won't see their photos or reactions, and they can't nudge you.",
+    "blockedLeave": "Blocked. You can also leave this pack from its settings.",
+    "cancel": "Cancel",
+    "nudgeTitle": "Nudge {{name}}?",
+    "nudgeBody": "They get: \"{{critter}} is looking at you 👀\"",
+    "nudge": "Nudge",
+    "nudged": "Sent!",
+    "nameMeTitle": "Name me!",
+    "nameMeBody": "Suggest a name for {{critter}}. {{admin}} picks one.",
+    "nameMeBodyAdmin": "Suggest a name for {{critter}}, and pick the one you like.",
+    "suggestPlaceholder": "A name",
+    "suggest": "Suggest",
+    "pick": "Pick",
+    "by": "by {{name}}",
+    "errors": {
+      "already_nudged": "You already nudged them today.",
+      "already_fed": "They already fed today.",
+      "not_counted_today": "They're resting or away today.",
+      "cannot_nudge": "You can't nudge this member.",
+      "too_many_suggestions": "You can suggest up to 3 names.",
+      "name_not_open": "The pet already has a name.",
+      "item_locked": "Unlock this item with its achievement first.",
+      "critter_not_here": "The pet is not here right now."
+    }
+  },
+  "profile": {
+    "title": "Pet profile",
+    "open": "Profile",
+    "stage": "Stage",
+    "marks": "Marks",
+    "medal": "🏅 Medal: 30 days in a row",
+    "bandage": "🩹 Bandage: came back after running away",
+    "board": "Monthly board",
+    "legendFed": "fed",
+    "legendRest": "rest or joker",
+    "legendAway": "paused or asleep",
+    "legendMissed": "missed",
+    "noDays": "No closed days this month yet.",
+    "achievements": "Achievements",
+    "unlocked": "Unlocked {{date}}",
+    "locked": "Locked",
+    "wardrobe": "Wardrobe",
+    "wardrobeEmpty": "Achievements unlock items for the wardrobe.",
+    "slots": {
+      "head": "Head",
+      "neck": "Neck",
+      "background": "Background"
+    },
+    "none": "None",
+    "wearing": "Wearing",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month"
+  },
+  "me": {
+    "title": "Me",
+    "open": "Me",
+    "totalFeeds": "Feeds",
+    "currentStreak": "Current streak",
+    "bestStreak": "Best streak",
+    "streakHint": "Days in a row without a miss in any pack.",
+    "board": "Last days",
+    "signOut": "Sign out",
+    "back": "Back"
   }
 }
