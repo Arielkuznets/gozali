@@ -22,11 +22,13 @@ jobs:
         run: npm run typecheck
       - name: Typecheck the Edge Function modules
         run: npm run typecheck:functions
+      - name: Typecheck the end-to-end tests
+        run: npm run typecheck:e2e
       - name: Lint the app
         run: npm run lint
 
   database:
-    name: Database and API tests
+    name: Database, API and end-to-end tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -55,6 +57,26 @@ jobs:
             npm run "smoke:$name"
             echo "::endgroup::"
           done
+      - name: Build the web app against the local API
+        run: |
+          eval "$(supabase status -o env | grep -E '^(API_URL|PUBLISHABLE_KEY)=')"
+          echo "EXPO_PUBLIC_SUPABASE_URL=$API_URL" > apps/mobile/.env
+          echo "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$PUBLISHABLE_KEY" >> apps/mobile/.env
+          npm run e2e:build
+      - name: Install the test browser
+        run: npx playwright install --with-deps chromium
+      - name: Run the end-to-end tests
+        run: |
+          eval "$(supabase status -o env | grep -E '^(PUBLISHABLE_KEY|SECRET_KEY)=')"
+          export SUPABASE_PUBLISHABLE_KEY="$PUBLISHABLE_KEY" SUPABASE_SECRET_KEY="$SECRET_KEY"
+          npm run e2e
+      - name: Keep the traces of failed end-to-end tests
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results
+          path: e2e/test-results
+          if-no-files-found: ignore
       - name: Edge Function logs
         if: failure()
         run: cat functions.log

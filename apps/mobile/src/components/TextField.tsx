@@ -6,8 +6,18 @@ import { colors, fonts, radii, spacing } from '@/theme/tokens';
 export function TextField({ label, style, ...props }: TextInputProps & { label?: string }) {
   return (
     <View style={styles.field}>
-      {label !== undefined && <AppText variant="caption">{label}</AppText>}
-      <TextInput placeholderTextColor={colors.inkMuted} {...props} style={[styles.input, style]} />
+      {/* The label is drawn above the field; screen readers get it from the field itself. */}
+      {label !== undefined && (
+        <AppText variant="caption" aria-hidden>
+          {label}
+        </AppText>
+      )}
+      <TextInput
+        placeholderTextColor={colors.inkMuted}
+        accessibilityLabel={label}
+        {...props}
+        style={[styles.input, style]}
+      />
     </View>
   );
 }

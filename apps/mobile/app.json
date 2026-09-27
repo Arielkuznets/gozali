@@ -18,10 +18,16 @@
       },
       "associatedDomains": [
         "applinks:gozali.app"
-      ]
+      ],
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "app.gozali",
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#FBF6EE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

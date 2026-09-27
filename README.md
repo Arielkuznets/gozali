@@ -15,6 +15,7 @@ Gozali (Hebrew for "my little chick") is a mobile app where a small group of fri
 - [`apps/mobile`](apps/mobile) – the Expo app (iOS and Android).
 - [`supabase`](supabase) – database schema (migrations), row level security and database tests.
 - [`packages/game-engine`](packages/game-engine) – the game rules as a dependency-free TypeScript module. Node 24+ runs it directly, with no build step.
+- [`e2e`](e2e) – end-to-end tests of the main flows on the web build (Playwright).
 - [`web`](web) – the gozali.app site: landing and invite pages, privacy and terms; `node web/build.mjs` builds it into `web/dist`.
 - [`packages/critter-art`](packages/critter-art) – the temporary critter, drawn as SVG markup from its state (species, stage, health, outfit, night).
 
@@ -37,6 +38,14 @@ npm run smoke:day-close  # six days closed by the real close-days code: hatching
 npm run smoke:push       # friend-fed merging, "last one", the critter's lines and dead tokens, with a stand-in for Expo Push
 npm run smoke:widgets    # the widget token and endpoint (needs `npx supabase functions serve`)
 npm run smoke:delete-account  # account deletion end to end (needs `npx supabase functions serve`)
+```
+
+```sh
+# End-to-end tests: the web build in a phone-sized browser against local Supabase (same keys).
+# apps/mobile/.env must point at the local stack (API_URL and PUBLISHABLE_KEY from `npx supabase status`).
+npm run e2e:build                  # export the web app to apps/mobile/web-build
+npx playwright install chromium    # once; or set E2E_BROWSER_CHANNEL=msedge to use an installed Edge
+npm run e2e                        # tests in e2e/
 ```
 
 ```sh
