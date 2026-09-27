@@ -25,3 +25,15 @@ export function formatMoment(at: string, now: Date): string {
   if (date.toDateString() === now.toDateString()) return time;
   return `${formatter({ month: 'short', day: 'numeric' }).format(date)}, ${time}`;
 }
+
+/** The month (YYYY-MM) `by` months before or after `month`. */
+export function shiftMonth(month: string, by: number): string {
+  const [year, number] = month.split('-').map(Number);
+  const date = new Date(Date.UTC(year ?? 2000, (number ?? 1) - 1 + by, 1));
+  return date.toISOString().slice(0, 7);
+}
+
+/** A month (YYYY-MM) for display, like "September 2026". */
+export function formatMonth(month: string): string {
+  return formatter({ month: 'long', year: 'numeric' }).format(new Date(`${month}-15T12:00:00`));
+}
