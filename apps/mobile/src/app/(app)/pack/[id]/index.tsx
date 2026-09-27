@@ -284,6 +284,11 @@ export default function PackScreen() {
             {dayStatus.data.passToday === 'rest' ? t('pack.restingToday') : t('pack.jokerToday')}
           </AppText>
         )}
+        {iFed && (
+          <AppText variant="caption" style={styles.centerText}>
+            {t('pack.doneToday')}
+          </AppText>
+        )}
         {iFed ? (
           <Button label={t('pack.postExtra')} variant="secondary" onPress={() => router.push(`/pack/${id}/feed?extra=1`)} />
         ) : (
