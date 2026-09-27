@@ -6,6 +6,8 @@ import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { CREATURE_COLORS, CREATURES, renderCritter } from '../packages/critter-art/src/index.ts';
+
 const root = dirname(fileURLToPath(import.meta.url));
 const dist = join(root, 'dist');
 
@@ -23,9 +25,17 @@ rmSync(dist, { recursive: true, force: true });
 cpSync(join(root, 'src'), dist, { recursive: true });
 cpSync(join(root, '../apps/mobile/assets/images/icon.png'), join(dist, 'icon.png'));
 
+// The six creatures on the landing page, drawn by the same code as the app.
+const creatures = CREATURES.map((species) => {
+  const name = species[0].toUpperCase() + species.slice(1);
+  const art = renderCritter({ species, color: CREATURE_COLORS[species], stage: 'adult', look: 'happy' }, { id: `c-${species}` });
+  return `<figure>${art.replace('<svg ', `<svg role="img" aria-label="${name}" `)}<figcaption>${name}</figcaption></figure>`;
+}).join('');
+
 for (const page of ['index.html', 'i/index.html']) {
   const file = join(dist, page);
-  writeFileSync(file, readFileSync(file, 'utf8').replaceAll('{{APP_STORE_URL}}', appStoreUrl));
+  const html = readFileSync(file, 'utf8').replaceAll('{{APP_STORE_URL}}', appStoreUrl).replaceAll('{{CREATURES}}', creatures);
+  writeFileSync(file, html);
 }
 
 // The legal pages come from the Markdown in docs/legal, which uses headings, paragraphs,
