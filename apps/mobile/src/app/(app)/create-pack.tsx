@@ -100,7 +100,8 @@ export default function CreatePackScreen() {
                   key={item.key}
                   label={t(`packs.categories.${item.key}`)}
                   selected={category === item.key}
-                  onPress={() => pickCategory(item.key, item.defaultRestDays)}>
+                  onPress={() => pickCategory(item.key, item.defaultRestDays)}
+                  style={styles.habit}>
                   <AppText style={styles.emoji}>{item.emoji}</AppText>
                   <AppText variant="caption">{t(`packs.categories.${item.key}`)}</AppText>
                 </Choice>
@@ -184,7 +185,9 @@ const styles = StyleSheet.create({
   body: { gap: spacing.lg, paddingBottom: spacing.lg },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  emoji: { fontSize: 24 },
+  emoji: { fontSize: 30, lineHeight: 38 },
+  // Three to a row across the width, like the critters on the last step.
+  habit: { flexBasis: '30%', flexGrow: 1, maxWidth: '32%', paddingVertical: spacing.md },
   creature: { width: '31%' },
   fill: { flex: 1 },
   centerText: { textAlign: 'center' },
