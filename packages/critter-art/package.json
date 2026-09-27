@@ -16,6 +16,10 @@
   "scripts": {
     "test": "node --test \"test/**/*.test.ts\"",
     "preview": "node scripts/preview.ts",
-    "typecheck": "npx -y -p typescript@5 tsc -p tsconfig.json"
+    "typecheck": "npx -y -p typescript@5 tsc -p tsconfig.json",
+    "icons": "node scripts/icons.ts"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2"
   }
 }
