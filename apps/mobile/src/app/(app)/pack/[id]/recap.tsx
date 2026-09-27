@@ -61,7 +61,7 @@ export default function RecapScreen() {
       ) : (
         <>
           {recaps.data && recaps.data.length > 1 && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.weeks}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.weekRow} contentContainerStyle={styles.weeks}>
               {recaps.data.map((item) => (
                 <Choice
                   key={item.week_start}
@@ -187,7 +187,9 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   muted: { color: colors.inkMuted, textAlign: 'center' },
   centerText: { textAlign: 'center' },
-  weeks: { gap: spacing.sm, paddingBottom: spacing.sm },
+  // A horizontal list in a column grows to fill the height unless told not to.
+  weekRow: { flexGrow: 0 },
+  weeks: { gap: spacing.sm, paddingBottom: spacing.sm, alignItems: 'center' },
   body: { gap: spacing.md, paddingBottom: spacing.lg },
   hero: { alignItems: 'center' },
   stats: { flexDirection: 'row', gap: spacing.sm },
