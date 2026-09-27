@@ -431,3 +431,7 @@ verify_jwt = false
 [functions.send-push]
 # Called by pg_cron with a shared secret (x-cron-secret), not with a user token.
 verify_jwt = false
+
+[functions.widget-state]
+# Widgets authenticate with their own read-only token (x-widget-token), not a user session.
+verify_jwt = false
