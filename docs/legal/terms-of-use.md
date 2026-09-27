@@ -29,7 +29,7 @@ Every photo can be reported from its menu. We review reports **within 24 hours**
 
 ## The game
 
-The pet, its health, the streak and the achievements are part of a game with no monetary value. Rules and numbers may change as we tune the game. Version 1 has no payments.
+The pet, its health, the streak, the achievements, the coins and the outfits are part of a game with no monetary value. Coins are earned only by playing; they can't be bought, sold, transferred or exchanged for money, and they belong to the pack, not to any member. Rules and numbers may change as we tune the game. Version 1 has no payments.
 
 ## Availability
 
