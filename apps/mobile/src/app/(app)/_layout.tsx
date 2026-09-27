@@ -8,6 +8,8 @@ import { useWidgetSync } from '@/features/widgets/sync';
 import { useNotificationRoutes } from '@/lib/notifications';
 import { colors } from '@/theme/tokens';
 
+export { ErrorScreen as ErrorBoundary } from '@/components/ErrorScreen';
+
 // A screen opened from a notification, a widget or a link still has the home screen under it.
 export const unstable_settings = { initialRouteName: 'index' };
 

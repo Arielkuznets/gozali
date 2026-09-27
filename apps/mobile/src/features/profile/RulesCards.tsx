@@ -8,14 +8,18 @@ import { Button } from '@/components/Button';
 import { Critter } from '@/features/critter/Critter';
 import { colors, critterColors, spacing } from '@/theme/tokens';
 
-/** The three rules, told by the critters (spec section 9). */
-const CARDS: readonly { key: 'photo' | 'together' | 'neverDies'; art: CritterArt }[] = [
+/** The three rules and the reward, told by the critters (spec section 9). */
+const CARDS: readonly { key: 'photo' | 'together' | 'neverDies' | 'dressUp'; art: CritterArt }[] = [
   { key: 'photo', art: { species: 'mochi', color: critterColors.mochi, stage: 'kid', look: 'thriving' } },
   {
     key: 'together',
     art: { species: 'axo', color: critterColors.axo, stage: 'kid', look: 'happy', mood: 1 },
   },
   { key: 'neverDies', art: { species: 'hoot', color: critterColors.hoot, stage: 'kid', look: 'happy', marks: ['bandage'] } },
+  {
+    key: 'dressUp',
+    art: { species: 'kit', color: critterColors.kit, stage: 'kid', look: 'thriving', outfit: { head: 'crown', neck: 'bow_tie' } },
+  },
 ];
 
 /** The rules one card at a time. `onDone` runs on skip and after the last card. */

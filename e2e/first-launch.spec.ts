@@ -1,12 +1,14 @@
 import { expect, test } from '@playwright/test';
 
-test('a first launch shows the three rules, then the sign-in screen', async ({ page }) => {
+test('a first launch shows the rules and the reward, then the sign-in screen', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('Feed me with a photo')).toBeVisible();
   await page.getByRole('button', { name: 'Next' }).click();
   await expect(page.getByText('We do it together')).toBeVisible();
   await page.getByRole('button', { name: 'Next' }).click();
   await expect(page.getByText('I never die')).toBeVisible();
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.getByText('Dress me up')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Skip' })).toBeHidden();
   await page.getByRole('button', { name: "Let's go" }).click();
 

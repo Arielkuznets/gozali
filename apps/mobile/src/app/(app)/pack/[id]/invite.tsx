@@ -9,8 +9,8 @@ import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { LoadingScreen, LoadFailedScreen, PackMissingScreen } from '@/components/ScreenStates';
-import { usePack } from '@/features/packs/api';
-import { inviteLink } from '@/features/packs/constants';
+import { currentMembers, usePack } from '@/features/packs/api';
+import { PACK_SIZE_MAX, inviteLink } from '@/features/packs/constants';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 export default function InviteScreen() {
@@ -24,6 +24,13 @@ export default function InviteScreen() {
   if (!pack) return <PackMissingScreen />;
 
   const link = inviteLink(pack.invite_code);
+  const full = currentMembers(pack).length >= PACK_SIZE_MAX;
+  const critterName = pack.critters?.name ?? (pack.critters ? t(`packs.species.${pack.critters.species}`) : '');
+  const body = full
+    ? t('invite.full', { count: PACK_SIZE_MAX })
+    : pack.critters?.status === 'egg'
+      ? t('invite.body')
+      : t('invite.bodyHatched', { name: critterName, count: PACK_SIZE_MAX });
 
   const onShare = () => {
     void Share.share({ message: t('invite.message', { name: pack.name, code: pack.invite_code, link }) });
@@ -40,7 +47,7 @@ export default function InviteScreen() {
         <AppText variant="heading" style={styles.centerText}>
           {t('invite.title')}
         </AppText>
-        <AppText style={[styles.centerText, styles.muted]}>{t('invite.body')}</AppText>
+        <AppText style={[styles.centerText, styles.muted]}>{body}</AppText>
         <View style={styles.qr}>
           <QRCode value={link} size={180} color={colors.ink} backgroundColor={colors.surface} />
         </View>

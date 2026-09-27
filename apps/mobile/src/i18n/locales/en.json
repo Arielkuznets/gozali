@@ -40,7 +40,9 @@
     "signInFailed": "Sign-in didn't work. Please try again.",
     "saveFailed": "Saving didn't work. Please try again.",
     "loadFailed": "This didn't load. Check the connection and try again.",
-    "textNotAllowed": "Let's keep it friendly: that has a word we don't allow."
+    "textNotAllowed": "Let's keep it friendly: that has a word we don't allow.",
+    "crashTitle": "Something went wrong",
+    "crashBody": "This screen hit a problem. Try again, and if it keeps happening, write to hello@gozali.app."
   },
   "packs": {
     "categories": {
@@ -96,6 +98,8 @@
   "invite": {
     "title": "Invite your friends",
     "body": "The egg starts to crack when a friend joins, and it hatches on the first day two of you feed it.",
+    "bodyHatched": "Up to {{count}} friends can raise {{name}} together. New members count from their first feed.",
+    "full": "The pack is full: {{count}} members is the most.",
     "code": "Invite code",
     "share": "Share invite",
     "copy": "Copy code",
@@ -757,6 +761,10 @@
     "neverDies": {
       "title": "I never die",
       "body": "If nobody feeds me, I go off to find food. Three good days in a row and I come back."
+    },
+    "dressUp": {
+      "title": "Dress me up",
+      "body": "Every good day earns our pack coins, and a longer streak earns more. Spend them on hats, scarves and backgrounds for me."
     }
   },
   "offline": {
