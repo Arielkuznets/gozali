@@ -1,7 +1,6 @@
 import { renderCritter, type CritterArt } from '@gozali/critter-art';
-import * as Haptics from 'expo-haptics';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Platform, Pressable, StyleSheet, View, type GestureResponderEvent } from 'react-native';
+import { Pressable, StyleSheet, View, type GestureResponderEvent } from 'react-native';
 import Animated, {
   Easing,
   cancelAnimation,
@@ -16,6 +15,7 @@ import Animated, {
 import { SvgXml } from 'react-native-svg';
 
 import { AppText } from '@/components/AppText';
+import { haptics } from '@/lib/haptics';
 import { colors, radii, spacing } from '@/theme/tokens';
 
 type Props = {
@@ -181,7 +181,7 @@ export function Critter({ art, size, label, animated = true, lines, petHint }: P
   const canPet = present && lines !== undefined && lines.length > 0;
   const onPet = () => {
     if (!canPet) return;
-    if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    haptics.bump();
     jump.value = withSequence(withTiming(1, { duration: 150 }), withSpring(0, { damping: 6, stiffness: 180 }));
     setLine(lines[Math.floor(Math.random() * lines.length)] ?? null);
     clearTimeout(lineTimer.current);

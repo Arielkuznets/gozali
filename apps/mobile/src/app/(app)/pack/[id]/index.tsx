@@ -37,6 +37,7 @@ import {
 } from '@/features/social/api';
 import { confirm, notify } from '@/lib/confirm';
 import { formatDay } from '@/lib/dates';
+import { haptics } from '@/lib/haptics';
 import { goBack } from '@/lib/navigation';
 import { useNow } from '@/lib/useNow';
 import { colors, critterAccents, fonts, spacing } from '@/theme/tokens';
@@ -132,11 +133,21 @@ export default function PackScreen() {
       message: t('social.nudgeBody', { critter: critterName }),
       confirm: t('social.nudge'),
       cancel: t('social.cancel'),
-      onConfirm: () => nudge.mutate(member.id, { onSuccess: () => notify(t('social.nudged')), onError: fail }),
+      onConfirm: () =>
+        nudge.mutate(member.id, {
+          onSuccess: () => {
+            haptics.success();
+            notify(t('social.nudged'));
+          },
+          onError: fail,
+        }),
     });
   };
 
-  const onReact = (item: FeedItem, emoji: ReactionKey | null) => react.mutate({ feedId: item.id, emoji }, { onError: fail });
+  const onReact = (item: FeedItem, emoji: ReactionKey | null) => {
+    haptics.tap();
+    react.mutate({ feedId: item.id, emoji }, { onError: fail });
+  };
 
   const onReport = (item: FeedItem) => {
     if (!userId) return;

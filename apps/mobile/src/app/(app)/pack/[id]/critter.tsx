@@ -18,6 +18,7 @@ import { MonthlyBoard } from '@/features/social/MonthlyBoard';
 import { socialErrorKey, useAchievements, useBuy, useDress, useMonthResults, usePackItems, useShop, type ShopItem } from '@/features/social/api';
 import { confirm, notify } from '@/lib/confirm';
 import { formatDay, formatMonth, shiftMonth } from '@/lib/dates';
+import { haptics } from '@/lib/haptics';
 import { goBack } from '@/lib/navigation';
 import { useNow } from '@/lib/useNow';
 import { colors, critterAccents, fonts, radii, spacing } from '@/theme/tokens';
@@ -57,8 +58,10 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
   const unlocked = achievements.data ?? new Map();
   const canDress = critter.status === 'active';
 
-  const wear = (slot: WardrobeSlot, item: string | null) =>
+  const wear = (slot: WardrobeSlot, item: string | null) => {
+    haptics.tap();
     dress.mutate({ slot, item }, { onError: (error) => notify(t(socialErrorKey(error))) });
+  };
 
   // The wardrobe: what achievements unlocked, then what the pack bought, per slot.
   const owned = (slot: WardrobeSlot) => [
@@ -80,7 +83,8 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
       message: t('profile.buyBody', { price: entry.price, critter: text.name }),
       confirm: t('profile.buy'),
       cancel: t('profile.cancel'),
-      onConfirm: () => buy.mutate(entry.item, { onError: (error) => notify(t(socialErrorKey(error))) }),
+      onConfirm: () =>
+        buy.mutate(entry.item, { onSuccess: haptics.success, onError: (error) => notify(t(socialErrorKey(error))) }),
     });
   };
 

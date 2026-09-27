@@ -20,6 +20,7 @@ import {
   type Species,
 } from '@/features/packs/constants';
 import { notify } from '@/lib/confirm';
+import { haptics } from '@/lib/haptics';
 import { goBack } from '@/lib/navigation';
 import { critterColors, spacing } from '@/theme/tokens';
 
@@ -60,7 +61,10 @@ export default function CreatePackScreen() {
         species,
       },
       {
-        onSuccess: (packId) => router.replace(`/pack/${packId}/invite`),
+        onSuccess: (packId) => {
+          haptics.success();
+          router.replace(`/pack/${packId}/invite`);
+        },
         onError: (error) => notify(t(packErrorKey(error))),
       },
     );
