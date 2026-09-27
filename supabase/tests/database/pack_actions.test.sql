@@ -1,7 +1,7 @@
 -- Pack actions: create, preview, join, leave, settings and removing members.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(20);
+select plan(21);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a1', 'admin@test.local'),
@@ -41,6 +41,11 @@ select is(
   (select member_count from public.pack_preview((select lower(invite_code) from code))),
   1,
   'the preview works with a lower-case code and shows the member count'
+);
+select is(
+  (select (critter ->> 'status') || ' ' || array_length(member_names, 1) from public.pack_preview((select invite_code from code))),
+  'egg 1',
+  'and the critter as it is, with who is in the pack'
 );
 select is(public.join_pack((select invite_code from code)), (select id from created), 'joining returns the pack');
 select is((select count(*) from public.pack_members), 2::bigint, 'after joining the friend sees both members');

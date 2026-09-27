@@ -907,13 +907,13 @@ export type Database = {
         Returns: {
           already_member: boolean;
           category: Database['public']['Enums']['habit_category'];
-          color: Database['public']['Enums']['critter_color'];
+          critter: Json;
           custom_habit: string;
           is_full: boolean;
           member_count: number;
+          member_names: string[];
           pack_id: string;
           pack_name: string;
-          species: Database['public']['Enums']['critter_species'];
         }[];
       };
       pack_rules_on: {
