@@ -12,11 +12,13 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { Critter } from '@/features/critter/Critter';
 import { critterArt, stageProgress } from '@/features/critter/art';
 import { useCritterText } from '@/features/critter/useCritterText';
+import { useDayStatus, useTodayPasses, type TodayPasses } from '@/features/days/api';
 import { FeedList } from '@/features/feeds/FeedList';
 import { fedToday, useCountedFeeds, usePackFeed, usePendingFeeds } from '@/features/feeds/api';
 import { currentMembers, usePack, type Pack, type PackCritter, type PackMember } from '@/features/packs/api';
 import { PACK_SIZE_MAX, categoryInfo } from '@/features/packs/constants';
 import { usePackRealtime } from '@/features/packs/realtime';
+import { formatDay } from '@/lib/dates';
 import { useNow } from '@/lib/useNow';
 import { colors, critterColors, fonts, spacing } from '@/theme/tokens';
 
@@ -29,6 +31,8 @@ export default function PackScreen() {
   const feed = usePackFeed(id);
   const pending = usePendingFeeds(id);
   const now = useNow(30_000);
+  const passes = useTodayPasses(pack, now);
+  const dayStatus = useDayStatus(id);
   usePackRealtime(id);
 
   if (isPending || !pack) {
@@ -45,7 +49,9 @@ export default function PackScreen() {
   const habit = pack.custom_habit ?? t(`packs.categories.${pack.category}`);
   const fed = fedToday(counted.data, pack, now);
   const iFed = members.some((member) => member.user_id === session?.user.id && fed.has(member.user_id));
-  const awake = members.filter((member) => member.status === 'active');
+  const today: TodayPasses = passes.data ?? { passes: new Map(), paused: new Set() };
+  // Counted today: not asleep and not on a pause.
+  const awake = members.filter((member) => member.status === 'active' && !today.paused.has(member.user_id));
   const fedCount = awake.filter((member) => fed.has(member.user_id)).length;
   const names = new Map(pack.pack_members.map((member) => [member.user_id, member.profiles?.display_name ?? null]));
   const focusable = pack.category === 'study' || pack.category === 'reading';
@@ -96,7 +102,7 @@ export default function PackScreen() {
           members={members.map((member) => ({
             id: member.user_id,
             name: member.profiles?.display_name ?? null,
-            state: memberState(member, fed),
+            state: memberState(member, fed, today),
           }))}
         />
         {pendingCount > 0 && (
@@ -110,26 +116,53 @@ export default function PackScreen() {
       </ScrollView>
 
       <View style={styles.actions}>
-        <View style={styles.mainAction}>
-          {iFed ? (
-            <Button label={t('pack.postExtra')} variant="secondary" onPress={() => router.push(`/pack/${id}/feed?extra=1`)} />
-          ) : (
-            <Button label={t('pack.feed')} onPress={() => router.push(`/pack/${id}/feed`)} />
+        {dayStatus.data?.pause && dayStatus.data.pause.startsOn <= dayStatus.data.day && (
+          <AppText variant="caption" style={styles.centerText}>
+            {t('pack.pausedToday', { date: formatDay(dayStatus.data.pause.endsOn) })}
+          </AppText>
+        )}
+        {!iFed && dayStatus.data?.passToday && (
+          <AppText variant="caption" style={styles.centerText}>
+            {dayStatus.data.passToday === 'rest' ? t('pack.restingToday') : t('pack.jokerToday')}
+          </AppText>
+        )}
+        {iFed ? (
+          <Button label={t('pack.postExtra')} variant="secondary" onPress={() => router.push(`/pack/${id}/feed?extra=1`)} />
+        ) : (
+          <Button label={t('pack.feed')} onPress={() => router.push(`/pack/${id}/feed`)} />
+        )}
+        <View style={styles.row}>
+          {!iFed && (
+            <View style={styles.fill}>
+              <Button
+                label={dayStatus.data?.passToday ? t('pack.undo') : t('pack.notToday')}
+                variant="secondary"
+                size="small"
+                onPress={() => router.push(`/pack/${id}/not-today`)}
+              />
+            </View>
+          )}
+          {focusable && (
+            <View style={styles.fill}>
+              <Button
+                label={t('pack.focus')}
+                variant="secondary"
+                size="small"
+                onPress={() => router.push(`/pack/${id}/focus`)}
+              />
+            </View>
           )}
         </View>
-        {focusable && (
-          <View style={styles.sideAction}>
-            <Button label={t('pack.focus')} variant="secondary" onPress={() => router.push(`/pack/${id}/focus`)} />
-          </View>
-        )}
       </View>
     </Screen>
   );
 }
 
-function memberState(member: PackMember, fed: Set<string>): MemberState {
+function memberState(member: PackMember, fed: Set<string>, today: TodayPasses): MemberState {
   if (fed.has(member.user_id)) return 'fed';
-  return member.status === 'sleeping' ? 'asleep' : 'waiting';
+  if (today.paused.has(member.user_id)) return 'paused';
+  if (member.status === 'sleeping') return 'asleep';
+  return today.passes.has(member.user_id) ? 'pass' : 'waiting';
 }
 
 type PanelProps = { pack: Pack; critter: PackCritter; memberCount: number; mood: number; now: Date };
@@ -197,9 +230,9 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.md },
   headerLinks: { flexDirection: 'row', gap: spacing.lg },
   membersHeader: { flexDirection: 'row', justifyContent: 'space-between' },
-  actions: { flexDirection: 'row', gap: spacing.sm, paddingTop: spacing.sm },
-  mainAction: { flex: 2 },
-  sideAction: { flex: 1 },
+  actions: { gap: spacing.sm, paddingTop: spacing.sm },
+  row: { flexDirection: 'row', gap: spacing.sm },
+  fill: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   body: { gap: spacing.md, paddingBottom: spacing.lg },
   centerText: { textAlign: 'center' },

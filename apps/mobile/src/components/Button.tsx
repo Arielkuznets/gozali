@@ -7,11 +7,12 @@ type Props = {
   label: string;
   onPress?: () => void;
   variant?: 'primary' | 'secondary';
+  size?: 'large' | 'small';
   disabled?: boolean;
   loading?: boolean;
 };
 
-export function Button({ label, onPress, variant = 'primary', disabled = false, loading = false }: Props) {
+export function Button({ label, onPress, variant = 'primary', size = 'large', disabled = false, loading = false }: Props) {
   const inactive = disabled || loading;
   return (
     <Pressable
@@ -19,11 +20,21 @@ export function Button({ label, onPress, variant = 'primary', disabled = false, 
       accessibilityState={{ disabled: inactive, busy: loading }}
       disabled={inactive}
       onPress={onPress}
-      style={({ pressed }) => [styles.base, styles[variant], pressed && styles.pressed, inactive && styles.inactive]}>
+      style={({ pressed }) => [
+        styles.base,
+        styles[variant],
+        size === 'small' && styles.small,
+        pressed && styles.pressed,
+        inactive && styles.inactive,
+      ]}>
       {loading ? (
         <ActivityIndicator color={variant === 'primary' ? colors.onAccent : colors.ink} />
       ) : (
-        <AppText style={[styles.label, variant === 'primary' && styles.primaryLabel]}>{label}</AppText>
+        <AppText
+          style={[styles.label, size === 'small' && styles.smallLabel, variant === 'primary' && styles.primaryLabel]}
+          numberOfLines={1}>
+          {label}
+        </AppText>
       )}
     </Pressable>
   );
@@ -41,7 +52,9 @@ const styles = StyleSheet.create({
   primary: { backgroundColor: colors.accent },
   secondary: { backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.border },
   pressed: { transform: [{ scale: 0.97 }] },
+  small: { minHeight: 44, paddingHorizontal: spacing.md },
   inactive: { opacity: 0.5 },
   label: { fontFamily: fonts.bodyMedium, fontSize: 17 },
+  smallLabel: { fontSize: 15 },
   primaryLabel: { color: colors.onAccent },
 });

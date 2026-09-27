@@ -5,7 +5,7 @@ select plan(2);
 
 select set_eq(
   $$ select tablename::text from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' $$,
-  array['critters', 'pack_members', 'feeds'],
+  array['critters', 'pack_members', 'feeds', 'day_passes'],
   'only the tables the app listens to are published'
 );
 select ok(

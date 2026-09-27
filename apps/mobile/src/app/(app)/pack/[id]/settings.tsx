@@ -9,6 +9,7 @@ import { Choice } from '@/components/Choice';
 import { Screen } from '@/components/Screen';
 import { TextField } from '@/components/TextField';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { PauseSection } from '@/features/days/PauseSection';
 import {
   currentMembers,
   packErrorKey,
@@ -19,6 +20,7 @@ import {
   type Pack,
 } from '@/features/packs/api';
 import { PACK_NAME_MAX, REST_DAYS_MAX, type WeekStart } from '@/features/packs/constants';
+import { formatDay } from '@/lib/dates';
 import { colors, radii, spacing } from '@/theme/tokens';
 
 export default function PackSettingsScreen() {
@@ -128,7 +130,7 @@ function SettingsForm({ pack }: { pack: Pack }) {
         </View>
 
         {pack.pending_from && (
-          <AppText variant="caption">{t('settings.pending', { date: pack.pending_from })}</AppText>
+          <AppText variant="caption">{t('settings.pending', { date: formatDay(pack.pending_from) })}</AppText>
         )}
 
         {isAdmin && (
@@ -159,6 +161,8 @@ function SettingsForm({ pack }: { pack: Pack }) {
             );
           })}
         </View>
+
+        <PauseSection packId={pack.id} />
 
         <Button label={t('settings.invite')} variant="secondary" onPress={() => router.push(`/pack/${pack.id}/invite`)} />
         <Button label={t('settings.leave')} variant="secondary" loading={leavePack.isPending} onPress={onLeave} />

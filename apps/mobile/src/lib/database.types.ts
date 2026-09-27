@@ -745,7 +745,13 @@ export type Database = {
     };
     Functions: {
       active_pack_count: { Args: { member: string }; Returns: number };
+      apply_day_result: {
+        Args: { outcome: Json; pack_date: string; target: string };
+        Returns: boolean;
+      };
       blocked_by_me: { Args: { other_user: string }; Returns: boolean };
+      call_close_days: { Args: Record<PropertyKey, never>; Returns: undefined };
+      cancel_day_pass: { Args: { target: string }; Returns: undefined };
       create_pack: {
         Args: {
           critter_color: Database['public']['Enums']['critter_color'];
@@ -758,7 +764,16 @@ export type Database = {
         };
         Returns: string;
       };
+      day_close_input: { Args: { pack_date: string; target: string }; Returns: Json };
       day_closes_at: { Args: { pack_date: string; tz: string }; Returns: string };
+      end_pause: { Args: { target: string }; Returns: undefined };
+      expired_photos: {
+        Args: { at_time?: string; max_rows?: number };
+        Returns: {
+          feed_id: string;
+          photo_path: string;
+        }[];
+      };
       feed_day: { Args: { captured_at: string; received_at: string; tz: string }; Returns: string };
       feed_reaction_counts: {
         Args: { target_feed: string };
@@ -767,15 +782,19 @@ export type Database = {
           total: number;
         }[];
       };
+      forget_photos: { Args: { feed_ids: string[] }; Returns: undefined };
       is_pack_member: { Args: { target_pack: string }; Returns: boolean };
       join_pack: { Args: { code: string }; Returns: string };
       leave_pack: { Args: { target: string }; Returns: undefined };
+      my_day_status: { Args: { target: string }; Returns: Json };
       new_invite_code: { Args: Record<PropertyKey, never>; Returns: string };
       next_week_start: {
         Args: { start: Database['public']['Enums']['week_start']; tz: string };
         Returns: string;
       };
+      outcome_ids: { Args: { kind: string; outcomes: Json }; Returns: string[] };
       pack_day: { Args: { at_time?: string; tz: string }; Returns: string };
+      pack_first_day: { Args: { target: string }; Returns: string };
       pack_limit: { Args: Record<PropertyKey, never>; Returns: number };
       pack_preview: {
         Args: { code: string };
@@ -791,11 +810,33 @@ export type Database = {
           species: Database['public']['Enums']['critter_species'];
         }[];
       };
+      pack_rules_on: {
+        Args: { pack_date: string; target: string };
+        Returns: {
+          rest_days: number;
+          week_from: string;
+          week_start: Database['public']['Enums']['week_start'];
+        }[];
+      };
       pack_size_limit: { Args: Record<PropertyKey, never>; Returns: number };
+      packs_to_close: {
+        Args: { at_time?: string };
+        Returns: {
+          next_day: string;
+          pack_id: string;
+          time_zone: string;
+        }[];
+      };
       remove_member: { Args: { member: string; target: string }; Returns: undefined };
       require_admin: { Args: { target: string }; Returns: string };
+      require_membership: { Args: { member: string; target: string }; Returns: string };
       require_user: { Args: Record<PropertyKey, never>; Returns: string };
+      rest_days_used: {
+        Args: { member: string; pack_date: string; target: string };
+        Returns: number;
+      };
       shares_pack_with: { Args: { other_user: string }; Returns: boolean };
+      start_pause: { Args: { days: number; target: string }; Returns: undefined };
       submit_feed: {
         Args: {
           extra?: boolean;
@@ -814,6 +855,10 @@ export type Database = {
           starts_on: Database['public']['Enums']['week_start'];
           target: string;
         };
+        Returns: undefined;
+      };
+      use_day_pass: {
+        Args: { pass: Database['public']['Enums']['day_pass_kind']; target: string };
         Returns: undefined;
       };
     };
