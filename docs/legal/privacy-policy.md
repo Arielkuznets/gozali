@@ -13,6 +13,7 @@ Gozali is an app where a small group of friends (a "pack") raises a shared pet b
 - **What you do in packs:** the packs you create or join, your photos, their captions and time, focus session lengths, rest days, jokers and pauses you take, reactions, nudges, name suggestions and changes to the pet's outfit.
 - **Safety:** reports you send and people you block.
 - **Devices:** a push notification token for each phone you sign in on, and a token that lets your widgets read your packs' state (we keep only a scrambled form of it).
+- **Errors:** when something goes wrong in the app, a short technical report (the error, the screen, the app version and whether it's an iPhone or Android phone) so we can fix it. Reports are deleted after 30 days.
 
 We do **not** collect your location or contacts, we don't use advertising or tracking identifiers, and we don't sell or rent your data.
 

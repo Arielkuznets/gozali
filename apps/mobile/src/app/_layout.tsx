@@ -12,9 +12,11 @@ import { ErrorScreen } from '@/components/ErrorScreen';
 import { AuthProvider, useAuth } from '@/features/auth/AuthProvider';
 import { readInstallReferrer } from '@/features/packs/invites';
 import { isProfileComplete, useProfile } from '@/features/profile/useProfile';
+import { watchForCrashes } from '@/lib/reportError';
 import { colors } from '@/theme/tokens';
 
 void SplashScreen.preventAutoHideAsync();
+watchForCrashes();
 
 // A screen that throws while drawing shows this instead of a blank app.
 export { ErrorScreen as ErrorBoundary };

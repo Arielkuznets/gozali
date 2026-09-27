@@ -1,15 +1,19 @@
-import type { ErrorBoundaryProps } from 'expo-router';
+import { usePathname, type ErrorBoundaryProps } from 'expo-router';
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { reportError } from '@/lib/reportError';
 import { colors, radii, spacing } from '@/theme/tokens';
 
 /**
  * Shown instead of a screen that failed to draw, so the app never goes blank. Plain components
  * only: it may show before the fonts or the data are ready.
  */
-export function ErrorScreen({ retry }: ErrorBoundaryProps) {
+export function ErrorScreen({ error, retry }: ErrorBoundaryProps) {
   const { t } = useTranslation();
+  const pathname = usePathname();
+  useEffect(() => reportError(error, pathname), [error, pathname]);
   return (
     <View style={styles.screen}>
       <Text style={styles.title}>{t('errors.crashTitle')}</Text>

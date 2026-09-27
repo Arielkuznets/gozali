@@ -97,6 +97,12 @@ The success numbers of spec sections 1 and 15 (active packs, active packs 14 day
 npx supabase db query --linked "select public.pilot_metrics()"
 ```
 
+Errors from members' phones (screens that failed to draw, and JavaScript errors that closed the app, sent on the next start) are kept for 30 days:
+
+```sh
+npx supabase db query --linked "select created_at, platform, app_version, screen, message from app_errors order by created_at desc limit 50"
+```
+
 A fix that touches only JavaScript reaches the installed apps without a new build or a store review, through EAS Update. Each build profile has its own channel, and the runtime version is a fingerprint of the native code, so an update only goes to builds it can run on:
 
 ```sh
