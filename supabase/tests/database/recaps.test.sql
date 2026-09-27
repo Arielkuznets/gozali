@@ -3,6 +3,9 @@ begin;
 create extension if not exists pgtap with schema extensions;
 select plan(8);
 
+-- Only this test's pack, whatever else the local database holds.
+delete from public.weekly_recaps;
+
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a6', 'noa@test.local'),
   ('00000000-0000-0000-0000-0000000000b6', 'dan@test.local');
