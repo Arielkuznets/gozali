@@ -34,7 +34,11 @@ Deno.serve(async (request) => {
     const pack = packs.find((candidate) => candidate.id === imageFor);
     if (!pack) return new Response('not found', { status: 404 });
     const size = Math.min(600, Math.max(64, Number(url.searchParams.get('size') ?? 300)));
-    resvgReady ??= initWasm(fetch(RESVG_WASM));
+    // Loaded once per instance; a failed load is forgotten so the next request tries again.
+    resvgReady ??= initWasm(fetch(RESVG_WASM)).catch((error) => {
+      resvgReady = null;
+      throw error;
+    });
     await resvgReady;
     const art = url.searchParams.get('night') === '1' ? pack.nightArt : pack.art;
     return new Response(png(artSvg(art), size), {
