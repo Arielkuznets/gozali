@@ -3,6 +3,9 @@ begin;
 create extension if not exists pgtap with schema extensions;
 select plan(18);
 
+-- Reminders are queued for every pack, so this test runs alone (all rolled back at the end).
+delete from public.packs;
+
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a5', 'noa@test.local'),
   ('00000000-0000-0000-0000-0000000000b5', 'dan@test.local'),
