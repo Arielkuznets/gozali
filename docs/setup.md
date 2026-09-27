@@ -37,7 +37,7 @@ Everything runs locally without accounts (see the README). This is the one-time 
 6. Auth → URL configuration: site URL `gozali://`, redirect URL `gozali://auth/callback`.
 7. Auth → providers:
    - **Apple:** an App ID with Sign in with Apple (bundle id `app.gozali`), a Services ID, and a key; paste them into the Apple provider. Add the bundle id to the provider's client IDs for native sign-in.
-   - **Google:** OAuth client IDs for iOS, Android and Web in Google Cloud; paste the Web client into the provider and add the others as authorized client IDs.
+   - **Google:** the app signs in with Google through the browser, so one OAuth client of type Web application is enough (Google Cloud → APIs & Services → Credentials, in the Google Cloud project Firebase creates). Its authorized redirect URI is `https://<project-ref>.supabase.co/auth/v1/callback`; paste its client ID and secret into the Google provider.
 8. The email code template (`supabase/templates/sign_in_code.html`) is only for the development login; it can stay off in production.
 
 ## 2. EAS builds
