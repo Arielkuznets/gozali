@@ -188,6 +188,9 @@
         "still_in": "Still in?",
         "weekly_recap": "Weekly recap"
       },
+      "notificationsOff": "Notifications are off for Gozali on this phone, so none of these arrive.",
+      "turnOn": "Turn them on",
+      "openPhoneSettings": "Open phone settings",
       "quietHours": "Nothing is sent between 23:00 and 07:00.",
       "blocked": "Blocked people",
       "noBlocked": "You haven't blocked anyone.",
@@ -489,6 +492,10 @@
     "pause": "Pause",
     "resume": "Resume",
     "cancel": "Cancel",
+    "cancelTitle": "Stop this session?",
+    "cancelBody": "The time so far won't count. You can still feed with a regular photo.",
+    "cancelConfirm": "Stop",
+    "keepGoing": "Keep going",
     "takePhoto": "Done, take the photo",
     "doneTitle": "Time is up!",
     "doneBody": "Take the photo to feed your pack."

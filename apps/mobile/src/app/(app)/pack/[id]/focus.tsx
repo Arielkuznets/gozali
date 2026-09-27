@@ -13,6 +13,7 @@ import { critterArt } from '@/features/critter/art';
 import { useCritterText } from '@/features/critter/useCritterText';
 import { FOCUS_LENGTHS, elapsedMs, remainingMs, useFocusSession } from '@/features/focus/session';
 import { usePack } from '@/features/packs/api';
+import { confirm } from '@/lib/confirm';
 import { allowNotifications } from '@/lib/notifications';
 import { goBack } from '@/lib/navigation';
 import { useNow } from '@/lib/useNow';
@@ -60,6 +61,16 @@ export default function FocusScreen() {
   if (isPending || !focus.loaded) return <LoadingScreen />;
   if (!pack && isError) return <LoadFailedScreen onRetry={() => void refetch()} />;
   if (!pack) return <PackMissingScreen />;
+
+  const onCancel = () =>
+    confirm({
+      title: t('focus.cancelTitle'),
+      message: t('focus.cancelBody'),
+      confirm: t('focus.cancelConfirm'),
+      cancel: t('focus.keepGoing'),
+      destructive: true,
+      onConfirm: () => void focus.stop(),
+    });
 
   const start = async (minutes: number | null) => {
     await allowNotifications();
@@ -121,7 +132,7 @@ export default function FocusScreen() {
               )}
             </View>
             <View style={styles.fill}>
-              <Button label={t('focus.cancel')} variant="secondary" onPress={() => void focus.stop()} />
+              <Button label={t('focus.cancel')} variant="secondary" onPress={onCancel} />
             </View>
           </View>
         </View>

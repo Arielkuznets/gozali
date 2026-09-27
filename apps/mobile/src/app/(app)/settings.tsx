@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
+import { Button } from '@/components/Button';
 import { Choice } from '@/components/Choice';
 import { Screen } from '@/components/Screen';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -11,6 +12,7 @@ import { deleteAccount } from '@/features/auth/signIn';
 import { NOTIFICATION_TYPES, useProfile, useUpdateProfile, type NotificationType } from '@/features/profile/useProfile';
 import { confirm, notify } from '@/lib/confirm';
 import { isBlockedText } from '@/lib/errors';
+import { useNotificationPermission } from '@/lib/notifications';
 import { requireSupabase } from '@/lib/supabase';
 import { goBack } from '@/lib/navigation';
 import { colors, radii, spacing } from '@/theme/tokens';
@@ -23,6 +25,7 @@ export default function SettingsScreen() {
   const profile = useProfile();
   const update = useUpdateProfile();
   const blocked = useBlocked();
+  const notifications = useNotificationPermission();
 
   if (!profile.data) {
     return (
@@ -77,6 +80,16 @@ export default function SettingsScreen() {
 
         <View style={styles.section}>
           <AppText variant="caption">{t('settings.app.notifications')}</AppText>
+          {(notifications.permission === 'ask' || notifications.permission === 'blocked') && (
+            <View style={styles.notice}>
+              <AppText>{t('settings.app.notificationsOff')}</AppText>
+              {notifications.permission === 'ask' ? (
+                <Button label={t('settings.app.turnOn')} size="small" onPress={() => void notifications.request()} />
+              ) : (
+                <Button label={t('settings.app.openPhoneSettings')} size="small" onPress={() => void Linking.openSettings()} />
+              )}
+            </View>
+          )}
           <View style={styles.list}>
             {NOTIFICATION_TYPES.map((type) => (
               <View key={type} style={styles.listRow}>
@@ -199,5 +212,6 @@ const styles = StyleSheet.create({
   fill: { flex: 1 },
   muted: { color: colors.inkMuted },
   link: { color: colors.accent },
+  notice: { gap: spacing.sm, padding: spacing.md, borderRadius: radii.lg, backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.accent },
   danger: { color: colors.danger, paddingVertical: spacing.sm },
 });
