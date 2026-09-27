@@ -35,11 +35,15 @@ We do **not** collect your location or contacts, we don't use advertising or tra
 ## Services we use
 
 - **Supabase** stores the data and runs the server (database, file storage, sign-in).
-- **Expo** delivers push notifications.
+- **Expo** delivers push notifications, through Apple's and Google's push services.
 - **Apple** and **Google** provide sign-in.
 - **Resend** delivers report alerts to the developer.
 
 They process data only to provide these services to Gozali.
+
+## Your rights
+
+You can see and change your profile in the app, and delete your account and everything in it from Settings. You can also ask us at hello@gozali.app for a copy of your data or to correct it, and we will answer within 30 days. If you live in the European Union or the UK, you may also complain to your data protection authority. The data is stored in the European Union (Ireland).
 
 ## Age
 
