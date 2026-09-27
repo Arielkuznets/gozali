@@ -484,7 +484,7 @@ Important: Rive, the widgets and some of the modules require a **development bui
 - **Postgres + RLS:** all the tables from section 13, including the constraints that prevent race conditions.
 - **Storage:** a private bucket for photos, signed links.
 - **Realtime:** updating the circles and the feed on the pack screen in real time, subject to RLS.
-- **Cron:** scheduled runs of day closing, recaps and notification sending.
+- **Cron:** scheduled runs of day closing, recaps and notification sending: pg\_cron calls the Edge Functions through pg\_net, with the function address and a shared secret kept in Vault (decision D13).
 - **User actions (Postgres functions):**
   - `submit_feed`: verifies pack membership, computes "the day" by the pack's time zone (including the offline rule), saves the feed (the database constraint prevents duplicates), wakes a sleeping member, and cancels a joker or declared rest for the same day.
   - `create_pack`: creates the pack, its egg and the admin membership, with a random invite code; limited to 3 packs per user.
@@ -493,9 +493,10 @@ Important: Rive, the widgets and some of the modules require a **development bui
   - `update_pack` (admin): the name changes right away; rest days and week start are stored as pending and apply from the next week start.
   - `remove_member` (admin).
   - `leave_pack`: leaving, including passing admin to the longest-standing member.
-  - `use_day_pass` (joker or declaring a rest), `pause`, `nudge`, `react`, `dress_critter`, `suggest_name`, `choose_name`: each with its own checks and limits.
+  - `use_day_pass` (joker or declaring a rest, today only) and `cancel_day_pass`; `start_pause` and `end_pause`; `my_day_status` (rest days left this week, the month's joker, today's pass, the current pause and when the next one is allowed).
+  - `nudge`, `react`, `dress_critter`, `suggest_name`, `choose_name`: each with its own checks and limits.
 - **Edge Functions:**
-  - `close-days`: runs every 15 minutes. **State-based, not time-based:** for every pack it runs game-engine on every day that has ended (including the grace window) and has no day\_results row yet, in order, and applies each result through one Postgres function (`apply_day_result`). The function checks that the day isn't closed yet and that the previous day is, and writes in one transaction the day\_results row, the creature, the members' state, the achievements and the notifications. Idempotent, and it takes "now" as a parameter so it can be tested without waiting for the end of the day.
+  - `close-days`: runs every 15 minutes. **State-based, not time-based:** for every pack it runs game-engine on every day that has ended (including the grace window) and has no day\_results row yet, in order, and applies each result through one Postgres function (`apply_day_result`). The function checks that the day isn't closed yet and that the previous day is, and writes in one transaction the day\_results row, the creature, the members' state, the achievements and the notifications. Idempotent, and it takes "now" as a parameter so it can be tested without waiting for the end of the day. The database gathers each day's input (`day_close_input`: members with their feed, pass, pause, rest days used and recent misses, the critter, and the pack totals for achievements), the function runs game-engine on it, and `apply_day_result` writes the outcome. The same run deletes photo files older than 30 days (`expired_photos`, then `forget_photos`).
   - `weekly-recap`: creates the recap data at the end of each pack's week and saves it in weekly\_recaps.
   - `send-push`: sends the pending notifications from the notifications table through Expo Push, with the merging, limits and quiet hours from section 8. Every action that creates a notification only writes a row to the table, in the same transaction as the action itself (Outbox pattern), so there are no duplicate notifications and no lost ones.
   - `widget-state`: returns the user's packs state to the widget, identified by a widget token.
