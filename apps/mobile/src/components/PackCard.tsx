@@ -46,11 +46,11 @@ export function PackCard({ pack, now, fed, userId, onPress, onFeed }: Props) {
         />
       )}
       <View style={styles.text}>
-        <AppText variant="heading" numberOfLines={1}>
+        <AppText variant="heading" numberOfLines={2} style={styles.name}>
           {pack.name}
         </AppText>
         <AppText variant="caption" numberOfLines={1}>
-          {category.emoji} {habit} · {t('packs.members', { count: members.length })}
+          {category.emoji} {habit}
         </AppText>
         {pack.critters && pack.critters.status === 'active' && (
           <View style={styles.health}>
@@ -58,9 +58,9 @@ export function PackCard({ pack, now, fed, userId, onPress, onFeed }: Props) {
             <AppText variant="caption">{t('critter.streak', { count: pack.critters.streak })}</AppText>
           </View>
         )}
-        {members.length >= 2 && (
-          <AppText variant="caption">{t('pack.fedCount', { fed: fedCount, total: awake.length })}</AppText>
-        )}
+        <AppText variant="caption">
+          {members.length >= 2 ? t('pack.fedCount', { fed: fedCount, total: awake.length }) : t('pack.eggWaiting')}
+        </AppText>
       </View>
       {iFed ? (
         <View style={styles.done} accessible accessibilityLabel={t('pack.fed')}>
@@ -85,14 +85,14 @@ type CardCritterProps = { pack: Pack; critter: PackCritter; memberCount: number;
 function CardCritter({ pack, critter, memberCount, mood, now }: CardCritterProps) {
   const art = critterArt(critter, { category: pack.category, now, mood, cracking: memberCount >= 2 });
   const { label } = useCritterText(critter, art);
-  return <Critter art={art} size={72} label={label} animated={false} />;
+  return <Critter art={art} size={64} label={label} animated={false} />;
 }
 
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.sm,
     padding: spacing.md,
     borderRadius: radii.lg,
     backgroundColor: colors.surface,
@@ -101,10 +101,12 @@ const styles = StyleSheet.create({
   },
   pressed: { transform: [{ scale: 0.98 }] },
   text: { flex: 1, gap: 2 },
+  // Smaller than a screen heading, so a name fits beside the pet and the Feed button.
+  name: { fontSize: 20, lineHeight: 26 },
   health: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xs },
   bar: { flex: 1 },
   feed: {
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: 14,
     minHeight: 44,
     borderRadius: radii.pill,
     backgroundColor: colors.accent,
