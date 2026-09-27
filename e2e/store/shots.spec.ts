@@ -177,6 +177,8 @@ test('store screenshots', async ({ page, browser }) => {
   });
   if (recap.error) throw recap.error;
 
+  // Midday on the pack day, whatever the time now: at night the critter would be asleep.
+  await page.clock.setFixedTime(new Date(today + 'T09:00:00Z'));
   await signIn(page, noa);
 
   // 1. The pack screen.

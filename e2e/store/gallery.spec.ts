@@ -118,6 +118,8 @@ for (const size of SIZES) {
       });
 
       page.on('dialog', (dialog) => void dialog.dismiss());
+      // Midday on the pack day, so the critters are awake whenever this runs.
+      await page.clock.setFixedTime(new Date(today + 'T09:00:00Z'));
       await signIn(page, noa);
       await page.goto('/');
       await shot(page, 'home');
@@ -170,6 +172,7 @@ for (const size of SIZES) {
 
       // A member who already fed today.
       const fedPage = await browser.newPage({ viewport: { width: size.width, height: size.height } });
+      await fedPage.clock.setFixedTime(new Date(today + 'T09:00:00Z'));
       await signIn(fedPage, dan);
       await fedPage.goto(`/pack/${runs.id}`);
       await shot(fedPage, 'pack-fed');
