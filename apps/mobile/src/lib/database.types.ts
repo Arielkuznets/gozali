@@ -832,6 +832,7 @@ export type Database = {
           user_id: string;
         }[];
       };
+      clean_up_old_rows: { Args: { at_time?: string }; Returns: undefined };
       counted_on: { Args: { member: string; pack_date: string; target: string }; Returns: boolean };
       create_pack: {
         Args: {
@@ -935,6 +936,10 @@ export type Database = {
         Args: { emoji: Database['public']['Enums']['reaction_emoji']; target_feed: string };
         Returns: undefined;
       };
+      register_push_token: {
+        Args: { device: Database['public']['Enums']['push_platform']; device_token: string };
+        Returns: undefined;
+      };
       remove_member: { Args: { member: string; target: string }; Returns: undefined };
       report_details: { Args: { report: string }; Returns: Json };
       requeue_notifications: { Args: { ids: string[] }; Returns: undefined };
@@ -973,6 +978,7 @@ export type Database = {
         Args: { pass: Database['public']['Enums']['day_pass_kind']; target: string };
         Returns: undefined;
       };
+      wants: { Args: { kind: string; prefs: Json }; Returns: boolean };
       wardrobe_achievement: {
         Args: { item: string; slot: string };
         Returns: Database['public']['Enums']['achievement_key'];

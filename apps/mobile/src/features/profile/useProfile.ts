@@ -119,9 +119,9 @@ export function useAccountSync() {
   // Also on coming back to the app: permission may have been granted in the meantime.
   useEffect(() => {
     if (!userId) return;
-    void registerPushToken(userId);
+    void registerPushToken();
     const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') void registerPushToken(userId);
+      if (state === 'active') void registerPushToken();
     });
     return () => subscription.remove();
   }, [userId]);
