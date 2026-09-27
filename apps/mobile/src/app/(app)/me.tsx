@@ -34,7 +34,9 @@ export default function MeScreen() {
           <AppText variant="caption">{t('me.back')}</AppText>
         </Pressable>
         <AppText variant="heading">{profile.data?.display_name ?? t('me.title')}</AppText>
-        <View style={styles.headerSpacer} />
+        <Pressable accessibilityRole="button" onPress={() => router.push('/settings')} hitSlop={12}>
+          <AppText variant="caption">{t('settings.app.open')}</AppText>
+        </Pressable>
       </View>
 
       {!stats.data ? (
@@ -97,7 +99,6 @@ export default function MeScreen() {
 
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.md },
-  headerSpacer: { width: 32 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   body: { gap: spacing.md, paddingBottom: spacing.lg },
   centerText: { textAlign: 'center' },
