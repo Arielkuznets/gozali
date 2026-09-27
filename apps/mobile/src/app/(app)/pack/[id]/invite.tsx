@@ -2,7 +2,7 @@ import * as Clipboard from 'expo-clipboard';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, Share, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
 import { AppText } from '@/components/AppText';
@@ -62,7 +62,7 @@ export default function InviteScreen() {
 
   return (
     <Screen>
-      <View style={styles.body}>
+      <ScrollView contentContainerStyle={styles.body}>
         <AppText variant="heading" style={styles.centerText}>
           {t('invite.title')}
         </AppText>
@@ -81,7 +81,7 @@ export default function InviteScreen() {
             </AppText>
           </Pressable>
         )}
-      </View>
+      </ScrollView>
 
       <View style={styles.actions}>
         <Button label={t('invite.share')} onPress={onShare} />
@@ -97,7 +97,7 @@ export default function InviteScreen() {
 }
 
 const styles = StyleSheet.create({
-  body: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
+  body: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md, paddingVertical: spacing.md },
   centerText: { textAlign: 'center' },
   muted: { color: colors.inkMuted, maxWidth: 320 },
   qr: { padding: spacing.md, borderRadius: radii.lg, backgroundColor: colors.surface },
