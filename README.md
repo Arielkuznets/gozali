@@ -29,6 +29,7 @@ npm run db:test        # pgTAP tests in supabase/tests
 npm run db:types       # regenerate apps/mobile/src/lib/database.types.ts
 npm run smoke:packs    # pack flow against local Supabase (needs SUPABASE_PUBLISHABLE_KEY and SUPABASE_SECRET_KEY)
 npm run smoke:critter  # a critter change reaches pack members live, and only them (same keys)
+npm run smoke:feeds    # upload, feed, live update and photo access for members only (same keys)
 ```
 
 ```sh

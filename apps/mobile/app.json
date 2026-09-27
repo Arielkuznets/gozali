@@ -42,7 +42,21 @@
           "supportsRTL": true
         }
       ],
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Gozali uses the camera for the photo that feeds your pack's pet. Photos are taken in the app and seen only by your pack.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#E8795A"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

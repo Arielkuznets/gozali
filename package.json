@@ -14,7 +14,8 @@
     "db:types": "supabase gen types typescript --local > apps/mobile/src/lib/database.types.ts && prettier --print-width 100 --single-quote --write apps/mobile/src/lib/database.types.ts",
     "db:test": "supabase test db",
     "smoke:packs": "node scripts/smoke-packs.mjs",
-    "smoke:critter": "node scripts/smoke-critter.mjs"
+    "smoke:critter": "node scripts/smoke-critter.mjs",
+    "smoke:feeds": "node scripts/smoke-feeds.mjs"
   },
   "devDependencies": {
     "prettier": "^3",
