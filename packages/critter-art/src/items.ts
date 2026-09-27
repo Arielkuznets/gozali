@@ -222,7 +222,7 @@ export const snore = () =>
     path('M178 34 h5 l-5 6 h5'),
   );
 
-const EGG = 'M100 68 C131 68 150 114 150 140 C150 168 128 184 100 184 C72 184 50 168 50 140 C50 114 69 68 100 68 Z';
+export const EGG = 'M100 68 C131 68 150 114 150 140 C150 168 128 184 100 184 C72 184 50 168 50 140 C50 114 69 68 100 68 Z';
 
 export function egg(color: string, cracking: boolean): string {
   return (

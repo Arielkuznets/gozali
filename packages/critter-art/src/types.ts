@@ -1,6 +1,16 @@
 import type { HealthState, Mark, Stage } from '@gozali/game-engine';
 
-export type Species = 'blob' | 'spark' | 'mossy';
+/** The six creatures, each with its own look, color and personality (decision D19). */
+export const CREATURES = ['mochi', 'kit', 'axo', 'ribbit', 'hoot', 'bun'] as const;
+export type Creature = (typeof CREATURES)[number];
+
+/** The first three species stay until the stored critters move to the creatures. */
+export type Species = 'blob' | 'spark' | 'mossy' | Creature;
+export type OldSpecies = Exclude<Species, Creature>;
+
+export function isCreature(species: Species): species is Creature {
+  return (CREATURES as readonly string[]).includes(species);
+}
 
 export const HEAD_ITEMS = ['beanie', 'flower_crown', 'sun_hat', 'headlamp', 'halo'] as const;
 export const NECK_ITEMS = ['scarf', 'cape', 'bow_tie'] as const;

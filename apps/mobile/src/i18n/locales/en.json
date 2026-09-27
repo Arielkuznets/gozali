@@ -54,7 +54,13 @@
     "species": {
       "blob": "Blob",
       "spark": "Spark",
-      "mossy": "Mossy"
+      "mossy": "Mossy",
+      "mochi": "Mochi",
+      "kit": "Kit",
+      "axo": "Axo",
+      "ribbit": "Ribbit",
+      "hoot": "Hoot",
+      "bun": "Bun"
     },
     "colors": {
       "peach": "Peach",

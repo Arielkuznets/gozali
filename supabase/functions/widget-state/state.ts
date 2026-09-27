@@ -43,7 +43,17 @@ export interface WidgetPack {
   nightArt: CritterArt;
 }
 
-const SPECIES_NAMES = { blob: 'Blob', spark: 'Spark', mossy: 'Mossy' } as const;
+const SPECIES_NAMES: Record<CritterRow['species'], string> = {
+  blob: 'Blob',
+  spark: 'Spark',
+  mossy: 'Mossy',
+  mochi: 'Mochi',
+  kit: 'Kit',
+  axo: 'Axo',
+  ribbit: 'Ribbit',
+  hoot: 'Hoot',
+  bun: 'Bun',
+};
 
 /** `day` is the owner's calendar day (YYYY-MM-DD), for the holiday hat. */
 export function widgetPack(row: WidgetPackRow, day?: string): WidgetPack {

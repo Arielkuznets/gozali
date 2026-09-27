@@ -3,7 +3,7 @@ import { test } from 'node:test';
 
 import { CRITTER_PALETTE, renderCritter, type CritterArt } from '../src/index.ts';
 
-const species = ['blob', 'spark', 'mossy'] as const;
+const species = ['blob', 'spark', 'mossy', 'mochi', 'kit', 'axo', 'ribbit', 'hoot', 'bun'] as const;
 const stages = ['baby', 'kid', 'teen', 'adult', 'legend'] as const;
 const looks = ['thriving', 'happy', 'hungry', 'weak', 'sick', 'ran_away'] as const;
 
@@ -111,4 +111,28 @@ test('the eyes follow a gaze and stay put without one', () => {
   const art: CritterArt = { species: 'mossy', color: CRITTER_PALETTE.sage, stage: 'teen', look: 'happy' };
   assert.notEqual(renderCritter({ ...art, gaze: { x: 1, y: 0 } }), renderCritter(art));
   assert.equal(renderCritter({ ...art, gaze: { x: 0, y: 0 } }), renderCritter(art));
+});
+
+test('the creatures are lit with gradients named after their color', async () => {
+  const { CREATURE_COLORS, CREATURES } = await import('../src/index.ts');
+  for (const creature of CREATURES) {
+    const color = CREATURE_COLORS[creature];
+    const svg = renderCritter({ species: creature, color, stage: 'adult', look: 'happy' });
+    assert.match(svg, new RegExp(`id="gz-v${color.slice(1)}"`), creature);
+    const ids = [...svg.matchAll(/ id="([^"]+)"/g)].map((match) => match[1]);
+    assert.equal(new Set(ids).size, ids.length, `${creature}: each gradient is defined once`);
+    for (const [, id] of svg.matchAll(/url(#([^)]+))/g)) assert.ok(ids.includes(id), `${creature}: #${id} is defined`);
+  }
+});
+
+test('a hat hides the tuft or sprout on top of the head', () => {
+  const art: CritterArt = { species: 'ribbit', color: '#9CCB85', stage: 'adult', look: 'happy' };
+  assert.match(renderCritter(art), /#9CC689/, 'the sprout leaf');
+  assert.doesNotMatch(renderCritter({ ...art, outfit: { head: 'beanie' } }), /#9CC689/);
+});
+
+test('a stored creature takes its own color, whatever color the row has', async () => {
+  const { critterArtFor, CREATURE_COLORS } = await import('../src/index.ts');
+  const row = { species: 'hoot' as const, color: 'peach' as const, health: 70, stage: 'kid' as const, status: 'active' as const, marks: [], outfit: {} };
+  assert.equal(critterArtFor(row, { category: 'reading' }).color, CREATURE_COLORS.hoot);
 });

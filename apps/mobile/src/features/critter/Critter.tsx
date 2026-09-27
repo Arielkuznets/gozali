@@ -31,8 +31,18 @@ type Props = {
 
 const BLINK_MS = 140;
 const YAWN_MS = 1300;
-// Seconds between yawns, the first number plus up to the second. Blob is the sleepy one.
-const YAWN_EVERY: Record<CritterArt['species'], [number, number]> = { blob: [12, 12], spark: [30, 30], mossy: [30, 30] };
+// Seconds between yawns, the first number plus up to the second. Blob, Mochi and Bun are the sleepy ones.
+const YAWN_EVERY: Record<CritterArt['species'], [number, number]> = {
+  blob: [12, 12],
+  spark: [30, 30],
+  mossy: [30, 30],
+  mochi: [12, 12],
+  kit: [30, 30],
+  axo: [30, 30],
+  ribbit: [30, 30],
+  hoot: [30, 30],
+  bun: [16, 16],
+};
 const LINE_MS = 2600;
 
 /**

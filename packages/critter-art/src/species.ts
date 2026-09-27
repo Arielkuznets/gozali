@@ -1,6 +1,6 @@
 import { CHEEK, darken, lighten, mix } from './palette.ts';
 import { ellipse, g, line, path } from './svg.ts';
-import type { Species } from './types.ts';
+import type { OldSpecies } from './types.ts';
 
 /** Where the face and the worn items sit on a full-size body (viewBox 200, ground at y 182). */
 export interface Geometry {
@@ -107,4 +107,4 @@ const mossy: SpeciesArt = {
     path('M103 63 C109 50 124 51 123 59 C118 66 109 66 103 63 Z', { fill: '#9CC689' }),
 };
 
-export const SPECIES_ART: Record<Species, SpeciesArt> = { blob, spark, mossy };
+export const SPECIES_ART: Record<OldSpecies, SpeciesArt> = { blob, spark, mossy };
