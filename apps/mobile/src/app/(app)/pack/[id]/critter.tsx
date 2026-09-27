@@ -7,7 +7,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Screen } from '@/components/Screen';
-import { LoadingScreen, LoadFailedScreen, PackMissingScreen } from '@/components/ScreenStates';
+import { LoadFailed, LoadingScreen, LoadFailedScreen, PackMissingScreen } from '@/components/ScreenStates';
 import { Critter } from '@/features/critter/Critter';
 import { critterArt, parseOutfit, stageProgress } from '@/features/critter/art';
 import { useCritterText } from '@/features/critter/useCritterText';
@@ -17,18 +17,12 @@ import { usePackRealtime } from '@/features/packs/realtime';
 import { MonthlyBoard } from '@/features/social/MonthlyBoard';
 import { socialErrorKey, useAchievements, useBuy, useDress, useMonthResults, usePackItems, useShop, type ShopItem } from '@/features/social/api';
 import { confirm, notify } from '@/lib/confirm';
-import { formatDay } from '@/lib/dates';
+import { formatDay, formatMonth, shiftMonth } from '@/lib/dates';
 import { goBack } from '@/lib/navigation';
 import { useNow } from '@/lib/useNow';
 import { colors, critterAccents, fonts, radii, spacing } from '@/theme/tokens';
 
 const SLOTS: readonly WardrobeSlot[] = ['head', 'neck', 'background'];
-
-function shiftMonth(month: string, by: number): string {
-  const [year, number] = month.split('-').map(Number);
-  const date = new Date(Date.UTC(year ?? 2000, (number ?? 1) - 1 + by, 1));
-  return date.toISOString().slice(0, 7);
-}
 
 /** The critter profile (spec section 9): stage, marks, monthly board, achievements, wardrobe. */
 export default function CritterProfileScreen() {
@@ -146,7 +140,7 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
               <AppText>‹</AppText>
             </Pressable>
             <AppText style={styles.sectionTitle}>
-              {t('profile.board')} · {month}
+              {t('profile.board')} · {formatMonth(month)}
             </AppText>
             <Pressable
               accessibilityRole="button"
@@ -157,16 +151,20 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
               <AppText style={month >= today.slice(0, 7) && styles.disabled}>›</AppText>
             </Pressable>
           </View>
-          <MonthlyBoard
-            month={month}
-            results={results.data ?? []}
-            members={pack.pack_members
-              .filter((member) => member.status !== 'left' || (results.data ?? []).some((r) => r.missed_ids.includes(member.user_id) || r.fed_ids.includes(member.user_id)))
-              .map((member) => ({ id: member.user_id, name: member.profiles?.display_name ?? null }))}
-            today={today}
-            fedToday={fedToday(counted.data, pack, now)}
-            color={critterAccents[critter.species]}
-          />
+          {results.isError ? (
+            <LoadFailed onRetry={() => void results.refetch()} />
+          ) : (
+            <MonthlyBoard
+              month={month}
+              results={results.data ?? []}
+              members={pack.pack_members
+                .filter((member) => member.status !== 'left' || (results.data ?? []).some((r) => r.missed_ids.includes(member.user_id) || r.fed_ids.includes(member.user_id)))
+                .map((member) => ({ id: member.user_id, name: member.profiles?.display_name ?? null }))}
+              today={today}
+              fedToday={fedToday(counted.data, pack, now)}
+              color={critterAccents[critter.species]}
+            />
+          )}
         </View>
 
         <View style={styles.section}>

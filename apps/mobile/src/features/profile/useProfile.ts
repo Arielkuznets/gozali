@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getCalendars, getLocales } from 'expo-localization';
+import { getLocales } from 'expo-localization';
 import { useEffect } from 'react';
 import { AppState } from 'react-native';
 
 import { useAuth } from '@/features/auth/AuthProvider';
+import { deviceTimeZone } from '@/lib/dates';
 import { registerPushToken } from '@/lib/push';
 import { requireSupabase } from '@/lib/supabase';
 
@@ -36,10 +37,6 @@ export type ProfileSettings = Partial<Pick<Profile, 'display_name' | 'timezone' 
 export const NAME_MAX_LENGTH = 30;
 
 const profileKey = (userId: string | undefined) => ['profile', userId] as const;
-
-function deviceTimeZone(): string {
-  return getCalendars()[0]?.timeZone ?? 'UTC';
-}
 
 export function useProfile() {
   const { session } = useAuth();

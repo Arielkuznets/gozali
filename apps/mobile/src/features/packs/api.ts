@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getCalendars } from 'expo-localization';
 
 import type { Category, CritterStage, CritterStatus, Species, WeekStart } from '@/features/packs/constants';
+import { deviceTimeZone } from '@/lib/dates';
 import { isBlockedText } from '@/lib/errors';
 import { requireSupabase } from '@/lib/supabase';
 
@@ -133,7 +133,7 @@ export function useCreatePack() {
         habit_text: pack.customHabit ?? undefined,
         rest_days: pack.restDays,
         species: pack.species,
-        time_zone: getCalendars()[0]?.timeZone ?? 'UTC',
+        time_zone: deviceTimeZone(),
       });
       if (error) throw error;
       return data as string;

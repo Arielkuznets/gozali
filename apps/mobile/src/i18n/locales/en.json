@@ -700,7 +700,8 @@
     "none": "None",
     "wearing": "Wearing",
     "previousMonth": "Previous month",
-    "nextMonth": "Next month"
+    "nextMonth": "Next month",
+    "boardRow": "{{name}}: {{fed}} fed, {{rest}} rest or joker, {{away}} paused or asleep, {{missed}} missed"
   },
   "me": {
     "title": "Me",
@@ -717,7 +718,8 @@
     "changePhoto": "Change photo",
     "takePhoto": "Take a photo",
     "choosePhoto": "Choose from library",
-    "removePhoto": "Remove photo"
+    "removePhoto": "Remove photo",
+    "boardDay": "{{day}}, {{status}}"
   },
   "widgets": {
     "signedOut": "Open Gozali to see your pack",

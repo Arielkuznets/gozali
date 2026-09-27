@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { feedsKey } from '@/features/feeds/api';
 import { packsKey } from '@/features/packs/api';
+import { shiftMonth } from '@/lib/dates';
 import { isBlockedText } from '@/lib/errors';
 import { requireSupabase } from '@/lib/supabase';
 
@@ -205,7 +206,8 @@ export function useMonthResults(packId: string, month: string) {
         .select('day, result, fed_ids, rested_ids, joker_ids, paused_ids, sleeping_ids, missed_ids')
         .eq('pack_id', packId)
         .gte('day', `${month}-01`)
-        .lte('day', `${month}-31`)
+        // Up to the next month's first day: "-31" isn't a date in most months, and the query would fail.
+        .lt('day', `${shiftMonth(month, 1)}-01`)
         .order('day');
       if (error) throw error;
       return data;
