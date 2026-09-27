@@ -3,7 +3,7 @@ import { router, type Href } from 'expo-router';
 import { useEffect } from 'react';
 import { Platform } from 'react-native';
 
-export const FOCUS_CHANNEL = 'focus';
+import { FOCUS_CHANNEL } from '@/lib/channels';
 
 if (Platform.OS !== 'web') {
   // Show notifications while the app is open too.

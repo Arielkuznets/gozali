@@ -3,7 +3,7 @@ import * as Notifications from 'expo-notifications';
 import { useCallback, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 
-import { FOCUS_CHANNEL } from '@/lib/notifications';
+import { FOCUS_CHANNEL } from '@/lib/channels';
 
 /**
  * A focus session (spec section 6). Times are wall-clock based, so the timer keeps going while
