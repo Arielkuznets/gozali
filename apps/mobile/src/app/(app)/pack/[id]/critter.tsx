@@ -108,6 +108,10 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
           </View>
         )}
 
+        <Pressable accessibilityRole="link" onPress={() => router.push(`/pack/${pack.id}/recap`)} hitSlop={8}>
+          <AppText style={styles.sectionTitle}>{t('recap.open')} ›</AppText>
+        </Pressable>
+
         <View style={styles.section}>
           <View style={styles.monthRow}>
             <Pressable
