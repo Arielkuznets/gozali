@@ -3,6 +3,8 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, View, type GestureResponderEvent } from 'react-native';
 import Animated, {
   Easing,
+  FadeIn,
+  FadeOut,
   cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
@@ -48,7 +50,13 @@ const LINE_MS = 2600;
  * The one component every screen uses for the critter (spec section 10): it draws the
  * critter from its state, so the final illustrated character replaces only this file.
  */
-export function Critter({ art, size, label, animated = true, lines, petHint }: Props) {
+export function Critter({ art: given, size, label, animated = true, lines, petHint }: Props) {
+  // Screens build the art object again on every render (their clock ticks every 30 seconds);
+  // the drawings are made again only when what they show changes.
+  const artKey = JSON.stringify(given);
+  const [kept, setKept] = useState({ key: artKey, art: given });
+  if (kept.key !== artKey) setKept({ key: artKey, art: given });
+  const art = kept.key === artKey ? kept.art : given;
   const [line, setLine] = useState<string | null>(null);
   const lineTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const [gaze, setGaze] = useState<{ x: number; y: number } | undefined>(undefined);
@@ -213,11 +221,15 @@ export function Critter({ art, size, label, animated = true, lines, petHint }: P
       onTouchEnd={stopFollowing}
       onTouchCancel={stopFollowing}>
       {line !== null && (
-        <View style={[styles.bubble, { bottom: size * 0.88 }]} pointerEvents="none">
+        <Animated.View
+          entering={FadeIn.duration(160)}
+          exiting={FadeOut.duration(200)}
+          style={[styles.bubble, { bottom: size * 0.88 }]}
+          pointerEvents="none">
           <AppText variant="caption" style={styles.bubbleText}>
             {line}
           </AppText>
-        </View>
+        </Animated.View>
       )}
       {canPet ? (
         <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityHint={petHint} onPress={onPet}>

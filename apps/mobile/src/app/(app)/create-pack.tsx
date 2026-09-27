@@ -79,7 +79,7 @@ export default function CreatePackScreen() {
         <AppText variant="caption">{t('create.step', { step })}</AppText>
       </View>
 
-      <ScrollView contentContainerStyle={styles.body}>
+      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         {step === 1 && (
           <TextField
             label={t('create.nameLabel')}
@@ -88,6 +88,8 @@ export default function CreatePackScreen() {
             value={name}
             onChangeText={setName}
             autoFocus
+            returnKeyType="next"
+            onSubmitEditing={() => stepDone && onNext()}
           />
         )}
 

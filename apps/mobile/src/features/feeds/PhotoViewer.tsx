@@ -26,6 +26,7 @@ export function PhotoViewer({ photo, onClose }: { photo: ViewedPhoto | null; onC
             <Pressable style={styles.fill} onPress={onClose} accessibilityLabel={t('feed.closePhoto')}>
               <Image
                 source={{ uri: photo.url, cacheKey: photo.id }}
+                transition={200}
                 style={styles.fill}
                 contentFit="contain"
                 accessibilityLabel={photo.caption ?? t('feed.photoBy', { name: photo.name })}

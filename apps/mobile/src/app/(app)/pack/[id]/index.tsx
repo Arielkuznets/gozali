@@ -195,6 +195,7 @@ export default function PackScreen() {
       </View>
 
       <ScrollView
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.body}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={colors.accent} />}>
         <AppText variant="heading" style={styles.centerText}>
@@ -282,6 +283,11 @@ export default function PackScreen() {
         {!iFed && !pausedToday && dayStatus.data?.passToday && (
           <AppText variant="caption" style={styles.centerText}>
             {dayStatus.data.passToday === 'rest' ? t('pack.restingToday') : t('pack.jokerToday')}
+          </AppText>
+        )}
+        {iFed && (
+          <AppText variant="caption" style={styles.centerText}>
+            {t('pack.doneToday')}
           </AppText>
         )}
         {iFed ? (

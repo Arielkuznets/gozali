@@ -34,7 +34,7 @@ import { colors, fonts, radii, spacing } from '@/theme/tokens';
 const CAPTION_MAX = 80;
 // Right after the camera reports ready, or after switching cameras, the first frame may not be
 // there yet; a few quick retries cover that before the tap counts as failed.
-const CAPTURE_TRIES = 4;
+const CAPTURE_TRIES = 8;
 const CAPTURE_RETRY_MS = 250;
 
 type Shot = { uri: string; width: number; capturedAt: string };

@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
   },
   fill: { flex: 1 },
   muted: { color: colors.inkMuted },
-  link: { color: colors.accent },
+  link: { color: colors.accentText },
   notice: { gap: spacing.sm, padding: spacing.md, borderRadius: radii.lg, backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.accent },
   danger: { color: colors.danger, paddingVertical: spacing.sm },
 });

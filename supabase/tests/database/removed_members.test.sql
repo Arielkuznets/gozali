@@ -42,7 +42,8 @@ select is(public.join_pack((select invite_code from code)), (select id from pack
 reset role;
 select is(
   (select string_agg(p.email || ':' || m.status, ', ' order by p.email)
-   from public.pack_members m join auth.users p on p.id = m.user_id),
+   from public.pack_members m join auth.users p on p.id = m.user_id
+   where m.pack_id = (select id from pack)),
   'dan@test.local:left, maya@test.local:active, noa@test.local:active',
   'Dan stays out, Maya is back'
 );

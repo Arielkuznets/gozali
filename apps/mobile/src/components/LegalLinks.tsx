@@ -29,5 +29,5 @@ export function LegalLinks() {
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'center', gap: spacing.sm },
-  link: { color: colors.accent },
+  link: { color: colors.accentText },
 });
