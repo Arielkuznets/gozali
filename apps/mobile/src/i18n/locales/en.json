@@ -39,6 +39,7 @@
     "notConfigured": "The app is not connected to the server yet.",
     "signInFailed": "Sign-in didn't work. Please try again.",
     "saveFailed": "Saving didn't work. Please try again.",
+    "loadFailed": "This didn't load. Check the connection and try again.",
     "textNotAllowed": "Let's keep it friendly: that has a word we don't allow."
   },
   "packs": {

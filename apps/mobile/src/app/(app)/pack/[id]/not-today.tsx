@@ -5,6 +5,7 @@ import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
+import { LoadFailed } from '@/components/ScreenStates';
 import { dayErrorKey, useCancelDayPass, useDayPass, useDayStatus } from '@/features/days/api';
 import { goBack } from '@/lib/navigation';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
@@ -26,9 +27,13 @@ export default function NotTodayScreen() {
   if (!status.data) {
     return (
       <Screen>
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.accent} />
-        </View>
+        {status.isError ? (
+          <LoadFailed onRetry={() => void status.refetch()} />
+        ) : (
+          <View style={styles.center}>
+            <ActivityIndicator color={colors.accent} />
+          </View>
+        )}
       </Screen>
     );
   }

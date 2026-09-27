@@ -7,6 +7,7 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } fro
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
+import { LoadFailed } from '@/components/ScreenStates';
 import { signOut } from '@/features/auth/signIn';
 import { pickAvatar, useAvatarUrls, useSetAvatar } from '@/features/profile/avatar';
 import { useProfile } from '@/features/profile/useProfile';
@@ -57,9 +58,13 @@ export default function MeScreen() {
       </View>
 
       {!stats.data ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.accent} />
-        </View>
+        stats.isError ? (
+          <LoadFailed onRetry={() => void stats.refetch()} />
+        ) : (
+          <View style={styles.center}>
+            <ActivityIndicator color={colors.accent} />
+          </View>
+        )
       ) : (
         <ScrollView contentContainerStyle={styles.body}>
           <Pressable accessibilityRole="button" accessibilityLabel={t('me.photo')} onPress={changePhoto} style={styles.avatarWrap}>

@@ -7,7 +7,7 @@ import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Choice } from '@/components/Choice';
 import { Screen } from '@/components/Screen';
-import { LoadingScreen, PackMissingScreen } from '@/components/ScreenStates';
+import { LoadingScreen, LoadFailedScreen, PackMissingScreen } from '@/components/ScreenStates';
 import { TextField } from '@/components/TextField';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { PauseSection } from '@/features/days/PauseSection';
@@ -27,9 +27,10 @@ import { colors, radii, spacing } from '@/theme/tokens';
 
 export default function PackSettingsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: pack, isPending } = usePack(id);
+  const { data: pack, isPending, isError, refetch } = usePack(id);
 
   if (isPending) return <LoadingScreen />;
+  if (!pack && isError) return <LoadFailedScreen onRetry={() => void refetch()} />;
   if (!pack) return <PackMissingScreen />;
   return <SettingsForm pack={pack} />;
 }

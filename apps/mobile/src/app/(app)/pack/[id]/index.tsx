@@ -10,7 +10,7 @@ import { Button } from '@/components/Button';
 import { HealthBar } from '@/components/HealthBar';
 import { MemberCircles, type MemberState } from '@/components/MemberCircles';
 import { Screen } from '@/components/Screen';
-import { LoadingScreen, PackMissingScreen } from '@/components/ScreenStates';
+import { LoadingScreen, LoadFailedScreen, PackMissingScreen } from '@/components/ScreenStates';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useAvatarUrls } from '@/features/profile/avatar';
 import { Critter } from '@/features/critter/Critter';
@@ -41,7 +41,7 @@ export default function PackScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session } = useAuth();
-  const { data: pack, isPending } = usePack(id);
+  const { data: pack, isPending, isError, refetch } = usePack(id);
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const [feedLimit, setFeedLimit] = useState(FEED_PAGE);
@@ -60,6 +60,7 @@ export default function PackScreen() {
   usePackRealtime(id);
 
   if (isPending) return <LoadingScreen />;
+  if (!pack && isError) return <LoadFailedScreen onRetry={() => void refetch()} />;
   if (!pack) return <PackMissingScreen />;
 
   const members = currentMembers(pack);

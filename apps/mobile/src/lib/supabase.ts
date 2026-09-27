@@ -22,6 +22,9 @@ export const supabase: Client | null =
           detectSessionInUrl: false,
           flowType: 'pkce',
         },
+        // TanStack Query already retries failed reads; a second layer inside supabase-js made an
+        // offline screen spin for half a minute before it could say so.
+        db: { retry: false },
       })
     : null;
 

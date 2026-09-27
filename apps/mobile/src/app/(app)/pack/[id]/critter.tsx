@@ -7,7 +7,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Screen } from '@/components/Screen';
-import { LoadingScreen, PackMissingScreen } from '@/components/ScreenStates';
+import { LoadingScreen, LoadFailedScreen, PackMissingScreen } from '@/components/ScreenStates';
 import { Critter } from '@/features/critter/Critter';
 import { critterArt, parseOutfit, stageProgress } from '@/features/critter/art';
 import { useCritterText } from '@/features/critter/useCritterText';
@@ -32,10 +32,11 @@ function shiftMonth(month: string, by: number): string {
 /** The critter profile (spec section 9): stage, marks, monthly board, achievements, wardrobe. */
 export default function CritterProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: pack, isPending } = usePack(id);
+  const { data: pack, isPending, isError, refetch } = usePack(id);
   usePackRealtime(id);
 
   if (isPending) return <LoadingScreen />;
+  if (!pack && isError) return <LoadFailedScreen onRetry={() => void refetch()} />;
   if (!pack?.critters) return <PackMissingScreen />;
   return <Profile pack={pack} critter={pack.critters} />;
 }
