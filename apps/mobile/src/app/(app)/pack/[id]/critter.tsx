@@ -107,6 +107,7 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
                 <View
                   style={[
                     styles.fill,
+                    { backgroundColor: critterAccents[critter.species] },
                     { width: `${Math.min(100, ((critter.xp - progress.from) / (progress.to - progress.from)) * 100)}%` },
                   ]}
                 />
@@ -262,7 +263,7 @@ const styles = StyleSheet.create({
   centerText: { textAlign: 'center' },
   progress: { alignSelf: 'stretch', gap: spacing.xs, paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
   track: { height: 8, borderRadius: 4, backgroundColor: colors.border, overflow: 'hidden' },
-  fill: { height: '100%', backgroundColor: colors.accent },
+  fill: { height: '100%' },
   section: { gap: spacing.sm },
   sectionTitle: { fontFamily: fonts.bodyMedium },
   muted: { color: colors.inkMuted },
