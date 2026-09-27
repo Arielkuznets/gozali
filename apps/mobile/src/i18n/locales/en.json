@@ -181,7 +181,8 @@
       "english": "English",
       "privacy": "Privacy policy",
       "terms": "Terms of use",
-      "contact": "Contact: hello@gozali.app"
+      "contact": "Contact: hello@gozali.app",
+      "widgets": "Widgets"
     }
   },
   "critter": {
@@ -551,5 +552,14 @@
     "board": "Last days",
     "signOut": "Sign out",
     "back": "Back"
+  },
+  "widgets": {
+    "signedOut": "Open Gozali to see your pack",
+    "feed": "Feed",
+    "endsIn": "ends in {{time}}",
+    "whichPack": "Which pack?",
+    "openFirst": "Open Gozali first, then add the widget again.",
+    "cancel": "Cancel",
+    "howTo": "Add a widget: long-press the home screen, tap + (iPhone) or Widgets (Android), and pick Gozali."
   }
 }

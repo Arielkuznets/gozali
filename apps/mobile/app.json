@@ -10,7 +10,12 @@
     "ios": {
       "bundleIdentifier": "app.gozali",
       "supportsTablet": false,
-      "usesAppleSignIn": true
+      "usesAppleSignIn": true,
+      "entitlements": {
+        "com.apple.security.application-groups": [
+          "group.app.gozali"
+        ]
+      }
     },
     "android": {
       "package": "app.gozali",
@@ -55,6 +60,46 @@
         "expo-notifications",
         {
           "color": "#E8795A"
+        }
+      ],
+      "@bacons/apple-targets",
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "PackSmall",
+              "label": "Pack",
+              "description": "Your pet, its health and who fed today",
+              "minWidth": "110dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 2,
+              "targetCellHeight": 2,
+              "updatePeriodMillis": 1800000,
+              "widgetFeatures": "reconfigurable"
+            },
+            {
+              "name": "PackMedium",
+              "label": "Pack, wide",
+              "description": "Your pet with the members, the streak and a Feed button",
+              "minWidth": "250dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 2,
+              "updatePeriodMillis": 1800000,
+              "widgetFeatures": "reconfigurable"
+            },
+            {
+              "name": "AllPacks",
+              "label": "All packs",
+              "description": "Up to three packs at a glance",
+              "minWidth": "250dp",
+              "minHeight": "250dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 4,
+              "updatePeriodMillis": 1800000
+            }
+          ]
         }
       ]
     ],

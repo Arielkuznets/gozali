@@ -1,6 +1,6 @@
 {
   "name": "@gozali/mobile",
-  "main": "expo-router/entry",
+  "main": "index.ts",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@bacons/apple-targets": "^5.0.0",
     "@expo-google-fonts/rubik": "^0.4.2",
     "@expo-google-fonts/varela-round": "^0.4.1",
     "@gozali/critter-art": "*",
@@ -43,6 +44,7 @@
     "react-dom": "19.2.3",
     "react-i18next": "^17.0.15",
     "react-native": "0.86.3",
+    "react-native-android-widget": "^0.22.1",
     "react-native-gesture-handler": "~2.32.0",
     "react-native-qrcode-svg": "^6.3.26",
     "react-native-reanimated": "4.5.1",

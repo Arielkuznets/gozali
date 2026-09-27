@@ -45,11 +45,12 @@ Deno.serve(async (request) => {
   return Response.json({
     timezone: state.timezone,
     fetchedAt: new Date().toISOString(),
-    packs: packs.map(({ art, nightArt, ...pack }) => ({
+    // The drawing input goes along too: the Android widget draws it as SVG on the device.
+    packs: packs.map((pack) => ({
       ...pack,
       // Relative to this endpoint, which the widget already knows; the version lets it cache by URL.
-      imageUrl: `?image=${pack.id}&v=${artVersion(art)}`,
-      nightImageUrl: `?image=${pack.id}&night=1&v=${artVersion(nightArt)}`,
+      imageUrl: `?image=${pack.id}&v=${artVersion(pack.art)}`,
+      nightImageUrl: `?image=${pack.id}&night=1&v=${artVersion(pack.nightArt)}`,
     })),
   });
 });

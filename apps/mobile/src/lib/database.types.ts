@@ -320,6 +320,7 @@ export type Database = {
       notifications: {
         Row: {
           created_at: string;
+          day: string | null;
           id: string;
           pack_id: string | null;
           payload: NonNullable<Json>;
@@ -331,6 +332,7 @@ export type Database = {
         };
         Insert: {
           created_at?: string;
+          day?: string | null;
           id?: string;
           pack_id?: string | null;
           payload?: NonNullable<Json>;
@@ -342,6 +344,7 @@ export type Database = {
         };
         Update: {
           created_at?: string;
+          day?: string | null;
           id?: string;
           pack_id?: string | null;
           payload?: NonNullable<Json>;
@@ -792,9 +795,26 @@ export type Database = {
         Returns: boolean;
       };
       blocked_by_me: { Args: { other_user: string }; Returns: boolean };
-      call_close_days: { Args: Record<PropertyKey, never>; Returns: undefined };
+      call_edge_function: { Args: { name: string }; Returns: undefined };
       cancel_day_pass: { Args: { target: string }; Returns: undefined };
       choose_name: { Args: { suggestion: string; target: string }; Returns: undefined };
+      claim_notifications: {
+        Args: { at_time?: string; max_rows?: number };
+        Returns: {
+          critter_name: string;
+          id: string;
+          locale: string;
+          names: string[];
+          pack_id: string;
+          pack_name: string;
+          payload: Json;
+          species: Database['public']['Enums']['critter_species'];
+          tokens: string[];
+          type: Database['public']['Enums']['notification_type'];
+          user_id: string;
+        }[];
+      };
+      counted_on: { Args: { member: string; pack_date: string; target: string }; Returns: boolean };
       create_pack: {
         Args: {
           critter_color: Database['public']['Enums']['critter_color'];
@@ -807,6 +827,7 @@ export type Database = {
         };
         Returns: string;
       };
+      create_widget_token: { Args: Record<PropertyKey, never>; Returns: string };
       day_close_input: { Args: { pack_date: string; target: string }; Returns: Json };
       day_closes_at: { Args: { pack_date: string; tz: string }; Returns: string };
       dress_critter: { Args: { item: string; slot: string; target: string }; Returns: undefined };
@@ -818,6 +839,7 @@ export type Database = {
           photo_path: string;
         }[];
       };
+      fed_on: { Args: { member: string; pack_date: string; target: string }; Returns: boolean };
       feed_day: { Args: { captured_at: string; received_at: string; tz: string }; Returns: string };
       feed_reaction_counts: {
         Args: { target_feed: string };
@@ -837,8 +859,13 @@ export type Database = {
         }[];
       };
       forget_photos: { Args: { feed_ids: string[] }; Returns: undefined };
+      forget_push_tokens: { Args: { dead: string[] }; Returns: undefined };
       is_pack_member: { Args: { target_pack: string }; Returns: boolean };
       join_pack: { Args: { code: string }; Returns: string };
+      keeps_overnight: {
+        Args: { kind: Database['public']['Enums']['notification_type'] };
+        Returns: boolean;
+      };
       leave_pack: { Args: { target: string }; Returns: undefined };
       my_day_status: { Args: { target: string }; Returns: Json };
       my_stats: { Args: Record<PropertyKey, never>; Returns: Json };
@@ -883,11 +910,13 @@ export type Database = {
           time_zone: string;
         }[];
       };
+      queue_evening_reminders: { Args: { at_time?: string }; Returns: number };
       react: {
         Args: { emoji: Database['public']['Enums']['reaction_emoji']; target_feed: string };
         Returns: undefined;
       };
       remove_member: { Args: { member: string; target: string }; Returns: undefined };
+      requeue_notifications: { Args: { ids: string[] }; Returns: undefined };
       require_admin: { Args: { target: string }; Returns: string };
       require_membership: { Args: { member: string; target: string }; Returns: string };
       require_user: { Args: Record<PropertyKey, never>; Returns: string };
@@ -895,6 +924,7 @@ export type Database = {
         Args: { member: string; pack_date: string; target: string };
         Returns: number;
       };
+      revoke_widget_token: { Args: { token: string }; Returns: undefined };
       shares_pack_with: { Args: { other_user: string }; Returns: boolean };
       start_pause: { Args: { days: number; target: string }; Returns: undefined };
       submit_feed: {
@@ -926,6 +956,7 @@ export type Database = {
         Args: { item: string; slot: string };
         Returns: Database['public']['Enums']['achievement_key'];
       };
+      widget_state: { Args: { at_time?: string; token: string }; Returns: Json };
     };
     Enums: {
       achievement_key:
