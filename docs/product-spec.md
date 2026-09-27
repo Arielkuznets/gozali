@@ -47,7 +47,8 @@ Gozali ("my little chick" in Hebrew) is an app where a small group of friends ra
 | Grace window | One hour after the day ends (until 04:00), during which feeds captured offline are still accepted |
 | Day close | A server process that computes the result of each day, after the day ends and after the grace window |
 | Achievement | A pack goal (for example a 14-day streak) that unlocks an item for the wardrobe |
-| Wardrobe | The items the pack unlocked, which can be put on the creature |
+| Wardrobe | The items the pack unlocked or bought, which can be put on the creature |
+| Coins | The pack's currency for the outfit shop, earned by successful days: more with a longer streak |
 | Widget | A view of the creature and the day's status on the home screen or the lock screen |
 
 ## 3. Packs
@@ -136,7 +137,7 @@ Every stage change gets an animation and a celebratory notification to the whole
 
 **Pack memory:** events leave a permanent mark on the creature: a medal after 30 successful days in a row, a small bandage after it came back from running away, a holiday hat on holidays. The holidays are Rosh Hashanah, Hanukkah, Purim, Passover and New Year's; their dates come from the Hebrew calendar and are generated into a table (`packages/critter-art`, `npm run holidays`), because the phones' JavaScript engines can't be relied on to know that calendar.
 
-**Achievements and wardrobe:** achievements are pack goals. Every achievement shows on the critter profile and unlocks one item for the pack's wardrobe. Any member can dress the creature from the wardrobe, one item per slot (head, neck, background), and the change shows in the feed ("Noa put a scarf on Pixel"). The category item and the permanent marks don't take a slot; on holidays the holiday hat temporarily replaces the head item.
+**Achievements, coins and wardrobe:** achievements are pack goals. Every achievement shows on the critter profile and unlocks one item for the pack's wardrobe for free. Every successful day also earns the pack coins, more the longer the streak: 1 a day, 2 from a 7-day streak, 3 from 14 and 5 from 30 (decision D21). Any member spends the pack's coins in the outfit shop on the critter profile (items cost 10 to 45 coins), and the purchase shows in the feed ("Noa bought Pixel a cap"). The halo, the cape and the space background can't be bought: they stay rewards for their achievements. Any member can dress the creature from the wardrobe, one item per slot (head, neck, background), and the change shows in the feed ("Noa gave Pixel a scarf"). The category item and the permanent marks don't take a slot; on holidays the holiday hat temporarily replaces the head item.
 
 | Achievement | Condition | Item |
 | --- | --- | --- |
@@ -175,11 +176,13 @@ Every day ends at 03:00 in the pack's time zone and closes after a one-hour grac
 
 **Day result:**
 
-| Day type | Condition | Health | XP | Streak |
-| --- | --- | --- | --- | --- |
-| Successful | At least one feed, and the misses didn't go over the allowed number | +10, and -8 per member who missed | +1 | +1 |
-| Neutral | No feeds, and the misses didn't go over the allowed number | -8 per member who missed | No change | No change |
-| Failed | The misses went over the allowed number | -8 per member who missed | No change | Resets to 0 |
+| Day type | Condition | Health | XP | Streak | Coins |
+| --- | --- | --- | --- | --- | --- |
+| Successful | At least one feed, and the misses didn't go over the allowed number | +10, and -8 per member who missed | +1 | +1 | 1, 2, 3 or 5 by the streak |
+| Neutral | No feeds, and the misses didn't go over the allowed number | -8 per member who missed | No change | No change | None |
+| Failed | The misses went over the allowed number | -8 per member who missed | No change | Resets to 0 | None |
+
+Coins aren't earned while the critter is an egg or away.
 
 **Allowed misses:** 0 in a pack of 2–4 counted members, and 1 in a pack of 5–8. Every miss always costs 8 health, even on a successful day.
 
@@ -426,14 +429,16 @@ Nineteen tables in Postgres (Supabase). All access is protected with Row Level S
 | --- | --- |
 | profiles | id (the user in auth.users), display\_name, avatar\_path, timezone, locale, reminder\_time, notification\_prefs (jsonb), terms\_accepted\_at, created\_at |
 | packs | id, name, category, custom\_habit, rest\_days\_per\_week, week\_start, timezone, invite\_code (8 characters, without characters that are easy to confuse, like 0 and O), pending\_rest\_days\_per\_week, pending\_week\_start, pending\_from (settings that apply from the next week start), created\_at |
-| critters | pack\_id (key: one creature per pack), species (one of the six creatures), name, health, xp, stage, status (egg / active / ran\_away), streak, marks, outfit (jsonb), hatched\_at |
+| critters | pack\_id (key: one creature per pack), species (one of the six creatures), name, health, xp, stage, status (egg / active / ran\_away), streak, coins, marks, outfit (jsonb), hatched\_at |
 | pack\_members | pack\_id, user\_id, role (admin / member), status (active / sleeping / left), joined\_at, left\_at, awake\_since (the day that misses toward sleep count from; set when the member wakes up) |
 | pauses | id, pack\_id, user\_id, starts\_on, ends\_on |
 | feeds | id, pack\_id, user\_id, photo\_path, caption, day (date), is\_extra, focus\_minutes, captured\_at, created\_at, hidden\_at |
 | reactions | feed\_id, user\_id, emoji (fire / muscle / laugh / clap / suspicious), created\_at (unique key: feed\_id + user\_id) |
 | day\_passes | pack\_id, user\_id, day (date), kind (joker / rest) |
-| day\_results | pack\_id, day, result (success / neutral / fail), applied, fed\_ids, rested\_ids, joker\_ids, paused\_ids, sleeping\_ids, missed\_ids, health\_before, health\_after, early\_bird, full\_house, night\_owl\_feeds, closed\_at |
+| day\_results | pack\_id, day, result (success / neutral / fail), applied, fed\_ids, rested\_ids, joker\_ids, paused\_ids, sleeping\_ids, missed\_ids, health\_before, health\_after, early\_bird, full\_house, night\_owl\_feeds, coins, closed\_at |
 | achievements | pack\_id, key, unlocked\_at |
+| shop\_items | item, slot, price, sort (what the outfit shop sells) |
+| pack\_items | pack\_id, item, bought\_by, bought\_at (what each pack bought) |
 | nudges | pack\_id, from\_user, to\_user, day |
 | name\_suggestions | id, pack\_id, user\_id, name, created\_at |
 | weekly\_recaps | pack\_id, week\_start, stats (jsonb), feed\_ids, created\_at |
@@ -499,7 +504,8 @@ Important: the widgets and some of the modules require a **development build**, 
   - `react` (one reaction per member per item, changeable) and `feed_reactions` (totals for a page of items, names for every emoji but 🤨).
   - `nudge`: one a day per pair, never to someone who fed, rests, is on a joker or a pause today, or who blocked the sender; writes a notification.
   - `suggest_name` (up to 3 per member, only while the hatched critter has no name) and `choose_name` (admin).
-  - `dress_critter`: any member, one unlocked item per slot.
+  - `buy_item`: any member buys a shop item with the pack's coins; the check and the payment are one statement, so two members buying at once can't overspend.
+  - `dress_critter`: any member, one owned item per slot (unlocked or bought).
   - `my_stats`: the Me screen (total feeds, current and best personal streak, the last weeks).
 - **Edge Functions:**
   - `close-days`: runs every 15 minutes. **State-based, not time-based:** for every pack it runs game-engine on every day that has ended (including the grace window) and has no day\_results row yet, in order, and applies each result through one Postgres function (`apply_day_result`). The function checks that the day isn't closed yet and that the previous day is, and writes in one transaction the day\_results row, the creature, the members' state, the achievements and the notifications. Idempotent, and it takes "now" as a parameter so it can be tested without waiting for the end of the day. The database gathers each day's input (`day_close_input`: members with their feed, pass, pause, rest days used and recent misses, the critter, and the pack totals for achievements), the function runs game-engine on it, and `apply_day_result` writes the outcome. The same run deletes photo files older than 30 days (`expired_photos`, then `forget_photos`), and packs nobody has been in for 30 days, their photo files first (`empty_pack_photos`, then `drop_empty_packs`).
@@ -578,6 +584,7 @@ All the decisions that blocked version 1 are closed; the details and reasoning a
 
 - **The critter:** designed and animated in code, as SVG with Reanimated; no illustrator and no Rive (decision D19).
 - **Six creatures:** Mochi, Kit, Axo, Ribbit, Hoot and Bun, each with its own color and personality, replace three species in six colors (decision D20).
+- **Coins and the outfit shop:** successful days earn the pack coins, more with a longer streak, and members spend them on outfits (decision D21).
 - **Language:** Hebrew in the app is postponed; the pilot is in English.
 
 ### Version 3.1
