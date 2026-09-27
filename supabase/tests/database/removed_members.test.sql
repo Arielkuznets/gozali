@@ -1,7 +1,7 @@
--- A removed member stays out; a member who left can come back.
+-- A removed member stays out; a member who left can come back; the admin can replace the code.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(5);
+select plan(9);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000d1', 'noa@test.local'),
@@ -45,6 +45,21 @@ select is(
    from public.pack_members m join auth.users p on p.id = m.user_id),
   'dan@test.local:left, maya@test.local:active, noa@test.local:active',
   'Dan stays out, Maya is back'
+);
+
+-- A new code for the pack.
+set local role authenticated;
+select throws_ok(
+  $$ select public.renew_invite_code((select id from pack)) $$,
+  '42501', 'admin_only', 'only the admin replaces the code'
+);
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000d1');
+select isnt(public.renew_invite_code((select id from pack)), (select invite_code from code), 'the admin gets a new code');
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000d3');
+select lives_ok($$ select public.leave_pack((select id from pack)) $$, 'Maya leaves again');
+select throws_ok(
+  $$ select public.join_pack((select invite_code from code)) $$,
+  'P0002', 'invite_not_found', 'and the old code no longer works'
 );
 
 select * from finish();

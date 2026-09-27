@@ -106,7 +106,11 @@
     "copy": "Copy code",
     "copied": "Copied!",
     "message": "Join my pack \"{{name}}\" on Gozali! Code: {{code}}\n{{link}}",
-    "done": "Done"
+    "done": "Done",
+    "renew": "Get a new code",
+    "renewTitle": "Get a new code?",
+    "renewBody": "The current code and link stop working. Anyone who hasn't joined yet needs the new one.",
+    "renewConfirm": "New code"
   },
   "join": {
     "title": "Join a pack",

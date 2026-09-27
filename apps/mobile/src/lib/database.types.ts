@@ -1055,6 +1055,7 @@ export type Database = {
         Returns: undefined;
       };
       remove_member: { Args: { member: string; target: string }; Returns: undefined };
+      renew_invite_code: { Args: { target: string }; Returns: string };
       report_app_error: {
         Args: {
           app_version?: string;

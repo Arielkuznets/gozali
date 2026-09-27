@@ -181,6 +181,18 @@ export function useUpdatePack(packId: string) {
   });
 }
 
+/** A new invite code for the pack (admin only); the old code and link stop working. */
+export function useRenewInviteCode(packId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { error } = await requireSupabase().rpc('renew_invite_code', { target: packId });
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: packsKey }),
+  });
+}
+
 export function useRemoveMember(packId: string) {
   const queryClient = useQueryClient();
   return useMutation({
