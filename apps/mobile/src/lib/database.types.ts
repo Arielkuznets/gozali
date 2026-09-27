@@ -1005,6 +1005,7 @@ export type Database = {
         Returns: string;
       };
       nudge: { Args: { member: string; target: string }; Returns: undefined };
+      orphan_photos: { Args: { at_time?: string; max_rows?: number }; Returns: string[] };
       outcome_ids: { Args: { kind: string; outcomes: Json }; Returns: string[] };
       owns_item: {
         Args: { target: string; wanted_item: string; wanted_slot: string };

@@ -100,7 +100,10 @@ export async function closeDueDays(
   return { closed, failed };
 }
 
-/** Deletes photo files older than 30 days (spec section 11), then forgets their paths. */
+/**
+ * Deletes photo files older than 30 days (spec section 11) and forgets their paths, then files
+ * no feed points at.
+ */
 export async function cleanupPhotos(
   client: RpcClient,
   removeFiles: (paths: string[]) => Promise<void>,
@@ -109,10 +112,14 @@ export async function cleanupPhotos(
   const expired = await call<Array<{ feed_id: string; photo_path: string }>>(client, 'expired_photos', {
     at_time: now.toISOString(),
   });
-  if (expired.length === 0) return 0;
-  await removeFiles(expired.map((row) => row.photo_path));
-  await call(client, 'forget_photos', { feed_ids: expired.map((row) => row.feed_id) });
-  return expired.length;
+  if (expired.length > 0) {
+    await removeFiles(expired.map((row) => row.photo_path));
+    await call(client, 'forget_photos', { feed_ids: expired.map((row) => row.feed_id) });
+  }
+  // Files no feed ever pointed at.
+  const orphans = await call<string[]>(client, 'orphan_photos', { at_time: now.toISOString() });
+  if (orphans.length > 0) await removeFiles(orphans);
+  return expired.length + orphans.length;
 }
 
 /** Deletes packs nobody has been in for 30 days (spec section 3), their photo files first. */
