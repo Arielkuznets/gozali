@@ -1,9 +1,10 @@
 import { defineConfig } from '@playwright/test';
 
 // End-to-end tests: the web build of the app in a phone-sized browser, against the local
-// Supabase stack. See e2e/README.md for how to run them.
+// Supabase stack. The README (Development) says how to run them.
 export default defineConfig({
   testDir: '.',
+  outputDir: 'test-results',
   timeout: 60_000,
   expect: { timeout: 10_000 },
   // The tests share one local database, so they run one at a time.
