@@ -6,6 +6,7 @@ import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { dayErrorKey, useCancelDayPass, useDayPass, useDayStatus } from '@/features/days/api';
+import { goBack } from '@/lib/navigation';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 /** A rest day or the month's joker, for today only (spec section 5). */
@@ -18,7 +19,7 @@ export default function NotTodayScreen() {
 
   const choose = (pass: 'rest' | 'joker') =>
     dayPass.mutate(pass, {
-      onSuccess: () => router.back(),
+      onSuccess: () => goBack(`/pack/${id}`),
       onError: (error) => Alert.alert(t(dayErrorKey(error))),
     });
 
@@ -87,7 +88,7 @@ export default function NotTodayScreen() {
 
       <View style={styles.actions}>
         <Button label={t('days.away')} variant="secondary" onPress={() => router.replace(`/pack/${id}/settings`)} />
-        <Button label={t('days.close')} variant="secondary" onPress={() => router.back()} />
+        <Button label={t('days.close')} variant="secondary" onPress={() => goBack(`/pack/${id}`)} />
       </View>
     </Screen>
   );

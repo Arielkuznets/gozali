@@ -1,12 +1,13 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Choice } from '@/components/Choice';
 import { Screen } from '@/components/Screen';
+import { LoadingScreen, PackMissingScreen } from '@/components/ScreenStates';
 import { TextField } from '@/components/TextField';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { PauseSection } from '@/features/days/PauseSection';
@@ -21,21 +22,15 @@ import {
 } from '@/features/packs/api';
 import { PACK_NAME_MAX, REST_DAYS_MAX, type WeekStart } from '@/features/packs/constants';
 import { formatDay } from '@/lib/dates';
+import { goBack } from '@/lib/navigation';
 import { colors, radii, spacing } from '@/theme/tokens';
 
 export default function PackSettingsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: pack } = usePack(id);
+  const { data: pack, isPending } = usePack(id);
 
-  if (!pack) {
-    return (
-      <Screen>
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.accent} />
-        </View>
-      </Screen>
-    );
-  }
+  if (isPending) return <LoadingScreen />;
+  if (!pack) return <PackMissingScreen />;
   return <SettingsForm pack={pack} />;
 }
 
@@ -91,7 +86,7 @@ function SettingsForm({ pack }: { pack: Pack }) {
   return (
     <Screen>
       <View style={styles.header}>
-        <Pressable accessibilityRole="button" onPress={() => router.back()} hitSlop={12}>
+        <Pressable accessibilityRole="button" onPress={() => goBack(`/pack/${pack.id}`)} hitSlop={12}>
           <AppText variant="caption">{t('pack.back')}</AppText>
         </Pressable>
         <AppText variant="heading">{t('settings.title')}</AppText>
@@ -172,7 +167,6 @@ function SettingsForm({ pack }: { pack: Pack }) {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.md },
   headerSpacer: { width: 32 },
   body: { gap: spacing.md, paddingBottom: spacing.xl },

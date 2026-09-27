@@ -1,18 +1,20 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Choice } from '@/components/Choice';
 import { Screen } from '@/components/Screen';
+import { LoadingScreen, PackMissingScreen } from '@/components/ScreenStates';
 import { Critter } from '@/features/critter/Critter';
 import { critterArt } from '@/features/critter/art';
 import { useCritterText } from '@/features/critter/useCritterText';
 import { FOCUS_LENGTHS, elapsedMs, remainingMs, useFocusSession } from '@/features/focus/session';
 import { usePack } from '@/features/packs/api';
 import { allowNotifications } from '@/lib/notifications';
+import { goBack } from '@/lib/navigation';
 import { useNow } from '@/lib/useNow';
 import { colors, fonts, spacing } from '@/theme/tokens';
 
@@ -30,7 +32,7 @@ function clock(ms: number): string {
 export default function FocusScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: pack } = usePack(id);
+  const { data: pack, isPending } = usePack(id);
   const focus = useFocusSession({ title: t('focus.doneTitle'), body: t('focus.doneBody') });
   const now = useNow(1000);
   const opened = useRef(false);
@@ -44,23 +46,19 @@ export default function FocusScreen() {
     router.replace(`/pack/${id}/feed?focus=${minutes}`);
   };
 
-  // When the time is up with the screen open, go straight to the camera.
+  // When the time runs out with the screen open, go straight to the camera. A session that
+  // ended a while ago (the app was closed) waits for the Done button instead.
+  const justEnded =
+    session !== null && session.minutes !== null && elapsedMs(session, now.getTime()) - session.minutes * 60_000 < 60_000;
   useEffect(() => {
-    if (left === 0 && !opened.current) {
+    if (left === 0 && justEnded && !opened.current) {
       opened.current = true;
       void takePhoto();
     }
   });
 
-  if (!pack || !focus.loaded) {
-    return (
-      <Screen>
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.accent} />
-        </View>
-      </Screen>
-    );
-  }
+  if (isPending || !focus.loaded) return <LoadingScreen />;
+  if (!pack) return <PackMissingScreen />;
 
   const start = async (minutes: number | null) => {
     await allowNotifications();
@@ -70,7 +68,7 @@ export default function FocusScreen() {
   return (
     <Screen>
       <View style={styles.header}>
-        <Pressable accessibilityRole="button" onPress={() => router.back()} hitSlop={12}>
+        <Pressable accessibilityRole="button" onPress={() => goBack(`/pack/${id}`)} hitSlop={12}>
           <AppText variant="caption">{t('pack.back')}</AppText>
         </Pressable>
       </View>
@@ -140,7 +138,6 @@ function FocusCritter({ pack }: { pack: NonNullable<ReturnType<typeof usePack>['
 
 const styles = StyleSheet.create({
   header: { paddingVertical: spacing.md },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   body: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
   centerText: { textAlign: 'center' },
   muted: { color: colors.inkMuted, maxWidth: 320 },

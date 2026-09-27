@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useId } from 'react';
 
 import { daysKey } from '@/features/days/api';
 import { feedsKey } from '@/features/feeds/api';
@@ -14,6 +14,10 @@ import { supabase } from '@/lib/supabase';
  */
 export function usePackRealtime(packId?: string) {
   const queryClient = useQueryClient();
+  // Every screen gets its own channel: supabase-js hands back an existing channel with the same
+  // name, and a second screen adding listeners to it after it started would throw (the pet
+  // profile opens on top of the pack screen, both listening to the same pack).
+  const instance = useId();
   useEffect(() => {
     if (!supabase) return;
     const client = supabase;
@@ -23,7 +27,7 @@ export function usePackRealtime(packId?: string) {
     const refetchDays = () => void queryClient.invalidateQueries({ queryKey: daysKey });
     const refetchSocial = () => void queryClient.invalidateQueries({ queryKey: ['social'] });
     const channel = client
-      .channel(`packs-live:${packId ?? 'mine'}`)
+      .channel(`packs-live:${packId ?? 'mine'}:${instance}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'critters', filter }, refetchPacks)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pack_members', filter }, refetchPacks)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'feeds', filter }, refetchFeeds)
@@ -36,5 +40,5 @@ export function usePackRealtime(packId?: string) {
     return () => {
       void client.removeChannel(channel);
     };
-  }, [packId, queryClient]);
+  }, [packId, queryClient, instance]);
 }

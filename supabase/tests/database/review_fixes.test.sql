@@ -1,7 +1,7 @@
 -- The fixes from the Sep 27 code review.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(14);
+select plan(16);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a9', 'noa@test.local'),
@@ -92,6 +92,18 @@ select is(
   0::bigint,
   'nothing is sent about a pack the member left'
 );
+
+-- A removed member still sees their own membership row (so the app hears about the removal),
+-- but nothing else of the pack.
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000b9');
+select is(
+  (select array_agg(user_id::text || ':' || status::text) from public.pack_members where pack_id = '10000000-0000-0000-0000-000000000009'),
+  array['00000000-0000-0000-0000-0000000000b9:left'],
+  'Dan sees only their own row, marked left'
+);
+select is((select count(*) from public.packs where id = '10000000-0000-0000-0000-000000000009'), 0::bigint, 'and not the pack');
+reset role;
 
 -- A pack nobody is in stops closing days.
 update public.pack_members set status = 'left', left_at = now() where pack_id = '10000000-0000-0000-0000-000000000009';

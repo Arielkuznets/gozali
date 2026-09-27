@@ -12,6 +12,7 @@ function deviceLanguage(): keyof typeof resources {
   return code !== null && code !== undefined && code in resources ? (code as keyof typeof resources) : 'en';
 }
 
+// eslint-disable-next-line import/no-named-as-default-member -- i18next's documented setup
 void i18n.use(initReactI18next).init({
   resources,
   lng: deviceLanguage(),

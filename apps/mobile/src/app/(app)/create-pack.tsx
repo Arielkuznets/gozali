@@ -21,6 +21,7 @@ import {
   type CritterColor,
   type Species,
 } from '@/features/packs/constants';
+import { goBack } from '@/lib/navigation';
 import { critterColors, spacing } from '@/theme/tokens';
 
 const STEPS = 4;
@@ -68,7 +69,7 @@ export default function CreatePackScreen() {
     );
   };
 
-  const onBack = () => (step === 1 ? router.back() : setStep(step - 1));
+  const onBack = () => (step === 1 ? goBack('/') : setStep(step - 1));
 
   return (
     <Screen>

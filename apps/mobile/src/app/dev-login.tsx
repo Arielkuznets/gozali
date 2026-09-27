@@ -1,4 +1,3 @@
-import { router } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, StyleSheet, TextInput, View } from 'react-native';
@@ -8,6 +7,7 @@ import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { sendDevCode, verifyDevCode } from '@/features/auth/signIn';
 import { NotConfiguredError } from '@/lib/supabase';
+import { goBack } from '@/lib/navigation';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 /** Development builds only: sign in with an email code before Apple and Google are configured. */
@@ -72,7 +72,7 @@ export default function DevLoginScreen() {
             })}
           />
         )}
-        <Button label={t('devLogin.back')} variant="secondary" onPress={() => router.back()} />
+        <Button label={t('devLogin.back')} variant="secondary" onPress={() => goBack('/welcome')} />
       </View>
     </Screen>
   );

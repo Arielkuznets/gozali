@@ -2,12 +2,13 @@ import * as Clipboard from 'expo-clipboard';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Share, StyleSheet, View } from 'react-native';
+import { Share, StyleSheet, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
+import { LoadingScreen, PackMissingScreen } from '@/components/ScreenStates';
 import { usePack } from '@/features/packs/api';
 import { inviteLink } from '@/features/packs/constants';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
@@ -15,18 +16,11 @@ import { colors, fonts, radii, spacing } from '@/theme/tokens';
 export default function InviteScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: pack } = usePack(id);
+  const { data: pack, isPending } = usePack(id);
   const [copied, setCopied] = useState(false);
 
-  if (!pack) {
-    return (
-      <Screen>
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.accent} />
-        </View>
-      </Screen>
-    );
-  }
+  if (isPending) return <LoadingScreen />;
+  if (!pack) return <PackMissingScreen />;
 
   const link = inviteLink(pack.invite_code);
 
@@ -69,7 +63,6 @@ export default function InviteScreen() {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   body: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
   centerText: { textAlign: 'center' },
   muted: { color: colors.inkMuted, maxWidth: 320 },

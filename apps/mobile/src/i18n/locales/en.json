@@ -31,7 +31,9 @@
     "createPack": "Create a pack",
     "joinPack": "Join with a code",
     "limitReached": "You're in 3 packs, the most for now.",
-    "feedPack": "Feed {{name}}"
+    "feedPack": "Feed {{name}}",
+    "loadFailed": "Your packs didn't load. Check the connection and try again.",
+    "retry": "Try again"
   },
   "errors": {
     "notConfigured": "The app is not connected to the server yet.",
@@ -137,7 +139,12 @@
     "restingToday": "You're resting today.",
     "jokerToday": "Your joker covers today.",
     "pausedToday": "You're on a pause until {{date}}.",
-    "undo": "Undo"
+    "undo": "Undo",
+    "missingTitle": "This pack isn't here",
+    "missingBody": "You may have left it or been removed, or the link is for a pack you're not in.",
+    "backHome": "Back to your packs",
+    "showOlder": "Show older",
+    "memberMenu": "{{name}}"
   },
   "settings": {
     "title": "Pack settings",

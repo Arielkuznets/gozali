@@ -6,6 +6,9 @@ import { useWidgetSync } from '@/features/widgets/sync';
 import { useNotificationRoutes } from '@/lib/notifications';
 import { colors } from '@/theme/tokens';
 
+// A screen opened from a notification, a widget or a link still has the home screen under it.
+export const unstable_settings = { initialRouteName: 'index' };
+
 /** Screens for signed-in users with a finished profile. */
 export default function AppLayout() {
   useFeedQueue();

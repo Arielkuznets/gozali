@@ -10,7 +10,7 @@ type Cell = 'fed' | 'rest' | 'away' | 'missed' | 'none' | 'open' | 'future';
 type Props = {
   month: string;
   results: DayResultRow[];
-  members: Array<{ id: string; name: string | null }>;
+  members: { id: string; name: string | null }[];
   today: string;
   fedToday: Set<string>;
   color: string;
@@ -42,8 +42,8 @@ export function MonthlyBoard({ month, results, members, today, fedToday, color }
   const { t } = useTranslation();
   const days = daysIn(month);
   const byDay = new Map(results.map((result) => [result.day, result]));
-  const cellStyle = (cell: Cell) => [
-    styles.cell,
+  const cellStyle = (cell: Cell, base: object = styles.cell) => [
+    base,
     cell === 'fed' && { backgroundColor: color },
     cell === 'rest' && styles.rest,
     cell === 'away' && styles.away,
@@ -89,7 +89,7 @@ export function MonthlyBoard({ month, results, members, today, fedToday, color }
           ] as const
         ).map(([cell, label]) => (
           <View key={cell} style={styles.legendItem}>
-            <View style={[cellStyle(cell), styles.legendCell]}>{cell === 'missed' && <View style={styles.missedMark} />}</View>
+            <View style={cellStyle(cell, styles.legendCell)}>{cell === 'missed' && <View style={styles.missedMark} />}</View>
             <AppText variant="caption">{label}</AppText>
           </View>
         ))}
@@ -112,5 +112,6 @@ const styles = StyleSheet.create({
   open: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, paddingTop: spacing.sm },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  legendCell: { flex: 0, width: 12, height: 12 },
+  // Its own size, not the grid's flexible square: the legend sits in a row of labels.
+  legendCell: { width: 12, height: 12, borderRadius: 2, backgroundColor: '#F1EAE0', overflow: 'hidden' },
 });

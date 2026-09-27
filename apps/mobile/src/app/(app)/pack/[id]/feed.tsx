@@ -1,7 +1,7 @@
 import { CameraView, useCameraPermissions, type CameraType } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import { Image } from 'expo-image';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -24,9 +24,11 @@ import { Critter } from '@/features/critter/Critter';
 import { critterArt } from '@/features/critter/art';
 import { useSendFeed } from '@/features/feeds/api';
 import { compressPhoto } from '@/features/feeds/send';
+import { clearFocusSession } from '@/features/focus/session';
 import { usePack } from '@/features/packs/api';
 import { categoryInfo } from '@/features/packs/constants';
 import { isBlockedText } from '@/lib/errors';
+import { goBack } from '@/lib/navigation';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 const CAPTION_MAX = 80;
@@ -54,9 +56,9 @@ export default function FeedScreen() {
   // After a successful feed, the critter eats for a moment and the screen closes by itself.
   useEffect(() => {
     if (result !== 'sent') return;
-    const timer = setTimeout(() => router.back(), 2200);
+    const timer = setTimeout(() => goBack(`/pack/${packId}`), 2200);
     return () => clearTimeout(timer);
-  }, [result]);
+  }, [result, packId]);
 
   const capture = async () => {
     if (!camera.current || !ready) return;
@@ -81,6 +83,8 @@ export default function FeedScreen() {
         extra,
       });
       if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // The photo that ends a focus session also ends it, whichever way the camera was opened.
+      if (focusMinutes !== null) await clearFocusSession();
       setResult(outcome);
     } catch (error) {
       Alert.alert(isBlockedText(error) ? t('errors.textNotAllowed') : t('feed.failed'));
@@ -100,7 +104,7 @@ export default function FeedScreen() {
           </AppText>
           {result === 'queued' && <AppText style={[styles.centerText, styles.muted]}>{t('feed.queuedBody')}</AppText>}
         </View>
-        {result === 'queued' && <Button label={t('feed.close')} onPress={() => router.back()} />}
+        {result === 'queued' && <Button label={t('feed.close')} onPress={() => goBack(`/pack/${packId}`)} />}
       </SafeAreaView>
     );
   }
@@ -127,7 +131,7 @@ export default function FeedScreen() {
         ) : (
           <Button label={t('feed.openSettings')} onPress={() => void Linking.openSettings()} />
         )}
-        <Button label={t('feed.close')} variant="secondary" onPress={() => router.back()} />
+        <Button label={t('feed.close')} variant="secondary" onPress={() => goBack(`/pack/${packId}`)} />
       </SafeAreaView>
     );
   }
@@ -167,7 +171,7 @@ export default function FeedScreen() {
   return (
     <SafeAreaView style={styles.dark}>
       <View style={styles.topBar}>
-        <Pressable accessibilityRole="button" accessibilityLabel={t('feed.close')} onPress={() => router.back()} hitSlop={12}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('feed.close')} onPress={() => goBack(`/pack/${packId}`)} hitSlop={12}>
           <AppText style={styles.light}>✕</AppText>
         </Pressable>
         <AppText style={[styles.light, styles.title]} numberOfLines={1}>

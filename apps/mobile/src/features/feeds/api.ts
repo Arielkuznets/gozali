@@ -29,7 +29,7 @@ type CountedFeed = { pack_id: string; user_id: string; day: string };
 
 export const feedsKey = ['feeds'] as const;
 const PHOTO_LINK_SECONDS = 60 * 60;
-const FEED_PAGE = 30;
+export const FEED_PAGE = 30;
 
 /**
  * Counted feeds of the last few days in all of the user's packs. Each pack has its own time
@@ -71,9 +71,9 @@ async function fetchReactions(feedIds: string[]): Promise<Map<string, ReactionTo
 }
 
 /** The pack's feed, newest first, with signed links to the photos and the reactions. */
-export function usePackFeed(packId: string) {
+export function usePackFeed(packId: string, limit = FEED_PAGE) {
   return useQuery({
-    queryKey: [...feedsKey, 'pack', packId],
+    queryKey: [...feedsKey, 'pack', packId, limit],
     // Links last an hour; refetch well before they run out.
     staleTime: (PHOTO_LINK_SECONDS / 2) * 1000,
     queryFn: async (): Promise<FeedItem[]> => {
@@ -83,7 +83,7 @@ export function usePackFeed(packId: string) {
         .select('id, pack_id, user_id, photo_path, caption, day, is_extra, focus_minutes, created_at')
         .eq('pack_id', packId)
         .order('created_at', { ascending: false })
-        .limit(FEED_PAGE);
+        .limit(limit);
       if (error) throw error;
       const paths = data.flatMap((feed) => (feed.photo_path ? [feed.photo_path] : []));
       const links = new Map<string, string>();

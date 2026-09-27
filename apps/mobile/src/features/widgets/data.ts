@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 export type WidgetSnapshot = {
   timezone: string;
   fetchedAt: string;
-  packs: Array<WidgetPack & { imageUrl: string; nightImageUrl: string }>;
+  packs: (WidgetPack & { imageUrl: string; nightImageUrl: string })[];
 };
 
 export const WIDGET_ENDPOINT = `${process.env.EXPO_PUBLIC_SUPABASE_URL ?? ''}/functions/v1/widget-state`;

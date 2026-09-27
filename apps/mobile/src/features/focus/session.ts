@@ -58,6 +58,13 @@ async function save(session: FocusSession | null) {
   else await AsyncStorage.removeItem(STORAGE_KEY);
 }
 
+/** Ends whatever session is stored, from outside the focus screen (the camera after a feed). */
+export async function clearFocusSession(): Promise<void> {
+  const raw = await AsyncStorage.getItem(STORAGE_KEY);
+  await cancelEnd(raw ? (JSON.parse(raw) as FocusSession) : null);
+  await save(null);
+}
+
 /** The one running session (at most one at a time) and its controls. */
 export function useFocusSession(text: { title: string; body: string }) {
   const [session, setSession] = useState<FocusSession | null>(null);
