@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Modal, Platform, Pressable, StyleSheet } from 'react-native';
+import Animated, { Easing, SlideInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/AppText';
@@ -38,9 +39,13 @@ export function ActionMenu({ menu, cancel, onClose }: Props) {
   };
 
   return (
-    <Modal visible={menu !== null} transparent animationType="slide" onRequestClose={onClose} onDismiss={run} statusBarTranslucent>
+    <Modal visible={menu !== null} transparent animationType="fade" onRequestClose={onClose} onDismiss={run} statusBarTranslucent>
       <Pressable accessibilityLabel={cancel} style={styles.backdrop} onPress={onClose} />
-      <View style={[styles.sheet, { paddingBottom: spacing.md + insets.bottom }]} accessibilityRole="menu">
+      {/* The dim background fades in; the sheet slides up over it. */}
+      <Animated.View
+        entering={SlideInDown.duration(240).easing(Easing.out(Easing.cubic))}
+        style={[styles.sheet, { paddingBottom: spacing.md + insets.bottom }]}
+        accessibilityRole="menu">
         {shown && (
           <AppText variant="caption" style={styles.title} numberOfLines={2}>
             {shown.title}
@@ -61,7 +66,7 @@ export function ActionMenu({ menu, cancel, onClose }: Props) {
           style={({ pressed }) => [styles.row, styles.cancel, pressed && styles.pressed]}>
           <AppText style={styles.label}>{cancel}</AppText>
         </Pressable>
-      </View>
+      </Animated.View>
     </Modal>
   );
 }
