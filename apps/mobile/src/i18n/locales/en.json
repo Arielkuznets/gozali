@@ -761,6 +761,10 @@
     "neverDies": {
       "title": "I never die",
       "body": "If nobody feeds me, I go off to find food. Three good days in a row and I come back."
+    },
+    "dressUp": {
+      "title": "Dress me up",
+      "body": "Every good day earns our pack coins, and a longer streak earns more. Spend them on hats, scarves and backgrounds for me."
     }
   },
   "offline": {

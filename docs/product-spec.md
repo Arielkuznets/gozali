@@ -319,7 +319,7 @@ Fourteen screens in version 1, plus widgets for the home screen and the lock scr
 | Screen | What's on it |
 | --- | --- |
 | Welcome | Creature animation, Sign in with Apple and Google buttons |
-| Onboarding | Three cards where the creature explains the rules: feed with a photo, responsible together, and the creature never dies. Can be skipped |
+| Onboarding | Four cards where the creatures explain the rules: feed with a photo, responsible together, the creature never dies, and coins from good days dress it up. Can be skipped |
 | Profile setup | Display name, profile photo (optional), age 13+ declaration and accepting the terms, notification permission request with an explanation |
 | Home | The list of packs: for each pack the creature in its state, a health bar, how many members fed today (3/5) **and a direct Feed button**. A create pack button and join with a code |
 | Join pack | The pack name, the habit, the creature and the members, and a join button. On the first open after installing on iOS: "Have an invite code?" with paste or typing |
