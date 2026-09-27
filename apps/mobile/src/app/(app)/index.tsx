@@ -1,12 +1,11 @@
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { PackCard } from '@/components/PackCard';
 import { Screen } from '@/components/Screen';
-import { signOut } from '@/features/auth/signIn';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { Critter } from '@/features/critter/Critter';
 import { fedToday, useCountedFeeds } from '@/features/feeds/api';
@@ -25,9 +24,6 @@ export default function HomeScreen() {
   usePackRealtime();
   const now = useNow(60_000);
 
-  const onSignOut = () => {
-    signOut().catch(() => Alert.alert(t('errors.signInFailed')));
-  };
 
   const hasPacks = packs !== undefined && packs.length > 0;
   const atLimit = packs !== undefined && packs.length >= PACK_LIMIT;
@@ -36,8 +32,8 @@ export default function HomeScreen() {
     <Screen>
       <View style={styles.header}>
         <AppText variant="heading">{t('home.title')}</AppText>
-        <Pressable accessibilityRole="button" onPress={onSignOut} hitSlop={12}>
-          <AppText variant="caption">{t('home.signOut')}</AppText>
+        <Pressable accessibilityRole="button" onPress={() => router.push('/me')} hitSlop={12}>
+          <AppText variant="caption">{t('me.open')}</AppText>
         </Pressable>
       </View>
 

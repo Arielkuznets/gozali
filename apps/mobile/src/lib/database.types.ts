@@ -407,6 +407,48 @@ export type Database = {
           },
         ];
       };
+      pack_events: {
+        Row: {
+          actor_id: string | null;
+          created_at: string;
+          id: string;
+          kind: Database['public']['Enums']['pack_event_kind'];
+          pack_id: string;
+          payload: NonNullable<Json>;
+        };
+        Insert: {
+          actor_id?: string | null;
+          created_at?: string;
+          id?: string;
+          kind: Database['public']['Enums']['pack_event_kind'];
+          pack_id: string;
+          payload?: NonNullable<Json>;
+        };
+        Update: {
+          actor_id?: string | null;
+          created_at?: string;
+          id?: string;
+          kind?: Database['public']['Enums']['pack_event_kind'];
+          pack_id?: string;
+          payload?: NonNullable<Json>;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'pack_events_actor_id_fkey';
+            columns: ['actor_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'pack_events_pack_id_fkey';
+            columns: ['pack_id'];
+            isOneToOne: false;
+            referencedRelation: 'packs';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       pack_members: {
         Row: {
           awake_since: string | null;
@@ -752,6 +794,7 @@ export type Database = {
       blocked_by_me: { Args: { other_user: string }; Returns: boolean };
       call_close_days: { Args: Record<PropertyKey, never>; Returns: undefined };
       cancel_day_pass: { Args: { target: string }; Returns: undefined };
+      choose_name: { Args: { suggestion: string; target: string }; Returns: undefined };
       create_pack: {
         Args: {
           critter_color: Database['public']['Enums']['critter_color'];
@@ -766,6 +809,7 @@ export type Database = {
       };
       day_close_input: { Args: { pack_date: string; target: string }; Returns: Json };
       day_closes_at: { Args: { pack_date: string; tz: string }; Returns: string };
+      dress_critter: { Args: { item: string; slot: string; target: string }; Returns: undefined };
       end_pause: { Args: { target: string }; Returns: undefined };
       expired_photos: {
         Args: { at_time?: string; max_rows?: number };
@@ -782,16 +826,28 @@ export type Database = {
           total: number;
         }[];
       };
+      feed_reactions: {
+        Args: { feed_ids: string[] };
+        Returns: {
+          emoji: Database['public']['Enums']['reaction_emoji'];
+          feed_id: string;
+          mine: boolean;
+          names: string[];
+          total: number;
+        }[];
+      };
       forget_photos: { Args: { feed_ids: string[] }; Returns: undefined };
       is_pack_member: { Args: { target_pack: string }; Returns: boolean };
       join_pack: { Args: { code: string }; Returns: string };
       leave_pack: { Args: { target: string }; Returns: undefined };
       my_day_status: { Args: { target: string }; Returns: Json };
+      my_stats: { Args: Record<PropertyKey, never>; Returns: Json };
       new_invite_code: { Args: Record<PropertyKey, never>; Returns: string };
       next_week_start: {
         Args: { start: Database['public']['Enums']['week_start']; tz: string };
         Returns: string;
       };
+      nudge: { Args: { member: string; target: string }; Returns: undefined };
       outcome_ids: { Args: { kind: string; outcomes: Json }; Returns: string[] };
       pack_day: { Args: { at_time?: string; tz: string }; Returns: string };
       pack_first_day: { Args: { target: string }; Returns: string };
@@ -827,6 +883,10 @@ export type Database = {
           time_zone: string;
         }[];
       };
+      react: {
+        Args: { emoji: Database['public']['Enums']['reaction_emoji']; target_feed: string };
+        Returns: undefined;
+      };
       remove_member: { Args: { member: string; target: string }; Returns: undefined };
       require_admin: { Args: { target: string }; Returns: string };
       require_membership: { Args: { member: string; target: string }; Returns: string };
@@ -848,6 +908,7 @@ export type Database = {
         };
         Returns: string;
       };
+      suggest_name: { Args: { suggested: string; target: string }; Returns: string };
       update_pack: {
         Args: {
           pack_name: string;
@@ -860,6 +921,10 @@ export type Database = {
       use_day_pass: {
         Args: { pass: Database['public']['Enums']['day_pass_kind']; target: string };
         Returns: undefined;
+      };
+      wardrobe_achievement: {
+        Args: { item: string; slot: string };
+        Returns: Database['public']['Enums']['achievement_key'];
       };
     };
     Enums: {
@@ -895,6 +960,16 @@ export type Database = {
         | 'evolution'
         | 'still_in'
         | 'weekly_recap';
+      pack_event_kind:
+        | 'joined'
+        | 'hatched'
+        | 'evolved'
+        | 'ran_away'
+        | 'returned'
+        | 'achievement'
+        | 'joker'
+        | 'dressed'
+        | 'named';
       push_platform: 'ios' | 'android';
       reaction_emoji: 'fire' | 'muscle' | 'laugh' | 'clap' | 'suspicious';
       week_start: 'sunday' | 'monday';
@@ -1045,6 +1120,17 @@ export const Constants = {
         'evolution',
         'still_in',
         'weekly_recap',
+      ],
+      pack_event_kind: [
+        'joined',
+        'hatched',
+        'evolved',
+        'ran_away',
+        'returned',
+        'achievement',
+        'joker',
+        'dressed',
+        'named',
       ],
       push_platform: ['ios', 'android'],
       reaction_emoji: ['fire', 'muscle', 'laugh', 'clap', 'suspicious'],

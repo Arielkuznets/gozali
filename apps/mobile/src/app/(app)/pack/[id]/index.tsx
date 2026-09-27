@@ -1,7 +1,7 @@
 import { dayEnd, packDayOf } from '@gozali/game-engine';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
@@ -14,10 +14,20 @@ import { critterArt, stageProgress } from '@/features/critter/art';
 import { useCritterText } from '@/features/critter/useCritterText';
 import { useDayStatus, useTodayPasses, type TodayPasses } from '@/features/days/api';
 import { FeedList } from '@/features/feeds/FeedList';
-import { fedToday, useCountedFeeds, usePackFeed, usePendingFeeds } from '@/features/feeds/api';
+import { fedToday, useCountedFeeds, usePackFeed, usePendingFeeds, type FeedItem } from '@/features/feeds/api';
 import { currentMembers, usePack, type Pack, type PackCritter, type PackMember } from '@/features/packs/api';
 import { PACK_SIZE_MAX, categoryInfo } from '@/features/packs/constants';
 import { usePackRealtime } from '@/features/packs/realtime';
+import { NameMeCard } from '@/features/social/NameMeCard';
+import {
+  socialErrorKey,
+  useBlock,
+  useNudge,
+  usePackEvents,
+  useReact,
+  useReport,
+  type ReactionKey,
+} from '@/features/social/api';
 import { formatDay } from '@/lib/dates';
 import { useNow } from '@/lib/useNow';
 import { colors, critterColors, fonts, spacing } from '@/theme/tokens';
@@ -33,6 +43,11 @@ export default function PackScreen() {
   const now = useNow(30_000);
   const passes = useTodayPasses(pack, now);
   const dayStatus = useDayStatus(id);
+  const events = usePackEvents(id);
+  const react = useReact();
+  const nudge = useNudge(id);
+  const report = useReport();
+  const block = useBlock();
   usePackRealtime(id);
 
   if (isPending || !pack) {
@@ -56,6 +71,65 @@ export default function PackScreen() {
   const names = new Map(pack.pack_members.map((member) => [member.user_id, member.profiles?.display_name ?? null]));
   const focusable = pack.category === 'study' || pack.category === 'reading';
   const pendingCount = pending.data?.length ?? 0;
+  const userId = session?.user.id;
+  const critterName = pack.critters?.name ?? (pack.critters ? t(`packs.species.${pack.critters.species}`) : '');
+  const admin = members.find((member) => member.role === 'admin');
+  const isAdmin = admin?.user_id === userId;
+  const fail = (error: unknown) => Alert.alert(t(socialErrorKey(error)));
+
+  const onNudge = (member: { id: string; name: string | null }) => {
+    const name = member.name ?? '…';
+    Alert.alert(t('social.nudgeTitle', { name }), t('social.nudgeBody', { critter: critterName }), [
+      { text: t('social.cancel'), style: 'cancel' },
+      {
+        text: t('social.nudge'),
+        onPress: () => nudge.mutate(member.id, { onSuccess: () => Alert.alert(t('social.nudged')), onError: fail }),
+      },
+    ]);
+  };
+
+  const onReact = (item: FeedItem, emoji: ReactionKey | null) => react.mutate({ feedId: item.id, emoji }, { onError: fail });
+
+  const onMore = (item: FeedItem) => {
+    if (!userId) return;
+    const name = names.get(item.user_id) ?? '…';
+    Alert.alert(name, undefined, [
+      {
+        text: t('social.report'),
+        onPress: () =>
+          Alert.alert(t('social.reportTitle'), t('social.reportBody'), [
+            { text: t('social.cancel'), style: 'cancel' },
+            {
+              text: t('social.report'),
+              style: 'destructive',
+              onPress: () =>
+                report.mutate(
+                  { feedId: item.id, reporterId: userId, reason: null },
+                  { onSuccess: () => Alert.alert(t('social.reported')), onError: fail },
+                ),
+            },
+          ]),
+      },
+      {
+        text: t('social.block', { name }),
+        style: 'destructive',
+        onPress: () =>
+          Alert.alert(t('social.blockTitle', { name }), t('social.blockBody'), [
+            { text: t('social.cancel'), style: 'cancel' },
+            {
+              text: t('social.block', { name }),
+              style: 'destructive',
+              onPress: () =>
+                block.mutate(
+                  { blockerId: userId, blockedId: item.user_id },
+                  { onSuccess: () => Alert.alert(t('social.blockedLeave')), onError: fail },
+                ),
+            },
+          ]),
+      },
+      { text: t('social.cancel'), style: 'cancel' },
+    ]);
+  };
 
   return (
     <Screen>
@@ -103,7 +177,13 @@ export default function PackScreen() {
             id: member.user_id,
             name: member.profiles?.display_name ?? null,
             state: memberState(member, fed, today),
+            nudgeable:
+              member.user_id !== userId &&
+              !fed.has(member.user_id) &&
+              !today.passes.has(member.user_id) &&
+              !today.paused.has(member.user_id),
           }))}
+          onNudge={onNudge}
         />
         {pendingCount > 0 && (
           <AppText variant="caption" style={styles.centerText}>
@@ -112,7 +192,28 @@ export default function PackScreen() {
         )}
 
         <AppText variant="heading">{t('pack.feedTitle')}</AppText>
-        {feed.data && <FeedList feeds={feed.data} names={names} emoji={categoryInfo(pack.category).emoji} now={now} />}
+        {pack.critters?.status === 'active' && pack.critters.name === null && (
+          <NameMeCard
+            packId={id}
+            critter={critterName}
+            isAdmin={isAdmin}
+            adminName={admin?.profiles?.display_name ?? '…'}
+            names={names}
+          />
+        )}
+        {feed.data && (
+          <FeedList
+            feeds={feed.data}
+            events={events.data ?? []}
+            names={names}
+            critterName={critterName}
+            emoji={categoryInfo(pack.category).emoji}
+            now={now}
+            userId={userId}
+            onReact={onReact}
+            onMore={onMore}
+          />
+        )}
       </ScrollView>
 
       <View style={styles.actions}>
@@ -178,7 +279,12 @@ function CritterPanel({ pack, critter, memberCount, mood, now }: PanelProps) {
   return (
     <View style={styles.critter}>
       <Critter art={art} size={220} label={text.label} lines={text.lines} petHint={t('critter.petHint')} />
-      <AppText variant="heading">{text.name}</AppText>
+      <Pressable accessibilityRole="link" onPress={() => router.push(`/pack/${pack.id}/critter`)} hitSlop={8}>
+        <AppText variant="heading">{text.name}</AppText>
+        <AppText variant="caption" style={styles.centerText}>
+          {t('profile.open')} ›
+        </AppText>
+      </Pressable>
 
       {art.look === 'egg' && (
         <AppText style={[styles.centerText, styles.muted]}>

@@ -419,7 +419,7 @@ The pilot is in English, and the public launch is in English and Hebrew. The tra
 
 ## 13. Data model
 
-Eighteen tables in Postgres (Supabase). All access is protected with Row Level Security: a user sees only data of packs they are a member of, in any status except left (so also while paused or asleep).
+Nineteen tables in Postgres (Supabase). All access is protected with Row Level Security: a user sees only data of packs they are a member of, in any status except left (so also while paused or asleep).
 
 | Table | Main fields |
 | --- | --- |
@@ -438,6 +438,7 @@ Eighteen tables in Postgres (Supabase). All access is protected with Row Level S
 | weekly\_recaps | pack\_id, week\_start, stats (jsonb), feed\_ids, created\_at |
 | reports | id, feed\_id, reporter\_id, reason, created\_at, handled\_at |
 | blocks | blocker\_id, blocked\_id, created\_at |
+| pack\_events | id, pack\_id, kind (joined / hatched / evolved / ran\_away / returned / achievement / joker / dressed / named), actor\_id, payload (jsonb), created\_at. The system lines in the feed, written by triggers (decision D14) |
 | notifications | id, user\_id, pack\_id, type, payload (jsonb), status (pending / sent / dropped), send\_after, created\_at, sent\_at |
 | push\_tokens | user\_id, token, platform, updated\_at |
 | widget\_tokens | id, user\_id, token\_hash, created\_at, last\_used\_at |
@@ -494,7 +495,11 @@ Important: Rive, the widgets and some of the modules require a **development bui
   - `remove_member` (admin).
   - `leave_pack`: leaving, including passing admin to the longest-standing member.
   - `use_day_pass` (joker or declaring a rest, today only) and `cancel_day_pass`; `start_pause` and `end_pause`; `my_day_status` (rest days left this week, the month's joker, today's pass, the current pause and when the next one is allowed).
-  - `nudge`, `react`, `dress_critter`, `suggest_name`, `choose_name`: each with its own checks and limits.
+  - `react` (one reaction per member per item, changeable) and `feed_reactions` (totals for a page of items, names for every emoji but 🤨).
+  - `nudge`: one a day per pair, never to someone who fed, rests, is on a joker or a pause today, or who blocked the sender; writes a notification.
+  - `suggest_name` (up to 3 per member, only while the hatched critter has no name) and `choose_name` (admin).
+  - `dress_critter`: any member, one unlocked item per slot.
+  - `my_stats`: the Me screen (total feeds, current and best personal streak, the last weeks).
 - **Edge Functions:**
   - `close-days`: runs every 15 minutes. **State-based, not time-based:** for every pack it runs game-engine on every day that has ended (including the grace window) and has no day\_results row yet, in order, and applies each result through one Postgres function (`apply_day_result`). The function checks that the day isn't closed yet and that the previous day is, and writes in one transaction the day\_results row, the creature, the members' state, the achievements and the notifications. Idempotent, and it takes "now" as a parameter so it can be tested without waiting for the end of the day. The database gathers each day's input (`day_close_input`: members with their feed, pass, pause, rest days used and recent misses, the critter, and the pack totals for achievements), the function runs game-engine on it, and `apply_day_result` writes the outcome. The same run deletes photo files older than 30 days (`expired_photos`, then `forget_photos`).
   - `weekly-recap`: creates the recap data at the end of each pack's week and saves it in weekly\_recaps.

@@ -7,6 +7,7 @@ import { AppState } from 'react-native';
 import type { Pack } from '@/features/packs/api';
 import { enqueue, flushQueue, isOnline, pendingFeeds } from '@/features/feeds/queue';
 import { PHOTO_BUCKET, feedErrorCode, isFinalRejection, sendFeed, type OutgoingFeed } from '@/features/feeds/send';
+import type { ReactionTotal } from '@/features/social/api';
 import { requireSupabase } from '@/lib/supabase';
 
 export type FeedItem = {
@@ -21,6 +22,7 @@ export type FeedItem = {
   created_at: string;
   /** Short-lived signed link; null once the photo was deleted after 30 days. */
   photoUrl: string | null;
+  reactions: ReactionTotal[];
 };
 
 type CountedFeed = { pack_id: string; user_id: string; day: string };
@@ -55,7 +57,20 @@ export function fedToday(feeds: CountedFeed[] | undefined, pack: Pick<Pack, 'id'
   return new Set((feeds ?? []).filter((feed) => feed.pack_id === pack.id && feed.day === today).map((feed) => feed.user_id));
 }
 
-/** The pack's feed, newest first, with signed links to the photos. */
+async function fetchReactions(feedIds: string[]): Promise<Map<string, ReactionTotal[]>> {
+  const byFeed = new Map<string, ReactionTotal[]>();
+  if (feedIds.length === 0) return byFeed;
+  const { data, error } = await requireSupabase().rpc('feed_reactions', { feed_ids: feedIds });
+  if (error) throw error;
+  for (const row of data) {
+    const list = byFeed.get(row.feed_id) ?? [];
+    list.push({ emoji: row.emoji, total: Number(row.total), mine: row.mine, names: row.names });
+    byFeed.set(row.feed_id, list);
+  }
+  return byFeed;
+}
+
+/** The pack's feed, newest first, with signed links to the photos and the reactions. */
 export function usePackFeed(packId: string) {
   return useQuery({
     queryKey: [...feedsKey, 'pack', packId],
@@ -72,12 +87,17 @@ export function usePackFeed(packId: string) {
       if (error) throw error;
       const paths = data.flatMap((feed) => (feed.photo_path ? [feed.photo_path] : []));
       const links = new Map<string, string>();
+      const reactions = await fetchReactions(data.map((feed) => feed.id));
       if (paths.length > 0) {
         const signed = await supabase.storage.from(PHOTO_BUCKET).createSignedUrls(paths, PHOTO_LINK_SECONDS);
         if (signed.error) throw signed.error;
         for (const item of signed.data) if (item.path && item.signedUrl) links.set(item.path, item.signedUrl);
       }
-      return data.map((feed) => ({ ...feed, photoUrl: feed.photo_path ? (links.get(feed.photo_path) ?? null) : null }));
+      return data.map((feed) => ({
+        ...feed,
+        photoUrl: feed.photo_path ? (links.get(feed.photo_path) ?? null) : null,
+        reactions: reactions.get(feed.id) ?? [],
+      }));
     },
   });
 }
