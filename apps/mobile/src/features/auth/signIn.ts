@@ -65,6 +65,17 @@ export async function verifyDevCode(email: string, token: string): Promise<void>
   if (error) throw error;
 }
 
+/** Deletes the account and its data on the server (spec section 11), then forgets it here. */
+export async function deleteAccount(): Promise<void> {
+  const supabase = requireSupabase();
+  const { error } = await supabase.functions.invoke('delete-account', { method: 'POST' });
+  if (error) throw error;
+  // The server already removed the tokens with the account; this clears what the device keeps.
+  await unregisterPushToken().catch(() => undefined);
+  await clearWidgets().catch(() => undefined);
+  await supabase.auth.signOut({ scope: 'local' });
+}
+
 export async function signOut(): Promise<void> {
   await unregisterPushToken().catch(() => undefined);
   await clearWidgets().catch(() => undefined);

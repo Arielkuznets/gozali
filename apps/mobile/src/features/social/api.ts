@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { feedsKey } from '@/features/feeds/api';
 import { packsKey } from '@/features/packs/api';
+import { isBlockedText } from '@/lib/errors';
 import { requireSupabase } from '@/lib/supabase';
 
 export const REACTIONS = [
@@ -219,5 +220,6 @@ export function socialErrorKey(error: unknown) {
   ] as const) {
     if (message.includes(code)) return `social.errors.${code}` as const;
   }
+  if (isBlockedText(error)) return 'errors.textNotAllowed' as const;
   return 'errors.saveFailed' as const;
 }

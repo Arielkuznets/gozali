@@ -93,3 +93,9 @@ Each entry: what was decided, what the options were, and why. Decisions D1–D11
 - **Decided:** the widgets draw the critter with the same code as the app. `widget-state` renders it to PNG with resvg (WebAssembly) for the iOS widget, in a day and a night version with a versioned address so the widget can cache it; the Android widget receives the drawing input and renders the SVG itself (`SvgWidget`).
 - **Options:** image files exported per species, stage, state and color with the wardrobe layered on top (spec section 10, step 4); the app saving screenshots of the critter into the App Group; drawing the critter again in SwiftUI.
 - **Why:** the exported set would be hundreds of files for the temporary character, and redone for the final one. App screenshots go stale overnight, when the day close changes the critter and the app isn't running. A second drawing in Swift would drift from the app. Rendering on the server keeps one drawing, and it costs one small image per pack per change. When the illustrated critter arrives, only the drawing function changes.
+
+## D17 · Moderation before the developer looks
+
+- **Decided:** a blocked-word check in the database on every text members write (captions, pack, critter and member names, habit texts, name suggestions), with the list kept in a table; every report emails the developer; the third report on the same photo hides it until the developer reviews it.
+- **Options:** filtering only in the app; hiding on the first report; waiting for the developer on every report.
+- **Why:** the store requires filtering and fast handling of reports (spec section 11). A check in the database can't be skipped by an old app version or a crafted request, and a table lets new words go in without a release. Hiding on the first report would let one member silence another; three independent reports mean the pack agrees something is wrong, and the developer still reviews within 24 hours.

@@ -1,6 +1,7 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Platform, StyleSheet, View } from 'react-native';
 
@@ -9,6 +10,7 @@ import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { isCancellation, signInWithApple, signInWithBrowser } from '@/features/auth/signIn';
 import { Critter } from '@/features/critter/Critter';
+import { ONBOARDED_KEY } from '@/features/profile/onboarding';
 import { NotConfiguredError } from '@/lib/supabase';
 import { critterColors, radii, spacing } from '@/theme/tokens';
 
@@ -17,6 +19,13 @@ type Provider = 'apple' | 'google';
 export default function WelcomeScreen() {
   const { t } = useTranslation();
   const [busy, setBusy] = useState<Provider | null>(null);
+
+  // The rules come first, once per install.
+  useEffect(() => {
+    void AsyncStorage.getItem(ONBOARDED_KEY).then((done) => {
+      if (!done) router.replace('/onboarding');
+    });
+  }, []);
 
   const run = async (provider: Provider) => {
     setBusy(provider);

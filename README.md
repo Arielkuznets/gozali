@@ -7,6 +7,7 @@ Gozali (Hebrew for "my little chick") is a mobile app where a small group of fri
 - [Product spec](docs/product-spec.md)
 - [Decision log](docs/decisions.md)
 - [Simulation results](docs/simulation.md)
+- [Privacy policy](docs/legal/privacy-policy.md) and [terms of use](docs/legal/terms-of-use.md) (drafts for the pilot)
 
 ## Code
 
@@ -32,6 +33,8 @@ npm run smoke:critter  # a critter change reaches pack members live, and only th
 npm run smoke:feeds    # upload, feed, live update and photo access for members only (same keys)
 npm run smoke:day-close  # six days closed by the real close-days code: hatching, joker, sleep (same keys)
 npm run smoke:push       # friend-fed merging, "last one", the critter's lines and dead tokens, with a stand-in for Expo Push
+npm run smoke:widgets    # the widget token and endpoint (needs `npx supabase functions serve`)
+npm run smoke:delete-account  # account deletion end to end (needs `npx supabase functions serve`)
 ```
 
 ```sh
@@ -52,4 +55,5 @@ npm run sim         # simulator, see docs/simulation.md
 cd packages/critter-art
 npm test                           # every combination renders valid SVG
 npm run preview -- critters.html   # contact sheet of all states, stages and items
+npm run icons                      # redraw the app icons in apps/mobile/assets/images from the critter
 ```

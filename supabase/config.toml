@@ -435,3 +435,7 @@ verify_jwt = false
 [functions.widget-state]
 # Widgets authenticate with their own read-only token (x-widget-token), not a user session.
 verify_jwt = false
+
+[functions.on-report]
+# Called by the report trigger through pg_net with the shared secret (x-cron-secret).
+verify_jwt = false

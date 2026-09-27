@@ -54,7 +54,11 @@ export async function sendFeed(feed: OutgoingFeed): Promise<string> {
     focus: feed.focusMinutes ?? undefined,
     extra: feed.extra,
   });
-  if (error) throw error;
+  if (error) {
+    // Turned down for good (for example a blocked word): don't leave the file behind.
+    if (isFinalRejection(error)) await supabase.storage.from(PHOTO_BUCKET).remove([path]);
+    throw error;
+  }
   return data;
 }
 
