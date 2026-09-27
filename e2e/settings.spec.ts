@@ -32,6 +32,6 @@ test('the rules can be read again from the settings', async ({ page }) => {
   await page.goto('/settings');
   await page.getByRole('link', { name: 'How Gozali works' }).click();
   await expect(page.getByText('Feed me with a photo')).toBeVisible();
-  await page.getByRole('button', { name: 'Skip' }).click();
+  await page.getByRole('button', { name: 'Close' }).click();
   await expect(page).toHaveURL(/\/settings$/);
 });
