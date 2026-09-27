@@ -13,7 +13,7 @@ Everything runs locally without accounts (see the README). This is the one-time 
    npx supabase db push
    ```
 
-3. Deploy the functions. They import `packages/game-engine` and `packages/critter-art` from outside `supabase/functions` (decisions D13 and D16). `npm run functions:bundle` already bundles them with the deploy bundler; if the deploy still can't find those files, copy the packages into `supabase/functions/_shared` and point the imports there.
+3. Deploy the functions. They import `packages/game-engine` and `packages/critter-art` from outside `supabase/functions` (decisions D13 and D16). The deploy bundles them (confirmed on the first deploy), and `npm run functions:bundle` checks the same bundling in CI.
 
    ```sh
    npx supabase functions deploy close-days send-push widget-state on-report delete-account
