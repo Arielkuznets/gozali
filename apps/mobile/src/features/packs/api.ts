@@ -71,6 +71,11 @@ export function currentMembers(pack: Pack): PackMember[] {
     .sort((a, b) => a.joined_at.localeCompare(b.joined_at));
 }
 
+/** Members who count today, as in "3/5 fed" here and on the widget: not asleep and not paused. */
+export function countedToday(pack: Pack, paused: ReadonlySet<string>): PackMember[] {
+  return currentMembers(pack).filter((member) => member.status === 'active' && !paused.has(member.user_id));
+}
+
 export function useMyPacks() {
   return useQuery({
     queryKey: packsKey,
