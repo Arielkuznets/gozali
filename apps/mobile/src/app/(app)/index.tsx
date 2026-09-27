@@ -82,7 +82,7 @@ export default function HomeScreen() {
       ) : (
         <View style={styles.center}>
           <Critter
-            art={{ species: 'blob', color: critterColors.butter, stage: 'egg', look: 'egg' }}
+            art={{ species: 'mochi', color: critterColors.mochi, stage: 'egg', look: 'egg' }}
             size={140}
             label={t('home.eggLabel')}
           />

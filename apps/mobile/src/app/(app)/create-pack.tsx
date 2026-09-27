@@ -12,13 +12,11 @@ import { Critter } from '@/features/critter/Critter';
 import { packErrorKey, useCreatePack } from '@/features/packs/api';
 import {
   CATEGORIES,
-  CRITTER_COLORS,
   CUSTOM_HABIT_MAX,
   PACK_NAME_MAX,
   REST_DAYS_MAX,
   SPECIES,
   type Category,
-  type CritterColor,
   type Species,
 } from '@/features/packs/constants';
 import { goBack } from '@/lib/navigation';
@@ -34,8 +32,7 @@ export default function CreatePackScreen() {
   const [category, setCategory] = useState<Category>('gym');
   const [customHabit, setCustomHabit] = useState('');
   const [restDays, setRestDays] = useState(3);
-  const [species, setSpecies] = useState<Species>('blob');
-  const [color, setColor] = useState<CritterColor>('peach');
+  const [species, setSpecies] = useState<Species>('mochi');
 
   const pickCategory = (key: Category, defaultRestDays: number) => {
     setCategory(key);
@@ -60,7 +57,6 @@ export default function CreatePackScreen() {
         customHabit: category === 'custom' ? customHabit.trim() : null,
         restDays,
         species,
-        color,
       },
       {
         onSuccess: (packId) => router.replace(`/pack/${packId}/invite`),
@@ -141,31 +137,24 @@ export default function CreatePackScreen() {
             <AppText variant="heading">{t('create.eggTitle')}</AppText>
             <View style={styles.row}>
               {SPECIES.map((item) => (
-                <Choice
-                  key={item}
-                  label={t(`packs.species.${item}`)}
-                  selected={species === item}
-                  onPress={() => setSpecies(item)}>
-                  <Critter
-                    art={{ species: item, color: critterColors[color], stage: 'kid', look: 'happy' }}
-                    size={72}
-                    label={t(`packs.species.${item}`)}
-                    animated={false}
-                  />
-                  <AppText variant="caption">{t(`packs.species.${item}`)}</AppText>
-                </Choice>
-              ))}
-            </View>
-            <AppText variant="heading">{t('create.colorTitle')}</AppText>
-            <View style={styles.row}>
-              {CRITTER_COLORS.map((item) => (
-                <Choice
-                  key={item}
-                  label={t(`packs.colors.${item}`)}
-                  selected={color === item}
-                  onPress={() => setColor(item)}>
-                  <View style={[styles.swatch, { backgroundColor: critterColors[item] }]} />
-                </Choice>
+                <View key={item} style={styles.creature}>
+                  <Choice
+                    label={`${t(`packs.species.${item}`)}, ${t(`packs.personality.${item}`)}`}
+                    selected={species === item}
+                    onPress={() => setSpecies(item)}
+                    style={styles.fill}>
+                    <Critter
+                      art={{ species: item, color: critterColors[item], stage: 'adult', look: 'happy' }}
+                      size={96}
+                      label={t(`packs.species.${item}`)}
+                      animated={false}
+                    />
+                    <AppText>{t(`packs.species.${item}`)}</AppText>
+                    <AppText variant="caption" style={styles.centerText}>
+                      {t(`packs.personality.${item}`)}
+                    </AppText>
+                  </Choice>
+                </View>
               ))}
             </View>
           </>
@@ -191,6 +180,8 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   emoji: { fontSize: 24 },
-  swatch: { width: 28, height: 28, borderRadius: 14 },
+  creature: { width: '31%' },
+  fill: { flex: 1 },
+  centerText: { textAlign: 'center' },
   actions: { gap: spacing.sm },
 });

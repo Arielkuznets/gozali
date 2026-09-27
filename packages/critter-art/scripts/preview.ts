@@ -1,68 +1,44 @@
-// Writes an HTML contact sheet of critters for eyeballing the drawings:
+// Writes an HTML contact sheet of every creature in every state, for eyeballing the drawings:
 // node scripts/preview.ts [output.html]
 import { writeFileSync } from 'node:fs';
 
-import { CRITTER_PALETTE, renderCritter, type CritterArt } from '../src/index.ts';
+import { CREATURE_COLORS, CREATURES, renderCritter, type CritterArt } from '../src/index.ts';
 
-const species = ['blob', 'spark', 'mossy'] as const;
-const looks = ['thriving', 'happy', 'hungry', 'weak', 'sick'] as const;
-const stages = ['baby', 'kid', 'teen', 'adult', 'legend'] as const;
-const colors = Object.values(CRITTER_PALETTE);
+type State = Omit<CritterArt, 'species' | 'color'>;
 
-const rows: { title: string; items: { label: string; art: CritterArt }[] }[] = [
-  {
-    title: 'Health states (adult)',
-    items: species.flatMap((s, i) =>
-      looks.map((look) => ({ label: `${s} ${look}`, art: { species: s, color: colors[i] ?? '#F6C9A8', stage: 'adult', look } })),
-    ),
-  },
-  {
-    title: 'Stages',
-    items: species.flatMap((s, i) =>
-      stages.map((stage) => ({ label: `${s} ${stage}`, art: { species: s, color: colors[i + 3] ?? '#F6C9A8', stage, look: 'happy' } })),
-    ),
-  },
-  {
-    title: 'Moments',
-    items: [
-      { label: 'egg', art: { species: 'blob', color: colors[0]!, stage: 'egg', look: 'egg' } },
-      { label: 'egg cracking', art: { species: 'blob', color: colors[3]!, stage: 'egg', look: 'egg', cracking: true } },
-      { label: 'ran away', art: { species: 'blob', color: colors[0]!, stage: 'kid', look: 'ran_away' } },
-      { label: 'sleeping', art: { species: 'spark', color: colors[3]!, stage: 'teen', look: 'happy', sleeping: true } },
-      { label: 'blinking', art: { species: 'mossy', color: colors[2]!, stage: 'teen', look: 'happy', blinking: true } },
-      { label: 'hungry, all fed', art: { species: 'spark', color: colors[4]!, stage: 'kid', look: 'hungry', mood: 1 } },
-      { label: 'happy, half fed', art: { species: 'mossy', color: colors[1]!, stage: 'kid', look: 'happy', mood: 0.5 } },
-      { label: 'holiday', art: { species: 'spark', color: colors[0]!, stage: 'teen', look: 'happy', holiday: true } },
-      { label: 'looking left', art: { species: 'blob', color: colors[3]!, stage: 'teen', look: 'happy', gaze: { x: -1, y: 0.3 } } },
-      { label: 'holiday mossy', art: { species: 'mossy', color: colors[2]!, stage: 'adult', look: 'thriving', holiday: true } },
-    ],
-  },
-  {
-    title: 'Wardrobe, habit items and marks',
-    items: [
-      { label: 'beanie + scarf + gym', art: { species: 'blob', color: colors[0]!, stage: 'teen', look: 'happy', outfit: { head: 'beanie', neck: 'scarf' }, categoryItem: 'dumbbell' } },
-      { label: 'flower crown + bow tie + reading', art: { species: 'spark', color: colors[4]!, stage: 'adult', look: 'thriving', outfit: { head: 'flower_crown', neck: 'bow_tie' }, categoryItem: 'glasses' } },
-      { label: 'sun hat + sunrise + running', art: { species: 'mossy', color: colors[1]!, stage: 'adult', look: 'happy', outfit: { head: 'sun_hat', background: 'sunrise' }, categoryItem: 'sneakers' } },
-      { label: 'headlamp + cape + study', art: { species: 'blob', color: colors[3]!, stage: 'adult', look: 'happy', outfit: { head: 'headlamp', neck: 'cape', background: 'space' }, categoryItem: 'headphones' } },
-      { label: 'halo + park + water', art: { species: 'spark', color: colors[2]!, stage: 'legend', look: 'thriving', outfit: { head: 'halo', background: 'park' }, categoryItem: 'bottle' } },
-      { label: 'party + medal + bandage', art: { species: 'mossy', color: colors[5]!, stage: 'adult', look: 'happy', outfit: { background: 'party', neck: 'scarf' }, marks: ['medal', 'bandage'] } },
-      { label: 'sick with outfit', art: { species: 'blob', color: colors[0]!, stage: 'adult', look: 'sick', outfit: { head: 'beanie', neck: 'scarf' }, marks: ['bandage'] } },
-    ],
-  },
+const columns: [string, State][] = [
+  ['egg', { stage: 'egg', look: 'egg' }],
+  ['cracking', { stage: 'egg', look: 'egg', cracking: true }],
+  ['baby', { stage: 'baby', look: 'happy' }],
+  ['kid, all fed', { stage: 'kid', look: 'happy', mood: 1 }],
+  ['teen thriving', { stage: 'teen', look: 'thriving' }],
+  ['hungry', { stage: 'adult', look: 'hungry' }],
+  ['weak', { stage: 'adult', look: 'weak' }],
+  ['sick', { stage: 'adult', look: 'sick' }],
+  ['asleep', { stage: 'adult', look: 'happy', sleeping: true }],
+  ['yawn', { stage: 'adult', look: 'happy', yawning: true }],
+  ['looking left', { stage: 'adult', look: 'happy', gaze: { x: -1, y: 0.3 } }],
+  ['beanie, scarf, reading', { stage: 'adult', look: 'happy', outfit: { head: 'beanie', neck: 'scarf' }, categoryItem: 'glasses' }],
+  ['sun hat, bow tie, gym', { stage: 'adult', look: 'happy', outfit: { head: 'sun_hat', neck: 'bow_tie' }, categoryItem: 'dumbbell' }],
+  ['crown, park, study', { stage: 'teen', look: 'happy', outfit: { head: 'flower_crown', background: 'park' }, categoryItem: 'headphones' }],
+  ['headlamp, space, water', { stage: 'adult', look: 'happy', outfit: { head: 'headlamp', background: 'space' }, categoryItem: 'bottle' }],
+  ['legend: halo, cape, marks', { stage: 'legend', look: 'thriving', outfit: { head: 'halo', neck: 'cape' }, marks: ['medal', 'bandage'] }],
+  ['holiday, running', { stage: 'adult', look: 'happy', holiday: true, categoryItem: 'sneakers' }],
+  ['ran away', { stage: 'adult', look: 'ran_away' }],
 ];
 
 const html = `<!doctype html><meta charset="utf-8"><title>Critters</title>
-<style>body{font-family:system-ui;background:#FBF6EE;color:#3B2F2A;margin:16px}h2{font-size:15px;margin:18px 0 6px}
-.row{display:flex;flex-wrap:wrap;gap:10px}figure{margin:0;width:130px;text-align:center;font-size:11px}
-figure div{width:130px;height:130px;background:#FFFDF9;border-radius:14px}svg{width:130px;height:130px}</style>
-${rows
-  .map(
-    (row) =>
-      `<h2>${row.title}</h2><div class="row">${row.items
-        .map((item) => `<figure><div>${renderCritter(item.art)}</div><figcaption>${item.label}</figcaption></figure>`)
-        .join('')}</div>`,
-  )
-  .join('')}`;
+<style>body{font-family:system-ui;background:#FBF6EE;color:#3B2F2A;margin:16px}table{border-spacing:6px}
+th{font-weight:500;color:#7A6A60;font-size:11px;width:120px}td{background:#F1E7DA;border-radius:14px;width:120px;height:120px;text-align:center}
+td.name{background:none;width:60px;font-size:14px}svg{width:116px;height:116px}</style>
+<table><tr><th></th>${columns.map(([label]) => `<th>${label}</th>`).join('')}</tr>
+${CREATURES.map(
+  (species) =>
+    `<tr><td class="name">${species}</td>${columns
+      .map(([, state]) => `<td>${renderCritter({ species, color: CREATURE_COLORS[species], ...state })}</td>`)
+      .join('')}</tr>`,
+).join('\n')}
+</table>`;
 
 const output = process.argv[2] ?? 'critters.html';
 writeFileSync(output, html);

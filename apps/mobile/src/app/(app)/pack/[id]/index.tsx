@@ -198,7 +198,7 @@ export default function PackScreen() {
           <AppText variant="caption">{t('pack.fedCount', { fed: fedCount, total: awake.length })}</AppText>
         </View>
         <MemberCircles
-          color={pack.critters ? critterColors[pack.critters.color] : colors.accent}
+          color={pack.critters ? critterColors[pack.critters.species] : colors.accent}
           members={members.map((member) => ({
             id: member.user_id,
             name: member.profiles?.display_name ?? null,

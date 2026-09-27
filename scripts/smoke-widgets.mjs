@@ -36,8 +36,7 @@ const { data: packId } = await noa.client.rpc('create_pack', {
   pack_name: 'Gym squad',
   habit: 'gym',
   rest_days: 2,
-  species: 'spark',
-  critter_color: 'blush',
+  species: 'kit',
   time_zone: 'Asia/Jerusalem',
 });
 const { data: pack } = await noa.client.from('packs').select('invite_code').eq('id', packId).single();

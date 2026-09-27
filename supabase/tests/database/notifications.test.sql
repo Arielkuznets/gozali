@@ -18,8 +18,8 @@ insert into public.push_tokens (token, user_id, platform) values
 
 insert into public.packs (id, name, category, rest_days_per_week, timezone, invite_code)
 values ('10000000-0000-0000-0000-000000000005', 'Runners', 'running', 0, 'Asia/Jerusalem', 'RUNS2345');
-insert into public.critters (pack_id, species, color, status, stage, name)
-values ('10000000-0000-0000-0000-000000000005', 'spark', 'sky', 'active', 'kid', 'Pixel');
+insert into public.critters (pack_id, species, status, stage, name)
+values ('10000000-0000-0000-0000-000000000005', 'kit', 'active', 'kid', 'Pixel');
 insert into public.pack_members (pack_id, user_id, role, joined_at) values
   ('10000000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-0000000000a5', 'admin', now() - interval '10 days'),
   ('10000000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-0000000000b5', 'member', now() - interval '9 days'),

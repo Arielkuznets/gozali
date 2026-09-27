@@ -40,7 +40,7 @@ select ok(public.wants('{"nudge": "yes"}', 'nudge') and not public.wants('{"nudg
 -- A pack with Noa and Dan, days running.
 insert into public.packs (id, name, category, rest_days_per_week, timezone, invite_code)
 values ('10000000-0000-0000-0000-000000000009', 'Runners', 'running', 0, 'UTC', 'REVW2345');
-insert into public.critters (pack_id, species, color, status, stage) values ('10000000-0000-0000-0000-000000000009', 'blob', 'peach', 'active', 'kid');
+insert into public.critters (pack_id, species, status, stage) values ('10000000-0000-0000-0000-000000000009', 'mochi', 'active', 'kid');
 insert into public.pack_members (pack_id, user_id, role, joined_at) values
   ('10000000-0000-0000-0000-000000000009', '00000000-0000-0000-0000-0000000000a9', 'admin', '2026-09-01'),
   ('10000000-0000-0000-0000-000000000009', '00000000-0000-0000-0000-0000000000b9', 'member', '2026-09-01');

@@ -1,5 +1,5 @@
 import { CHEEK, INK, WHITE } from './palette.ts';
-import type { Geometry } from './species.ts';
+import type { Geometry } from './geometry.ts';
 import { circle, ellipse, g, line, path, rect } from './svg.ts';
 
 export type Eyes = 'open' | 'sparkle' | 'down' | 'lidded' | 'droopy' | 'tired' | 'closed' | 'happy' | 'squeezed';
@@ -78,23 +78,18 @@ function brow(kind: Brows): string {
   }
 }
 
-function mouth(kind: Mouth, buckTooth: boolean): string {
-  const tooth = (y: number) => rect(-3.5, y, 7, 6, { rx: 1.5, fill: WHITE, stroke: INK, 'stroke-width': 0.8 });
+function mouth(kind: Mouth): string {
   switch (kind) {
     case 'smile':
-      return path('M-10 -1 Q0 9 10 -1', line(INK, 3)) + (buckTooth ? tooth(3) : '');
+      return path('M-10 -1 Q0 9 10 -1', line(INK, 3));
     case 'grin':
-      return (
-        path('M-12 -2 Q0 17 12 -2 Z', { fill: INK }) +
-        path('M-6.5 7 Q0 3.5 6.5 7 Q0 12 -6.5 7 Z', { fill: '#E98B8B' }) +
-        (buckTooth ? tooth(-2) : '')
-      );
+      return path('M-12 -2 Q0 17 12 -2 Z', { fill: INK }) + path('M-6.5 7 Q0 3.5 6.5 7 Q0 12 -6.5 7 Z', { fill: '#E98B8B' });
     case 'o':
       return ellipse(0, 1, 4.2, 5.2, { fill: INK });
     case 'wavy':
-      return path('M-9 1 Q-4.5 -3 0 1 T9 1', line(INK, 2.8)) + (buckTooth ? tooth(2) : '');
+      return path('M-9 1 Q-4.5 -3 0 1 T9 1', line(INK, 2.8));
     case 'flat':
-      return path('M-7 0 L7 0', line(INK, 2.8)) + (buckTooth ? tooth(1) : '');
+      return path('M-7 0 L7 0', line(INK, 2.8));
     case 'sleep':
       return ellipse(0, 1, 3.2, 2.4, { fill: INK });
     case 'yawn':
@@ -120,12 +115,11 @@ export function drawFace(
     blinking: boolean;
     skin: string;
     shadow: string;
-    buckTooth: boolean;
     gaze?: { x: number; y: number };
   },
 ): string {
   const { eyeY, eyeGap, mouthY } = geometry;
-  const { eyeScale, blinking, skin, shadow, buckTooth, gaze } = options;
+  const { eyeScale, blinking, skin, shadow, gaze } = options;
   // The eyes shift a little toward the gaze; the brows stay put.
   const clamp = (value: number) => Math.max(-1, Math.min(1, value));
   const look = gaze ? { x: clamp(gaze.x) * 2.6, y: clamp(gaze.y) * 2.2 } : { x: 0, y: 0 };
@@ -147,6 +141,6 @@ export function drawFace(
     cheeks +
     oneEye(100 - eyeGap, false) +
     oneEye(100 + eyeGap, true) +
-    g({ transform: `translate(100 ${mouthY})` }, mouth(face.mouth, buckTooth))
+    g({ transform: `translate(100 ${mouthY})` }, mouth(face.mouth))
   );
 }

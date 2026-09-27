@@ -1,15 +1,3 @@
-/** The six critter colors a pack can pick from (spec section 10). */
-export const CRITTER_PALETTE = {
-  peach: '#F6C9A8',
-  butter: '#F7E3A1',
-  sage: '#BFD8B8',
-  sky: '#BCD9E8',
-  blush: '#F2B8C6',
-  sand: '#E6D3B8',
-} as const;
-
-export type CritterColor = keyof typeof CRITTER_PALETTE;
-
 export const INK = '#3B2F2A';
 export const WHITE = '#FFFDF9';
 export const CHEEK = '#EE8F8F';

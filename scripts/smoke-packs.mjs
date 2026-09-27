@@ -13,7 +13,7 @@ if (!publishableKey || !secretKey) {
 const PACK_FIELDS = `
   id, name, category, custom_habit, rest_days_per_week, week_start, invite_code,
   pending_rest_days_per_week, pending_week_start, pending_from,
-  critters ( species, color, name, health, stage, status, streak ),
+  critters ( species, name, health, stage, status, streak ),
   pack_members ( user_id, role, status, joined_at, profiles ( display_name ) )
 `;
 
@@ -48,8 +48,7 @@ const created = await noa.client.rpc('create_pack', {
   pack_name: 'Gym squad',
   habit: 'gym',
   rest_days: 3,
-  species: 'spark',
-  critter_color: 'sky',
+  species: 'kit',
   time_zone: 'Asia/Jerusalem',
 });
 check(!created.error && typeof created.data === 'string', 'Noa creates a pack');
@@ -58,13 +57,13 @@ const packId = created.data;
 const mine = await noa.client.from('packs').select(PACK_FIELDS);
 check(!mine.error && mine.data.length === 1, "Noa's pack list has the new pack");
 const pack = mine.data[0];
-check(pack.critters?.status === 'egg' && pack.critters.species === 'spark', 'the critter is a spark egg (one-to-one relation)');
+check(pack.critters?.status === 'egg' && pack.critters.species === 'kit', 'the critter is a Kit egg (one-to-one relation)');
 check(pack.pack_members[0]?.profiles?.display_name === 'Noa', 'member names come through the profiles relation');
 
 const preview = await dan.client.rpc('pack_preview', { code: pack.invite_code.toLowerCase() });
 check(!preview.error && preview.data[0]?.member_count === 1, 'Dan previews the pack with a lower-case code');
 check(
-  preview.data[0].critter.species === 'spark' && preview.data[0].member_names.join() === 'Noa',
+  preview.data[0].critter.species === 'kit' && preview.data[0].member_names.join() === 'Noa',
   'the preview shows the critter and who is in the pack',
 );
 

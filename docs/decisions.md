@@ -111,3 +111,9 @@ Each entry: what was decided, what the options were, and why. Decisions D1–D11
 - **Decided:** there is no illustrator and no Rive. The critter drawn in code (D12) becomes the final character, gets a full design pass in code before the launch, and is animated in the app with Reanimated.
 - **Options:** a human illustrator for the characters and Rive for the animation (the plan in spec version 3.1); images from an image generator.
 - **Why:** the owner's choice. The code drawing already covers every species, stage, state, color, outfit and mark, and it feeds the widgets and the story image from one function (D16). An illustrated set would have to be redrawn for every new item or state and exported for the widgets, and Rive would add a second drawing to keep in step. Design changes stay reviewable in git and testable in Node.
+
+## D20 · Six creatures, each with its own color
+
+- **Decided:** a pack picks one of six creatures (Mochi, Kit, Axo, Ribbit, Hoot, Bun). Each has a fixed color, its own body and faces, and its own lines. The critters table stores only the creature; the color comes from the drawing.
+- **Options:** three species in six colors (spec version 3.1); letting packs pick any color for any creature.
+- **Why:** the owner's choice after reviewing the designs. Six distinct characters give packs more to choose from than recolors of three, and a fixed color keeps each creature recognizable across packs, widgets and shared stories. The database migration renamed the three enum labels to three of the creatures and added three, so no stored critter or function had to be rebuilt.

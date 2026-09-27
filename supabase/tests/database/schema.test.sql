@@ -22,8 +22,8 @@ select is(
 
 insert into public.packs (id, name, category, rest_days_per_week, timezone, invite_code)
 values ('10000000-0000-0000-0000-000000000001', 'Gym squad', 'gym', 3, 'Asia/Jerusalem', 'ABCD2345');
-insert into public.critters (pack_id, species, color)
-values ('10000000-0000-0000-0000-000000000001', 'blob', 'peach');
+insert into public.critters (pack_id, species)
+values ('10000000-0000-0000-0000-000000000001', 'mochi');
 insert into public.pack_members (pack_id, user_id, role) values
   ('10000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000a', 'admin'),
   ('10000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-00000000000b', 'member');

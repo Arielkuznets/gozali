@@ -16,7 +16,7 @@ test.afterEach(async () => {
 
 test('feeding: camera, caption, send, and the photo shows in the pack', async ({ context, page }) => {
   await context.grantPermissions(['camera']);
-  const pack = await createPack(noa, { name: 'Study buddies', habit: 'study', species: 'blob' }, [dan]);
+  const pack = await createPack(noa, { name: 'Study buddies', habit: 'study', species: 'mochi' }, [dan]);
   await admin.from('critters').update({ status: 'active', stage: 'kid', health: 64, xp: 9 }).eq('pack_id', pack.id);
   await feed(dan, pack.id, await photo(page, '📚'), 'Finished the problem set');
 
@@ -28,7 +28,7 @@ test('feeding: camera, caption, send, and the photo shows in the pack', async ({
   await page.getByRole('button', { name: 'Take photo' }).click();
   await page.getByPlaceholder('Add a caption (optional)').fill('Chapter 4, done');
   await page.getByRole('button', { name: 'Send' }).click();
-  await expect(page.getByText('Blob loved it!')).toBeVisible();
+  await expect(page.getByText('Mochi loved it!')).toBeVisible();
 
   // The screen closes by itself and the new photo is in the pack feed.
   await expect(page).toHaveURL(new RegExp(`/pack/${pack.id}$`));

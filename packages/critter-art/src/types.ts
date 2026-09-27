@@ -1,6 +1,11 @@
 import type { HealthState, Mark, Stage } from '@gozali/game-engine';
 
-export type Species = 'blob' | 'spark' | 'mossy';
+/** The six creatures, each with its own look, color and personality (decision D19). */
+export const CREATURES = ['mochi', 'kit', 'axo', 'ribbit', 'hoot', 'bun'] as const;
+export type Creature = (typeof CREATURES)[number];
+
+/** The name the database and the app use for the kind of critter. */
+export type Species = Creature;
 
 export const HEAD_ITEMS = ['beanie', 'flower_crown', 'sun_hat', 'headlamp', 'halo'] as const;
 export const NECK_ITEMS = ['scarf', 'cape', 'bow_tie'] as const;
@@ -22,7 +27,7 @@ export type CategoryItem = 'dumbbell' | 'glasses' | 'headphones' | 'sneakers' | 
 /** Everything the drawing depends on. The same input always gives the same SVG. */
 export interface CritterArt {
   species: Species;
-  /** Body color as hex, usually from CRITTER_PALETTE. */
+  /** Body color as hex: the creature's own (CREATURE_COLORS). */
   color: string;
   stage: Stage;
   /** 'egg' while not hatched; otherwise the health state, including 'ran_away'. */

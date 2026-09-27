@@ -14,7 +14,7 @@ $$;
 set local role authenticated;
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000a3');
 create temp table pack as
-  select public.create_pack('Runners', 'running', 1::smallint, 'spark', 'sky', 'Asia/Jerusalem') as id;
+  select public.create_pack('Runners', 'running', 1::smallint, 'kit', 'Asia/Jerusalem') as id;
 create temp table code as select invite_code from public.packs;
 grant select on pack, code to authenticated;
 

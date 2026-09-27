@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getCalendars } from 'expo-localization';
 
-import type { Category, CritterColor, CritterStage, CritterStatus, Species, WeekStart } from '@/features/packs/constants';
+import type { Category, CritterStage, CritterStatus, Species, WeekStart } from '@/features/packs/constants';
 import { isBlockedText } from '@/lib/errors';
 import { requireSupabase } from '@/lib/supabase';
 
@@ -15,7 +15,6 @@ export type PackMember = {
 
 export type PackCritter = {
   species: Species;
-  color: CritterColor;
   name: string | null;
   health: number;
   xp: number;
@@ -57,7 +56,7 @@ export type PackPreview = {
 const PACK_FIELDS = `
   id, name, category, custom_habit, rest_days_per_week, week_start, timezone, invite_code,
   pending_rest_days_per_week, pending_week_start, pending_from,
-  critters ( species, color, name, health, xp, stage, status, streak, marks, outfit ),
+  critters ( species, name, health, xp, stage, status, streak, marks, outfit ),
   pack_members ( user_id, role, status, joined_at, profiles ( display_name, avatar_path ) )
 `;
 
@@ -120,7 +119,6 @@ export type NewPack = {
   customHabit: string | null;
   restDays: number;
   species: Species;
-  color: CritterColor;
 };
 
 export function useCreatePack() {
@@ -133,7 +131,6 @@ export function useCreatePack() {
         habit_text: pack.customHabit ?? undefined,
         rest_days: pack.restDays,
         species: pack.species,
-        critter_color: pack.color,
         time_zone: getCalendars()[0]?.timeZone ?? 'UTC',
       });
       if (error) throw error;

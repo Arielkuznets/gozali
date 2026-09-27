@@ -40,8 +40,7 @@ const { data: packId } = await noa.client.rpc('create_pack', {
   pack_name: 'Morning runs',
   habit: 'running',
   rest_days: 0,
-  species: 'spark',
-  critter_color: 'peach',
+  species: 'kit',
   time_zone: tz,
 });
 const { data: pack } = await noa.client.from('packs').select('invite_code').eq('id', packId).single();

@@ -59,7 +59,7 @@ Each pack is an independent unit with one habit, one creature and its own rules;
 1. Pack name (up to 30 characters).
 2. Category: Gym, Study, Reading, Running, Water, or Custom (free text up to 40 characters, for example "Meditate 10 min").
 3. Rest days per week: 0–4. Default by category: Gym 3, Running 3, Study 1, Reading 0, Water 0, Custom 1.
-4. Choosing an egg and a color: one of 3 creature species, and one of 6 colors that fit the palette.
+4. Picking the critter: one of 6 creatures, each with its own color and personality.
 5. A unique invite link is created, with a share button ready for WhatsApp.
 
 **Joining:**
@@ -89,15 +89,18 @@ The critter is the heart of the product: its state reflects the pack's commitmen
 - After the pack is created an egg is shown. Until the second member joins, the pack's days are not closed.
 - When the second member joins, the egg starts to crack with an animation, and days start to close. While the creature is an egg, the day close doesn't change health, XP or the streak.
 - **The egg hatches on the first successful day on which at least two members fed.** That day counts as a regular successful day, and the creature moves to the Baby stage.
-- **Name:** after hatching, a "Name me!" card appears in the feed. Any member can suggest a name, and the admin picks one. Until then the creature is called by its species name (Blob, Spark or Mossy).
+- **Name:** after hatching, a "Name me!" card appears in the feed. Any member can suggest a name, and the admin picks one. Until then the creature is called by its creature name (Mochi, Kit and so on).
 
-**Three creature species in version 1**, each with a different personality expressed in its look, movement and lines:
+**Six creatures in version 1**, each with its own color and a personality expressed in its look, movement and lines (decision D20):
 
-| Species | Personality | Example line when hungry |
-| --- | --- | --- |
-| Blob | Lazy and sleepy, complains in a cute way | "I was napping but also... starving?" |
-| Spark | Dramatic and easily offended | "Wow. Nobody fed me. I see how it is." |
-| Mossy | Nerdy and calm, loves facts | "Fun fact: I haven't eaten in 14 hours." |
+| Creature | Color | Personality | Example line when hungry |
+| --- | --- | --- | --- |
+| Mochi (a dumpling puppy) | Apricot | Lazy and sleepy, complains in a cute way | "I was napping but also... starving?" |
+| Kit (a fox-cat) | Yellow | Dramatic and easily offended | "Wow. Nobody fed me. I see how it is." |
+| Axo (an axolotl) | Blue | Cheerful, always smiling | "Snack time? Snack time!" |
+| Ribbit (a mossy frog) | Green | Calm and peaceful | "A calm frog is a fed frog. Just saying." |
+| Hoot (an owlet) | Dark brown | Nerdy, loves facts | "Fun fact: I haven't eaten in 14 hours." |
+| Bun (a bunny) | White | Shy and sweet | "Um... sorry... is there food?" |
 
 **Health:** 0–100. Starts at 70.
 
@@ -320,7 +323,7 @@ Fourteen screens in version 1, plus widgets for the home screen and the lock scr
 | Pack | The animated creature in the center, health bar, streak, a countdown to the end of the day, a row of member circles (colored = fed, dashed = rest or joker, 💤 = asleep or paused, gray = not yet, including someone who hasn't started), a big Feed button with "Not today" next to it (rest or joker) and in Study and Reading packs also Focus, and the feed below |
 | Camera | Capture, switch camera, retake, caption, send |
 | Focus | The running timer, the creature "studying" or "reading" next to it, pause and cancel |
-| Create pack | Four steps: name, category, rest days, egg and color, then the link sharing screen |
+| Create pack | Four steps: name, category, rest days, and the critter, then the link sharing screen |
 | Critter profile | Stage and progress to the next XP, monthly board, medals and marks, achievements, and a wardrobe for dressing the creature |
 | Weekly recap | The weekly recap and the button to share it as a story |
 | Pack settings | Name, rest days, week start, members (removal for the admin), invite link and QR code, pause, joker, leave |
@@ -339,7 +342,7 @@ Reporting and blocking are in the menu of every feed item and of every member.
 | Lock screen | iOS | A health ring and "3/5"; the rectangular version also shows the creature's name | Opens the pack screen |
 
 - For single-pack widgets you choose which pack to show, in the widget settings.
-- The creature in the widget is a static image by species, stage, state and color (no animation), including wardrobe items, and it sleeps at night like in the app.
+- The creature in the widget is a static image by creature, stage and state (no animation), including wardrobe items, and it sleeps at night like in the app.
 - **Privacy:** the widget shows no photos and no names of members, only the creature and numbers, because the home screen and the lock screen are visible to others.
 - **Updates:** right after every action in the app, at the end of the day (03:00), and from the server about every 30 minutes, subject to the operating system's refresh limits.
 
@@ -369,9 +372,9 @@ The design should feel colorful, soft and hand-drawn, and in no way generic or "
 
 - **A simple silhouette** that is recognizable even at 40px.
 - **Big expressive eyes**, which carry most of the emotion.
-- **A small characteristic flaw** for each species, like a droopy ear or a buck tooth.
+- **A small characteristic detail** for each creature, like a floppy ear, a tuft or a sprout.
 - **Alive and breathing:** idle animations (blinking, breathing), reaction to touch, and changes by time of day.
-- **A color the pack chooses** from 6 shades that fit the palette, picked when the pack is created.
+- **One color per creature**, all warm and soft enough for the palette; picking the creature picks the color.
 - **Wardrobe items** as separate layers (head, neck, background), so every item fits every species and stage.
 
 **Process:**
@@ -423,7 +426,7 @@ Nineteen tables in Postgres (Supabase). All access is protected with Row Level S
 | --- | --- |
 | profiles | id (the user in auth.users), display\_name, avatar\_path, timezone, locale, reminder\_time, notification\_prefs (jsonb), terms\_accepted\_at, created\_at |
 | packs | id, name, category, custom\_habit, rest\_days\_per\_week, week\_start, timezone, invite\_code (8 characters, without characters that are easy to confuse, like 0 and O), pending\_rest\_days\_per\_week, pending\_week\_start, pending\_from (settings that apply from the next week start), created\_at |
-| critters | pack\_id (key: one creature per pack), species, name, color, health, xp, stage, status (egg / active / ran\_away), streak, marks, outfit (jsonb), hatched\_at |
+| critters | pack\_id (key: one creature per pack), species (one of the six creatures), name, health, xp, stage, status (egg / active / ran\_away), streak, marks, outfit (jsonb), hatched\_at |
 | pack\_members | pack\_id, user\_id, role (admin / member), status (active / sleeping / left), joined\_at, left\_at, awake\_since (the day that misses toward sleep count from; set when the member wakes up) |
 | pauses | id, pack\_id, user\_id, starts\_on, ends\_on |
 | feeds | id, pack\_id, user\_id, photo\_path, caption, day (date), is\_extra, focus\_minutes, captured\_at, created\_at, hidden\_at |
@@ -487,7 +490,7 @@ Important: the widgets and some of the modules require a **development build**, 
 - **User actions (Postgres functions):**
   - `submit_feed`: verifies pack membership, computes "the day" by the pack's time zone (including the offline rule), saves the feed (the database constraint prevents duplicates), wakes a sleeping member, and cancels a joker or declared rest for the same day.
   - `create_pack`: creates the pack, its egg and the admin membership, with a random invite code; limited to 3 packs per user.
-  - `pack_preview`: what someone sees before joining (name, habit, species and color, member count), by invite code.
+  - `pack_preview`: what someone sees before joining (name, habit, the critter as it is now, and who is in the pack), by invite code.
   - `join_pack`: joining with an invite code, with locking and a check for a free spot.
   - `update_pack` (admin): the name changes right away; rest days and week start are stored as pending and apply from the next week start.
   - `remove_member` (admin).
@@ -543,7 +546,7 @@ Version 1 includes all of sections 3–12, including widgets, achievements and a
 - Automatic on-device photo checks.
 - A paid item shop and a Gozali+ subscription (section 16).
 - A Live Activity for the focus timer.
-- More creature species.
+- More creatures.
 
 ## 16. Business model
 
@@ -553,7 +556,7 @@ The game itself is completely free, and revenue comes from cosmetic items and an
 
 - **Cosmetic items for the creature:** hats, accessories, backgrounds and homes. An item that was bought appears on the whole pack's creature, so the members see it too, and that's part of the motivation to buy. Bought items go into the same wardrobe that already exists in version 1.
 - **A gift for the pack:** a member buys an item for the shared creature, with a message in the feed ("Dan got Pixel a crown").
-- **Gozali+ subscription:** unlimited packs (instead of 3), more creature species, special colors, an exclusive item every month and advanced statistics. Initial test price: about $2.99 a month or $19.99 a year.
+- **Gozali+ subscription:** unlimited packs (instead of 3), more creatures, special looks, an exclusive item every month and advanced statistics. Initial test price: about $2.99 a month or $19.99 a year.
 
 **What is not sold:**
 
@@ -574,6 +577,7 @@ All the decisions that blocked version 1 are closed; the details and reasoning a
 ### Version 3.2
 
 - **The critter:** designed and animated in code, as SVG with Reanimated; no illustrator and no Rive (decision D19).
+- **Six creatures:** Mochi, Kit, Axo, Ribbit, Hoot and Bun, each with its own color and personality, replace three species in six colors (decision D20).
 - **Language:** Hebrew in the app is postponed; the pilot is in English.
 
 ### Version 3.1

@@ -1,14 +1,16 @@
 import type { Stage } from '@gozali/game-engine';
 
+import { CREATURE_ART, Paint, bodyLight } from './creatures.ts';
 import { drawFace, type Face } from './face.ts';
+import { GROUND } from './geometry.ts';
 import {
+  EGG,
   aura,
   background,
   bandage,
   behindBody,
   blanket,
   categoryItem,
-  egg,
   headItem,
   hearts,
   medal,
@@ -20,9 +22,8 @@ import {
   sparkles,
   sweat,
 } from './items.ts';
-import { INK, darken, mix } from './palette.ts';
-import { GROUND, SPECIES_ART } from './species.ts';
-import { ellipse, g, scaleAround } from './svg.ts';
+import { INK, darken, lighten, mix } from './palette.ts';
+import { ellipse, g, line, path, scaleAround } from './svg.ts';
 import type { CritterArt, Species } from './types.ts';
 
 /** Body size per stage; the egg has its own drawing. */
@@ -41,40 +42,56 @@ const FACES: Record<Level, Face> = {
   sick: { eyes: 'tired', mouth: 'wavy', brows: 'sad', cheeks: false },
 };
 
-/** Personality on top of the shared faces (spec section 4). */
+/** Each creature's personality in its faces (spec section 4). */
 function faceFor(level: Level, species: Species): Face {
   const face = FACES[level];
-  if (species === 'blob') {
-    // Too lazy to open its eyes all the way when things are great.
-    if (level === 'thriving') return { ...face, eyes: 'happy' };
+  switch (species) {
+    case 'mochi':
+      // Too lazy to open its eyes all the way when things are great.
+      return level === 'thriving' ? { ...face, eyes: 'happy' } : face;
+    case 'kit':
+      if (level === 'happy' || level === 'thriving') return { ...face, brows: 'proud' };
+      // Not hungry, offended.
+      return level === 'hungry' ? { ...face, eyes: 'lidded', mouth: 'flat', brows: 'offended' } : face;
+    case 'axo':
+      return level === 'happy' ? { ...face, mouth: 'grin' } : face;
+    case 'ribbit':
+      return level === 'hungry' ? { ...face, mouth: 'flat' } : face;
+    case 'hoot':
+      return level === 'happy' ? { ...face, mouth: 'flat' } : face;
+    case 'bun':
+      return level === 'happy' || level === 'thriving' ? { ...face, eyes: 'happy' } : face;
   }
-  if (species === 'spark') {
-    if (level === 'happy' || level === 'thriving') return { ...face, brows: 'proud' };
-    // Not hungry, offended.
-    if (level === 'hungry') return { ...face, eyes: 'lidded', mouth: 'flat', brows: 'offended' };
-  }
-  if (species === 'mossy' && level === 'hungry') return { ...face, mouth: 'flat' };
-  return face;
 }
 
-function drawCritter(art: CritterArt & { look: Level }): string {
-  const species = SPECIES_ART[art.species];
-  const geometry = species.geometry;
-  const outfit = art.outfit ?? {};
-  const mood = art.mood ?? 0;
-  const everyoneFed = mood >= 1;
-  const sleeping = art.sleeping ?? false;
+/** Everyone fed today lifts the face one level; the body still shows the health state. */
+function levelOf(art: CritterArt & { look: Level }): Level {
+  return LEVELS[Math.min(LEVELS.length - 1, LEVELS.indexOf(art.look) + ((art.mood ?? 0) >= 1 ? 1 : 0))] ?? art.look;
+}
 
-  // Everyone fed today lifts the face one level; the body still shows the health state.
-  const level = LEVELS[Math.min(LEVELS.length - 1, LEVELS.indexOf(art.look) + (everyoneFed ? 1 : 0))] ?? art.look;
-  let face = faceFor(level, art.species);
-  if (mood >= 0.5 && art.look !== 'sick') face = { ...face, cheeks: true };
+/** The face for the day: health, today's mood, sleep, sickness and a yawn. */
+function faceOf(art: CritterArt & { look: Level }): Face {
+  const sleeping = art.sleeping ?? false;
+  let face = faceFor(levelOf(art), art.species);
+  if ((art.mood ?? 0) >= 0.5 && art.look !== 'sick') face = { ...face, cheeks: true };
   if (sleeping) face = { eyes: 'closed', mouth: 'sleep', brows: 'none', cheeks: face.cheeks };
   if (art.look === 'sick' && !sleeping) face = { ...face, mouth: 'thermometer' };
   else if (art.yawning && !sleeping) face = { ...face, eyes: 'squeezed', mouth: 'yawn', brows: 'none' };
+  return face;
+}
 
-  const color =
-    art.look === 'weak' ? mix(art.color, '#D8D2CB', 0.45) : art.look === 'sick' ? mix(art.color, '#CFE0B8', 0.35) : art.color;
+/** The creature's color on a bad day: faded when weak, greenish when sick. */
+function bodyColor(art: CritterArt): string {
+  if (art.look === 'weak') return mix(art.color, '#D8D2CB', 0.45);
+  if (art.look === 'sick') return mix(art.color, '#CFE0B8', 0.35);
+  return art.color;
+}
+
+function drawCritter(art: CritterArt & { look: Level }, p: Paint): string {
+  const creature = CREATURE_ART[art.species];
+  const geometry = creature.geometry;
+  const outfit = art.outfit ?? {};
+  const sleeping = art.sleeping ?? false;
   const scale = STAGE_SCALE[art.stage];
   const marks = art.marks ?? [];
   // Sleep wins over a holiday, and a holiday over the outfit (spec section 4).
@@ -82,17 +99,21 @@ function drawCritter(art: CritterArt & { look: Level }): string {
 
   const body = [
     behindBody(outfit.neck, geometry),
-    species.behind(color),
-    species.body(color),
-    species.details(color),
-    drawFace(face, geometry, {
+    creature.behind(p),
+    path(creature.body, { fill: p.fill() }),
+    creature.belly(p),
+    bodyLight(art.species, p),
+    creature.feet(p),
+    drawFace(faceOf(art), geometry, {
       eyeScale: EYE_SCALE[art.stage],
       blinking: art.blinking ?? false,
       gaze: sleeping ? undefined : art.gaze,
-      skin: color,
-      shadow: darken(color, 0.25),
-      buckTooth: art.species === 'mossy',
+      skin: p.color,
+      shadow: darken(p.color, 0.25),
     }),
+    creature.front(p),
+    // A hat covers Mochi's tuft and Ribbit's sprout.
+    head ? '' : (creature.crown?.(p) ?? ''),
     outfit.neck ? neckItem(outfit.neck, geometry) : '',
     marks.includes('medal') ? medal(geometry) : '',
     art.look === 'sick' ? blanket(geometry) : '',
@@ -107,21 +128,35 @@ function drawCritter(art: CritterArt & { look: Level }): string {
   const pose = art.look === 'weak' ? `rotate(-6 100 ${GROUND}) ${scaleAround(100, GROUND, 1.06, 0.9)}` : '';
 
   return [
-    art.stage === 'legend' ? aura() : '',
-    ellipse(100, GROUND + 2, 56 * scale, 6, { fill: INK, opacity: 0.08 }),
+    art.stage === 'legend' ? aura(p.prefix) : '',
+    ellipse(100, GROUND + 2, 58 * scale, 7, { fill: p.glow(INK, 0.22) }),
     g({ transform: `${pose} ${scaleAround(100, GROUND, scale)}`.trim() }, body),
-    !sleeping && level === 'thriving' ? sparkles() : '',
-    !sleeping && everyoneFed ? hearts() : '',
+    !sleeping && levelOf(art) === 'thriving' ? sparkles() : '',
+    !sleeping && (art.mood ?? 0) >= 1 ? hearts() : '',
     sleeping ? snore() : '',
   ].join('');
 }
 
-/** The critter as a standalone SVG document on a 200 x 200 canvas. */
-export function renderCritter(art: CritterArt): string {
+/** The egg, in the creature's color and lit like its body; it cracks once the second member joined. */
+function drawEgg(color: string, cracking: boolean, p: Paint): string {
+  return (
+    ellipse(100, 185, 44, 5, { fill: p.glow(INK, 0.22) }) +
+    path(EGG, { fill: p.fill(lighten(color, 0.2)) }) +
+    g({ fill: darken(color, 0.12), opacity: 0.55 }, ellipse(80, 104, 8, 10), ellipse(120, 132, 11, 9), ellipse(86, 158, 6, 5), ellipse(128, 96, 4, 5)) +
+    (cracking ? path('M62 126 L74 118 L84 130 L96 119 L106 132 L118 121 L128 131 L138 124', line(INK, 3)) : '')
+  );
+}
+
+/**
+ * The critter as a standalone SVG document on a 200 x 200 canvas. `id` starts every id inside
+ * it; give each critter on a web page its own.
+ */
+export function renderCritter(art: CritterArt, options: { id?: string } = {}): string {
+  const p = new Paint(bodyColor(art), options.id ?? 'gz');
   let content: string;
-  if (art.look === 'egg') content = egg(art.color, art.cracking ?? false);
+  if (art.look === 'egg') content = drawEgg(art.color, art.cracking ?? false, p);
   else if (art.look === 'ran_away') content = note();
-  else content = drawCritter({ ...art, look: art.look });
-  const backdrop = art.outfit?.background ? background(art.outfit.background) : '';
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">${backdrop}${content}</svg>`;
+  else content = drawCritter({ ...art, look: art.look }, p);
+  const backdrop = art.outfit?.background ? background(art.outfit.background, p.prefix) : '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">${p.markup()}${backdrop}${content}</svg>`;
 }

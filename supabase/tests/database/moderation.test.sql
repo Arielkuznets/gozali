@@ -21,14 +21,14 @@ $$;
 set local role authenticated;
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000a7');
 select throws_ok(
-  $$ select public.create_pack('Shit squad', 'gym', 1::smallint, 'blob', 'peach', 'UTC') $$,
+  $$ select public.create_pack('Shit squad', 'gym', 1::smallint, 'mochi', 'UTC') $$,
   '22023', 'text_not_allowed', 'pack names are filtered'
 );
 select throws_ok(
   $$ update public.profiles set display_name = 'Bitchy' where id = '00000000-0000-0000-0000-0000000000a7' $$,
   '22023', 'text_not_allowed', 'display names are filtered'
 );
-create temp table pack as select public.create_pack('Gym squad', 'gym', 1::smallint, 'blob', 'peach', 'UTC') as id;
+create temp table pack as select public.create_pack('Gym squad', 'gym', 1::smallint, 'mochi', 'UTC') as id;
 create temp table code as select invite_code from public.packs;
 grant select on pack, code to authenticated;
 reset role;

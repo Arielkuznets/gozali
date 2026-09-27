@@ -99,7 +99,6 @@ export type Database = {
       };
       critters: {
         Row: {
-          color: Database['public']['Enums']['critter_color'];
           hatched_at: string | null;
           health: number;
           marks: string[];
@@ -113,7 +112,6 @@ export type Database = {
           xp: number;
         };
         Insert: {
-          color: Database['public']['Enums']['critter_color'];
           hatched_at?: string | null;
           health?: number;
           marks?: string[];
@@ -127,7 +125,6 @@ export type Database = {
           xp?: number;
         };
         Update: {
-          color?: Database['public']['Enums']['critter_color'];
           hatched_at?: string | null;
           health?: number;
           marks?: string[];
@@ -836,7 +833,6 @@ export type Database = {
       counted_on: { Args: { member: string; pack_date: string; target: string }; Returns: boolean };
       create_pack: {
         Args: {
-          critter_color: Database['public']['Enums']['critter_color'];
           habit: Database['public']['Enums']['habit_category'];
           habit_text?: string;
           pack_name: string;
@@ -1001,8 +997,7 @@ export type Database = {
         | 'full_pack'
         | 'grown_up'
         | 'legend';
-      critter_color: 'peach' | 'butter' | 'sage' | 'sky' | 'blush' | 'sand';
-      critter_species: 'blob' | 'spark' | 'mossy';
+      critter_species: 'mochi' | 'kit' | 'axo' | 'ribbit' | 'hoot' | 'bun';
       critter_stage: 'egg' | 'baby' | 'kid' | 'teen' | 'adult' | 'legend';
       critter_status: 'egg' | 'active' | 'ran_away';
       day_pass_kind: 'joker' | 'rest';
@@ -1161,8 +1156,7 @@ export const Constants = {
         'grown_up',
         'legend',
       ],
-      critter_color: ['peach', 'butter', 'sage', 'sky', 'blush', 'sand'],
-      critter_species: ['blob', 'spark', 'mossy'],
+      critter_species: ['mochi', 'kit', 'axo', 'ribbit', 'hoot', 'bun'],
       critter_stage: ['egg', 'baby', 'kid', 'teen', 'adult', 'legend'],
       critter_status: ['egg', 'active', 'ran_away'],
       day_pass_kind: ['joker', 'rest'],

@@ -1,6 +1,6 @@
 import { renderCritter, type CritterArt } from '@gozali/critter-art';
 import * as Haptics from 'expo-haptics';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, View, type GestureResponderEvent } from 'react-native';
 import Animated, {
   Easing,
@@ -31,8 +31,15 @@ type Props = {
 
 const BLINK_MS = 140;
 const YAWN_MS = 1300;
-// Seconds between yawns, the first number plus up to the second. Blob is the sleepy one.
-const YAWN_EVERY: Record<CritterArt['species'], [number, number]> = { blob: [12, 12], spark: [30, 30], mossy: [30, 30] };
+// Seconds between yawns, the first number plus up to the second. Mochi and Bun are the sleepy ones.
+const YAWN_EVERY: Record<CritterArt['species'], [number, number]> = {
+  mochi: [12, 12],
+  kit: [30, 30],
+  axo: [30, 30],
+  ribbit: [30, 30],
+  hoot: [30, 30],
+  bun: [16, 16],
+};
 const LINE_MS = 2600;
 
 /**
@@ -139,7 +146,12 @@ export function Critter({ art, size, label, animated = true, lines, petHint }: P
     gazeTimer.current = setTimeout(() => setGaze(undefined), 700);
   };
 
-  const xml = useMemo(() => renderCritter({ ...art, blinking, yawning, gaze }), [art, blinking, yawning, gaze]);
+  // Ids inside the drawing are unique per critter: on the web every screen shares one page.
+  const svgId = `gz${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
+  const xml = useMemo(
+    () => renderCritter({ ...art, blinking, yawning, gaze }, { id: svgId }),
+    [art, blinking, yawning, gaze, svgId],
+  );
 
   const motion = useAnimatedStyle(() => {
     const b = breath.value;

@@ -10,12 +10,12 @@ import { colors, critterColors, spacing } from '@/theme/tokens';
 
 /** The three rules, told by the critters (spec section 9). */
 const CARDS: readonly { key: 'photo' | 'together' | 'neverDies'; art: CritterArt }[] = [
-  { key: 'photo', art: { species: 'blob', color: critterColors.peach, stage: 'kid', look: 'thriving' } },
+  { key: 'photo', art: { species: 'mochi', color: critterColors.mochi, stage: 'kid', look: 'thriving' } },
   {
     key: 'together',
-    art: { species: 'spark', color: critterColors.blush, stage: 'kid', look: 'happy', mood: 1 },
+    art: { species: 'axo', color: critterColors.axo, stage: 'kid', look: 'happy', mood: 1 },
   },
-  { key: 'neverDies', art: { species: 'mossy', color: critterColors.sage, stage: 'kid', look: 'happy', marks: ['bandage'] } },
+  { key: 'neverDies', art: { species: 'hoot', color: critterColors.hoot, stage: 'kid', look: 'happy', marks: ['bandage'] } },
 ];
 
 /** The rules one card at a time. `onDone` runs on skip and after the last card. */

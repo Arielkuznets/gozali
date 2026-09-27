@@ -1,7 +1,7 @@
 import { healthState, stageRank, type Mark, type Stage } from '@gozali/game-engine';
 
+import { CREATURE_COLORS } from './creatures.ts';
 import { isHoliday } from './holidays.ts';
-import { CRITTER_PALETTE, type CritterColor } from './palette.ts';
 import {
   BACKGROUND_ITEMS,
   HEAD_ITEMS,
@@ -15,7 +15,6 @@ import {
 /** A critters row as the database stores it. */
 export interface CritterRow {
   species: Species;
-  color: CritterColor;
   health: number;
   stage: Stage;
   status: 'egg' | 'active' | 'ran_away';
@@ -73,7 +72,7 @@ export function critterArtFor(
 ): CritterArt {
   return {
     species: critter.species,
-    color: CRITTER_PALETTE[critter.color],
+    color: CREATURE_COLORS[critter.species],
     stage: critter.stage,
     look: critter.status === 'egg' ? 'egg' : healthState(critter),
     mood: context.mood,
