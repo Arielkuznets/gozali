@@ -9,8 +9,12 @@ export const colors = {
   inkMuted: '#7A6A60',
   border: '#EADFD2',
   accent: '#E8795A',
+  // The accent as text (links) is darker: the fill color reads at 2.7:1 on the background,
+  // this one at 4.8:1, above the 4.5:1 WCAG asks of small text.
+  accentText: '#B34E37',
   onAccent: '#FFFFFF',
-  danger: '#C95D51',
+  // 5:1 on the background, for red text like Delete account.
+  danger: '#B04A3F',
 } as const;
 
 /** Each creature's own color; the critter drawing owns them. */

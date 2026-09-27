@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   nameColumn: { width: 52 },
   dayNumber: { flex: 1, fontSize: 9, lineHeight: 12, textAlign: 'center', color: colors.inkMuted },
-  todayNumber: { color: colors.accent },
+  todayNumber: { color: colors.accentText },
   cell: { flex: 1, aspectRatio: 1, borderRadius: 2, backgroundColor: '#F1EAE0', overflow: 'hidden' },
   rest: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.inkMuted },
   away: { backgroundColor: '#D9D3EA' },
