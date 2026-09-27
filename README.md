@@ -38,6 +38,7 @@ npm run smoke:day-close  # six days closed by the real close-days code: hatching
 npm run smoke:push       # friend-fed merging, "last one", the critter's lines and dead tokens, with a stand-in for Expo Push
 npm run smoke:widgets    # the widget token and endpoint (needs `npx supabase functions serve`)
 npm run smoke:delete-account  # account deletion end to end (needs `npx supabase functions serve`)
+npm run functions:bundle       # bundle every Edge Function with the deploy bundler (Docker)
 ```
 
 ```sh
