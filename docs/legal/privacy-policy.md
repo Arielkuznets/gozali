@@ -24,7 +24,7 @@ We do **not** collect your location or contacts, we don't use advertising or tra
 - Pack members see who fed, rested, used a joker, was paused or missed on each day, because that is how the pack works together. Notifications never say who missed.
 - Widgets on your home screen and lock screen show only the pet and numbers, never photos or names.
 - A weekly recap you share as a story contains the pet, the pack's numbers and **only your own** photos.
-- People you block don't see your content, and you don't see theirs.
+- You don't see the photos and reactions of people you block, and they can't nudge you. If you share a pack with them, they can still see what you post there; you can leave the pack at any time.
 
 ## How long we keep it
 
