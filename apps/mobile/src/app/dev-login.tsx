@@ -1,3 +1,4 @@
+import { Redirect } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, TextInput, View } from 'react-native';
@@ -11,8 +12,16 @@ import { NotConfiguredError } from '@/lib/supabase';
 import { goBack } from '@/lib/navigation';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
-/** Development builds only: sign in with an email code before Apple and Google are configured. */
-export default function DevLoginScreen() {
+/**
+ * Development builds only: sign in with an email code before Apple and Google are configured.
+ * A store build that opens gozali://dev-login lands on the welcome screen instead.
+ */
+export default function DevLoginRoute() {
+  if (!__DEV__) return <Redirect href="/welcome" />;
+  return <DevLoginScreen />;
+}
+
+function DevLoginScreen() {
   const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
