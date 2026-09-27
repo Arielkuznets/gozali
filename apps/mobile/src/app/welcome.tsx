@@ -6,11 +6,11 @@ import { Alert, Platform, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
-import { CritterPlaceholder } from '@/components/CritterPlaceholder';
 import { Screen } from '@/components/Screen';
 import { isCancellation, signInWithApple, signInWithBrowser } from '@/features/auth/signIn';
+import { Critter } from '@/features/critter/Critter';
 import { NotConfiguredError } from '@/lib/supabase';
-import { radii, spacing } from '@/theme/tokens';
+import { critterColors, radii, spacing } from '@/theme/tokens';
 
 type Provider = 'apple' | 'google';
 
@@ -34,7 +34,11 @@ export default function WelcomeScreen() {
   return (
     <Screen>
       <View style={styles.hero}>
-        <CritterPlaceholder label={t('welcome.critterLabel')} size={160} />
+        <Critter
+          art={{ species: 'blob', color: critterColors.peach, stage: 'kid', look: 'happy' }}
+          size={180}
+          label={t('welcome.critterLabel')}
+        />
         <AppText variant="title">Gozali</AppText>
         <AppText style={styles.tagline}>{t('welcome.tagline')}</AppText>
       </View>

@@ -63,3 +63,9 @@ Each entry: what was decided, what the options were, and why. Decisions D1–D11
 - **Decided:** Gozali ("my little chick" in Hebrew). Pack stays the name of a group inside the app, and the future subscription is called Gozali+.
 - **Options checked:** Hatchmates, Bondling and Pactling (too advanced in English); SquadPet, YallaPet and FriendsPet (too generic); Blobbo. Many short, cute names (Zuzu, Munchi, Nomi, Buba, Feedo and more) are already taken.
 - **Why:** short, easy to say in Hebrew and in English, and it tells the story: a creature that hatches from an egg and the pack raises it together. On Sep 26, 2026 there was no app with this name on the App Store (US and Israel), and the gozali.app domain was free. There is an app called Gozal for service providers, in a different field. This is not a trademark search.
+
+## D12 · The temporary critter is drawn in code
+
+- **Decided:** until the illustrated critter exists, the critter is SVG markup generated from its state by a pure TypeScript package (`packages/critter-art`). The app shows it with `react-native-svg` inside one `Critter` component, which adds the idle motion (breathing, blinking, a bounce when thriving, a wobble when the egg cracks) and petting.
+- **Options:** fixed image files per species, stage and state; or drawing with react-native-svg components directly.
+- **Why:** 3 species × 5 stages × 6 states × 6 colors × the wardrobe is too many image files, and layers in code cover every combination. Markup (rather than components) is plain text, so the same function can feed the Android widget (which takes SVG), images for the iOS widget, and a contact sheet for review, and Node tests every combination without a device. When the Rive character arrives, only the `Critter` component changes.
