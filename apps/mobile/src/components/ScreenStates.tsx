@@ -17,6 +17,25 @@ export function LoadingScreen() {
   );
 }
 
+/** Something didn't load, most likely the connection; the user can try again. */
+export function LoadFailed({ onRetry }: { onRetry: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <View style={styles.center}>
+      <AppText style={[styles.text, styles.muted]}>{t('errors.loadFailed')}</AppText>
+      <Button label={t('home.retry')} variant="secondary" size="small" onPress={onRetry} />
+    </View>
+  );
+}
+
+export function LoadFailedScreen({ onRetry }: { onRetry: () => void }) {
+  return (
+    <Screen>
+      <LoadFailed onRetry={onRetry} />
+    </Screen>
+  );
+}
+
 /**
  * For a pack the member can't see (any more): removed, left on another phone, or a link to a
  * pack they were never in.

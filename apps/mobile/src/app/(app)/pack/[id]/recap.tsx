@@ -12,7 +12,7 @@ import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Choice } from '@/components/Choice';
 import { Screen } from '@/components/Screen';
-import { LoadingScreen, PackMissingScreen } from '@/components/ScreenStates';
+import { LoadingScreen, LoadFailedScreen, PackMissingScreen } from '@/components/ScreenStates';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { Critter } from '@/features/critter/Critter';
 import { PhotoViewer, type ViewedPhoto } from '@/features/feeds/PhotoViewer';
@@ -27,13 +27,14 @@ import { colors, fonts, radii, spacing } from '@/theme/tokens';
 export default function RecapScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: pack, isPending } = usePack(id);
+  const { data: pack, isPending, isError, refetch } = usePack(id);
   const recaps = useRecaps(id);
   const [week, setWeek] = useState<string | null>(null);
 
   const recap = recaps.data?.find((item) => item.week_start === week) ?? recaps.data?.[0];
 
   if (isPending) return <LoadingScreen />;
+  if (!pack && isError) return <LoadFailedScreen onRetry={() => void refetch()} />;
   if (!pack) return <PackMissingScreen />;
 
   return (

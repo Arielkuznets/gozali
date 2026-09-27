@@ -8,7 +8,7 @@ import QRCode from 'react-native-qrcode-svg';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
-import { LoadingScreen, PackMissingScreen } from '@/components/ScreenStates';
+import { LoadingScreen, LoadFailedScreen, PackMissingScreen } from '@/components/ScreenStates';
 import { usePack } from '@/features/packs/api';
 import { inviteLink } from '@/features/packs/constants';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
@@ -16,10 +16,11 @@ import { colors, fonts, radii, spacing } from '@/theme/tokens';
 export default function InviteScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: pack, isPending } = usePack(id);
+  const { data: pack, isPending, isError, refetch } = usePack(id);
   const [copied, setCopied] = useState(false);
 
   if (isPending) return <LoadingScreen />;
+  if (!pack && isError) return <LoadFailedScreen onRetry={() => void refetch()} />;
   if (!pack) return <PackMissingScreen />;
 
   const link = inviteLink(pack.invite_code);

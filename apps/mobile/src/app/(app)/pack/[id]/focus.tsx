@@ -7,7 +7,7 @@ import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Choice } from '@/components/Choice';
 import { Screen } from '@/components/Screen';
-import { LoadingScreen, PackMissingScreen } from '@/components/ScreenStates';
+import { LoadingScreen, LoadFailedScreen, PackMissingScreen } from '@/components/ScreenStates';
 import { Critter } from '@/features/critter/Critter';
 import { critterArt } from '@/features/critter/art';
 import { useCritterText } from '@/features/critter/useCritterText';
@@ -32,7 +32,7 @@ function clock(ms: number): string {
 export default function FocusScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data: pack, isPending } = usePack(id);
+  const { data: pack, isPending, isError, refetch } = usePack(id);
   const focus = useFocusSession({ title: t('focus.doneTitle'), body: t('focus.doneBody') });
   const now = useNow(1000);
   const opened = useRef(false);
@@ -58,6 +58,7 @@ export default function FocusScreen() {
   });
 
   if (isPending || !focus.loaded) return <LoadingScreen />;
+  if (!pack && isError) return <LoadFailedScreen onRetry={() => void refetch()} />;
   if (!pack) return <PackMissingScreen />;
 
   const start = async (minutes: number | null) => {
