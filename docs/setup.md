@@ -97,6 +97,14 @@ The success numbers of spec sections 1 and 15 (active packs, active packs 14 day
 npx supabase db query --linked "select public.pilot_metrics()"
 ```
 
+Is the server doing its jobs? The last closed day of every pack (a pack more than a day behind means close-days is failing for it), scheduled jobs that failed, and function calls that didn't answer 200, over the last day:
+
+```sh
+npx supabase db query --linked "select p.name, max(r.day) as last_closed from packs p left join day_results r on r.pack_id = p.id group by p.name order by 2 nulls first"
+npx supabase db query --linked "select jobid, status, return_message, start_time from cron.job_run_details where status <> 'succeeded' and start_time > now() - interval '1 day'"
+npx supabase db query --linked "select created, status_code, timed_out, error_msg, left(content::text, 200) from net._http_response where (status_code is distinct from 200) and created > now() - interval '1 day'"
+```
+
 Errors from members' phones (screens that failed to draw, and JavaScript errors that closed the app, sent on the next start) are kept for 30 days:
 
 ```sh
