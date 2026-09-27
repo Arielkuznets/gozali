@@ -1,9 +1,11 @@
 import { addDays } from '@gozali/game-engine';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { ActionMenu, type Menu } from '@/components/ActionMenu';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
@@ -12,6 +14,7 @@ import { signOut } from '@/features/auth/signIn';
 import { pickAvatar, useAvatarUrls, useSetAvatar } from '@/features/profile/avatar';
 import { useProfile } from '@/features/profile/useProfile';
 import { useMyStats } from '@/features/social/api';
+import { notify } from '@/lib/confirm';
 import { goBack } from '@/lib/navigation';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
@@ -25,20 +28,24 @@ export default function MeScreen() {
   const avatar = useAvatarUrls([profile.data?.avatar_path]);
   const setAvatar = useSetAvatar();
   const avatarUrl = profile.data?.avatar_path ? avatar.data?.get(profile.data.avatar_path) : undefined;
+  const [menu, setMenu] = useState<Menu | null>(null);
 
   const changePhoto = () => {
+    const removePhoto = () => setAvatar.mutate(null, { onError: () => notify(t('errors.saveFailed')) });
     const pickFrom = (source: 'camera' | 'library') => () =>
-      void pickAvatar(source).then((uri) => uri && setAvatar.mutate(uri, { onError: () => Alert.alert(t('errors.saveFailed')) }));
-    Alert.alert(t('me.photo'), undefined, [
-      { text: t('me.takePhoto'), onPress: pickFrom('camera') },
-      { text: t('me.choosePhoto'), onPress: pickFrom('library') },
-      ...(profile.data?.avatar_path ? [{ text: t('me.removePhoto'), style: 'destructive' as const, onPress: () => setAvatar.mutate(null) }] : []),
-      { text: t('social.cancel'), style: 'cancel' as const },
-    ]);
+      void pickAvatar(source).then((uri) => uri && setAvatar.mutate(uri, { onError: () => notify(t('errors.saveFailed')) }));
+    setMenu({
+      title: t('me.photo'),
+      actions: [
+        { label: t('me.takePhoto'), onPress: pickFrom('camera') },
+        { label: t('me.choosePhoto'), onPress: pickFrom('library') },
+        ...(profile.data?.avatar_path ? [{ label: t('me.removePhoto'), destructive: true, onPress: removePhoto }] : []),
+      ],
+    });
   };
 
   const onSignOut = () => {
-    signOut().catch(() => Alert.alert(t('errors.signInFailed')));
+    signOut().catch(() => notify(t('errors.signInFailed')));
   };
 
   const byDay = new Map((stats.data?.days ?? []).map((entry) => [entry.day, entry.status]));
@@ -125,6 +132,7 @@ export default function MeScreen() {
       )}
 
       <Button label={t('me.signOut')} variant="secondary" onPress={onSignOut} />
+      <ActionMenu menu={menu} cancel={t('social.cancel')} onClose={() => setMenu(null)} />
     </Screen>
   );
 }

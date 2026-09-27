@@ -3,8 +3,9 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
+import { ActionMenu, type Menu } from '@/components/ActionMenu';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { HealthBar } from '@/components/HealthBar';
@@ -34,6 +35,7 @@ import {
   useReport,
   type ReactionKey,
 } from '@/features/social/api';
+import { confirm, notify } from '@/lib/confirm';
 import { formatDay } from '@/lib/dates';
 import { goBack } from '@/lib/navigation';
 import { useNow } from '@/lib/useNow';
@@ -47,6 +49,7 @@ export default function PackScreen() {
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const [feedLimit, setFeedLimit] = useState(FEED_PAGE);
+  const [menu, setMenu] = useState<Menu | null>(null);
   const counted = useCountedFeeds();
   const feed = usePackFeed(id, feedLimit);
   const pending = usePendingFeeds(id);
@@ -82,7 +85,7 @@ export default function PackScreen() {
   const critterName = pack.critters?.name ?? (pack.critters ? t(`packs.species.${pack.critters.species}`) : '');
   const admin = members.find((member) => member.role === 'admin');
   const isAdmin = admin?.user_id === userId;
-  const fail = (error: unknown) => Alert.alert(t(socialErrorKey(error)));
+  const fail = (error: unknown) => notify(t(socialErrorKey(error)));
   const morePhotos = (feed.data?.length ?? 0) >= feedLimit;
   // While older photos remain unloaded, older events wait too, so the merged list has no gap.
   const oldestPhoto = feed.data?.at(-1)?.created_at;
@@ -96,66 +99,70 @@ export default function PackScreen() {
 
   const block = (memberId: string, name: string) => {
     if (!userId) return;
-    Alert.alert(t('social.blockTitle', { name }), t('social.blockBody'), [
-      { text: t('social.cancel'), style: 'cancel' },
-      {
-        text: t('social.block', { name }),
-        style: 'destructive',
-        onPress: () =>
-          blockMember.mutate(
-            { blockerId: userId, blockedId: memberId },
-            { onSuccess: () => Alert.alert(t('social.blockedLeave')), onError: fail },
-          ),
-      },
-    ]);
+    confirm({
+      title: t('social.blockTitle', { name }),
+      message: t('social.blockBody'),
+      confirm: t('social.block', { name }),
+      cancel: t('social.cancel'),
+      destructive: true,
+      onConfirm: () =>
+        blockMember.mutate(
+          { blockerId: userId, blockedId: memberId },
+          { onSuccess: () => notify(t('social.blockedLeave')), onError: fail },
+        ),
+    });
   };
 
   const onMemberMenu = (member: { id: string; name: string | null; nudgeable?: boolean }) => {
     if (member.id === userId) return;
     const name = member.name ?? '…';
-    Alert.alert(t('pack.memberMenu', { name }), undefined, [
-      ...(member.nudgeable ? [{ text: t('social.nudge'), onPress: () => onNudge(member) }] : []),
-      { text: t('social.block', { name }), style: 'destructive' as const, onPress: () => block(member.id, name) },
-      { text: t('social.cancel'), style: 'cancel' as const },
-    ]);
+    setMenu({
+      title: t('pack.memberMenu', { name }),
+      actions: [
+        ...(member.nudgeable ? [{ label: t('social.nudge'), onPress: () => onNudge(member) }] : []),
+        { label: t('social.block', { name }), destructive: true, onPress: () => block(member.id, name) },
+      ],
+    });
   };
 
   const onNudge = (member: { id: string; name: string | null }) => {
     const name = member.name ?? '…';
-    Alert.alert(t('social.nudgeTitle', { name }), t('social.nudgeBody', { critter: critterName }), [
-      { text: t('social.cancel'), style: 'cancel' },
-      {
-        text: t('social.nudge'),
-        onPress: () => nudge.mutate(member.id, { onSuccess: () => Alert.alert(t('social.nudged')), onError: fail }),
-      },
-    ]);
+    confirm({
+      title: t('social.nudgeTitle', { name }),
+      message: t('social.nudgeBody', { critter: critterName }),
+      confirm: t('social.nudge'),
+      cancel: t('social.cancel'),
+      onConfirm: () => nudge.mutate(member.id, { onSuccess: () => notify(t('social.nudged')), onError: fail }),
+    });
   };
 
   const onReact = (item: FeedItem, emoji: ReactionKey | null) => react.mutate({ feedId: item.id, emoji }, { onError: fail });
 
-  const onMore = (item: FeedItem) => {
+  const onReport = (item: FeedItem) => {
     if (!userId) return;
+    confirm({
+      title: t('social.reportTitle'),
+      message: t('social.reportBody'),
+      confirm: t('social.report'),
+      cancel: t('social.cancel'),
+      destructive: true,
+      onConfirm: () =>
+        report.mutate(
+          { feedId: item.id, reporterId: userId, reason: null },
+          { onSuccess: () => notify(t('social.reported')), onError: fail },
+        ),
+    });
+  };
+
+  const onMore = (item: FeedItem) => {
     const name = names.get(item.user_id) ?? '…';
-    Alert.alert(name, undefined, [
-      {
-        text: t('social.report'),
-        onPress: () =>
-          Alert.alert(t('social.reportTitle'), t('social.reportBody'), [
-            { text: t('social.cancel'), style: 'cancel' },
-            {
-              text: t('social.report'),
-              style: 'destructive',
-              onPress: () =>
-                report.mutate(
-                  { feedId: item.id, reporterId: userId, reason: null },
-                  { onSuccess: () => Alert.alert(t('social.reported')), onError: fail },
-                ),
-            },
-          ]),
-      },
-      { text: t('social.block', { name }), style: 'destructive', onPress: () => block(item.user_id, name) },
-      { text: t('social.cancel'), style: 'cancel' },
-    ]);
+    setMenu({
+      title: name,
+      actions: [
+        { label: t('social.report'), onPress: () => onReport(item) },
+        { label: t('social.block', { name }), destructive: true, onPress: () => block(item.user_id, name) },
+      ],
+    });
   };
 
   return (
@@ -302,6 +309,7 @@ export default function PackScreen() {
           onClose={moment.dismiss}
         />
       )}
+      <ActionMenu menu={menu} cancel={t('social.cancel')} onClose={() => setMenu(null)} />
     </Screen>
   );
 }
