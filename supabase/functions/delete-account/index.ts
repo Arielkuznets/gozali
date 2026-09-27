@@ -38,6 +38,12 @@ Deno.serve(async (request) => {
     if (error) return Response.json({ error: error.message }, { status: 500 });
   }
 
+  // The profile photos.
+  const { data: avatars } = await admin.storage.from('avatars').list(user.id);
+  if (avatars && avatars.length > 0) {
+    await admin.storage.from('avatars').remove(avatars.map((file) => `${user.id}/${file.name}`));
+  }
+
   // The rest goes with the auth user: profile, memberships, feeds, reactions, passes, tokens.
   const { error: deleteError } = await admin.auth.admin.deleteUser(user.id);
   if (deleteError) return Response.json({ error: deleteError.message }, { status: 500 });

@@ -10,7 +10,7 @@ export type PackMember = {
   role: 'admin' | 'member';
   status: 'active' | 'sleeping' | 'left';
   joined_at: string;
-  profiles: { display_name: string | null } | null;
+  profiles: { display_name: string | null; avatar_path: string | null } | null;
 };
 
 export type PackCritter = {
@@ -58,7 +58,7 @@ const PACK_FIELDS = `
   id, name, category, custom_habit, rest_days_per_week, week_start, timezone, invite_code,
   pending_rest_days_per_week, pending_week_start, pending_from,
   critters ( species, color, name, health, xp, stage, status, streak, marks, outfit ),
-  pack_members ( user_id, role, status, joined_at, profiles ( display_name ) )
+  pack_members ( user_id, role, status, joined_at, profiles ( display_name, avatar_path ) )
 `;
 
 export const packsKey = ['packs'] as const;

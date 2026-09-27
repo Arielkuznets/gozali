@@ -9,6 +9,7 @@ import { HealthBar } from '@/components/HealthBar';
 import { MemberCircles, type MemberState } from '@/components/MemberCircles';
 import { Screen } from '@/components/Screen';
 import { useAuth } from '@/features/auth/AuthProvider';
+import { useAvatarUrls } from '@/features/profile/avatar';
 import { Critter } from '@/features/critter/Critter';
 import { critterArt, stageProgress } from '@/features/critter/art';
 import { useCritterText } from '@/features/critter/useCritterText';
@@ -44,6 +45,7 @@ export default function PackScreen() {
   const passes = useTodayPasses(pack, now);
   const dayStatus = useDayStatus(id);
   const events = usePackEvents(id);
+  const avatars = useAvatarUrls(pack?.pack_members.map((member) => member.profiles?.avatar_path) ?? []);
   const react = useReact();
   const nudge = useNudge(id);
   const report = useReport();
@@ -177,6 +179,7 @@ export default function PackScreen() {
             id: member.user_id,
             name: member.profiles?.display_name ?? null,
             state: memberState(member, fed, today),
+            avatarUrl: member.profiles?.avatar_path ? avatars.data?.get(member.profiles.avatar_path) : undefined,
             nudgeable:
               member.user_id !== userId &&
               !fed.has(member.user_id) &&

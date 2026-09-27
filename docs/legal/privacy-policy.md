@@ -9,7 +9,7 @@ Gozali is an app where a small group of friends (a "pack") raises a shared pet b
 ## What we collect
 
 - **Account:** when you sign in with Apple or Google we receive an account identifier, your email address and, if the provider shares it, your name. Apple may give us a private relay email instead of your real one.
-- **Profile:** the display name you choose, your time zone and language (so days, reminders and quiet hours match your clock), your evening reminder time and which notifications you want.
+- **Profile:** the display name you choose, a profile photo if you add one, your time zone and language (so days, reminders and quiet hours match your clock), your evening reminder time and which notifications you want.
 - **What you do in packs:** the packs you create or join, your photos, their captions and time, focus session lengths, rest days, jokers and pauses you take, reactions, nudges, name suggestions and changes to the pet's outfit.
 - **Safety:** reports you send and people you block.
 - **Devices:** a push notification token for each phone you sign in on, and a token that lets your widgets read your packs' state (we keep only a scrambled form of it).
@@ -29,7 +29,7 @@ We do **not** collect your location or contacts, we don't use advertising or tra
 
 - Photos are deleted automatically **30 days** after they were posted. A photo that appears in a weekly recap collage is kept with the recap until the account that posted it is deleted.
 - Everything else stays while your account exists.
-- **Deleting your account** (Settings → Delete account) deletes your account, your profile, your photos (including those in recaps), your feeds, reactions, passes, tokens and reports right away. Your packs continue without you; a pack no one is left in is deleted.
+- **Deleting your account** (Settings → Delete account) deletes your account, your profile and profile photo, your photos (including those in recaps), your feeds, reactions, passes, tokens and reports right away. Your packs continue without you; a pack no one is left in is deleted.
 
 ## Services we use
 

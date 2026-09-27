@@ -122,7 +122,15 @@
           ]
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Gozali uses your photos only when you choose a profile picture.",
+          "cameraPermission": "Gozali uses the camera for the photo that feeds your pack's pet, and for your profile picture if you want one.",
+          "microphonePermission": false
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
