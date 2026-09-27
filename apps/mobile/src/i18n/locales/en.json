@@ -125,9 +125,18 @@
     "pending_other": "{{count}} feeds waiting for a connection",
     "extra": "extra",
     "fedCount": "{{fed}}/{{total}} fed today",
-    "memberFed": "{{name}}, fed today",
-    "memberWaiting": "{{name}}, not yet today",
-    "memberAsleep": "{{name}}, asleep"
+    "member": {
+      "fed": "{{name}}, fed today",
+      "pass": "{{name}}, resting today",
+      "waiting": "{{name}}, not yet today",
+      "asleep": "{{name}}, asleep",
+      "paused": "{{name}}, on a pause"
+    },
+    "notToday": "Not today",
+    "restingToday": "You're resting today.",
+    "jokerToday": "Your joker covers today.",
+    "pausedToday": "You're on a pause until {{date}}.",
+    "undo": "Undo"
   },
   "settings": {
     "title": "Pack settings",
@@ -331,5 +340,40 @@
     "takePhoto": "Done, take the photo",
     "doneTitle": "Time is up!",
     "doneBody": "Take the photo to feed your pack."
+  },
+  "days": {
+    "title": "Not today?",
+    "body": "Rest days are part of the plan. The joker covers a day you didn't plan to miss.",
+    "rest": "Rest day",
+    "restLeft_one": "{{count}} left this week",
+    "restLeft_other": "{{count}} left this week",
+    "restNone": "None left this week",
+    "joker": "Joker",
+    "jokerAvailable": "One a month · available",
+    "jokerUsed": "One a month · used this month",
+    "use": "Use",
+    "away": "Away for a few days? Pause instead",
+    "close": "Close",
+    "feedCancels": "If you feed today anyway, the pass goes back to you.",
+    "pauseTitle": "Pause",
+    "pauseBody": "For a trip, a flight or reserve duty: 3 to 60 days, starting tomorrow. The pet is not hurt while you are away.",
+    "pauseDays": "{{count}} days",
+    "pauseConfirm": "Pause for {{count}} days, from tomorrow?",
+    "pausedUntil": "Paused until {{date}}.",
+    "pauseStarts": "Your pause runs from {{date}} to {{end}}.",
+    "endPause": "End pause",
+    "cancelPause": "Cancel pause",
+    "pauseAvailableFrom": "Your next pause can start after {{date}}.",
+    "errors": {
+      "already_fed": "You already fed today.",
+      "already_paused": "You already have a pause.",
+      "already_passed": "You already have a pass for today.",
+      "paused": "You're on a pause today.",
+      "no_rest_days_left": "No rest days left this week.",
+      "joker_used": "You used this month's joker.",
+      "pause_cooldown": "A new pause can start 30 days after the last one ended.",
+      "pause_too_short": "A pause lasts at least 3 days."
+    },
+    "daysUnit": "days"
   }
 }

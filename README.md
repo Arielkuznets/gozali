@@ -30,6 +30,13 @@ npm run db:types       # regenerate apps/mobile/src/lib/database.types.ts
 npm run smoke:packs    # pack flow against local Supabase (needs SUPABASE_PUBLISHABLE_KEY and SUPABASE_SECRET_KEY)
 npm run smoke:critter  # a critter change reaches pack members live, and only them (same keys)
 npm run smoke:feeds    # upload, feed, live update and photo access for members only (same keys)
+npm run smoke:day-close  # six days closed by the real close-days code: hatching, joker, sleep (same keys)
+```
+
+```sh
+# The close-days function locally: put CRON_SECRET=<any value> in supabase/functions/.env, then
+npx supabase functions serve
+curl -X POST -H "x-cron-secret: <value>" http://127.0.0.1:54321/functions/v1/close-days
 ```
 
 ```sh

@@ -4,13 +4,14 @@ import { StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/AppText';
 import { colors, fonts } from '@/theme/tokens';
 
-export type MemberState = 'fed' | 'waiting' | 'asleep';
+export type MemberState = 'fed' | 'pass' | 'waiting' | 'asleep' | 'paused';
 
 type Member = { id: string; name: string | null; state: MemberState };
 
 /**
- * The row of member circles on the pack screen (spec section 9): filled = fed today,
- * gray = not yet, 💤 = asleep. Each state also has its own mark, so color is not the only signal.
+ * The row of member circles on the pack screen (spec section 9): filled = fed today, dashed =
+ * rest or joker, 💤 = asleep or paused, gray = not yet. Each state also has its own mark or
+ * outline, so color is not the only signal.
  */
 export function MemberCircles({ members, color }: { members: Member[]; color: string }) {
   const { t } = useTranslation();
@@ -18,16 +19,17 @@ export function MemberCircles({ members, color }: { members: Member[]; color: st
     <View style={styles.row}>
       {members.map((member) => {
         const name = member.name ?? '…';
-        const label =
-          member.state === 'fed'
-            ? t('pack.memberFed', { name })
-            : member.state === 'asleep'
-              ? t('pack.memberAsleep', { name })
-              : t('pack.memberWaiting', { name });
+        const label = t(`pack.member.${member.state}`, { name });
+        const resting = member.state === 'asleep' || member.state === 'paused';
         return (
           <View key={member.id} style={styles.item} accessible accessibilityLabel={label}>
-            <View style={[styles.circle, member.state === 'fed' && { backgroundColor: color, borderColor: color }]}>
-              <AppText style={styles.initial}>{member.state === 'asleep' ? '💤' : initial(member.name)}</AppText>
+            <View
+              style={[
+                styles.circle,
+                member.state === 'fed' && { backgroundColor: color, borderColor: color },
+                member.state === 'pass' && styles.dashed,
+              ]}>
+              <AppText style={styles.initial}>{resting ? '💤' : initial(member.name)}</AppText>
               {member.state === 'fed' && (
                 <View style={styles.badge}>
                   <AppText style={styles.badgeText}>✓</AppText>
@@ -61,6 +63,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  dashed: { borderStyle: 'dashed', borderColor: colors.inkMuted, backgroundColor: colors.surface },
   initial: { fontFamily: fonts.bodyMedium, fontSize: 17 },
   badge: {
     position: 'absolute',
