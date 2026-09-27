@@ -5,7 +5,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { Resvg, initWasm } from 'npm:@resvg/resvg-wasm@2.6.2';
 
-import { artSvg, artVersion, widgetPack, type WidgetPackRow } from './state.ts';
+import { artSvg, artVersion, dayIn, widgetPack, type WidgetPackRow } from './state.ts';
 
 const RESVG_WASM = 'https://cdn.jsdelivr.net/npm/@resvg/resvg-wasm@2.6.2/index_bg.wasm';
 let resvgReady: Promise<void> | null = null;
@@ -26,7 +26,8 @@ Deno.serve(async (request) => {
   if (data === null) return new Response('unknown token', { status: 401 });
 
   const state = data as { timezone: string; packs: WidgetPackRow[] };
-  const packs = state.packs.map(widgetPack);
+  const day = dayIn(state.timezone, new Date());
+  const packs = state.packs.map((row) => widgetPack(row, day));
   const url = new URL(request.url);
   const imageFor = url.searchParams.get('image');
 

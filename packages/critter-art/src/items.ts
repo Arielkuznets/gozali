@@ -15,7 +15,7 @@ const flower = (x: number, y: number, petals: string) =>
     circle(0, 0, 2.6, { fill: GOLD }),
   );
 
-const HEAD_ITEMS: Record<HeadItem | 'nightcap', string> = {
+const HEAD_ITEMS: Record<HeadItem | 'nightcap' | 'party_hat', string> = {
   beanie:
     path('M-38 10 C-40 -30 40 -30 38 10 Z', { fill: '#D96C5F' }) +
     g({ ...line('#C25A4E', 2) }, path('M-20 -14 L-22 2'), path('M0 -20 L0 2'), path('M20 -14 L22 2')) +
@@ -40,6 +40,16 @@ const HEAD_ITEMS: Record<HeadItem | 'nightcap', string> = {
     circle(0, 12, 4.5, { fill: '#FFE27A' }),
   halo:
     ellipse(0, -16, 30, 8, { ...line(GOLD, 5) }) + ellipse(0, -16, 30, 8, { ...line('#FFF3B0', 1.5), opacity: 0.8 }),
+  party_hat:
+    path('M-24 10 L2 -46 L26 10 Z', { fill: '#F7E3A1' }) +
+    g(
+      { ...line(ACCENT, 5) },
+      path('M-15 -9 L13 -9'),
+      path('M-7 -28 L6 -28'),
+    ) +
+    g({ fill: '#BCD9E8' }, circle(-10, 2, 3), circle(12, -16, 2.6), circle(-2, -36, 2)) +
+    path('M-26 10 Q0 18 28 10', line(darken('#F7E3A1', 0.25), 3)) +
+    circle(2, -48, 6, { fill: '#F2B8C6' }),
   nightcap:
     path('M-38 12 C-32 -26 8 -44 48 -20 C30 -22 14 -14 36 12 Z', { fill: '#8FA8D8' }) +
     g({ fill: '#FFFFFF', opacity: 0.55 }, circle(-18, -6, 2.5), circle(4, -16, 2), circle(-4, 2, 2.2), circle(22, -10, 1.8)) +
@@ -69,7 +79,7 @@ function capeBehind(geometry: Geometry): string {
   );
 }
 
-export function headItem(item: HeadItem | 'nightcap', geometry: Geometry): string {
+export function headItem(item: HeadItem | 'nightcap' | 'party_hat', geometry: Geometry): string {
   const scale = geometry.headWidth / HEAD_WIDTH;
   return g({ transform: `translate(100 ${geometry.headTop}) scale(${scale})` }, HEAD_ITEMS[item]);
 }

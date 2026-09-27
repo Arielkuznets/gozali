@@ -76,7 +76,8 @@ function drawCritter(art: CritterArt & { look: Level }): string {
     art.look === 'weak' ? mix(art.color, '#D8D2CB', 0.45) : art.look === 'sick' ? mix(art.color, '#CFE0B8', 0.35) : art.color;
   const scale = STAGE_SCALE[art.stage];
   const marks = art.marks ?? [];
-  const head = sleeping ? 'nightcap' : outfit.head;
+  // Sleep wins over a holiday, and a holiday over the outfit (spec section 4).
+  const head = sleeping ? 'nightcap' : art.holiday ? 'party_hat' : outfit.head;
 
   const body = [
     behindBody(outfit.neck, geometry),
@@ -86,6 +87,7 @@ function drawCritter(art: CritterArt & { look: Level }): string {
     drawFace(face, geometry, {
       eyeScale: EYE_SCALE[art.stage],
       blinking: art.blinking ?? false,
+      gaze: sleeping ? undefined : art.gaze,
       skin: color,
       shadow: darken(color, 0.25),
       buckTooth: art.species === 'mossy',

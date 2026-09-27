@@ -33,6 +33,10 @@ export interface CritterArt {
   sleeping?: boolean;
   /** One animation frame with the eyes shut. */
   blinking?: boolean;
+  /** Where the eyes look, each axis from -1 to 1 (following a finger). */
+  gaze?: { x: number; y: number };
+  /** A holiday: the holiday hat takes the place of the head item (spec section 4). */
+  holiday?: boolean;
   /** The egg shows a crack once the second member joined. */
   cracking?: boolean;
   outfit?: Outfit;

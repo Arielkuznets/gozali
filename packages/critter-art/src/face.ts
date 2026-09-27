@@ -110,10 +110,20 @@ function mouth(kind: Mouth, buckTooth: boolean): string {
 export function drawFace(
   face: Face,
   geometry: Geometry,
-  options: { eyeScale: number; blinking: boolean; skin: string; shadow: string; buckTooth: boolean },
+  options: {
+    eyeScale: number;
+    blinking: boolean;
+    skin: string;
+    shadow: string;
+    buckTooth: boolean;
+    gaze?: { x: number; y: number };
+  },
 ): string {
   const { eyeY, eyeGap, mouthY } = geometry;
-  const { eyeScale, blinking, skin, shadow, buckTooth } = options;
+  const { eyeScale, blinking, skin, shadow, buckTooth, gaze } = options;
+  // The eyes shift a little toward the gaze; the brows stay put.
+  const clamp = (value: number) => Math.max(-1, Math.min(1, value));
+  const look = gaze ? { x: clamp(gaze.x) * 2.6, y: clamp(gaze.y) * 2.2 } : { x: 0, y: 0 };
   const cheeks = face.cheeks
     ? g(
         { fill: CHEEK, opacity: 0.45 },
@@ -125,7 +135,7 @@ export function drawFace(
   const oneEye = (x: number, mirror: boolean) =>
     g(
       { transform: `translate(${x} ${eyeY}) scale(${eyeScale})` },
-      eye(face.eyes, blinking, shadow, skin, mirror),
+      g({ transform: look.x || look.y ? `translate(${look.x} ${look.y})` : undefined }, eye(face.eyes, blinking, shadow, skin, mirror)),
       g({ transform: mirror ? 'scale(-1 1)' : undefined }, brow(face.brows)),
     );
   return (

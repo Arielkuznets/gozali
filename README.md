@@ -58,4 +58,5 @@ cd packages/critter-art
 npm test                           # every combination renders valid SVG
 npm run preview -- critters.html   # contact sheet of all states, stages and items
 npm run icons                      # redraw the app icons in apps/mobile/assets/images from the critter
+npm run holidays                   # regenerate the holiday-hat dates from the Hebrew calendar
 ```

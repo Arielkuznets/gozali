@@ -20,8 +20,8 @@ import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { TextField } from '@/components/TextField';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { Critter } from '@/features/critter/Critter';
 import { critterArt } from '@/features/critter/art';
+import { EatingMoment } from '@/features/feeds/EatingMoment';
 import { useSendFeed } from '@/features/feeds/api';
 import { compressPhoto } from '@/features/feeds/send';
 import { clearFocusSession } from '@/features/focus/session';
@@ -56,7 +56,7 @@ export default function FeedScreen() {
   // After a successful feed, the critter eats for a moment and the screen closes by itself.
   useEffect(() => {
     if (result !== 'sent') return;
-    const timer = setTimeout(() => goBack(`/pack/${packId}`), 2200);
+    const timer = setTimeout(() => goBack(`/pack/${packId}`), 2800);
     return () => clearTimeout(timer);
   }, [result, packId]);
 
@@ -97,8 +97,8 @@ export default function FeedScreen() {
     const art = { ...critterArt(critter, { category: pack.category, now: new Date() }), mood: 1, sleeping: false };
     return (
       <SafeAreaView style={styles.doneScreen}>
-        <View style={styles.done}>
-          <Critter art={art} size={220} label={t('feed.ateLabel', { name })} />
+        <EatingMoment art={art} photoUri={shot?.uri ?? null} label={t('feed.ateLabel', { name })} />
+        <View style={styles.doneText}>
           <AppText variant="heading" style={styles.centerText}>
             {result === 'sent' ? t('feed.sent', { name }) : t('feed.queuedTitle')}
           </AppText>
@@ -220,6 +220,7 @@ const styles = StyleSheet.create({
   dark: { flex: 1, backgroundColor: '#1E1916', justifyContent: 'center' },
   doneScreen: { flex: 1, backgroundColor: colors.background, padding: spacing.lg, gap: spacing.sm },
   done: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
+  doneText: { alignItems: 'center', gap: spacing.sm, paddingBottom: spacing.xl },
   centerText: { textAlign: 'center' },
   muted: { color: colors.inkMuted },
   light: { color: colors.onAccent },

@@ -1,7 +1,7 @@
 import { renderCritter, type CritterArt } from '@gozali/critter-art';
 import * as Haptics from 'expo-haptics';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View, type GestureResponderEvent } from 'react-native';
 import Animated, {
   Easing,
   cancelAnimation,
@@ -40,6 +40,10 @@ export function Critter({ art, size, label, animated = true, lines, petHint }: P
   const [blinking, setBlinking] = useState(false);
   const [line, setLine] = useState<string | null>(null);
   const lineTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const [gaze, setGaze] = useState<{ x: number; y: number } | undefined>(undefined);
+  const gazeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const box = useRef<View>(null);
+  const origin = useRef<{ x: number; y: number } | null>(null);
   const breath = useSharedValue(0);
   const jump = useSharedValue(0);
 
@@ -78,9 +82,36 @@ export function Critter({ art, size, label, animated = true, lines, petHint }: P
     return () => clearTimeout(timer);
   }, [animated, awake]);
 
-  useEffect(() => () => clearTimeout(lineTimer.current), []);
+  useEffect(
+    () => () => {
+      clearTimeout(lineTimer.current);
+      clearTimeout(gazeTimer.current);
+    },
+    [],
+  );
 
-  const xml = useMemo(() => renderCritter({ ...art, blinking }), [art, blinking]);
+  // Where the finger is, from the middle of the face, in steps of a quarter so a moving finger
+  // redraws the eyes a few times rather than on every event.
+  const follow = (event: GestureResponderEvent) => {
+    if (!awake || !animated || !origin.current) return;
+    const step = (value: number) => Math.round(Math.max(-1, Math.min(1, value)) * 4) / 4;
+    const x = step((event.nativeEvent.pageX - origin.current.x) / (size / 2));
+    const y = step((event.nativeEvent.pageY - origin.current.y) / (size / 2));
+    clearTimeout(gazeTimer.current);
+    setGaze((current) => (current?.x === x && current.y === y ? current : { x, y }));
+  };
+  const startFollowing = (event: GestureResponderEvent) => {
+    box.current?.measure((_x, _y, width, height, pageX, pageY) => {
+      origin.current = { x: pageX + width / 2, y: pageY + height * 0.62 };
+      follow(event);
+    });
+  };
+  const stopFollowing = () => {
+    clearTimeout(gazeTimer.current);
+    gazeTimer.current = setTimeout(() => setGaze(undefined), 700);
+  };
+
+  const xml = useMemo(() => renderCritter({ ...art, blinking, gaze }), [art, blinking, gaze]);
 
   const motion = useAnimatedStyle(() => {
     const b = breath.value;
@@ -111,7 +142,13 @@ export function Critter({ art, size, label, animated = true, lines, petHint }: P
   );
 
   return (
-    <View style={[styles.wrap, { width: size }]}>
+    <View
+      ref={box}
+      style={[styles.wrap, { width: size }]}
+      onTouchStart={startFollowing}
+      onTouchMove={follow}
+      onTouchEnd={stopFollowing}
+      onTouchCancel={stopFollowing}>
       {line !== null && (
         <View style={[styles.bubble, { bottom: size * 0.88 }]} pointerEvents="none">
           <AppText variant="caption" style={styles.bubbleText}>
