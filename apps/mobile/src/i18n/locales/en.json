@@ -98,6 +98,8 @@
   "invite": {
     "title": "Invite your friends",
     "body": "The egg starts to crack when a friend joins, and it hatches on the first day two of you feed it.",
+    "bodyHatched": "Up to {{count}} friends can raise {{name}} together. New members count from their first feed.",
+    "full": "The pack is full: {{count}} members is the most.",
     "code": "Invite code",
     "share": "Share invite",
     "copy": "Copy code",
