@@ -173,6 +173,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "e2b9dd73-d05e-4ee1-834d-dbcf6d26cc0a"
+      }
+    },
+    "owner": "arielkuznets"
   }
 }
