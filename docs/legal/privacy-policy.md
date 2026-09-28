@@ -39,6 +39,7 @@ We do **not** collect your location or contacts, we don't use advertising or tra
 - **Expo** delivers push notifications, through Apple's and Google's push services.
 - **Apple** and **Google** provide sign-in.
 - **Resend** delivers report alerts to the developer.
+- **Cloudflare** hosts the gozali.app website and forwards email sent to hello@gozali.app.
 
 They process data only to provide these services to Gozali.
 
