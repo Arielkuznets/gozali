@@ -69,6 +69,11 @@ export default function JoinScreen() {
         {complete && preview.isSuccess && pack === null && (
           <AppText style={styles.error}>{t('packs.errors.notFound')}</AppText>
         )}
+        {complete && preview.isError && (
+          <AppText style={styles.error}>
+            {t(packErrorKey(preview.error) === 'packs.errors.tooManyAttempts' ? 'packs.errors.tooManyAttempts' : 'errors.loadFailed')}
+          </AppText>
+        )}
         {pack && (
           <View style={styles.preview}>
             <Critter

@@ -164,6 +164,29 @@ export type Database = {
           },
         ];
       };
+      code_misses: {
+        Row: {
+          at: string;
+          user_id: string;
+        };
+        Insert: {
+          at?: string;
+          user_id: string;
+        };
+        Update: {
+          at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'code_misses_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       critters: {
         Row: {
           coins: number;
@@ -953,6 +976,7 @@ export type Database = {
         | { Args: { name: string }; Returns: undefined }
         | { Args: { body: Json; name: string }; Returns: undefined };
       cancel_day_pass: { Args: { target: string }; Returns: undefined };
+      check_code_attempts: { Args: { caller: string }; Returns: undefined };
       choose_name: { Args: { suggestion: string; target: string }; Returns: undefined };
       claim_notifications: {
         Args: { at_time?: string; max_rows?: number };
