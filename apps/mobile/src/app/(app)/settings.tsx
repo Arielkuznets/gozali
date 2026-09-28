@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
+import { HeaderButton } from '@/components/HeaderButton';
 import { Button } from '@/components/Button';
 import { Choice } from '@/components/Choice';
 import { PRIVACY_URL, TERMS_URL } from '@/components/LegalLinks';
@@ -59,9 +60,7 @@ export default function SettingsScreen() {
   return (
     <Screen>
       <View style={styles.header}>
-        <Pressable accessibilityRole="button" onPress={() => goBack('/me')} hitSlop={12}>
-          <AppText variant="caption">{t('me.back')}</AppText>
-        </Pressable>
+        <HeaderButton icon="‹" label={t('me.back')} onPress={() => goBack('/me')} />
         <AppText variant="heading">{t('settings.app.title')}</AppText>
         <View style={styles.headerSpacer} />
       </View>

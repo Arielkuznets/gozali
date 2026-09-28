@@ -1,9 +1,10 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
+import { HeaderButton } from '@/components/HeaderButton';
 import { Button } from '@/components/Button';
 import { Choice } from '@/components/Choice';
 import { Screen } from '@/components/Screen';
@@ -80,9 +81,7 @@ export default function FocusScreen() {
   return (
     <Screen>
       <View style={styles.header}>
-        <Pressable accessibilityRole="button" onPress={() => goBack(`/pack/${id}`)} hitSlop={12}>
-          <AppText variant="caption">{t('pack.back')}</AppText>
-        </Pressable>
+        <HeaderButton icon="‹" label={t('pack.back')} onPress={() => goBack(`/pack/${id}`)} />
       </View>
 
       <View style={styles.body}>

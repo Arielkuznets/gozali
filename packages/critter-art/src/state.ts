@@ -22,15 +22,32 @@ export interface CritterRow {
   outfit: unknown;
 }
 
-export type HabitCategory = 'gym' | 'running' | 'study' | 'reading' | 'water' | 'custom';
+export type HabitCategory =
+  | 'gym'
+  | 'running'
+  | 'study'
+  | 'reading'
+  | 'water'
+  | 'walking'
+  | 'yoga'
+  | 'meditation'
+  | 'eating'
+  | 'sleep'
+  | 'language'
+  | 'music'
+  | 'journal'
+  | 'custom';
 
-/** The habit item a critter carries from the Kid stage; custom habits have none. */
+/** The habit item a critter carries from the Kid stage; habits without a fitting item have none. */
 const CATEGORY_ITEMS: Partial<Record<HabitCategory, CategoryItem>> = {
   gym: 'dumbbell',
   reading: 'glasses',
   study: 'headphones',
   running: 'sneakers',
   water: 'bottle',
+  walking: 'sneakers',
+  language: 'headphones',
+  music: 'headphones',
 };
 
 const MARKS: readonly Mark[] = ['medal', 'bandage'];

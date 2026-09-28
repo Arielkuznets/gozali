@@ -9,6 +9,8 @@ import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, View } 
 import { captureRef } from 'react-native-view-shot';
 
 import { AppText } from '@/components/AppText';
+import { Coins } from '@/components/Coins';
+import { HeaderButton } from '@/components/HeaderButton';
 import { Button } from '@/components/Button';
 import { Choice } from '@/components/Choice';
 import { Screen } from '@/components/Screen';
@@ -41,9 +43,7 @@ export default function RecapScreen() {
   return (
     <Screen>
       <View style={styles.header}>
-        <Pressable accessibilityRole="button" onPress={() => goBack(`/pack/${id}`)} hitSlop={12}>
-          <AppText variant="caption">{t('pack.back')}</AppText>
-        </Pressable>
+        <HeaderButton icon="‹" label={t('pack.back')} onPress={() => goBack(`/pack/${id}`)} />
         <AppText variant="heading">{t('recap.title')}</AppText>
         <View style={styles.headerSpacer} />
       </View>
@@ -128,7 +128,9 @@ function RecapView({ recap, packName, category, names }: ViewProps) {
           <Stat value={`🔥 ${stats.critter.streak}`} label={t('recap.streak')} />
         </View>
         {(stats.coins ?? 0) > 0 && (
-          <AppText style={styles.centerText}>{t('recap.coins', { count: stats.coins })}</AppText>
+          <View style={styles.centerRow}>
+            <Coins text={t('recap.coins', { count: stats.coins })} variant="body" />
+          </View>
         )}
         {stats.topMembers.length > 0 && (
           <AppText style={styles.centerText}>{t('recap.mostConsistent', { names: top, count: stats.topFeeds })}</AppText>
@@ -182,6 +184,7 @@ function Stat({ value, label }: { value: string; label: string }) {
 }
 
 const styles = StyleSheet.create({
+  centerRow: { alignItems: 'center' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.md },
   headerSpacer: { width: 32 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },

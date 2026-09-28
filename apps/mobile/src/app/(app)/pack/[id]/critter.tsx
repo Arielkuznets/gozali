@@ -6,6 +6,8 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
+import { Coins } from '@/components/Coins';
+import { HeaderButton } from '@/components/HeaderButton';
 import { Screen } from '@/components/Screen';
 import { LoadFailed, LoadingScreen, LoadFailedScreen, PackMissingScreen } from '@/components/ScreenStates';
 import { Critter } from '@/features/critter/Critter';
@@ -91,9 +93,7 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
   return (
     <Screen>
       <View style={styles.header}>
-        <Pressable accessibilityRole="button" onPress={() => goBack(`/pack/${pack.id}`)} hitSlop={12}>
-          <AppText variant="caption">{t('pack.back')}</AppText>
-        </Pressable>
+        <HeaderButton icon="‹" label={t('pack.back')} onPress={() => goBack(`/pack/${pack.id}`)} />
         <AppText variant="heading">{t('profile.title')}</AppText>
         <View style={styles.headerSpacer} />
       </View>
@@ -175,7 +175,7 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
         <View style={styles.section}>
           <View style={styles.titleRow}>
             <AppText style={styles.sectionTitle}>{t('profile.wardrobe')}</AppText>
-            <AppText variant="caption">{t('profile.coins', { count: critter.coins })}</AppText>
+            <Coins text={t('profile.coins', { count: critter.coins })} />
           </View>
           {!ownsSomething && <AppText style={styles.muted}>{t('profile.wardrobeEmpty')}</AppText>}
           {SLOTS.map((slot) => {
@@ -212,7 +212,11 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
 
         <View style={styles.section}>
           <AppText style={styles.sectionTitle}>{t('profile.shop')}</AppText>
-          <AppText variant="caption">{t('profile.shopBody')}</AppText>
+          <Pressable accessibilityRole="button" onPress={() => notify(t('profile.shopBody'))} hitSlop={8}>
+            <AppText variant="caption" style={styles.howLink}>
+              {t('profile.shopHow')}
+            </AppText>
+          </Pressable>
           {shop.data && forSale.length === 0 && <AppText style={styles.muted}>{t('profile.soldOut')}</AppText>}
           <View style={styles.shop}>
             {forSale.map((entry) => {
@@ -225,11 +229,9 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
                   accessibilityLabel={`${itemName(entry.item)}, ${t('critter.coinsLabel', { count: entry.price })}`}
                   onPress={() => offer(entry)}
                   style={[styles.item, styles.shopItem, !affordable && styles.unaffordable]}>
-                  <Critter art={{ ...art, outfit: preview, sleeping: false, mood: 0 }} size={64} label="" animated={false} />
-                  <AppText variant="caption" numberOfLines={2} style={styles.itemName}>
-                    {itemName(entry.item)}
-                  </AppText>
-                  <AppText style={styles.price}>{t('profile.price', { price: entry.price })}</AppText>
+                  {/* The drawing shows the item; its name is read out and asked about on buying. */}
+                  <Critter art={{ ...art, outfit: preview, sleeping: false, mood: 0 }} size={72} label="" animated={false} />
+                  <Coins text={t('profile.price', { price: entry.price })} style={styles.price} />
                 </Pressable>
               );
             })}
@@ -292,6 +294,7 @@ const styles = StyleSheet.create({
   shopItem: { width: undefined, flexBasis: '30%', flexGrow: 1, maxWidth: '32%' },
   itemName: { textAlign: 'center' },
   price: { fontFamily: fonts.bodyMedium, fontSize: 13 },
+  howLink: { color: colors.accentText },
   achievement: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   locked: { opacity: 0.55 },
   badge: { fontSize: 22, lineHeight: 28 },
