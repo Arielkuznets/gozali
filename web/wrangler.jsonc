@@ -1,0 +1,12 @@
+// The gozali.app site: the files built into dist by build.mjs, served by Cloudflare as static
+// assets (they read _redirects and _headers), on the gozali.app domain.
+{
+  "name": "gozali",
+  "compatibility_date": "2026-09-28",
+  "assets": {
+    "directory": "./dist",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  },
+  "routes": [{ "pattern": "gozali.app", "custom_domain": true }]
+}

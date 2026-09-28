@@ -1,7 +1,8 @@
 // Builds the gozali.app site into web/dist: the landing page, the invite page, the privacy
-// policy and terms (from docs/legal), and the files that let https://gozali.app/i/CODE open the
-// app. Run: APP_STORE_URL=... ANDROID_SHA256=... node web/build.mjs
-// Missing values become placeholders, with a warning, so a preview build still works.
+// policy, terms and support pages (from docs), and the files that let https://gozali.app/i/CODE
+// open the app. Run: APP_STORE_URL=... PLAY_STORE_URL=... ANDROID_SHA256=... node web/build.mjs
+// Missing values become placeholders, with a warning, so a preview build still works; the landing
+// page shows a store button only once its store URL is set.
 import { createHash } from 'node:crypto';
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -19,6 +20,7 @@ function setting(name, fallback) {
 }
 
 const appStoreUrl = setting('APP_STORE_URL', 'https://apps.apple.com/app/gozali');
+const playStoreUrl = process.env.PLAY_STORE_URL;
 // The Apple team is public (it is in the association file anyway), so it has a real default.
 const teamId = process.env.APPLE_TEAM_ID || '3DYA8J45VJ';
 const androidFingerprint = setting('ANDROID_SHA256', 'SHA256:FINGERPRINT');
@@ -34,13 +36,25 @@ const creatures = CREATURES.map((species) => {
   return `<figure>${art.replace('<svg ', `<svg role="img" aria-label="${name}" `)}<figcaption>${name}</figcaption></figure>`;
 }).join('');
 
-for (const page of ['index.html', 'i/index.html']) {
+// Before the app is in a store, its button would lead nowhere.
+const storeButtons =
+  [
+    process.env.APP_STORE_URL && `<a class="button" href="${appStoreUrl}">Download for iPhone</a>`,
+    playStoreUrl && `<a class="button secondary" href="${playStoreUrl}">Get it on Google Play</a>`,
+  ]
+    .filter(Boolean)
+    .join('') || '<p class="muted">Coming soon to iPhone and Android.</p>';
+
+for (const page of ['index.html', 'invite/index.html']) {
   const file = join(dist, page);
-  const html = readFileSync(file, 'utf8').replaceAll('{{APP_STORE_URL}}', appStoreUrl).replaceAll('{{CREATURES}}', creatures);
+  const html = readFileSync(file, 'utf8')
+    .replaceAll('{{APP_STORE_URL}}', appStoreUrl)
+    .replaceAll('{{CREATURES}}', creatures)
+    .replaceAll('{{STORE_BUTTONS}}', storeButtons);
   writeFileSync(file, html);
 }
 
-// The legal pages come from the Markdown in docs/legal, which uses headings, paragraphs,
+// The legal and support pages come from Markdown in docs, which uses headings, paragraphs,
 // lists, a quote and bold text only.
 const escape = (text) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const inline = (text) => escape(text).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
@@ -67,14 +81,15 @@ function markdown(source) {
 }
 
 for (const [folder, source, title] of [
-  ['privacy', 'privacy-policy.md', 'Privacy Policy'],
-  ['terms', 'terms-of-use.md', 'Terms of Use'],
+  ['privacy', 'legal/privacy-policy.md', 'Privacy Policy'],
+  ['terms', 'legal/terms-of-use.md', 'Terms of Use'],
+  ['support', 'support.md', 'Support'],
 ]) {
-  const body = markdown(readFileSync(join(root, '../docs/legal', source), 'utf8'));
+  const body = markdown(readFileSync(join(root, '../docs', source), 'utf8'));
   mkdirSync(join(dist, folder), { recursive: true });
   writeFileSync(
     join(dist, folder, 'index.html'),
-    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Gozali ${title}</title><link rel="icon" href="/icon.png"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&family=Varela+Round&display=swap"><link rel="stylesheet" href="/style.css"></head><body><main><article>${body}</article><footer class="muted"><a href="/">Gozali</a></footer></main></body></html>\n`,
+    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Gozali ${title}</title><link rel="icon" href="/icon.png"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&family=Varela+Round&display=swap"><link rel="stylesheet" href="/style.css"></head><body><main><article>${body}</article><footer class="muted"><a href="/">Gozali</a> · <a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a> · <a href="/support/">Support</a></footer></main></body></html>\n`,
   );
 }
 
@@ -98,12 +113,12 @@ writeFileSync(
   ),
 );
 
-// Cloudflare Pages / Netlify style rules: every invite path serves the invite page, and the
-// association file is JSON even without an extension.
-writeFileSync(join(dist, '_redirects'), '/i/*  /i/index.html  200\n');
+// Cloudflare style rules: every invite path shows the invite page (kept outside /i/, so the rule
+// can't match its own target), and the association file is JSON even without an extension.
+writeFileSync(join(dist, '_redirects'), '/i/*  /invite/  200\n');
 // Security headers for every page. The invite page's one inline script is allowed by its hash, so
 // the policy needs no 'unsafe-inline'; fonts come from Google Fonts.
-const scriptHashes = [...readFileSync(join(dist, 'i/index.html'), 'utf8').matchAll(/<script>([\s\S]*?)<\/script>/g)].map(
+const scriptHashes = [...readFileSync(join(dist, 'invite/index.html'), 'utf8').matchAll(/<script>([\s\S]*?)<\/script>/g)].map(
   ([, body]) => `'sha256-${createHash('sha256').update(body).digest('base64')}'`,
 );
 const policy = [
