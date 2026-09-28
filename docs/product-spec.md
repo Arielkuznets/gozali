@@ -522,7 +522,7 @@ Important: the widgets and some of the modules require a **development build**, 
 
 **Testing:** unit, database (pgTAP), API smoke and end-to-end tests run in CI on every push; see [decision D18](decisions.md).
 
-**Build and distribution:** EAS Build for iPhone and Android, EAS Submit to TestFlight and the stores, EAS Update for fast JavaScript updates without a new review (a channel per build profile, and a fingerprint runtime version so an update only reaches builds with the same native code). CI also compiles the iOS app for the simulator and the Android app, widgets included, without signing. The pilot runs on TestFlight and in Google Play closed testing, which for a new personal developer account requires at least 12 testers for 14 days in a row before publishing.
+**Build and distribution:** EAS Build for iPhone and Android, EAS Submit to TestFlight and the stores, EAS Update for fast JavaScript updates without a new review (a channel per build profile, and the app version as the runtime version, raised with every native change, so an update only reaches builds with the same native code). CI also compiles the iOS app for the simulator and the Android app, widgets included, without signing. The pilot runs on TestFlight and in Google Play closed testing, which for a new personal developer account requires at least 12 testers for 14 days in a row before publishing.
 
 ## 15. Scope and build phases
 
