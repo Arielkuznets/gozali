@@ -137,7 +137,7 @@ Every stage change gets an animation and a celebratory notification to the whole
 
 **Pack memory:** events leave a permanent mark on the creature: a medal after 30 successful days in a row, a small bandage after it came back from running away, a holiday hat on holidays. The holidays are Rosh Hashanah, Hanukkah, Purim, Passover and New Year's; their dates come from the Hebrew calendar and are generated into a table (`packages/critter-art`, `npm run holidays`), because the phones' JavaScript engines can't be relied on to know that calendar.
 
-**Achievements, coins and wardrobe:** achievements are pack goals. Every achievement shows on the critter profile and unlocks one item for the pack's wardrobe for free. Every successful day also earns the pack coins, more the longer the streak: 1 a day, 2 from a 7-day streak, 3 from 14 and 5 from 30 (decision D21). Any member spends the pack's coins in the outfit shop on the critter profile (items cost 10 to 45 coins), and the purchase shows in the feed ("Noa bought Pixel a cap"). The halo, the cape and the space background can't be bought: they stay rewards for their achievements. Any member can dress the creature from the wardrobe, one item per slot (head, neck, background), and the change shows in the feed ("Noa gave Pixel a scarf"). The category item and the permanent marks don't take a slot; on holidays the holiday hat temporarily replaces the head item.
+**Achievements, coins and wardrobe:** achievements are pack goals. Every achievement shows on the critter profile and unlocks one item for the pack's wardrobe for free. Every successful day also earns the pack coins, more the longer the streak: 1 a day, 2 from a 7-day streak, 3 from 14 and 5 from 30 (decision D21). Any member spends the pack's coins in the outfit shop on the critter profile (items cost 10 to 45 coins), and the purchase shows in the feed ("Noa bought Pixel a cap"). The halo, the cape and the space background can't be bought: they stay rewards for their achievements. Any member can dress the creature from the wardrobe, one item per slot (head, neck, background), and the change shows in the feed ("Noa gave Pixel a scarf"). The category item and the permanent marks don't take a slot; on holidays the holiday hat temporarily replaces the head item. An egg earns no coins and wears nothing, so while the creature is an egg the profile shows one line, "The shop opens when the egg hatches", in place of the wardrobe and the shop.
 
 | Achievement | Condition | Item |
 | --- | --- | --- |
@@ -417,7 +417,7 @@ The app includes content that users upload (photos), so it must meet Apple's and
 The pilot is in English, and the public launch is in English and Hebrew. The translation and RTL infrastructure exists from day one, so adding Hebrew is only translation and writing work.
 
 - All texts in translation files (i18n), no hard-coded text in the code. Language detection with `expo-localization`, and the language can be changed in settings.
-- Components are built to support right-to-left (RTL) layout, including the widgets.
+- Components are built to support right-to-left (RTL) layout, including the widgets. While the app is English only, the layout stays left to right on every phone (`supportsRTL` is off in app.json), so a phone set to Hebrew doesn't mirror English screens; it is turned on together with the Hebrew texts.
 - The creatures' lines are written separately for each language, not translated word for word, to keep the humor and personality.
 - Dates and times are shown in the user's time zone and format.
 

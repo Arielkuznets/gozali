@@ -2,7 +2,7 @@
   "expo": {
     "name": "Gozali",
     "slug": "gozali",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -110,7 +110,7 @@
       [
         "expo-localization",
         {
-          "supportsRTL": true
+          "supportsRTL": false
         }
       ],
       "expo-apple-authentication",
