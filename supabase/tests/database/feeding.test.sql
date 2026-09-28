@@ -1,7 +1,7 @@
 -- Feeding: the photo bucket's policies, submit_feed and the day a feed counts for.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(21);
+select plan(22);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a2', 'noa@test.local'),
@@ -77,8 +77,8 @@ select is(
 );
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000b2');
 select is(
-  (select count(*) from storage.objects where bucket_id = 'feed-photos'), 3::bigint,
-  'members see every photo of their pack'
+  (select count(*) from storage.objects where bucket_id = 'feed-photos'), 1::bigint,
+  'before anything is posted, members see only their own uploads'
 );
 
 -- submit_feed, as Noa.
@@ -129,6 +129,10 @@ values ((select id from pack), '00000000-0000-0000-0000-0000000000b2', public.pa
 set local role authenticated;
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000b2');
 select public.submit_feed((select id from pack), (select dan_one from photos), extra => true);
+select is(
+  (select count(*) from storage.objects where bucket_id = 'feed-photos'), 3::bigint,
+  'once Noa posted, members read her photos too'
+);
 select is(
   (select is_extra from public.feeds where user_id = '00000000-0000-0000-0000-0000000000b2'), false,
   'an extra post before the counted feed becomes the counted feed'
