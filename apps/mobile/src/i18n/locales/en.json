@@ -730,10 +730,11 @@
     "needMore_one": "The pack needs {{count}} more coin for the {{item}}. Keep the streak going!",
     "needMore_other": "The pack needs {{count}} more coins for the {{item}}. Keep the streak going!",
     "soldOut": "The pack owns everything in the shop.",
+    "shopAfterHatch": "The shop opens when the egg hatches",
+    "shopAfterHatchBody": "Then every good day earns coins for hats, scarves and backgrounds.",
     "slots": {
       "head": "Head",
       "neck": "Neck",
-    "shopHow": "How do we earn coins?",
       "background": "Background"
     },
     "none": "None",

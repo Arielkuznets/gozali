@@ -59,6 +59,8 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
   const outfit = parseOutfit(critter.outfit);
   const unlocked = achievements.data ?? new Map();
   const canDress = critter.status === 'active';
+  // An egg earns no coins and wears nothing, so its wardrobe and shop wait for the hatching.
+  const hatched = critter.status !== 'egg';
 
   const wear = (slot: WardrobeSlot, item: string | null) => {
     haptics.tap();
@@ -103,7 +105,7 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
           <Critter art={art} size={180} label={text.label} lines={text.lines} petHint={t('critter.petHint')} />
           <AppText variant="heading">{text.name}</AppText>
           <AppText variant="caption">
-            {t(`critter.states.${art.look}`)} · {t(`critter.stages.${critter.stage}`)}
+            {hatched ? `${t(`critter.states.${art.look}`)} · ${t(`critter.stages.${critter.stage}`)}` : t('critter.stages.egg')}
           </AppText>
           {progress && critter.status !== 'egg' && (
             <View style={styles.progress}>
@@ -172,71 +174,83 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
           )}
         </View>
 
-        <View style={styles.section}>
-          <View style={styles.titleRow}>
-            <AppText style={styles.sectionTitle}>{t('profile.wardrobe')}</AppText>
-            <Coins text={t('profile.coins', { count: critter.coins })} />
-          </View>
-          {!ownsSomething && <AppText style={styles.muted}>{t('profile.wardrobeEmpty')}</AppText>}
-          {SLOTS.map((slot) => {
-            const items = owned(slot);
-            if (items.length === 0) return null;
-            return (
-              <View key={slot} style={styles.slot}>
-                <AppText variant="caption">{t(`profile.slots.${slot}`)}</AppText>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.items}>
-                  {[null, ...items].map((item) => {
-                    const worn = (outfit[slot] ?? null) === item;
-                    const preview: Outfit = { ...outfit, [slot]: item ?? undefined } as Outfit;
-                    return (
-                      <Pressable
-                        key={item ?? 'none'}
-                        accessibilityRole="radio"
-                        accessibilityState={{ selected: worn, disabled: !canDress }}
-                        accessibilityLabel={item ? itemName(item) : t('profile.none')}
-                        disabled={!canDress || worn}
-                        onPress={() => wear(slot, item)}
-                        style={[styles.item, worn && styles.itemWorn]}>
-                        <Critter art={{ ...art, outfit: preview, sleeping: false, mood: 0 }} size={64} label="" animated={false} />
-                        <AppText variant="caption" numberOfLines={1}>
-                          {item ? itemName(item) : t('profile.none')}
-                        </AppText>
-                      </Pressable>
-                    );
-                  })}
-                </ScrollView>
+        {hatched ? (
+          <>
+            <View style={styles.section}>
+              <View style={styles.titleRow}>
+                <AppText style={styles.sectionTitle}>{t('profile.wardrobe')}</AppText>
+                <Coins text={t('profile.coins', { count: critter.coins })} />
               </View>
-            );
-          })}
-        </View>
+              {!ownsSomething && <AppText style={styles.muted}>{t('profile.wardrobeEmpty')}</AppText>}
+              {SLOTS.map((slot) => {
+                const items = owned(slot);
+                if (items.length === 0) return null;
+                return (
+                  <View key={slot} style={styles.slot}>
+                    <AppText variant="caption">{t(`profile.slots.${slot}`)}</AppText>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.items}>
+                      {[null, ...items].map((item) => {
+                        const worn = (outfit[slot] ?? null) === item;
+                        const preview: Outfit = { ...outfit, [slot]: item ?? undefined } as Outfit;
+                        return (
+                          <Pressable
+                            key={item ?? 'none'}
+                            accessibilityRole="radio"
+                            accessibilityState={{ selected: worn, disabled: !canDress }}
+                            accessibilityLabel={item ? itemName(item) : t('profile.none')}
+                            disabled={!canDress || worn}
+                            onPress={() => wear(slot, item)}
+                            style={[styles.item, worn && styles.itemWorn]}>
+                            <Critter art={{ ...art, outfit: preview, sleeping: false, mood: 0 }} size={64} label="" animated={false} />
+                            <AppText variant="caption" numberOfLines={1}>
+                              {item ? itemName(item) : t('profile.none')}
+                            </AppText>
+                          </Pressable>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                );
+              })}
+            </View>
 
-        <View style={styles.section}>
-          <AppText style={styles.sectionTitle}>{t('profile.shop')}</AppText>
-          <Pressable accessibilityRole="button" onPress={() => notify(t('profile.shopBody'))} hitSlop={8}>
-            <AppText variant="caption" style={styles.howLink}>
-              {t('profile.shopHow')}
-            </AppText>
-          </Pressable>
-          {shop.data && forSale.length === 0 && <AppText style={styles.muted}>{t('profile.soldOut')}</AppText>}
-          <View style={styles.shop}>
-            {forSale.map((entry) => {
-              const affordable = critter.coins >= entry.price;
-              const preview: Outfit = { ...outfit, [entry.slot]: entry.item } as Outfit;
-              return (
-                <Pressable
-                  key={entry.item}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${itemName(entry.item)}, ${t('critter.coinsLabel', { count: entry.price })}`}
-                  onPress={() => offer(entry)}
-                  style={[styles.item, styles.shopItem, !affordable && styles.unaffordable]}>
-                  {/* The drawing shows the item; its name is read out and asked about on buying. */}
-                  <Critter art={{ ...art, outfit: preview, sleeping: false, mood: 0 }} size={72} label="" animated={false} />
-                  <Coins text={t('profile.price', { price: entry.price })} style={styles.price} />
-                </Pressable>
-              );
-            })}
+            <View style={styles.section}>
+              <AppText style={styles.sectionTitle}>{t('profile.shop')}</AppText>
+              <Pressable accessibilityRole="button" onPress={() => notify(t('profile.shopBody'))} hitSlop={8}>
+                <AppText variant="caption" style={styles.howLink}>
+                  {t('profile.shopHow')}
+                </AppText>
+              </Pressable>
+              {shop.data && forSale.length === 0 && <AppText style={styles.muted}>{t('profile.soldOut')}</AppText>}
+              <View style={styles.shop}>
+                {forSale.map((entry) => {
+                  const affordable = critter.coins >= entry.price;
+                  const preview: Outfit = { ...outfit, [entry.slot]: entry.item } as Outfit;
+                  return (
+                    <Pressable
+                      key={entry.item}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${itemName(entry.item)}, ${t('critter.coinsLabel', { count: entry.price })}`}
+                      onPress={() => offer(entry)}
+                      style={[styles.item, styles.shopItem, !affordable && styles.unaffordable]}>
+                      {/* The drawing shows the item; its name is read out and asked about on buying. */}
+                      <Critter art={{ ...art, outfit: preview, sleeping: false, mood: 0 }} size={72} label="" animated={false} />
+                      <Coins text={t('profile.price', { price: entry.price })} style={styles.price} />
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          </>
+        ) : (
+          <View style={styles.eggCard}>
+            <AppText style={styles.eggIcon}>🥚</AppText>
+            <View style={styles.fillText}>
+              <AppText style={styles.sectionTitle}>{t('profile.shopAfterHatch')}</AppText>
+              <AppText variant="caption">{t('profile.shopAfterHatchBody')}</AppText>
+            </View>
           </View>
-        </View>
+        )}
 
         <View style={styles.section}>
           <AppText style={styles.sectionTitle}>{t('profile.achievements')}</AppText>
@@ -295,6 +309,17 @@ const styles = StyleSheet.create({
   itemName: { textAlign: 'center' },
   price: { fontFamily: fonts.bodyMedium, fontSize: 13 },
   howLink: { color: colors.accentText },
+  eggCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+    borderRadius: radii.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  eggIcon: { fontSize: 32, lineHeight: 40 },
   achievement: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   locked: { opacity: 0.55 },
   badge: { fontSize: 22, lineHeight: 28 },

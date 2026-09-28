@@ -43,3 +43,13 @@ test('the pack buys a cap with its coins and wears it', async ({ page }) => {
   const { data: events } = await admin.from('pack_events').select('kind, actor_id, payload').eq('pack_id', pack.id).eq('kind', 'bought');
   expect(events).toEqual([expect.objectContaining({ actor_id: noa.id, payload: expect.objectContaining({ item: 'cap', price: 12 }) })]);
 });
+
+test('an egg has no wardrobe or shop until it hatches', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Solo', habit: 'yoga', species: 'kit' });
+
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}/critter`);
+  await expect(page.getByText('The shop opens when the egg hatches', { exact: true })).toBeVisible();
+  await expect(page.getByText('Wardrobe', { exact: true })).toBeHidden();
+  await expect(page.getByRole('button', { name: 'cap, 12 coins' })).toBeHidden();
+});
