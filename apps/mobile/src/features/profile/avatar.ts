@@ -14,6 +14,14 @@ const BUCKET = 'avatars';
 const SIZE = 256;
 const LINK_SECONDS = 60 * 60;
 
+/**
+ * The cache key of a profile photo: its signed link without the token, so a new link for the
+ * same file (every hour) doesn't download it again, while a new photo (a new file) does.
+ */
+export function avatarCacheKey(url: string): string {
+  return url.split('?')[0] ?? url;
+}
+
 /** Lets the member take or pick a square photo; null when they cancel. */
 export async function pickAvatar(source: 'camera' | 'library'): Promise<string | null> {
   const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 1 };
