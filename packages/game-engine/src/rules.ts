@@ -52,10 +52,11 @@ export function memberOutcome(member: MemberDay, restDaysPerWeek: number): Membe
 
 /** Closes one pack day: who counted, what kind of day it was, and the critter's new state. */
 export function closeDay(input: DayInput): DayResult {
-  const rows = input.members.map((member) => ({
-    member,
-    outcome: memberOutcome(member, input.restDaysPerWeek),
-  }));
+  const rows = input.members.map((member) => {
+    const outcome = memberOutcome(member, input.restDaysPerWeek);
+    // On an outage day a miss counts like a pause: not counted, and no step toward sleeping.
+    return { member, outcome: input.outage && outcome === 'missed' ? ('paused' as const) : outcome };
+  });
   const counted = rows.filter((row) => COUNTED_OUTCOMES.has(row.outcome)).length;
   const feeders = rows.filter((row) => row.outcome === 'fed').map((row) => row.member);
   const misses = rows.filter((row) => row.outcome === 'missed').length;

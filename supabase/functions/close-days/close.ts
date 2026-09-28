@@ -40,11 +40,16 @@ async function call<T>(client: RpcClient, fn: string, args: Record<string, unkno
 
 /** Closes one day; null when another run closed it first. */
 export async function closeOneDay(client: RpcClient, packId: string, day: string): Promise<ClosedDay | null> {
-  const input = await call<CloseInput>(client, 'day_close_input', { target: packId, pack_date: day });
+  const [input, outage] = await Promise.all([
+    call<CloseInput>(client, 'day_close_input', { target: packId, pack_date: day }),
+    // A day the service was down for an hour or more can't fail (outage_on, the outages table).
+    call<boolean>(client, 'outage_on', { target: packId, pack_date: day }),
+  ]);
   const result = closeDay({
     critter: input.critter,
     restDaysPerWeek: input.restDaysPerWeek,
     members: input.members.map((member) => ({ ...member, fedAtMinute: member.fedAtMinute ?? undefined })),
+    outage,
   });
   const after = result.critter;
   const achievements = newAchievements(
@@ -74,18 +79,31 @@ export async function closeOneDay(client: RpcClient, packId: string, day: string
  * Closes every day that is ready at `now`. A failing pack doesn't stop the others; its error is
  * reported and the next run tries again from the same day. `onlyPacks` limits the run (tests).
  */
+/** How many packs close at once, and how long a run may keep starting packs. */
+export const CLOSE_CONCURRENCY = 8;
+export const CLOSE_BUDGET_MS = 90_000;
+
+/**
+ * Closes the due days of every pack, a few packs at a time; each pack's days go in order. Packs
+ * in the same time zone all come due at the same moment, so with thousands of them a run stops
+ * starting new packs after its time budget and leaves the rest (`deferred`) for the next run,
+ * well before the function would be cut off.
+ */
 export async function closeDueDays(
   client: RpcClient,
   now: Date,
   onlyPacks?: readonly string[],
-): Promise<{ closed: ClosedDay[]; failed: Array<{ packId: string; day: string; error: string }> }> {
+  budgetMs = CLOSE_BUDGET_MS,
+): Promise<{ closed: ClosedDay[]; failed: Array<{ packId: string; day: string; error: string }>; deferred: number }> {
   const due = await call<Array<{ pack_id: string; time_zone: string; next_day: string }>>(client, 'packs_to_close', {
     at_time: now.toISOString(),
   });
+  const queue = due.filter((pack) => !onlyPacks || onlyPacks.includes(pack.pack_id));
   const closed: ClosedDay[] = [];
   const failed: Array<{ packId: string; day: string; error: string }> = [];
-  for (const pack of due) {
-    if (onlyPacks && !onlyPacks.includes(pack.pack_id)) continue;
+  const started = Date.now();
+
+  const closePack = async (pack: (typeof queue)[number]) => {
     let day = pack.next_day;
     try {
       for (; closesAt(day, pack.time_zone).getTime() <= now.getTime(); day = addDays(day, 1)) {
@@ -96,8 +114,15 @@ export async function closeDueDays(
     } catch (error) {
       failed.push({ packId: pack.pack_id, day, error: error instanceof Error ? error.message : String(error) });
     }
-  }
-  return { closed, failed };
+  };
+  const worker = async () => {
+    for (let pack = queue.shift(); pack; pack = queue.shift()) {
+      await closePack(pack);
+      if (Date.now() - started > budgetMs) return;
+    }
+  };
+  await Promise.all(Array.from({ length: CLOSE_CONCURRENCY }, worker));
+  return { closed, failed, deferred: queue.length };
 }
 
 /**

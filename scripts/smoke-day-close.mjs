@@ -1,6 +1,8 @@
 // Six pack days closed by the real close-days code against the local stack: hatching, a joker,
 // failed days, a member falling asleep, the notifications they cause, and a second run that
-// changes nothing. Then everyone leaves, and the pack goes with its photo files 30 days later. Run with `npx supabase start` up: node scripts/smoke-day-close.mjs
+// changes nothing. Then everyone leaves, and the pack goes with its photo files 30 days later.
+// Last, a day the service was down closes without failing. Run with `npx supabase start` up:
+// node scripts/smoke-day-close.mjs
 import { createClient } from '@supabase/supabase-js';
 
 import { addDays, closesAt, packDayOf, zonedTimeToUtc } from '../packages/game-engine/src/index.ts';
@@ -139,6 +141,41 @@ const gone = await admin.from('packs').select('id').eq('id', packId);
 check(gone.data.length === 0, 'after 30 days it is deleted');
 const files = await admin.storage.from('feed-photos').list(`${packId}/${noa.id}`);
 check(files.data.length === 0, 'and its photo files with it');
+
+// An outage: on a day the service was down nobody fed, and the day can't fail.
+const { data: calmId } = await noa.client.rpc('create_pack', {
+  pack_name: 'Calm runs',
+  habit: 'running',
+  rest_days: 0,
+  species: 'mochi',
+  time_zone: tz,
+});
+const { data: calm } = await noa.client.from('packs').select('invite_code').eq('id', calmId).single();
+await dan.client.rpc('join_pack', { code: calm.invite_code });
+const calmFirst = packDayOf(new Date(), tz);
+for (const who of [noa, dan]) {
+  const fed = await admin.from('feeds').insert({
+    pack_id: calmId,
+    user_id: who.id,
+    day: calmFirst,
+    created_at: new Date(zonedTimeToUtc(calmFirst, 9, tz)).toISOString(),
+  });
+  if (fed.error) throw fed.error;
+}
+const downDay = addDays(calmFirst, 1);
+const outage = await admin.from('outages').insert({
+  starts_at: new Date(zonedTimeToUtc(downDay, 8, tz)).toISOString(),
+  ends_at: new Date(zonedTimeToUtc(downDay, 14, tz)).toISOString(),
+  note: `smoke ${run}`,
+});
+if (outage.error) throw outage.error;
+const calmRun = await closeDueDays(admin, new Date(closesAt(downDay, tz).getTime() + 60_000), [calmId]);
+check(
+  calmRun.closed.map((c) => c.result.type).join() === 'success,neutral',
+  'a day the service was down closes neutral, not failed',
+);
+await admin.from('outages').delete().eq('note', `smoke ${run}`);
+await admin.from('packs').delete().eq('id', calmId);
 
 for (const user of [noa, dan, maya]) await admin.auth.admin.deleteUser(user.id);
 console.log('all good');

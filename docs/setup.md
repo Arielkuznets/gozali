@@ -106,6 +106,12 @@ The success numbers of spec sections 1 and 15 (active packs, active packs 14 day
 npx supabase db query --linked "select public.pilot_metrics()"
 ```
 
+The daily summary on your phone already counts failed function calls, failed scheduled jobs, outages and packs behind on closing days. When something else broke for a while (sign-in or storage down while the functions ran), add it as an outage so the pack days it covered can't fail; days already closed stay as they were:
+
+```sh
+npx supabase db query --linked "insert into public.outages (starts_at, ends_at, note) values ('2026-10-01 08:00+03', '2026-10-01 14:00+03', 'storage down')"
+```
+
 Is the server doing its jobs? The last closed day of every pack (a pack more than a day behind means close-days is failing for it), scheduled jobs that failed, and function calls that didn't answer 200, over the last day:
 
 ```sh

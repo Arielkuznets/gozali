@@ -162,5 +162,9 @@ function summaryLine(payload: Record<string, unknown>): string {
   ];
   if (count('reports') > 0) parts.push(`🚩 ${amount(count('reports'), 'report', 'reports')}`);
   if (count('errors') > 0) parts.push(`⚠️ ${amount(count('errors'), 'app error', 'app errors')}`);
+  if (count('serverErrors') > 0) parts.push(`🛠️ ${amount(count('serverErrors'), 'server error', 'server errors')}`);
+  if (count('failedJobs') > 0) parts.push(`🛠️ ${amount(count('failedJobs'), 'failed job', 'failed jobs')}`);
+  if (count('downHours') > 0) parts.push(`📴 down ${count('downHours')}h`);
+  if (count('packsBehind') > 0) parts.push(`⏰ ${amount(count('packsBehind'), 'pack', 'packs')} behind on closing days`);
   return parts.join(' · ');
 }
