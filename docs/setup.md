@@ -73,14 +73,17 @@ Everything runs locally without accounts (see the README). This is the one-time 
 ## 3. gozali.app
 
 1. Register the domain.
-2. Build the site with the real values and deploy `web/dist` (Cloudflare Pages reads `_redirects` and `_headers`):
+2. Build the site with the real values and deploy it. `web/wrangler.jsonc` serves `web/dist` as Cloudflare static assets (they read `_redirects` and `_headers`) on the gozali.app domain, which has to be in the same Cloudflare account:
 
    ```sh
-   APP_STORE_URL=<app store link> ANDROID_SHA256=<release key fingerprint> node web/build.mjs
+   APP_STORE_URL=<app store link> PLAY_STORE_URL=<play store link> ANDROID_SHA256=<release key fingerprint> node web/build.mjs
+   npx wrangler login
+   cd web && npx wrangler deploy
    ```
 
-   The Android fingerprint is in `eas credentials` (Android → keystore). Until the app is in the App Store, `APP_STORE_URL` can be the TestFlight invite link.
-3. Check `https://gozali.app/.well-known/apple-app-site-association` and `https://gozali.app/.well-known/assetlinks.json` load, then an invite link opens the installed app.
+   The Android fingerprint is in `eas credentials` (Android → keystore). The landing page shows a store button only for the store URLs that are set. Until the app is in the App Store, `APP_STORE_URL` can be the TestFlight invite link.
+3. The site has the privacy policy (/privacy), the terms (/terms) and the support page (/support) that App Store Connect asks for. Mail to hello@gozali.app is forwarded by Cloudflare Email Routing.
+4. Check `https://gozali.app/.well-known/apple-app-site-association` and `https://gozali.app/.well-known/assetlinks.json` load, then an invite link opens the installed app.
 
 ## 4. Before the pilot
 
