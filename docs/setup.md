@@ -43,7 +43,7 @@ Everything runs locally without accounts (see the README). This is the one-time 
 ## 2. EAS builds
 
 1. `npm install -g eas-cli`, `eas login`, then in `apps/mobile`: `eas init`. This writes the project id into `app.json`, which push tokens need.
-2. Put the Apple Team ID in `app.json` → `expo.ios.appleTeamId` (the widget target needs it).
+2. The Apple Team ID is in `app.json` → `expo.ios.appleTeamId` (3DYA8J45VJ; the widget target needs it) and is the default in `web/build.mjs`.
 3. Environment variables for every environment (development, preview, production):
 
    ```sh
@@ -76,7 +76,7 @@ Everything runs locally without accounts (see the README). This is the one-time 
 2. Build the site with the real values and deploy `web/dist` (Cloudflare Pages reads `_redirects` and `_headers`):
 
    ```sh
-   APP_STORE_URL=<app store link> APPLE_TEAM_ID=<team id> ANDROID_SHA256=<release key fingerprint> node web/build.mjs
+   APP_STORE_URL=<app store link> ANDROID_SHA256=<release key fingerprint> node web/build.mjs
    ```
 
    The Android fingerprint is in `eas credentials` (Android → keystore). Until the app is in the App Store, `APP_STORE_URL` can be the TestFlight invite link.
