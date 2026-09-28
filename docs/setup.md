@@ -162,3 +162,12 @@ Apple asks apps with Sign in with Apple to revoke the user's tokens when they de
    ```sh
    npx supabase db query --linked "update public.app_config set apple_revocation = true"
    ```
+
+## 7. Dependency warnings
+
+`npm audit --omit=dev` lists about 20 warnings, checked on 2026-09-28:
+
+- Almost all are in the build tools (`@expo/config-plugins`, `xcode`, and `@bacons/xcode` with an old `@xmldom/xmldom` and `uuid`). They read and write this project's own native config files while building, never input from users, so the XML injection and slow-parsing issues have no way in. Forcing newer copies breaks `@bacons/xcode` (it needs `@expo/plist` 0.0.x, which needs the old xmldom), so these wait for Expo and `@bacons/apple-targets` updates.
+- One reaches the app: `decode-uri-component` through expo-router's `query-string` decodes a malformed link slowly, so a crafted link could at most make the app slow while it opens. The fixed version is ES modules only and doesn't load in `query-string` 7, so it waits for expo-router.
+
+Run the audit again after every Expo SDK upgrade.
