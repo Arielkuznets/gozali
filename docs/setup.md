@@ -111,11 +111,11 @@ Errors from members' phones (screens that failed to draw, and JavaScript errors 
 npx supabase db query --linked "select created_at, platform, app_version, screen, message from app_errors order by created_at desc limit 50"
 ```
 
-A fix that touches only JavaScript reaches the installed apps without a new build or a store review, through EAS Update. Each build profile has its own channel, and the runtime version is a fingerprint of the native code, so an update only goes to builds it can run on:
+A fix that touches only JavaScript reaches the installed apps without a new build or a store review, through EAS Update. Each build profile has its own channel, and the runtime version is the app version in `app.json`, so an update only goes to builds of that version:
 
 ```sh
 cd apps/mobile
 eas update --channel production --message "Fix the monthly board"
 ```
 
-A change to native code (a new native package, app.json plugins, the widgets) needs a new build instead.
+A change to native code (a new native package, app.json plugins, the widgets) needs a new build instead, and a new `version` in `app.json` first, so updates for the old builds and the new ones stay apart. (A fingerprint of the native code would do this by itself, but it came out different on Windows and on the EAS servers and failed the build.)
