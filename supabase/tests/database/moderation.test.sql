@@ -1,7 +1,7 @@
 -- Word filtering, reports that hide an item, and the helpers of account deletion.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(18);
+select plan(20);
 
 select ok(public.is_clean('Leg day, done'), 'ordinary captions pass');
 select ok(not public.is_clean('what the fuuuck'), 'repeated letters don''t get around the filter');
@@ -59,6 +59,15 @@ select is((select count(*) from public.feeds), 1::bigint, 'two reports leave the
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000d7');
 insert into public.reports (feed_id, reporter_id) values ((select id from feed), '00000000-0000-0000-0000-0000000000d7');
 select is((select count(*) from public.feeds), 0::bigint, 'the third report hides it from the pack');
+select is(
+  (select count(*) from storage.objects where bucket_id = 'feed-photos'), 0::bigint,
+  'and its file can''t be listed or downloaded either'
+);
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000a7');
+select is(
+  (select count(*) from storage.objects where bucket_id = 'feed-photos'), 2::bigint,
+  'the author still reads their own files'
+);
 
 reset role;
 select is(

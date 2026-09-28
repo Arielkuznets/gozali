@@ -58,10 +58,7 @@ select pg_temp.act_as('00000000-0000-0000-0000-0000000000d1');
 select isnt(public.renew_invite_code((select id from pack)), (select invite_code from code), 'the admin gets a new code');
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000d3');
 select lives_ok($$ select public.leave_pack((select id from pack)) $$, 'Maya leaves again');
-select throws_ok(
-  $$ select public.join_pack((select invite_code from code)) $$,
-  'P0002', 'invite_not_found', 'and the old code no longer works'
-);
+select is(public.join_pack((select invite_code from code)), null, 'and the old code no longer works');
 
 select * from finish();
 rollback;

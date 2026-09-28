@@ -50,7 +50,7 @@ select is(
 select is(public.join_pack((select invite_code from code)), (select id from created), 'joining returns the pack');
 select is((select count(*) from public.pack_members), 2::bigint, 'after joining the friend sees both members');
 select is(public.join_pack((select invite_code from code)), (select id from created), 'joining twice is harmless');
-select throws_ok($$ select public.join_pack('ZZZZ2222') $$, 'P0002', 'invite_not_found', 'an unknown code is refused');
+select is(public.join_pack('ZZZZ2222'), null, 'an unknown code joins nothing');
 select throws_ok(
   $$ select public.update_pack((select id from created), 'Mine now', 3::smallint, 'sunday') $$,
   '42501', 'admin_only', 'only the admin changes settings'

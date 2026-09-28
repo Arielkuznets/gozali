@@ -148,6 +148,9 @@ export function useJoinPack() {
     mutationFn: async (code: string): Promise<string> => {
       const { data, error } = await requireSupabase().rpc('join_pack', { code });
       if (error) throw error;
+      // A code that matches no pack comes back empty rather than as an error, so the server
+      // can count the miss.
+      if (data === null) throw new Error('invite_not_found');
       return data as string;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: packsKey }),
@@ -211,6 +214,7 @@ export function packErrorKey(error: unknown) {
   if (message.includes('pack_full')) return 'packs.errors.full' as const;
   if (message.includes('invite_not_found')) return 'packs.errors.notFound' as const;
   if (message.includes('removed_from_pack')) return 'packs.errors.removed' as const;
+  if (message.includes('too_many_attempts')) return 'packs.errors.tooManyAttempts' as const;
   if (message.includes('admin_only')) return 'packs.errors.adminOnly' as const;
   if (isBlockedText(error)) return 'errors.textNotAllowed' as const;
   return 'errors.saveFailed' as const;

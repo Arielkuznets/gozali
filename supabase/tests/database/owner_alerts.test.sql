@@ -1,7 +1,7 @@
 -- Owner alerts: a push when someone finishes signing up, and the day's summary at 21:00.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(15);
+select plan(17);
 
 delete from public.notifications;
 
@@ -44,6 +44,17 @@ select is(
   (select count(*) from public.notifications where type = 'new_user'),
   1::bigint,
   'saving the profile again is not a new sign-up'
+);
+update public.profiles set terms_accepted_at = null where id = '00000000-0000-0000-0000-0000000000b9';
+update public.profiles set terms_accepted_at = now() + interval '1 hour' where id = '00000000-0000-0000-0000-0000000000b9';
+select is(
+  (select count(*) from public.notifications where type = 'new_user'),
+  1::bigint,
+  'clearing the terms and accepting them again is not a new sign-up'
+);
+select ok(
+  (select terms_accepted_at <= now() from public.profiles where id = '00000000-0000-0000-0000-0000000000b9'),
+  'the first acceptance stays'
 );
 update public.profiles set display_name = 'Me', terms_accepted_at = now()
 where id = '00000000-0000-0000-0000-0000000000a9';
