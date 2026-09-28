@@ -1,6 +1,9 @@
-// Deletes the caller's account and everything in it (spec section 11: a store requirement).
-// Needs the service role, so it runs on the server. The caller is identified by their session.
+// Deletes the caller's account and everything in it (spec section 11: a store requirement), and
+// revokes their Sign in with Apple when the app sent a code for it (apple.ts). Needs the service
+// role, so it runs on the server. The caller is identified by their session.
 import { createClient } from 'npm:@supabase/supabase-js@2';
+
+import { appleKeyFrom, revokeAppleSignIn } from './apple.ts';
 
 const REMOVE_BATCH = 100;
 
@@ -15,6 +18,15 @@ Deno.serve(async (request) => {
     data: { user },
   } = await asUser.auth.getUser();
   if (!user) return new Response('not signed in', { status: 401 });
+
+  // Sign in with Apple is revoked when the app sent a fresh code and the Apple key is set up. It
+  // never stops the deletion.
+  const { appleAuthorizationCode } = (await request.json().catch(() => ({}))) as { appleAuthorizationCode?: string };
+  const appleKey = appleKeyFrom((name) => Deno.env.get(name));
+  if (appleAuthorizationCode && appleKey) {
+    const revoked = await revokeAppleSignIn(appleKey, appleAuthorizationCode).catch((error) => String(error));
+    if (revoked !== 'revoked') console.error('apple revocation', revoked);
+  }
   const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
 
   // Leave every pack as the member, so the admin role passes to the longest-standing member.
