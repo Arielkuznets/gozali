@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
   },
   iconSpace: { width: 44, alignItems: 'center' },
-  flip: { fontSize: 30 },
+  flip: { fontSize: 30, lineHeight: 36 },
   shutter: {
     width: 76,
     height: 76,
