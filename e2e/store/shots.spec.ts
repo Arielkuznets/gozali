@@ -1,5 +1,5 @@
 // Store screenshots (docs/store-listing.md): real app screens with sample data, each framed under
-// a caption, in the App Store size (1320 × 2868) and a Google Play size (1080 × 2160, since Play
+// a caption, in the App Store sizes (1320 × 2868 and 1284 × 2778) and a Google Play size (1080 × 2160, since Play
 // allows at most 2:1).
 import { addDays, packDayOf } from '@gozali/game-engine';
 import { expect, test, type Browser, type Page } from '@playwright/test';
@@ -17,6 +17,8 @@ const FONT = readFileSync(
 type Canvas = { name: string; width: number; height: number; scale: number; phoneWidth: number; phoneTop: number; fontSize: number };
 const CANVASES: Canvas[] = [
   { name: 'app-store', width: 440, height: 956, scale: 3, phoneWidth: 372, phoneTop: 196, fontSize: 36 },
+  // App Store Connect may ask for the 6.5" size (1284 × 2778) instead of 6.9".
+  { name: 'app-store-6.5', width: 428, height: 926, scale: 3, phoneWidth: 362, phoneTop: 190, fontSize: 35 },
   { name: 'google-play', width: 432, height: 864, scale: 2.5, phoneWidth: 330, phoneTop: 172, fontSize: 32 },
 ];
 
