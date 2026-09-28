@@ -169,6 +169,7 @@
         }
       ],
       "expo-sharing",
+      "./plugins/withGradleMemory",
       [
         "expo-image-picker",
         {

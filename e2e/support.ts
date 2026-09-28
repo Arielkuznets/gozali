@@ -2,6 +2,8 @@
 import type { Page } from '@playwright/test';
 import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js';
 
+import type { Database } from '../apps/mobile/src/lib/database.types';
+
 const url = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY;
 const secretKey = process.env.SUPABASE_SECRET_KEY;
@@ -47,7 +49,7 @@ export async function signIn(page: Page, user: TestUser): Promise<void> {
   }, user.session);
 }
 
-type NewPack = { name: string; habit: 'gym' | 'study' | 'reading' | 'running' | 'water' | 'meditation'; species: 'mochi' | 'kit' | 'axo' | 'ribbit' | 'hoot' | 'bun' };
+type NewPack = { name: string; habit: Database['public']['Enums']['habit_category']; species: Database['public']['Enums']['critter_species'] };
 
 /** A pack made by `owner`, with the others joined. Returns its id and invite code. */
 export async function createPack(owner: TestUser, pack: NewPack, others: TestUser[] = []) {

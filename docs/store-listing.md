@@ -55,6 +55,7 @@ What the app collects (see docs/legal/privacy-policy.md). No tracking, no ads, n
 | User ID | Identifiers: user ID, linked | App info: other IDs | App functionality |
 | Push token and widget token | Identifiers: device ID, linked | Device or other IDs | App functionality |
 | Time zone and reminder settings | Other data, linked | App info: other | App functionality |
+| Error reports (the error, the screen, the app version, iPhone or Android) | Diagnostics: other diagnostic data, linked | App info and performance: diagnostics, collected | App functionality |
 
 Data is encrypted in transit, and users can delete their account and all its data inside the app (Settings → Delete account). Photos are deleted after 30 days.
 

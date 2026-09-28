@@ -30,6 +30,20 @@ export async function signInWithBrowser(provider: 'google' | 'apple'): Promise<v
   if (exchange.error) throw exchange.error;
 }
 
+/**
+ * Whether the Supabase project has Google sign-in turned on, from its public auth settings, so the
+ * button shows only once it works and turning it on needs no new build. Unknown counts as off.
+ */
+export async function isGoogleEnabled(): Promise<boolean> {
+  const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  const publishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !publishableKey) return false;
+  const response = await fetch(`${url}/auth/v1/settings`, { headers: { apikey: publishableKey } });
+  if (!response.ok) return false;
+  const settings = (await response.json()) as { external?: { google?: boolean } };
+  return settings.external?.google === true;
+}
+
 /** Native Sign in with Apple on iOS; Supabase verifies the identity token Apple returns. */
 async function signInWithAppleNative(): Promise<void> {
   const credential = await AppleAuthentication.signInAsync({
