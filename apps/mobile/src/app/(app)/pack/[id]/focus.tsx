@@ -148,7 +148,7 @@ function FocusCritter({ pack }: { pack: NonNullable<ReturnType<typeof usePack>['
 }
 
 const styles = StyleSheet.create({
-  header: { paddingVertical: spacing.md },
+  header: { alignItems: 'flex-start', paddingVertical: spacing.md },
   body: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
   centerText: { textAlign: 'center' },
   muted: { color: colors.inkMuted, maxWidth: 320 },
