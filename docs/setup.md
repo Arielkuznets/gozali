@@ -134,3 +134,31 @@ eas update --channel production --message "Fix the monthly board"
 ```
 
 A change to native code (a new native package, app.json plugins, the widgets) needs a new build instead, and a new `version` in `app.json` first, so updates for the old builds and the new ones stay apart. (A fingerprint of the native code would do this by itself, but it came out different on Windows and on the EAS servers and failed the build.)
+
+A bad update can be taken back by publishing the previous one again (`eas update:republish`, or Expo's dashboard → Updates), and a store release can go out as a phased release in App Store Connect.
+
+When a server change would break versions still installed on people's phones, raise the minimum version: older apps show "Time to update" with a button to the store instead of the app. Set the store links once the app is in the stores:
+
+```sh
+npx supabase db query --linked "update public.app_config set min_version = '1.1.0'"
+npx supabase db query --linked "update public.app_config set ios_url = 'https://apps.apple.com/app/id<id>', android_url = 'https://play.google.com/store/apps/details?id=app.gozali'"
+```
+
+Crashes in native code (not JavaScript) don't reach `app_errors`: App Store Connect (TestFlight → Crashes, and Xcode → Organizer) and the Play Console (Android vitals) show them.
+
+## 6. Sign in with Apple revocation
+
+Apple asks apps with Sign in with Apple to revoke the user's tokens when they delete their account. The code is ready and waits for a key:
+
+1. In Apple Developer → Certificates, IDs & Profiles → Keys, create a key with Sign in with Apple, configured for `app.gozali`, and download the `.p8` file (it can be downloaded once).
+2. Put it in the function secrets, typing the values yourself (the key ID is on the key's page):
+
+   ```sh
+   npx supabase secrets set APPLE_TEAM_ID=3DYA8J45VJ APPLE_KEY_ID=<key id> APPLE_PRIVATE_KEY="$(cat AuthKey_<key id>.p8)"
+   ```
+
+3. Turn it on, so deleting an account on an iPhone asks Apple for a fresh code first:
+
+   ```sh
+   npx supabase db query --linked "update public.app_config set apple_revocation = true"
+   ```
