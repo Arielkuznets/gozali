@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
+import { HeaderButton } from '@/components/HeaderButton';
 import { Button } from '@/components/Button';
 import { Choice } from '@/components/Choice';
 import { Screen } from '@/components/Screen';
@@ -89,9 +90,7 @@ function SettingsForm({ pack }: { pack: Pack }) {
   return (
     <Screen>
       <View style={styles.header}>
-        <Pressable accessibilityRole="button" onPress={() => goBack(`/pack/${pack.id}`)} hitSlop={12}>
-          <AppText variant="caption">{t('pack.back')}</AppText>
-        </Pressable>
+        <HeaderButton icon="‹" label={t('pack.back')} onPress={() => goBack(`/pack/${pack.id}`)} />
         <AppText variant="heading">{t('settings.title')}</AppText>
         <View style={styles.headerSpacer} />
       </View>

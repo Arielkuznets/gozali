@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
+import { HeaderButton } from '@/components/HeaderButton';
 import { Screen } from '@/components/Screen';
 import { LoadFailed, LoadingScreen, LoadFailedScreen, PackMissingScreen } from '@/components/ScreenStates';
 import { Critter } from '@/features/critter/Critter';
@@ -91,9 +92,7 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
   return (
     <Screen>
       <View style={styles.header}>
-        <Pressable accessibilityRole="button" onPress={() => goBack(`/pack/${pack.id}`)} hitSlop={12}>
-          <AppText variant="caption">{t('pack.back')}</AppText>
-        </Pressable>
+        <HeaderButton icon="‹" label={t('pack.back')} onPress={() => goBack(`/pack/${pack.id}`)} />
         <AppText variant="heading">{t('profile.title')}</AppText>
         <View style={styles.headerSpacer} />
       </View>

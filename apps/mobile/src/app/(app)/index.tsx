@@ -2,9 +2,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
+import { HeaderButton } from '@/components/HeaderButton';
 import { Button } from '@/components/Button';
 import { PackCard } from '@/components/PackCard';
 import { Screen } from '@/components/Screen';
@@ -49,9 +50,7 @@ export default function HomeScreen() {
     <Screen>
       <View style={styles.header}>
         <AppText variant="heading">{t('home.title')}</AppText>
-        <Pressable accessibilityRole="button" onPress={() => router.push('/me')} hitSlop={12}>
-          <AppText variant="caption">{t('me.open')}</AppText>
-        </Pressable>
+        <HeaderButton label={t('me.open')} onPress={() => router.push('/me')} />
       </View>
 
       {isPending ? (

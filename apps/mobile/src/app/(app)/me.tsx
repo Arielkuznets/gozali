@@ -1,9 +1,10 @@
 import { addDays, packDayOf } from '@gozali/game-engine';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
+import { HeaderButton } from '@/components/HeaderButton';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { LoadFailed } from '@/components/ScreenStates';
@@ -37,13 +38,9 @@ export default function MeScreen() {
   return (
     <Screen>
       <View style={styles.header}>
-        <Pressable accessibilityRole="button" onPress={() => goBack('/')} hitSlop={12}>
-          <AppText variant="caption">{t('me.back')}</AppText>
-        </Pressable>
+        <HeaderButton icon="‹" label={t('me.back')} onPress={() => goBack('/')} />
         <AppText variant="heading">{profile.data?.display_name ?? t('me.title')}</AppText>
-        <Pressable accessibilityRole="button" onPress={() => router.push('/settings')} hitSlop={12}>
-          <AppText variant="caption">{t('settings.app.open')}</AppText>
-        </Pressable>
+        <HeaderButton label={t('settings.app.open')} onPress={() => router.push('/settings')} />
       </View>
 
       {!stats.data ? (

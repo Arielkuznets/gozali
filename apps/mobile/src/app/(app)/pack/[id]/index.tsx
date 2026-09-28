@@ -7,6 +7,7 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-n
 
 import { ActionMenu, type Menu } from '@/components/ActionMenu';
 import { AppText } from '@/components/AppText';
+import { HeaderButton } from '@/components/HeaderButton';
 import { Button } from '@/components/Button';
 import { HealthBar } from '@/components/HealthBar';
 import { MemberCircles, type MemberState } from '@/components/MemberCircles';
@@ -179,18 +180,12 @@ export default function PackScreen() {
   return (
     <Screen>
       <View style={styles.header}>
-        <Pressable accessibilityRole="button" onPress={() => goBack('/')} hitSlop={12}>
-          <AppText variant="caption">{t('pack.back')}</AppText>
-        </Pressable>
+        <HeaderButton icon="‹" label={t('pack.back')} onPress={() => goBack('/')} />
         <View style={styles.headerLinks}>
           {members.length < PACK_SIZE_MAX && (
-            <Pressable accessibilityRole="button" onPress={() => router.push(`/pack/${id}/invite`)} hitSlop={12}>
-              <AppText variant="caption">{t('pack.invite')}</AppText>
-            </Pressable>
+            <HeaderButton icon="+" label={t('pack.invite')} onPress={() => router.push(`/pack/${id}/invite`)} />
           )}
-          <Pressable accessibilityRole="button" onPress={() => router.push(`/pack/${id}/settings`)} hitSlop={12}>
-            <AppText variant="caption">{t('pack.settings')}</AppText>
-          </Pressable>
+          <HeaderButton label={t('pack.settings')} onPress={() => router.push(`/pack/${id}/settings`)} />
         </View>
       </View>
 
