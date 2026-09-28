@@ -1,8 +1,7 @@
 // Builds the gozali.app site into web/dist: the landing page, the invite page, the privacy
 // policy, terms and support pages (from docs), and the files that let https://gozali.app/i/CODE
 // open the app. Run: APP_STORE_URL=... PLAY_STORE_URL=... ANDROID_SHA256=... node web/build.mjs
-// Missing values become placeholders, with a warning, so a preview build still works; the landing
-// page shows a store button only once its store URL is set.
+// Missing values become placeholders or stay empty, with a warning, so a preview build still works.
 import { createHash } from 'node:crypto';
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -19,8 +18,10 @@ function setting(name, fallback) {
   return value || fallback;
 }
 
-const appStoreUrl = setting('APP_STORE_URL', 'https://apps.apple.com/app/gozali');
-const playStoreUrl = process.env.PLAY_STORE_URL;
+// No store link yet leaves them empty: the landing page shows no store button, and the invite
+// page says the app isn't in the stores yet instead of opening a page that doesn't exist.
+const appStoreUrl = setting('APP_STORE_URL', '');
+const playStoreUrl = setting('PLAY_STORE_URL', '');
 // The Apple team is public (it is in the association file anyway), so it has a real default.
 const teamId = process.env.APPLE_TEAM_ID || '3DYA8J45VJ';
 const androidFingerprint = setting('ANDROID_SHA256', 'SHA256:FINGERPRINT');
@@ -39,7 +40,7 @@ const creatures = CREATURES.map((species) => {
 // Before the app is in a store, its button would lead nowhere.
 const storeButtons =
   [
-    process.env.APP_STORE_URL && `<a class="button" href="${appStoreUrl}">Download for iPhone</a>`,
+    appStoreUrl && `<a class="button" href="${appStoreUrl}">Download for iPhone</a>`,
     playStoreUrl && `<a class="button secondary" href="${playStoreUrl}">Get it on Google Play</a>`,
   ]
     .filter(Boolean)
@@ -49,6 +50,7 @@ for (const page of ['index.html', 'invite/index.html']) {
   const file = join(dist, page);
   const html = readFileSync(file, 'utf8')
     .replaceAll('{{APP_STORE_URL}}', appStoreUrl)
+    .replaceAll('{{PLAY_STORE_URL}}', playStoreUrl)
     .replaceAll('{{CREATURES}}', creatures)
     .replaceAll('{{STORE_BUTTONS}}', storeButtons);
   writeFileSync(file, html);

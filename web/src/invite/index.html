@@ -26,10 +26,12 @@
       <button class="button" id="get">Copy code and get Gozali</button>
       <a class="button secondary" id="open">I already have the app</a>
       <p class="muted" id="copied" hidden>Code copied. Paste it when Gozali asks for it.</p>
+      <p class="muted" id="soon" hidden>Gozali isn't in the stores yet. Keep the code, and ask your friend how to get the app.</p>
       <footer class="muted"><a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a></footer>
     </main>
     <script>
       const APP_STORE_URL = '{{APP_STORE_URL}}';
+      const PLAY_STORE_URL = '{{PLAY_STORE_URL}}';
       const code = (location.pathname.split('/')[2] || '').toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g, '').slice(0, 8);
       const android = /android/i.test(navigator.userAgent);
       document.getElementById('code').textContent = code || '—';
@@ -41,9 +43,12 @@
         } catch (error) {
           // Some browsers refuse; the code is on the screen to type.
         }
-        location.href = android
-          ? 'https://play.google.com/store/apps/details?id=app.gozali&referrer=' + encodeURIComponent('code=' + code)
+        // Before the app is in a store there is no page to go to, so the page says so instead.
+        const store = android
+          ? PLAY_STORE_URL && PLAY_STORE_URL + (PLAY_STORE_URL.includes('?') ? '&' : '?') + 'referrer=' + encodeURIComponent('code=' + code)
           : APP_STORE_URL;
+        if (store) location.href = store;
+        else document.getElementById('soon').hidden = false;
       });
     </script>
   </body>
