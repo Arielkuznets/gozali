@@ -704,10 +704,11 @@
     "wardrobe": "Wardrobe",
     "wardrobeEmpty": "Items from achievements and the shop show up here.",
     "shop": "Shop",
+    "shopHow": "How do we earn coins?",
     "shopBody": "Every good day earns the pack coins, and a longer streak earns more: 1 a day, 2 from a 7-day streak, 3 from 14, 5 from 30.",
-    "coins_one": "🪙 {{count}} coin",
-    "coins_other": "🪙 {{count}} coins",
-    "price": "🪙 {{price}}",
+    "coins_one": "{{count}} coin",
+    "coins_other": "{{count}} coins",
+    "price": "{{price}}",
     "buyTitle": "Buy the {{item}}?",
     "buyBody": "It costs {{price}} coins from the pack. Everyone in the pack can wear it on {{critter}}.",
     "buy": "Buy",
@@ -718,6 +719,7 @@
     "slots": {
       "head": "Head",
       "neck": "Neck",
+    "shopHow": "How do we earn coins?",
       "background": "Background"
     },
     "none": "None",

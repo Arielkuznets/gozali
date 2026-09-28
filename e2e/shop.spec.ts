@@ -26,14 +26,14 @@ test('the pack buys a cap with its coins and wears it', async ({ page }) => {
   });
   await signIn(page, noa);
   await page.goto(`/pack/${pack.id}/critter`);
-  await expect(page.getByText('🪙 20 coins')).toBeVisible();
+  await expect(page.getByText('20 coins', { exact: true })).toBeVisible();
 
   // Too expensive: the crown costs 45.
   await page.getByRole('button', { name: 'crown, 45 coins' }).click();
   expect(dialogs.at(-1)).toContain('needs 25 more coins');
 
   await page.getByRole('button', { name: 'cap, 12 coins' }).click();
-  await expect(page.getByText('🪙 8 coins')).toBeVisible();
+  await expect(page.getByText('8 coins', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'cap, 12 coins' })).toBeHidden();
 
   await page.getByRole('radio', { name: 'cap' }).click();
