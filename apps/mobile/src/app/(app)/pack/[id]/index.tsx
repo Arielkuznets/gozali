@@ -23,7 +23,7 @@ import { useDayStatus, useTodayPasses, type TodayPasses } from '@/features/days/
 import { FeedList } from '@/features/feeds/FeedList';
 import { FEED_PAGE, fedToday, useCountedFeeds, usePackFeed, usePendingFeeds, type FeedItem } from '@/features/feeds/api';
 import { countedToday, currentMembers, usePack, type Pack, type PackCritter, type PackMember } from '@/features/packs/api';
-import { PACK_SIZE_MAX, categoryInfo } from '@/features/packs/constants';
+import { FOCUS_CATEGORIES, PACK_SIZE_MAX, categoryInfo } from '@/features/packs/constants';
 import { usePackRealtime } from '@/features/packs/realtime';
 import { NameMeCard } from '@/features/social/NameMeCard';
 import {
@@ -79,7 +79,7 @@ export default function PackScreen() {
   const awake = countedToday(pack, today.paused);
   const fedCount = awake.filter((member) => fed.has(member.user_id)).length;
   const names = new Map(pack.pack_members.map((member) => [member.user_id, member.profiles?.display_name ?? null]));
-  const focusable = pack.category === 'study' || pack.category === 'reading';
+  const focusable = FOCUS_CATEGORIES.has(pack.category);
   const pendingCount = pending.data?.length ?? 0;
   const pausedToday = Boolean(dayStatus.data?.pause && dayStatus.data.pause.startsOn <= dayStatus.data.day);
   const userId = session?.user.id;

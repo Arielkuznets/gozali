@@ -58,8 +58,8 @@ Each pack is an independent unit with one habit, one creature and its own rules;
 **Creating a pack:**
 
 1. Pack name (up to 30 characters).
-2. Category: Gym, Study, Reading, Running, Water, or Custom (free text up to 40 characters, for example "Meditate 10 min").
-3. Rest days per week: 0–4. Default by category: Gym 3, Running 3, Study 1, Reading 0, Water 0, Custom 1.
+2. Category: Gym, Running, Study, Reading, Water, Walking, Yoga, Meditation, Eating well, Sleep on time, Language, Music practice, Journaling, or Custom (free text up to 40 characters, for example "Stretch 10 min").
+3. Rest days per week: 0–4. Default by category: Gym 3, Running 3, Yoga 2, Reading 0, Water 0, Meditation 0, and 1 for the rest.
 4. Picking the critter: one of 6 creatures, each with its own color and personality.
 5. A unique invite link is created, with a share button ready for WhatsApp.
 
@@ -133,7 +133,7 @@ In practice not every day is successful. When every member is covered on about 9
 
 Every stage change gets an animation and a celebratory notification to the whole pack.
 
-**Fitting the category:** from the Kid stage, the creature gets an item that fits the habit: a small dumbbell for Gym, glasses for Reading, headphones for Study, running shoes for Running, a bottle for Water.
+**Fitting the category:** from the Kid stage, the creature gets an item that fits the habit: a small dumbbell for Gym, glasses for Reading, headphones for Study, Language and Music practice, running shoes for Running and Walking, a bottle for Water. The other habits have no item yet.
 
 **Pack memory:** events leave a permanent mark on the creature: a medal after 30 successful days in a row, a small bandage after it came back from running away, a holiday hat on holidays. The holidays are Rosh Hashanah, Hanukkah, Purim, Passover and New Year's; their dates come from the Hebrew calendar and are generated into a table (`packages/critter-art`, `npm run holidays`), because the phones' JavaScript engines can't be relied on to know that calendar.
 
@@ -260,9 +260,9 @@ A user feeds the creature with a photo taken inside the app right now; this is t
 - The caption is filtered for offensive words before it is posted (a store requirement, section 11).
 - **Offline mode:** if there is no internet, the feed is queued and sent when the connection returns. If it was captured before the day ended and reached the server within the grace window, it counts for the day it was captured. This is the only case where the server trusts the phone clock, and it is a conscious trade-off: the window is limited to one hour, and the photo is visible to the members. The day close waits for the end of the grace window, so its result is final.
 
-**Focus timer (Study and Reading):**
+**Focus timer (Study, Reading, Meditation, Language and Music practice):**
 
-- In Study and Reading packs, next to the Feed button there is also Focus: a timer of 15, 25, 45 or 60 minutes, or an open timer.
+- In packs of habits done in sittings (Study, Reading, Meditation, Language, Music practice), next to the Feed button there is also Focus: a timer of 15, 25, 45 or 60 minutes, or an open timer.
 - When the time is up a local notification is sent and the camera opens, and the feed shows the length of the session ("📖 45 min").
 - The timer is optional, and a photo is still required as proof. It keeps running while the app is in the background.
 
@@ -323,7 +323,7 @@ Fourteen screens in version 1, plus widgets for the home screen and the lock scr
 | Profile setup | Display name, profile photo (optional), age 13+ declaration and accepting the terms, notification permission request with an explanation |
 | Home | The list of packs: for each pack the creature in its state, a health bar, how many members fed today (3/5) **and a direct Feed button**. A create pack button and join with a code |
 | Join pack | The pack name, the habit, the creature and the members, and a join button. On the first open after installing on iOS: "Have an invite code?" with paste or typing |
-| Pack | The animated creature in the center, health bar, coins, streak, a countdown to the end of the day, a row of member circles (colored = fed, dashed = rest or joker, 💤 = asleep or paused, gray = not yet, including someone who hasn't started), a big Feed button with "Not today" next to it (rest or joker) and in Study and Reading packs also Focus, and the feed below |
+| Pack | The animated creature in the center, health bar, coins, streak, a countdown to the end of the day, a row of member circles (colored = fed, dashed = rest or joker, 💤 = asleep or paused, gray = not yet, including someone who hasn't started), a big Feed button with "Not today" next to it (rest or joker) and in packs of sitting habits (Study, Reading, Meditation, Language, Music practice) also Focus, and the feed below |
 | Camera | Capture, switch camera, retake, caption, send |
 | Focus | The running timer, the creature "studying" or "reading" next to it, pause and cancel |
 | Create pack | Four steps: name, category, rest days, and the critter, then the link sharing screen |
@@ -583,6 +583,7 @@ All the decisions that blocked version 1 are closed; the details and reasoning a
 
 ### Version 3.3
 
+- **Habits:** eight more to choose from (Walking, Yoga, Meditation, Eating well, Sleep on time, Language, Music practice, Journaling); the focus timer also comes with Meditation, Language and Music practice.
 - **Safety:** a member the admin removed can't rejoin with the invite code, and the admin can replace the code.
 - **Errors:** the app reports errors to the database instead of Sentry, and there is no analytics service; the pilot numbers come from the database (decision D22).
 - **Updates:** EAS Update is in the first builds, for fixes during the pilot.

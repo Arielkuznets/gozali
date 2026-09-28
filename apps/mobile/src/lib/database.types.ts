@@ -1131,7 +1131,21 @@ export type Database = {
       critter_status: 'egg' | 'active' | 'ran_away';
       day_pass_kind: 'joker' | 'rest';
       day_type: 'success' | 'neutral' | 'fail';
-      habit_category: 'gym' | 'study' | 'reading' | 'running' | 'water' | 'custom';
+      habit_category:
+        | 'gym'
+        | 'study'
+        | 'reading'
+        | 'running'
+        | 'water'
+        | 'custom'
+        | 'walking'
+        | 'yoga'
+        | 'meditation'
+        | 'eating'
+        | 'sleep'
+        | 'language'
+        | 'music'
+        | 'journal';
       member_role: 'admin' | 'member';
       member_status: 'active' | 'sleeping' | 'left';
       notification_status: 'pending' | 'sent' | 'dropped';
@@ -1291,7 +1305,22 @@ export const Constants = {
       critter_status: ['egg', 'active', 'ran_away'],
       day_pass_kind: ['joker', 'rest'],
       day_type: ['success', 'neutral', 'fail'],
-      habit_category: ['gym', 'study', 'reading', 'running', 'water', 'custom'],
+      habit_category: [
+        'gym',
+        'study',
+        'reading',
+        'running',
+        'water',
+        'custom',
+        'walking',
+        'yoga',
+        'meditation',
+        'eating',
+        'sleep',
+        'language',
+        'music',
+        'journal',
+      ],
       member_role: ['admin', 'member'],
       member_status: ['active', 'sleeping', 'left'],
       notification_status: ['pending', 'sent', 'dropped'],

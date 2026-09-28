@@ -7,10 +7,21 @@ export const CATEGORIES = [
   { key: 'study', emoji: '📚', defaultRestDays: 1 },
   { key: 'reading', emoji: '📖', defaultRestDays: 0 },
   { key: 'water', emoji: '💧', defaultRestDays: 0 },
+  { key: 'walking', emoji: '🚶', defaultRestDays: 1 },
+  { key: 'yoga', emoji: '🧘', defaultRestDays: 2 },
+  { key: 'meditation', emoji: '🪷', defaultRestDays: 0 },
+  { key: 'eating', emoji: '🥗', defaultRestDays: 1 },
+  { key: 'sleep', emoji: '😴', defaultRestDays: 1 },
+  { key: 'language', emoji: '🗣️', defaultRestDays: 1 },
+  { key: 'music', emoji: '🎸', defaultRestDays: 1 },
+  { key: 'journal', emoji: '✍️', defaultRestDays: 1 },
   { key: 'custom', emoji: '✨', defaultRestDays: 1 },
 ] as const;
 
 export type Category = (typeof CATEGORIES)[number]['key'];
+
+/** Habits done in sittings, where the focus timer helps. */
+export const FOCUS_CATEGORIES: ReadonlySet<Category> = new Set(['study', 'reading', 'meditation', 'language', 'music']);
 
 /** The six creatures a pack can raise, each with its own color and personality. */
 export const SPECIES = CREATURES;

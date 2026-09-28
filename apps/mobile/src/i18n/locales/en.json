@@ -51,6 +51,14 @@
       "study": "Study",
       "reading": "Reading",
       "water": "Water",
+      "walking": "Walking",
+      "yoga": "Yoga",
+      "meditation": "Meditation",
+      "eating": "Eating well",
+      "sleep": "Sleep on time",
+      "language": "Language",
+      "music": "Music practice",
+      "journal": "Journaling",
       "custom": "Custom"
     },
     "species": {

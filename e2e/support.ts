@@ -47,7 +47,7 @@ export async function signIn(page: Page, user: TestUser): Promise<void> {
   }, user.session);
 }
 
-type NewPack = { name: string; habit: 'gym' | 'study' | 'reading' | 'running' | 'water'; species: 'mochi' | 'kit' | 'axo' | 'ribbit' | 'hoot' | 'bun' };
+type NewPack = { name: string; habit: 'gym' | 'study' | 'reading' | 'running' | 'water' | 'meditation'; species: 'mochi' | 'kit' | 'axo' | 'ribbit' | 'hoot' | 'bun' };
 
 /** A pack made by `owner`, with the others joined. Returns its id and invite code. */
 export async function createPack(owner: TestUser, pack: NewPack, others: TestUser[] = []) {
