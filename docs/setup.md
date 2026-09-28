@@ -146,6 +146,15 @@ npx supabase db query --linked "update public.app_config set ios_url = 'https://
 
 Crashes in native code (not JavaScript) don't reach `app_errors`: App Store Connect (TestFlight → Crashes, and Xcode → Organizer) and the Play Console (Android vitals) show them.
 
+Backups: the free plan keeps none, so `scripts/backup.mjs` saves the data of every table and the accounts into `~/Gozali backups` as one JSON file a day (the newest 14 are kept, with a `backup.log`). It goes through the signed-in Supabase CLI, so it needs no keys and no Docker, and takes a few minutes. Photo files aren't included. To run it every evening on this Windows PC (and at the next start when the PC was off at 21:30), in PowerShell:
+
+```powershell
+$action = New-ScheduledTaskAction -Execute (Get-Command node).Source -Argument 'scripts\backup.mjs' -WorkingDirectory 'C:\Ariel\02_Projects\Gozali'
+Register-ScheduledTask -TaskName 'Gozali backup' -Action $action -Trigger (New-ScheduledTaskTrigger -Daily -At '21:30') -Settings (New-ScheduledTaskSettingsSet -StartWhenAvailable)
+```
+
+To restore after a disaster: create a new project, link it and `npx supabase db push` the schema, then `node scripts/restore.mjs "<backup file>"`, and set the Vault values and function secrets again (section 1). The restore refuses a project that already has data. Try it on the local stack first: `node scripts/backup.mjs --local`, `npx supabase db reset`, then the restore with `--local`.
+
 ## 6. Sign in with Apple revocation
 
 Apple asks apps with Sign in with Apple to revoke the user's tokens when they delete their account. The code is ready and waits for a key:
