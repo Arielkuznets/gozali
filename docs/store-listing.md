@@ -15,7 +15,7 @@ Drafts for App Store Connect and the Google Play Console, and the answers the st
 
 Gozali turns a habit into a pet you raise with your friends.
 
-Start a pack for a habit you share (the gym, running, reading, studying, drinking water, or anything you choose) and invite 1 to 7 friends. Pick one of six critters, each with its own personality: lazy Mochi, dramatic Kit, cheerful Axo, calm Ribbit, nerdy Hoot or shy Bun.
+Start a pack for a habit you share (the gym, running, walking, yoga, meditation, reading, studying, a language, music practice, or anything you choose) and invite 1 to 7 friends. Pick one of six critters, each with its own personality: lazy Mochi, dramatic Kit, cheerful Axo, calm Ribbit, nerdy Hoot or shy Bun.
 
 **Feed it with a photo.** Every day you do your habit, take a photo in the app. That photo is what feeds your critter. Your friends see it in the pack feed and can react.
 
@@ -61,12 +61,36 @@ Data is encrypted in transit, and users can delete their account and all its dat
 
 ## Notes for Apple's review
 
+To paste into App Store Connect → App Review Information → Notes (with "Sign-in required" left unchecked):
+
+```text
+Sign in with Apple works with your own Apple ID; no demo account is needed.
+
+Gozali is made for small groups of friends. A new pack starts as an egg, which hatches at the end of the first day on which two members feed it (a feed is a photo taken in the app). With one account you can create a pack, feed it, use the focus timer, "Not today?" (rest day, joker, pause), the pet profile with the monthly board and achievements, and the settings. To see the egg hatch, a second account joins the pack with its invite code (Invite on the pack screen) and feeds on the same day; it hatches when that day ends.
+
+Photos are taken in the app only (no gallery uploads) and are visible only to the pack. Any photo can be reported from the ⋯ menu on it, and a member can be blocked by pressing and holding them in the members row. Reports reach the developer by email and are handled within 24 hours.
+
+Account deletion: Settings → Delete account.
+```
+
+When a pack from real use has a hatched pet, add its invite code to those notes so the reviewer can see a live pet:
+
 - Sign in with Apple works with the reviewer's own Apple ID; no demo account is needed.
 - A new pack starts as an egg that hatches once two members feed it on the same day. To see a hatched critter, feeds, the shop and a recap right away, join the demo pack with the invite code in the review notes.
 
 Before submitting, the demo pack: one of the packs from TestFlight testing whose pet already hatched, with a few days of feeds (a pack has room for 8, so the reviewer joins as one more member). Put its invite code in App Store Connect → App Review Information → Notes, and tell the pack a reviewer may join. After the review, the admin removes the reviewer's account from Pack settings → Members.
 - Photos are taken in the app only (no gallery uploads), are visible only to the pack, and can be reported from the ⋯ menu on each photo; members can be blocked from the members row. Reports reach the developer by email and are handled within 24 hours.
 - Account deletion: Settings → Delete account.
+
+## App Store Connect, the first submission
+
+1. App Information: name `Gozali: Habit Pet`, subtitle, category Health & Fitness (secondary Lifestyle), content rights: no third-party content, the age rating questionnaire (user-generated content: yes; everything else: no), privacy policy URL `https://gozali.app/privacy`.
+2. Pricing and Availability: free, all countries.
+3. App Privacy: the answers above; data is not used for tracking.
+4. The 1.0 version: the five screenshots from `e2e/store/output/app-store` (6.9"), the promotional text, description and keywords above, support URL `https://gozali.app/support`, marketing URL `https://gozali.app`, copyright `2026 Ariel Kuznets`, the build (after Apple processes it), the review notes above, and the contact details.
+5. Add for Review, then Submit to App Review. The encryption question is already answered in the app (`ITSAppUsesNonExemptEncryption`: no).
+
+Once it's live: set `APP_STORE_URL` for the site (`docs/setup.md` section 3) and the store link in `app_config` (section 5).
 
 ## Screenshots
 
