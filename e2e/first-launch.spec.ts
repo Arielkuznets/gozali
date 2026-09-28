@@ -31,3 +31,12 @@ test('the Google button shows once the project turns Google sign-in on', async (
   await page.goto('/');
   await expect(page.getByRole('button', { name: 'Continue with Google' })).toBeVisible();
 });
+
+test('an app older than the version the server needs asks to update', async ({ page }) => {
+  await page.route('**/rest/v1/app_config*', (route) =>
+    route.fulfill({ json: { min_version: '99.0.0', ios_url: null, android_url: null, apple_revocation: false } }),
+  );
+  await page.goto('/');
+  await expect(page.getByText('Time to update')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Continue with Apple' })).toBeHidden();
+});

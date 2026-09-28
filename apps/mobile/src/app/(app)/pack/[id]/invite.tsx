@@ -2,7 +2,7 @@ import * as Clipboard from 'expo-clipboard';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, Share, StyleSheet, useWindowDimensions, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
 import { AppText } from '@/components/AppText';
@@ -17,6 +17,7 @@ import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 export default function InviteScreen() {
   const { t } = useTranslation();
+  const { height } = useWindowDimensions();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: pack, isPending, isError, refetch } = usePack(id);
   const [copied, setCopied] = useState(false);
@@ -67,13 +68,14 @@ export default function InviteScreen() {
           {t('invite.title')}
         </AppText>
         <AppText style={[styles.centerText, styles.muted]}>{body}</AppText>
-        <View style={styles.qr}>
-          <QRCode value={link} size={180} color={colors.ink} backgroundColor={colors.surface} />
-        </View>
+        {/* The code first: on a small phone the QR code is what scrolls out of view. */}
         <AppText variant="caption">{t('invite.code')}</AppText>
         <AppText style={styles.code} selectable>
           {pack.invite_code}
         </AppText>
+        <View style={styles.qr}>
+          <QRCode value={link} size={height < 700 ? 136 : 180} color={colors.ink} backgroundColor={colors.surface} />
+        </View>
         {isAdmin && (
           <Pressable accessibilityRole="button" onPress={onRenew} disabled={renew.isPending} hitSlop={8}>
             <AppText variant="caption" style={styles.link}>

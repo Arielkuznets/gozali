@@ -81,10 +81,37 @@ export async function verifyDevCode(email: string, token: string): Promise<void>
   if (error) throw error;
 }
 
-/** Deletes the account and its data on the server (spec section 11), then forgets it here. */
-export async function deleteAccount(): Promise<void> {
+/**
+ * A fresh Apple authorization code, so the server can revoke Sign in with Apple as the account
+ * goes (Apple asks for this). Only on iPhones, for people who signed in with Apple. Closing
+ * Apple's sheet cancels the deletion; any other trouble lets it go on without the code.
+ */
+async function appleCodeForRevocation(): Promise<string | undefined> {
+  if (Platform.OS !== 'ios') return undefined;
+  const { data } = await requireSupabase().auth.getUser();
+  const providers = (data.user?.app_metadata.providers as string[] | undefined) ?? [];
+  if (!providers.includes('apple')) return undefined;
+  try {
+    const credential = await AppleAuthentication.signInAsync({ requestedScopes: [] });
+    return credential.authorizationCode ?? undefined;
+  } catch (error) {
+    if (isCancellation(error)) throw error;
+    return undefined;
+  }
+}
+
+/**
+ * Deletes the account and its data on the server (spec section 11), then forgets it here. With
+ * `revokeApple` (app_config.apple_revocation), iPhone users who signed in with Apple confirm
+ * with Apple first.
+ */
+export async function deleteAccount({ revokeApple }: { revokeApple: boolean }): Promise<void> {
   const supabase = requireSupabase();
-  const { error } = await supabase.functions.invoke('delete-account', { method: 'POST' });
+  const appleAuthorizationCode = revokeApple ? await appleCodeForRevocation() : undefined;
+  const { error } = await supabase.functions.invoke('delete-account', {
+    method: 'POST',
+    body: appleAuthorizationCode ? { appleAuthorizationCode } : {},
+  });
   if (error) throw error;
   // The server already removed the tokens with the account; this clears what the device keeps.
   await unregisterPushToken().catch(() => undefined);

@@ -7,8 +7,11 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 
 import { ErrorScreen } from '@/components/ErrorScreen';
+import { UpdateRequired } from '@/components/UpdateRequired';
+import { installedVersion, isOlder, useAppConfig } from '@/features/app/appConfig';
 import { AuthProvider, useAuth } from '@/features/auth/AuthProvider';
 import { readInstallReferrer } from '@/features/packs/invites';
 import { isProfileComplete, useProfile } from '@/features/profile/useProfile';
@@ -40,6 +43,7 @@ function RootNavigator() {
   const { session, loading } = useAuth();
   const signedIn = session !== null;
   const profile = useProfile();
+  const config = useAppConfig();
   const ready = fontsLoaded && !loading && (!signedIn || !profile.isPending);
 
   useEffect(() => {
@@ -51,6 +55,10 @@ function RootNavigator() {
   }, []);
 
   if (!ready) return null;
+  // A version the server no longer supports stops here, whoever is signed in.
+  if (config.data && isOlder(installedVersion(), config.data.min_version)) {
+    return <UpdateRequired storeUrl={Platform.OS === 'android' ? config.data.android_url : config.data.ios_url} />;
+  }
 
   const profileComplete = isProfileComplete(profile.data);
   return (

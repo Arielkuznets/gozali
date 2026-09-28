@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
+import { avatarCacheKey } from '@/features/profile/avatar';
 import { colors, fonts } from '@/theme/tokens';
 
 export type MemberState = 'fed' | 'pass' | 'waiting' | 'asleep' | 'paused';
@@ -52,7 +53,7 @@ export function MemberCircles({ members, color, onNudge, onMenu }: Props) {
               ]}>
               {member.avatarUrl && !resting ? (
                 <Image
-                  source={{ uri: member.avatarUrl }}
+                  source={{ uri: member.avatarUrl, cacheKey: avatarCacheKey(member.avatarUrl) }}
                   style={[styles.avatar, member.state === 'pass' && styles.faded]}
                   contentFit="cover"
                   transition={200}

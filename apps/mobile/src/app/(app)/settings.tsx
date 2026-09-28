@@ -10,7 +10,8 @@ import { Choice } from '@/components/Choice';
 import { PRIVACY_URL, TERMS_URL } from '@/components/LegalLinks';
 import { Screen } from '@/components/Screen';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { deleteAccount } from '@/features/auth/signIn';
+import { useAppConfig } from '@/features/app/appConfig';
+import { deleteAccount, isCancellation } from '@/features/auth/signIn';
 import { NOTIFICATION_TYPES, useProfile, useUpdateProfile, type NotificationType } from '@/features/profile/useProfile';
 import { confirm, notify } from '@/lib/confirm';
 import { isBlockedText } from '@/lib/errors';
@@ -27,6 +28,7 @@ export default function SettingsScreen() {
   const profile = useProfile();
   const update = useUpdateProfile();
   const blocked = useBlocked();
+  const config = useAppConfig();
   const notifications = useNotificationPermission();
 
   if (!profile.data) {
@@ -53,7 +55,10 @@ export default function SettingsScreen() {
       confirm: t('settings.app.deleteConfirm'),
       cancel: t('settings.cancel'),
       destructive: true,
-      onConfirm: () => void deleteAccount().catch(() => notify(t('settings.app.deleteFailed'))),
+      onConfirm: () =>
+        void deleteAccount({ revokeApple: config.data?.apple_revocation === true }).catch((error) => {
+          if (!isCancellation(error)) notify(t('settings.app.deleteFailed'));
+        }),
     });
   };
 

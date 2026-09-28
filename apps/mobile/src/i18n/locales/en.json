@@ -1,4 +1,10 @@
 {
+  "update": {
+    "title": "Time to update",
+    "body": "This version of Gozali is too old to keep up with your pack. Get the new one from the store, and your pack and pet will be right where you left them.",
+    "button": "Update",
+    "critterLabel": "Hoot, a Gozali pet"
+  },
   "welcome": {
     "tagline": "Raise a little pet together with your friends. Feed it every day by doing your habit.",
     "critterLabel": "A little pet waiting for its pack",

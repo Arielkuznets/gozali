@@ -49,6 +49,30 @@ export type Database = {
           },
         ];
       };
+      app_config: {
+        Row: {
+          android_url: string | null;
+          apple_revocation: boolean;
+          id: boolean;
+          ios_url: string | null;
+          min_version: string;
+        };
+        Insert: {
+          android_url?: string | null;
+          apple_revocation?: boolean;
+          id?: boolean;
+          ios_url?: string | null;
+          min_version?: string;
+        };
+        Update: {
+          android_url?: string | null;
+          apple_revocation?: boolean;
+          id?: boolean;
+          ios_url?: string | null;
+          min_version?: string;
+        };
+        Relationships: [];
+      };
       app_errors: {
         Row: {
           app_version: string | null;

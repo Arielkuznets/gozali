@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ActionMenu, type Menu } from '@/components/ActionMenu';
 import { AppText } from '@/components/AppText';
-import { pickAvatar, useAvatarUrls, useSetAvatar } from '@/features/profile/avatar';
+import { avatarCacheKey, pickAvatar, useAvatarUrls, useSetAvatar } from '@/features/profile/avatar';
 import { useProfile } from '@/features/profile/useProfile';
 import { notify } from '@/lib/confirm';
 import { colors, fonts, spacing } from '@/theme/tokens';
@@ -42,7 +42,7 @@ export function AvatarButton({ name }: { name: string | null | undefined }) {
     <>
       <Pressable accessibilityRole="button" accessibilityLabel={t('me.photo')} onPress={open} style={styles.wrap}>
         {url ? (
-          <Image source={{ uri: url }} style={styles.avatar} contentFit="cover" transition={200} />
+          <Image source={{ uri: url, cacheKey: avatarCacheKey(url) }} style={styles.avatar} contentFit="cover" transition={200} />
         ) : (
           <View style={[styles.avatar, styles.empty]}>
             <AppText style={styles.initial}>{(name?.trim()[0] ?? '?').toUpperCase()}</AppText>

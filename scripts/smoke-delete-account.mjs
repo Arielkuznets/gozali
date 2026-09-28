@@ -1,8 +1,11 @@
 // Account deletion against the local stack (store requirement, spec section 11): the member
 // leaves every pack with admin passing on, their photo files go, their account and data go, and
-// a pack only they were in is left empty (close-days deletes it 30 days later).
+// a pack only they were in is left empty (close-days deletes it 30 days later). Last, the Sign in
+// with Apple revocation signs its client secret correctly and makes Apple's two calls.
 // Run with `npx supabase start` and `npx supabase functions serve` up: node scripts/smoke-delete-account.mjs
 import { createClient } from '@supabase/supabase-js';
+
+import { appleClientSecret, revokeAppleSignIn } from '../supabase/functions/delete-account/apple.ts';
 
 const url = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY;
@@ -70,5 +73,36 @@ check(soloMembers.length === 0, 'the pack only Noa was in is left empty');
 
 await admin.from('packs').delete().in('id', [shared, solo]);
 await admin.auth.admin.deleteUser(dan.id);
+
+// Sign in with Apple revocation, with a throwaway key and a stand-in for Apple.
+const pair = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
+const pkcs8 = Buffer.from(await crypto.subtle.exportKey('pkcs8', pair.privateKey)).toString('base64');
+const key = {
+  teamId: 'TEAM123456',
+  keyId: 'KEY1234567',
+  privateKey: ['-----BEGIN PRIVATE KEY-----', ...pkcs8.match(/.{1,64}/g), '-----END PRIVATE KEY-----'].join('\n'),
+  clientId: 'app.gozali',
+};
+const secret = await appleClientSecret(key);
+const [header, payload, signature] = secret.split('.');
+const verified = await crypto.subtle.verify(
+  { name: 'ECDSA', hash: 'SHA-256' },
+  pair.publicKey,
+  Buffer.from(signature, 'base64url'),
+  new TextEncoder().encode(`${header}.${payload}`),
+);
+const claims = JSON.parse(Buffer.from(payload, 'base64url').toString());
+check(verified && claims.iss === 'TEAM123456' && claims.sub === 'app.gozali' && claims.aud === 'https://appleid.apple.com', 'the Apple client secret is signed with the key and names the app');
+const calls = [];
+const revoked = await revokeAppleSignIn(key, 'code-123', async (url, init) => {
+  calls.push({ url, body: new URLSearchParams(init.body) });
+  return new Response(JSON.stringify(url.endsWith('/auth/token') ? { refresh_token: 'refresh-456' } : {}), { status: 200 });
+});
+check(
+  revoked === 'revoked' &&
+    calls[0].url.endsWith('/auth/token') && calls[0].body.get('code') === 'code-123' &&
+    calls[1].url.endsWith('/auth/revoke') && calls[1].body.get('token') === 'refresh-456',
+  'deleting revokes Sign in with Apple: the code becomes a token, and the token is revoked',
+);
 console.log('all good');
 process.exit(0);
