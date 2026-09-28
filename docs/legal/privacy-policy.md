@@ -28,7 +28,7 @@ We do **not** collect your location or contacts, we don't use advertising or tra
 
 ## How long we keep it
 
-- Photos are deleted automatically **30 days** after they were posted. A photo that appears in a weekly recap collage is kept with the recap until the account that posted it, or the pack, is deleted.
+- Photos are deleted automatically **30 days** after they were posted. A photo that appears in a weekly recap collage is kept 8 weeks after that week, so the recap can still show it, and then deleted too.
 - Records of sent notifications are deleted after 30 days, and a widget token that hasn't been used for 90 days is deleted.
 - Everything else stays while your account exists.
 - **Deleting your account** (Settings → Delete account) deletes your account, your profile and profile photo, your photos (including those in recaps), your feeds, reactions, passes, tokens and reports right away. Your packs continue without you. A pack that no one has been in for 30 days is deleted, with its photos and recaps.
