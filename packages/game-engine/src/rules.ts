@@ -1,4 +1,5 @@
 import {
+  COINS_BY_STREAK,
   EARLY_BIRD_BEFORE_HOUR,
   EARLY_BIRD_MIN_FEEDERS,
   FEEDERS_TO_HATCH,
@@ -51,10 +52,11 @@ export function memberOutcome(member: MemberDay, restDaysPerWeek: number): Membe
 
 /** Closes one pack day: who counted, what kind of day it was, and the critter's new state. */
 export function closeDay(input: DayInput): DayResult {
-  const rows = input.members.map((member) => ({
-    member,
-    outcome: memberOutcome(member, input.restDaysPerWeek),
-  }));
+  const rows = input.members.map((member) => {
+    const outcome = memberOutcome(member, input.restDaysPerWeek);
+    // On an outage day a miss counts like a pause: not counted, and no step toward sleeping.
+    return { member, outcome: input.outage && outcome === 'missed' ? ('paused' as const) : outcome };
+  });
   const counted = rows.filter((row) => COUNTED_OUTCOMES.has(row.outcome)).length;
   const feeders = rows.filter((row) => row.outcome === 'fed').map((row) => row.member);
   const misses = rows.filter((row) => row.outcome === 'missed').length;
@@ -89,6 +91,7 @@ export function closeDay(input: DayInput): DayResult {
     allowedMisses: allowed,
     healthBefore: before.health,
     critter: after,
+    coins: coinsFor(type, before, after),
     newlySleeping,
     events,
     facts: advanced.applied ? dayFacts(type, counted, feeders) : NO_FACTS,
@@ -162,6 +165,12 @@ function dayFacts(type: DayType, counted: number, feeders: readonly MemberDay[])
       (member) => member.fedAtMinute !== undefined && member.fedAtMinute >= nightStart,
     ).length,
   };
+}
+
+/** A successful day while the critter is home earns more the longer the streak (decision D21). */
+export function coinsFor(type: DayType, before: CritterState, after: CritterState): number {
+  if (type !== 'success' || before.status === 'ran_away' || after.status !== 'active') return 0;
+  return COINS_BY_STREAK.find(([streak]) => after.streak >= streak)?.[1] ?? 0;
 }
 
 function nextStreak(streak: number, type: DayType): number {

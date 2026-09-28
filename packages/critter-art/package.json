@@ -1,0 +1,26 @@
+{
+  "name": "@gozali/critter-art",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The temporary Gozali critter, drawn as SVG markup from its state.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "@gozali/game-engine": "*"
+  },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.ts\"",
+    "preview": "node scripts/preview.ts",
+    "typecheck": "npx -y -p typescript@5 tsc -p tsconfig.json",
+    "icons": "node scripts/icons.ts",
+    "holidays": "node scripts/holidays.ts"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2"
+  }
+}

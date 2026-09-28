@@ -1,0 +1,127 @@
+import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
+import { Platform } from 'react-native';
+
+import { suggestName } from '@/features/profile/suggestedName';
+import { clearWidgets } from '@/features/widgets/sync';
+import { unregisterPushToken } from '@/lib/push';
+import { requireSupabase } from '@/lib/supabase';
+
+/** The deep link the browser returns to after Google or Apple (outside iOS). */
+export const AUTH_CALLBACK_PATH = 'auth/callback';
+
+/** Browser sign-in with PKCE: the app gets a one-time code back and trades it for a session. */
+export async function signInWithBrowser(provider: 'google' | 'apple'): Promise<void> {
+  const auth = requireSupabase().auth;
+  const redirectTo = Linking.createURL(AUTH_CALLBACK_PATH);
+  const { data, error } = await auth.signInWithOAuth({
+    provider,
+    options: { redirectTo, skipBrowserRedirect: true },
+  });
+  if (error) throw error;
+
+  const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+  if (result.type !== 'success') return; // closed by the user
+
+  const code = Linking.parse(result.url).queryParams?.code;
+  if (typeof code !== 'string') throw new Error('The sign-in response had no code');
+  const exchange = await auth.exchangeCodeForSession(code);
+  if (exchange.error) throw exchange.error;
+}
+
+/**
+ * Whether the Supabase project has Google sign-in turned on, from its public auth settings, so the
+ * button shows only once it works and turning it on needs no new build. Unknown counts as off.
+ */
+export async function isGoogleEnabled(): Promise<boolean> {
+  const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  const publishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !publishableKey) return false;
+  const response = await fetch(`${url}/auth/v1/settings`, { headers: { apikey: publishableKey } });
+  if (!response.ok) return false;
+  const settings = (await response.json()) as { external?: { google?: boolean } };
+  return settings.external?.google === true;
+}
+
+/** Native Sign in with Apple on iOS; Supabase verifies the identity token Apple returns. */
+async function signInWithAppleNative(): Promise<void> {
+  const credential = await AppleAuthentication.signInAsync({
+    requestedScopes: [
+      AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+      AppleAuthentication.AppleAuthenticationScope.EMAIL,
+    ],
+  });
+  if (!credential.identityToken) throw new Error('Apple returned no identity token');
+  suggestName([credential.fullName?.givenName, credential.fullName?.familyName].filter(Boolean).join(' '));
+  const { error } = await requireSupabase().auth.signInWithIdToken({
+    provider: 'apple',
+    token: credential.identityToken,
+  });
+  if (error) throw error;
+}
+
+export function signInWithApple(): Promise<void> {
+  return Platform.OS === 'ios' ? signInWithAppleNative() : signInWithBrowser('apple');
+}
+
+/** The user closing Apple's sheet is not an error worth showing. */
+export function isCancellation(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === 'ERR_REQUEST_CANCELED';
+}
+
+// Development only: a one-time email code, so the app can be used before Apple and Google are set up.
+export async function sendDevCode(email: string): Promise<void> {
+  const { error } = await requireSupabase().auth.signInWithOtp({ email });
+  if (error) throw error;
+}
+
+export async function verifyDevCode(email: string, token: string): Promise<void> {
+  const { error } = await requireSupabase().auth.verifyOtp({ email, token, type: 'email' });
+  if (error) throw error;
+}
+
+/**
+ * A fresh Apple authorization code, so the server can revoke Sign in with Apple as the account
+ * goes (Apple asks for this). Only on iPhones, for people who signed in with Apple. Closing
+ * Apple's sheet cancels the deletion; any other trouble lets it go on without the code.
+ */
+async function appleCodeForRevocation(): Promise<string | undefined> {
+  if (Platform.OS !== 'ios') return undefined;
+  const { data } = await requireSupabase().auth.getUser();
+  const providers = (data.user?.app_metadata.providers as string[] | undefined) ?? [];
+  if (!providers.includes('apple')) return undefined;
+  try {
+    const credential = await AppleAuthentication.signInAsync({ requestedScopes: [] });
+    return credential.authorizationCode ?? undefined;
+  } catch (error) {
+    if (isCancellation(error)) throw error;
+    return undefined;
+  }
+}
+
+/**
+ * Deletes the account and its data on the server (spec section 11), then forgets it here. With
+ * `revokeApple` (app_config.apple_revocation), iPhone users who signed in with Apple confirm
+ * with Apple first.
+ */
+export async function deleteAccount({ revokeApple }: { revokeApple: boolean }): Promise<void> {
+  const supabase = requireSupabase();
+  const appleAuthorizationCode = revokeApple ? await appleCodeForRevocation() : undefined;
+  const { error } = await supabase.functions.invoke('delete-account', {
+    method: 'POST',
+    body: appleAuthorizationCode ? { appleAuthorizationCode } : {},
+  });
+  if (error) throw error;
+  // The server already removed the tokens with the account; this clears what the device keeps.
+  await unregisterPushToken().catch(() => undefined);
+  await clearWidgets().catch(() => undefined);
+  await supabase.auth.signOut({ scope: 'local' });
+}
+
+export async function signOut(): Promise<void> {
+  await unregisterPushToken().catch(() => undefined);
+  await clearWidgets().catch(() => undefined);
+  const { error } = await requireSupabase().auth.signOut();
+  if (error) throw error;
+}

@@ -1,0 +1,123 @@
+name: Native builds
+
+# The iOS and Android projects compile, widgets included. Nothing is signed, so no Apple or
+# Google account is needed: native build errors show up here before an EAS build.
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - 'apps/mobile/**'
+      - 'packages/critter-art/**'
+      - 'package-lock.json'
+      - '.github/workflows/native.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: native-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    name: iOS simulator build
+    runs-on: macos-26
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # Expo SDK 57 needs Xcode 26.4 or newer.
+      - name: Use the newest Xcode
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"
+          xcodebuild -version
+      - name: Generate the iOS project
+        working-directory: apps/mobile
+        run: npx expo prebuild -p ios --no-install
+      - name: Install the pods
+        working-directory: apps/mobile/ios
+        run: pod install
+      - name: Build the app and the widget for the simulator
+        working-directory: apps/mobile/ios
+        run: |
+          bash ../../../.github/scripts/explain-failure.sh xcodebuild -quiet -workspace Gozali.xcworkspace -scheme Gozali -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build
+
+  android:
+    name: Android build
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@v6
+        with:
+          distribution: zulu
+          java-version: 17
+      - run: npm ci
+      - name: Generate the Android project
+        working-directory: apps/mobile
+        run: npx expo prebuild -p android --no-install
+      # One CPU architecture is enough to know it compiles.
+      - name: Build the app and the widgets
+        working-directory: apps/mobile/android
+        run: bash ../../../.github/scripts/explain-failure.sh ./gradlew assembleDebug -PreactNativeArchitectures=arm64-v8a --no-daemon
+      # What the store's data safety form and reviewers see: the permissions after every library
+      # merged its own.
+      - name: List the Android permissions
+        working-directory: apps/mobile/android
+        run: |
+          manifest=$(find app/build/intermediates -path '*merged_manifest*' -name AndroidManifest.xml | head -1)
+          {
+            echo '### Android permissions'
+            grep -o 'uses-permission[^>]*android:name="[^"]*"' "$manifest" | sed 's/.*android:name="\([^"]*\)"/- \1/' | sort -u
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+  android-launch:
+    name: Android app starts on an emulator
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@v6
+        with:
+          distribution: zulu
+          java-version: 17
+      - run: npm ci
+      - name: Generate the Android project
+        working-directory: apps/mobile
+        run: npx expo prebuild -p android --no-install
+      # A release build carries its JavaScript, so it runs without a dev server; the emulator is x86_64.
+      - name: Build a release app for the emulator
+        working-directory: apps/mobile/android
+        run: bash ../../../.github/scripts/explain-failure.sh ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 --no-daemon
+      - name: Let the emulator use hardware acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Open the app and walk the first launch
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          script: bash .github/scripts/android-launch.sh
+      - name: Keep the screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-screens
+          path: android-screens
+          if-no-files-found: ignore

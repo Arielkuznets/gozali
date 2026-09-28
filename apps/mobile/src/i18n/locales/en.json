@@ -1,0 +1,822 @@
+{
+  "update": {
+    "title": "Time to update",
+    "body": "This version of Gozali is too old to keep up with your pack. Get the new one from the store, and your pack and pet will be right where you left them.",
+    "button": "Update",
+    "critterLabel": "Hoot, a Gozali pet"
+  },
+  "welcome": {
+    "tagline": "Raise a little pet together with your friends. Feed it every day by doing your habit.",
+    "critterLabel": "A little pet waiting for its pack",
+    "continueWithApple": "Continue with Apple",
+    "continueWithGoogle": "Continue with Google",
+    "devLogin": "Dev login with email",
+    "terms": "By continuing you agree to the Terms and the Privacy Policy."
+  },
+  "devLogin": {
+    "title": "Dev login",
+    "email": "Email",
+    "sendCode": "Send code",
+    "code": "Code from the email",
+    "logIn": "Log in",
+    "back": "Back"
+  },
+  "profileSetup": {
+    "title": "About you",
+    "nameLabel": "Your name",
+    "namePlaceholder": "What do your friends call you?",
+    "agree": "I'm 13 or older, and I agree to the Terms and the Privacy Policy.",
+    "continue": "Continue",
+    "notifications": "Next, we'll ask to send notifications: a reminder in the evening and news from your pack. You can turn each kind off later."
+  },
+  "home": {
+    "title": "Your packs",
+    "emptyTitle": "No packs yet",
+    "emptyBody": "Start a pack and invite your friends, or join a pack with a code.",
+    "eggLabel": "An egg waiting for a pack",
+    "createPack": "Create a pack",
+    "joinPack": "Join with a code",
+    "limitReached": "You're in 3 packs, the most for now.",
+    "feedPack": "Feed {{name}}",
+    "loadFailed": "Your packs didn't load. Check the connection and try again.",
+    "retry": "Try again"
+  },
+  "errors": {
+    "notConfigured": "The app is not connected to the server yet.",
+    "signInFailed": "Sign-in didn't work. Please try again.",
+    "saveFailed": "Saving didn't work. Please try again.",
+    "loadFailed": "This didn't load. Check the connection and try again.",
+    "textNotAllowed": "Let's keep it friendly: that has a word we don't allow.",
+    "crashTitle": "Something went wrong",
+    "crashBody": "This screen hit a problem. Try again, and if it keeps happening, write to hello@gozali.app."
+  },
+  "packs": {
+    "categories": {
+      "gym": "Gym",
+      "running": "Running",
+      "study": "Study",
+      "reading": "Reading",
+      "water": "Water",
+      "walking": "Walking",
+      "yoga": "Yoga",
+      "meditation": "Meditation",
+      "eating": "Eating well",
+      "sleep": "Sleep on time",
+      "language": "Language",
+      "music": "Music practice",
+      "journal": "Journaling",
+      "custom": "Custom"
+    },
+    "species": {
+      "mochi": "Mochi",
+      "kit": "Kit",
+      "axo": "Axo",
+      "ribbit": "Ribbit",
+      "hoot": "Hoot",
+      "bun": "Bun"
+    },
+    "personality": {
+      "mochi": "Lazy, loves naps",
+      "kit": "Dramatic, easily offended",
+      "axo": "Cheerful, always smiling",
+      "ribbit": "Calm and peaceful",
+      "hoot": "Nerdy, loves facts",
+      "bun": "Shy and sweet"
+    },
+    "members_one": "{{count}} member",
+    "members_other": "{{count}} members",
+    "restDays_one": "{{count}} rest day a week",
+    "restDays_other": "{{count}} rest days a week",
+    "errors": {
+      "limitReached": "You can be in up to 3 packs.",
+      "full": "This pack is full (8 members).",
+      "notFound": "No pack has this code.",
+      "tooManyAttempts": "Too many codes that didn't match. Try again in an hour.",
+      "removed": "The pack admin removed you from this pack, so this code can't bring you back.",
+      "adminOnly": "Only the pack admin can do that."
+    }
+  },
+  "create": {
+    "title": "New pack",
+    "step": "Step {{step}} of 4",
+    "nameLabel": "Pack name",
+    "namePlaceholder": "Gym squad",
+    "categoryTitle": "What's the habit?",
+    "customLabel": "Your habit",
+    "customPlaceholder": "Meditate 10 min",
+    "restTitle": "Rest days",
+    "restBody": "How many days a week each member can skip without hurting the pet.",
+    "eggTitle": "Pick your critter",
+    "next": "Next",
+    "back": "Back",
+    "create": "Create pack"
+  },
+  "invite": {
+    "title": "Invite your friends",
+    "body": "The egg starts to crack when a friend joins, and it hatches on the first day two of you feed it.",
+    "bodyHatched": "Up to {{count}} friends can raise {{name}} together. New members count from their first feed.",
+    "full": "The pack is full: {{count}} members is the most.",
+    "code": "Invite code",
+    "share": "Share invite",
+    "copy": "Copy code",
+    "copied": "Copied!",
+    "message": "Join my pack \"{{name}}\" on Gozali! Code: {{code}}\n{{link}}",
+    "done": "Done",
+    "renew": "Get a new code",
+    "renewTitle": "Get a new code?",
+    "renewBody": "The current code and link stop working. Anyone who hasn't joined yet needs the new one.",
+    "renewConfirm": "New code"
+  },
+  "join": {
+    "title": "Join a pack",
+    "codeLabel": "Invite code",
+    "codePlaceholder": "8 letters and numbers",
+    "paste": "Paste",
+    "join": "Join pack",
+    "alreadyMember": "You're already in this pack.",
+    "open": "Open pack",
+    "back": "Back"
+  },
+  "pack": {
+    "settings": "Settings",
+    "invite": "Invite",
+    "back": "Back",
+    "eggWaiting": "Waiting for a friend to join.",
+    "hatch": {
+      "title": "How the egg hatches",
+      "join": "A friend joins the pack",
+      "feed_one": "Two of you feed on the same day ({{count}}/2 today)",
+      "feed_other": "Two of you feed on the same day ({{count}}/2 today)",
+      "fedDone": "Two of you fed today",
+      "dayEnds": "It hatches when that day ends, at night",
+      "tonight": "It hatches tonight, when today ends 🎉"
+    },
+    "doneToday": "Your part is done for today ✓",
+    "asleepYou": "You dozed off here after a few missed days, so {{name}} doesn't count on you. One photo and you're back.",
+    "inviteFriends": "Invite friends",
+    "members": "Members",
+    "critterLabel": "{{name}}, the pack pet",
+    "feed": "Feed",
+    "fed": "Fed today",
+    "postExtra": "Post another photo",
+    "focus": "Focus",
+    "feedTitle": "Pack feed",
+    "feedEmpty": "No feeds yet. Be the first today!",
+    "pending_one": "{{count}} feed waiting for a connection",
+    "pending_other": "{{count}} feeds waiting for a connection",
+    "extra": "extra",
+    "fedCount": "{{fed}}/{{total}} fed today",
+    "member": {
+      "fed": "{{name}}, fed today",
+      "pass": "{{name}}, resting today",
+      "waiting": "{{name}}, not yet today",
+      "asleep": "{{name}}, asleep",
+      "paused": "{{name}}, on a pause"
+    },
+    "notToday": "Not today",
+    "restingToday": "You're resting today.",
+    "jokerToday": "Your joker covers today.",
+    "pausedToday": "You're on a pause until {{date}}.",
+    "undo": "Undo",
+    "missingTitle": "This pack isn't here",
+    "missingBody": "You may have left it or been removed, or the link is for a pack you're not in.",
+    "backHome": "Back to your packs",
+    "showOlder": "Show older",
+    "memberMenu": "{{name}}"
+  },
+  "settings": {
+    "title": "Pack settings",
+    "name": "Pack name",
+    "restDays": "Rest days a week",
+    "weekStart": "Week starts on",
+    "sunday": "Sunday",
+    "monday": "Monday",
+    "pending": "New rest days and week start apply from {{date}}.",
+    "save": "Save",
+    "saved": "Saved",
+    "members": "Members",
+    "admin": "Admin",
+    "remove": "Remove",
+    "removeConfirm": "Remove {{name}} from the pack?",
+    "invite": "Invite link and QR code",
+    "leave": "Leave pack",
+    "leaveConfirm": "Leave this pack?",
+    "cancel": "Cancel",
+    "confirm": "Yes",
+    "app": {
+      "title": "Settings",
+      "open": "Settings",
+      "reminder": "Evening reminder time",
+      "reminderHint": "Sent only on days you haven't fed yet.",
+      "notifications": "Notifications",
+      "types": {
+        "friend_fed": "A friend fed",
+        "evening_reminder": "Evening reminder",
+        "last_one": "You're the last one",
+        "nudge": "Nudges",
+        "pet_state": "Pet is weak, sick or ran away",
+        "evolution": "Hatching, growing and achievements",
+        "still_in": "Still in?",
+        "weekly_recap": "Weekly recap"
+      },
+      "notificationsOff": "Notifications are off for Gozali on this phone, so none of these arrive.",
+      "turnOn": "Turn them on",
+      "openPhoneSettings": "Open phone settings",
+      "quietHours": "Nothing is sent between 23:00 and 07:00.",
+      "blocked": "Blocked people",
+      "noBlocked": "You haven't blocked anyone.",
+      "unblock": "Unblock",
+      "howItWorks": "How Gozali works",
+      "language": "Language",
+      "english": "English",
+      "privacy": "Privacy policy",
+      "terms": "Terms of use",
+      "contact": "Contact: hello@gozali.app",
+      "widgets": "Widgets",
+      "deleteAccount": "Delete account",
+      "deleteTitle": "Delete your account?",
+      "deleteBody": "This deletes your account, your photos and your feeds for good, including photos in weekly recaps. Your packs go on without you.",
+      "deleteConfirm": "Delete for good",
+      "deleteFailed": "The account wasn't deleted. Please try again."
+    }
+  },
+  "critter": {
+    "a11y": {
+      "egg": "{{name}}, an egg",
+      "eggCracking": "{{name}}, an egg that is starting to crack",
+      "thriving": "{{name}} is thriving, health {{health}}",
+      "happy": "{{name}} is happy, health {{health}}",
+      "hungry": "{{name}} is hungry, health {{health}}",
+      "weak": "{{name}} is weak, health {{health}}",
+      "sick": "{{name}} is sick, health {{health}}",
+      "ran_away": "{{name}} ran away to find food",
+      "sleeping": "{{name}} is sleeping, health {{health}}"
+    },
+    "petHint": "Pet the critter",
+    "states": {
+      "egg": "Egg",
+      "thriving": "Thriving",
+      "happy": "Happy",
+      "hungry": "Hungry",
+      "weak": "Weak",
+      "sick": "Sick",
+      "ran_away": "Ran away"
+    },
+    "stages": {
+      "egg": "Egg",
+      "baby": "Baby",
+      "kid": "Kid",
+      "teen": "Teen",
+      "adult": "Adult",
+      "legend": "Legend"
+    },
+    "health": "Health {{health}}",
+    "streak_one": "🔥 {{count}} day",
+    "streak_other": "🔥 {{count}} days",
+    "coins": "{{count}}",
+    "coinsLabel_one": "{{count}} coin",
+    "coinsLabel_other": "{{count}} coins",
+    "xp": "{{xp}} / {{to}} XP to {{stage}}",
+    "xpMax": "{{xp}} XP, the last stage",
+    "ranAwayNote": "\"Gone to find food\"",
+    "ranAwayBody": "Three good days in a row bring {{name}} back.",
+    "dayEndsIn": "Day ends in {{time}}",
+    "hoursMinutes": "{{hours}}h {{minutes}}m",
+    "minutes": "{{minutes}}m",
+    "lines": {
+      "egg": [
+        "*tap tap*",
+        "*wobble wobble*",
+        "Something is moving in there!"
+      ],
+      "mochi": {
+        "thriving": [
+          "This is the best nap spot. Thanks, team.",
+          "I'm so happy I might lie down.",
+          "Peak comfort achieved."
+        ],
+        "happy": [
+          "Five more minutes...",
+          "Pet me again. Slower.",
+          "Life's good. Also, snacks?"
+        ],
+        "hungry": [
+          "I was napping but also... starving?",
+          "My tummy is louder than my snoring.",
+          "Is it snack o'clock? It feels like snack o'clock."
+        ],
+        "weak": [
+          "Too hungry to nap. That's new.",
+          "I'll just... lie here... dramatically.",
+          "Could someone feed me? No rush. Yes rush."
+        ],
+        "sick": [
+          "I need a blanket. And a feed. Mostly a feed.",
+          "Sniff. I feel so floppy.",
+          "Please feed me back to napping health."
+        ],
+        "sleeping": [
+          "Zzz... five more hours...",
+          "Mmm... pillow...",
+          "Zzz... wake me if there's food..."
+        ]
+      },
+      "kit": {
+        "thriving": [
+          "I am a STAR. You may clap now.",
+          "Look at me. Glowing. Iconic.",
+          "Best. Pack. Ever. Obviously."
+        ],
+        "happy": [
+          "Oh, you came to see me? Good choice.",
+          "I accept your petting.",
+          "Today I'm only a little dramatic."
+        ],
+        "hungry": [
+          "Wow. Nobody fed me. I see how it is.",
+          "Fine. I'll just starve. Beautifully.",
+          "I'm not upset. I'm HUNGRY and upset."
+        ],
+        "weak": [
+          "Tell my fans I tried.",
+          "This is the saddest day of my whole life.",
+          "I'm fading... tragically... feed me."
+        ],
+        "sick": [
+          "I'm too gorgeous to be this sick.",
+          "Call a doctor. Or a snack.",
+          "This is a tragedy in three acts."
+        ],
+        "sleeping": [
+          "Zzz... applause... zzz...",
+          "Do not disturb the star.",
+          "Zzz... encore..."
+        ]
+      },
+      "axo": {
+        "thriving": [
+          "Best day EVER! Again!",
+          "I'm so happy my frills are wiggling!",
+          "You're the best pack in the whole pond!"
+        ],
+        "happy": [
+          "Hiii! Pet me again!",
+          "I can smile forever. Watch!",
+          "Wiggle wiggle! That's my happy dance."
+        ],
+        "hungry": [
+          "My tummy is singing. It's the hungry song.",
+          "Snack time? Snack time!",
+          "Still smiling, but it's a hungry smile."
+        ],
+        "weak": [
+          "My frills are a bit floppy today...",
+          "Could I have a feed? Just a tiny one?",
+          "Still smiling! Barely."
+        ],
+        "sick": [
+          "I don't feel very bubbly...",
+          "Achoo! Bubbles everywhere.",
+          "A feed would make me smile for real."
+        ],
+        "sleeping": [
+          "Zzz... blub... blub...",
+          "Zzz... dreaming of snacks...",
+          "Zzz... wiggle..."
+        ]
+      },
+      "ribbit": {
+        "thriving": [
+          "Everything is in balance. Thank you.",
+          "The pond is calm. My heart is full.",
+          "Breathe in, breathe out. Life is good."
+        ],
+        "happy": [
+          "Ribbit. All is well.",
+          "A gentle pat. How peaceful.",
+          "I'm enjoying this quiet moment with you."
+        ],
+        "hungry": [
+          "A calm frog is a fed frog. Just saying.",
+          "My belly speaks softly: food, please.",
+          "No rush. But also, some rush."
+        ],
+        "weak": [
+          "Even calm frogs need to eat...",
+          "I'm saving energy. Very slowly.",
+          "One feed would bring back my calm."
+        ],
+        "sick": [
+          "I'm resting under my blanket. Feeds help.",
+          "Deep breaths... and maybe a feed.",
+          "The pond feels far away today."
+        ],
+        "sleeping": [
+          "Zzz... ribbit...",
+          "Zzz... floating on a lily pad...",
+          "Zzz... so peaceful..."
+        ]
+      },
+      "hoot": {
+        "thriving": [
+          "Fun fact: I'm at peak owl.",
+          "Data shows this pack is excellent.",
+          "Statistically, I'm thriving."
+        ],
+        "happy": [
+          "Fun fact: petting lowers stress. For both of us.",
+          "Did you know a group of owls is called a parliament?",
+          "All systems normal. Hoo."
+        ],
+        "hungry": [
+          "Fun fact: I haven't eaten in 14 hours.",
+          "Hypothesis: someone will feed me soon.",
+          "Observation: my stomach is growling."
+        ],
+        "weak": [
+          "My energy readings are concerning.",
+          "Fun fact: owls need food to function.",
+          "Running in low power mode."
+        ],
+        "sick": [
+          "Diagnosis: very underfed.",
+          "Prescription: one feed, taken today.",
+          "My feathers are drooping. That's not great."
+        ],
+        "sleeping": [
+          "Zzz... sorting facts...",
+          "Zzz... counting stars...",
+          "Zzz... dreaming of data..."
+        ]
+      },
+      "bun": {
+        "thriving": [
+          "You all... make me so happy.",
+          "*happy ear wiggle*",
+          "I'm glad I'm in this pack."
+        ],
+        "happy": [
+          "Oh! Hi... that tickles.",
+          "*shy smile*",
+          "You're really nice to me."
+        ],
+        "hungry": [
+          "Um... sorry... is there food?",
+          "I don't want to bother anyone, but... I'm hungry.",
+          "*tummy rumbles quietly*"
+        ],
+        "weak": [
+          "I'm okay... just a little tired...",
+          "Could someone... feed me? If it's okay?",
+          "*droopy ears*"
+        ],
+        "sick": [
+          "I feel a little sick... sorry...",
+          "Could I have a blanket and a feed?",
+          "*sniff*"
+        ],
+        "sleeping": [
+          "Zzz... carrots...",
+          "Zzz... *tiny snore*",
+          "Zzz... cozy..."
+        ]
+      }
+    }
+  },
+  "feed": {
+    "title": "Feed {{name}}",
+    "extraTitle": "Another photo",
+    "capture": "Take photo",
+    "flip": "Switch camera",
+    "close": "Close",
+    "retake": "Retake",
+    "send": "Send",
+    "photoLabel": "Your photo",
+    "photoBy": "Photo from {{name}}",
+    "openPhoto": "Opens the photo on the whole screen",
+    "closePhoto": "Close photo",
+    "captionLabel": "Caption",
+    "captionPlaceholder": "Add a caption (optional)",
+    "focusChip": "{{emoji}} {{minutes}} min",
+    "sent": "{{name}} loved it!",
+    "sentPlain": "Fed!",
+    "ateLabel": "{{name}} eating",
+    "queuedTitle": "Saved for later",
+    "queuedBody": "You're offline. The feed goes out when you're back online, and it still counts for the day you took it if that's within an hour after the day ends.",
+    "failed": "The feed didn't go through. Please try again.",
+    "captureFailed": "The photo wasn't taken. Please try again.",
+    "permissionTitle": "Camera needed",
+    "permissionBody": "Feeding takes a live photo in the app. Photos are seen only by your pack.",
+    "allowCamera": "Allow camera",
+    "openSettings": "Open settings"
+  },
+  "focus": {
+    "title": "Focus",
+    "body": "Pick a length. When time is up the camera opens, and your feed shows how long you focused.",
+    "min": "min",
+    "minutes": "{{minutes}} minutes",
+    "open": "No time limit",
+    "running": "{{minutes}} minute session",
+    "openRunning": "Open session",
+    "paused": "Paused",
+    "otherRunning": "A session for another pack is running; starting here ends it.",
+    "pause": "Pause",
+    "resume": "Resume",
+    "cancel": "Cancel",
+    "cancelTitle": "Stop this session?",
+    "cancelBody": "The time so far won't count. You can still feed with a regular photo.",
+    "cancelConfirm": "Stop",
+    "keepGoing": "Keep going",
+    "takePhoto": "Done, take the photo",
+    "doneTitle": "Time is up!",
+    "doneBody": "Take the photo to feed your pack."
+  },
+  "days": {
+    "title": "Not today?",
+    "body": "Taking today off? Use one of these, and the pet isn't hurt.",
+    "rest": "Rest day 😴",
+    "restLeft_one": "A planned day off · {{count}} left this week",
+    "restLeft_other": "A planned day off · {{count}} left this week",
+    "restNone": "A planned day off · none left this week",
+    "joker": "Joker 🃏",
+    "jokerAvailable": "A free pass for a day that didn't go to plan · 1 a month, you have it",
+    "jokerUsed": "A free pass for a day that didn't go to plan · used this month",
+    "use": "Use",
+    "away": "Pause for a few days",
+    "close": "Close",
+    "feedCancels": "If you feed today anyway, the pass goes back to you.",
+    "pauseTitle": "Going away for a while? 🌴",
+    "pauseBody": "Pause from tomorrow, and the pet waits for you, unhurt.",
+    "pauseButton": "Pause",
+    "pauseHowLong": "Pause for how long?",
+    "lengthWeeks_one": "1 week",
+    "lengthWeeks_other": "{{count}} weeks",
+    "lengthMonths_one": "1 month",
+    "lengthMonths_other": "{{count}} months",
+    "pauseDays": "{{count}} days",
+    "pauseConfirm": "Pause for {{count}} days, from tomorrow?",
+    "pausedUntil": "Paused until {{date}}.",
+    "pauseStarts": "Your pause runs from {{date}} to {{end}}.",
+    "endPause": "End pause",
+    "cancelPause": "Cancel pause",
+    "pauseAvailableFrom": "Your next pause can start after {{date}}.",
+    "errors": {
+      "already_fed": "You already fed today.",
+      "already_paused": "You already have a pause.",
+      "already_passed": "You already have a pass for today.",
+      "paused": "You're on a pause today.",
+      "no_rest_days_left": "No rest days left this week.",
+      "joker_used": "You used this month's joker.",
+      "pause_cooldown": "A new pause can start 30 days after the last one ended.",
+      "pause_too_short": "A pause lasts at least 3 days."
+    },
+    "daysUnit": "days"
+  },
+  "events": {
+    "joined": "👋 {{name}} joined the pack",
+    "hatched": "🐣 {{critter}} hatched!",
+    "evolved": "✨ {{critter}} reached the {{stage}} stage",
+    "ran_away": "🏃 {{critter}} ran away to find food",
+    "returned": "🩹 {{critter}} came back!",
+    "achievement": "🏆 {{critter}} unlocked {{title}}: a new {{item}} for the wardrobe",
+    "joker": "🃏 {{name}} is taking a joker today",
+    "dressed": "👗 {{name}} gave {{critter}} a {{item}}",
+    "undressed": "👗 {{name}} changed {{critter}}'s look",
+    "named": "🏷️ {{name}} named the pet {{critter}}",
+    "bought": "🛍️ {{name}} bought {{critter}} a {{item}}"
+  },
+  "moments": {
+    "hatchedTitle": "{{name}} hatched!",
+    "hatchedBody": "Say hi to your pack's new pet. Keep feeding it together and it grows.",
+    "evolvedTitle": "{{name}} reached the {{stage}} stage!",
+    "evolvedBody": "All those days of feeding paid off.",
+    "returnedTitle": "{{name}} is back!",
+    "returnedBody": "Three good days in a row brought it home. It wears a little bandage now.",
+    "close": "Yay!"
+  },
+  "achievements": {
+    "hatched": {
+      "title": "Hello world",
+      "condition": "Hatch the egg"
+    },
+    "streak_7": {
+      "title": "One week strong",
+      "condition": "A 7-day streak"
+    },
+    "streak_14": {
+      "title": "Two weeks strong",
+      "condition": "A 14-day streak"
+    },
+    "streak_30": {
+      "title": "Unbreakable",
+      "condition": "A 30-day streak"
+    },
+    "full_house": {
+      "title": "Full house",
+      "condition": "Everyone fed on one day, with at least 4 counted"
+    },
+    "early_birds": {
+      "title": "Early birds",
+      "condition": "5 good days where everyone fed before noon"
+    },
+    "night_owls": {
+      "title": "Night owls",
+      "condition": "5 feeds between 23:00 and 03:00"
+    },
+    "comeback": {
+      "title": "Comeback",
+      "condition": "Bring the pet back after it ran away"
+    },
+    "century": {
+      "title": "Century",
+      "condition": "100 feeds in the pack"
+    },
+    "full_pack": {
+      "title": "Full pack",
+      "condition": "8 members in the pack"
+    },
+    "grown_up": {
+      "title": "Grown up",
+      "condition": "Reach the Adult stage"
+    },
+    "legend": {
+      "title": "Legend",
+      "condition": "Reach the Legend stage"
+    }
+  },
+  "items": {
+    "scarf": "scarf",
+    "beanie": "beanie",
+    "flower_crown": "flower crown",
+    "cape": "cape",
+    "bow_tie": "bow tie",
+    "sun_hat": "sun hat",
+    "headlamp": "headlamp",
+    "sunrise": "sunrise background",
+    "park": "park background",
+    "party": "party background",
+    "space": "space background",
+    "halo": "halo",
+    "cap": "cap",
+    "bow": "bow",
+    "wizard_hat": "wizard hat",
+    "crown": "crown",
+    "bandana": "bandana",
+    "bell": "bell collar",
+    "pearls": "pearl necklace",
+    "beach": "beach background",
+    "snow": "snow background",
+    "stars": "starry sky"
+  },
+  "social": {
+    "react": "React with {{emoji}}",
+    "reactedBy": "{{names}}",
+    "more": "More",
+    "report": "Report photo",
+    "reportTitle": "Report this photo?",
+    "reportBody": "We look at every report within 24 hours.",
+    "reported": "Thanks. We will look at it within 24 hours.",
+    "block": "Block {{name}}",
+    "blockTitle": "Block {{name}}?",
+    "blockBody": "You won't see their photos or reactions, and they can't nudge you.",
+    "blockedLeave": "Blocked. You can also leave this pack from its settings.",
+    "cancel": "Cancel",
+    "nudgeTitle": "Nudge {{name}}?",
+    "nudgeBody": "They get: \"{{critter}} is looking at you 👀\"",
+    "nudge": "Nudge",
+    "nudged": "Sent!",
+    "nameMeTitle": "Name me!",
+    "nameMeBody": "Suggest a name for {{critter}}. {{admin}} picks one.",
+    "nameMeBodyAdmin": "Suggest a name for {{critter}}, and pick the one you like.",
+    "suggestPlaceholder": "A name",
+    "suggest": "Suggest",
+    "pick": "Pick",
+    "by": "by {{name}}",
+    "errors": {
+      "already_nudged": "You already nudged them today.",
+      "already_fed": "They already fed today.",
+      "not_counted_today": "They're resting or away today.",
+      "cannot_nudge": "You can't nudge this member.",
+      "too_many_suggestions": "You can suggest up to 3 names.",
+      "name_not_open": "The pet already has a name.",
+      "item_locked": "Unlock this item with its achievement first.",
+      "critter_not_here": "The pet is not here right now.",
+      "not_enough_coins": "The pack doesn't have enough coins for that yet.",
+      "already_owned": "The pack already has it.",
+      "not_for_sale": "That item isn't for sale."
+    }
+  },
+  "profile": {
+    "title": "Pet profile",
+    "open": "Profile",
+    "stage": "Stage",
+    "marks": "Marks",
+    "medal": "🏅 Medal: 30 days in a row",
+    "bandage": "🩹 Bandage: came back after running away",
+    "board": "Monthly board",
+    "legendFed": "fed",
+    "legendRest": "rest or joker",
+    "legendAway": "paused or asleep",
+    "legendMissed": "missed",
+    "noDays": "No closed days this month yet.",
+    "achievements": "Achievements",
+    "unlocked": "Unlocked {{date}}",
+    "locked": "Locked",
+    "wardrobe": "Wardrobe",
+    "wardrobeEmpty": "Items from achievements and the shop show up here.",
+    "shop": "Shop",
+    "shopHow": "How do we earn coins?",
+    "shopBody": "Every good day earns the pack coins, and a longer streak earns more: 1 a day, 2 from a 7-day streak, 3 from 14, 5 from 30.",
+    "coins_one": "{{count}} coin",
+    "coins_other": "{{count}} coins",
+    "price": "{{price}}",
+    "buyTitle": "Buy the {{item}}?",
+    "buyBody": "It costs {{price}} coins from the pack. Everyone in the pack can wear it on {{critter}}.",
+    "buy": "Buy",
+    "cancel": "Cancel",
+    "needMore_one": "The pack needs {{count}} more coin for the {{item}}. Keep the streak going!",
+    "needMore_other": "The pack needs {{count}} more coins for the {{item}}. Keep the streak going!",
+    "soldOut": "The pack owns everything in the shop.",
+    "shopAfterHatch": "The shop opens when the egg hatches",
+    "shopAfterHatchBody": "Then every good day earns coins for hats, scarves and backgrounds.",
+    "slots": {
+      "head": "Head",
+      "neck": "Neck",
+      "background": "Background"
+    },
+    "none": "None",
+    "wearing": "Wearing",
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "boardRow": "{{name}}: {{fed}} fed, {{rest}} rest or joker, {{away}} paused or asleep, {{missed}} missed"
+  },
+  "me": {
+    "title": "Me",
+    "open": "Me",
+    "totalFeeds": "Feeds",
+    "currentStreak": "Current streak",
+    "bestStreak": "Best streak",
+    "streakHint": "Days in a row without a miss in any pack.",
+    "board": "Last days",
+    "signOut": "Sign out",
+    "back": "Back",
+    "photo": "Profile photo",
+    "addPhoto": "Add a photo",
+    "changePhoto": "Change photo",
+    "takePhoto": "Take a photo",
+    "choosePhoto": "Choose from library",
+    "removePhoto": "Remove photo",
+    "boardDay": "{{day}}, {{status}}"
+  },
+  "widgets": {
+    "signedOut": "Open Gozali to see your pack",
+    "feed": "Feed",
+    "endsIn": "ends in {{time}}",
+    "whichPack": "Which pack?",
+    "openFirst": "Open Gozali first, then add the widget again.",
+    "cancel": "Cancel",
+    "howTo": "Add a widget: long-press the home screen, tap + (iPhone) or Widgets (Android), and pick Gozali."
+  },
+  "recap": {
+    "title": "Weekly recap",
+    "open": "Weekly recaps",
+    "none": "The first recap arrives when your first full week closes.",
+    "weekOf": "Week of {{date}}",
+    "goodDays": "good days",
+    "health": "health",
+    "streak": "streak",
+    "coins_one": "The pack earned {{count}} coin this week",
+    "coins_other": "The pack earned {{count}} coins this week",
+    "mostConsistent_one": "Most consistent: {{names}}, {{count}} feed",
+    "mostConsistent_other": "Most consistent: {{names}}, {{count}} feeds",
+    "share": "Share as a story",
+    "shareFailed": "Sharing didn't work. Please try again.",
+    "storyFooter": "Raise a pet with your friends · gozali.app"
+  },
+  "onboarding": {
+    "skip": "Skip",
+    "next": "Next",
+    "start": "Let's go",
+    "gotIt": "Got it",
+    "progress": "Step {{step}} of {{count}}",
+    "photo": {
+      "title": "Feed me with a photo",
+      "body": "Every day you do your habit, take a photo in the app. That is what feeds me. No gallery, no faking."
+    },
+    "together": {
+      "title": "We do it together",
+      "body": "I count on the whole pack. Rest days, a monthly joker and pauses keep it fair when life happens."
+    },
+    "neverDies": {
+      "title": "I never die",
+      "body": "If nobody feeds me, I go off to find food. Three good days in a row and I come back."
+    },
+    "dressUp": {
+      "title": "Dress me up",
+      "body": "Every good day earns our pack coins, and a longer streak earns more. Spend them on hats, scarves and backgrounds for me."
+    }
+  },
+  "offline": {
+    "banner": "You're offline. Feeds wait and go out when you're back."
+  }
+}

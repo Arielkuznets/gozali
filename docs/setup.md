@@ -1,0 +1,182 @@
+# Setting up the cloud
+
+Everything runs locally without accounts (see the README). This is the one-time setup for the real project: Supabase, EAS builds, sign-in providers and the gozali.app site. Values in `<angle brackets>` come from the accounts; secrets are never committed.
+
+## 1. Supabase
+
+1. Create a project (a region close to the users, for example Frankfurt), and keep the database password in a password manager.
+2. Link and push the schema:
+
+   ```sh
+   npx supabase login
+   npx supabase link --project-ref <project-ref>
+   npx supabase db push
+   ```
+
+3. Deploy the functions. They import `packages/game-engine` and `packages/critter-art` from outside `supabase/functions` (decisions D13 and D16). The deploy bundles them (confirmed on the first deploy), and `npm run functions:bundle` checks the same bundling in CI.
+
+   ```sh
+   npx supabase functions deploy close-days send-push widget-state on-report delete-account
+   ```
+
+4. Secrets for the functions. `CRON_SECRET` is any long random string; `EXPO_ACCESS_TOKEN` is optional (Expo push security); `RESEND_API_KEY` and `REPORT_EMAIL` send report alerts (without them reports only reach the function log):
+
+   ```sh
+   npx supabase secrets set CRON_SECRET=<random> EXPO_ACCESS_TOKEN=<token> RESEND_API_KEY=<key> REPORT_EMAIL=<your email>
+   ```
+
+5. Let pg_cron reach the functions: in the SQL editor, with the same `CRON_SECRET`:
+
+   ```sql
+   select vault.create_secret('https://<project-ref>.supabase.co/functions/v1', 'functions_url');
+   select vault.create_secret('<random>', 'cron_secret');
+   ```
+
+   The schedules (close-days every 15 minutes, send-push every minute, evening reminders every 5 minutes) are already in the migrations; they do nothing until these two secrets exist.
+
+6. Auth → URL configuration: site URL `gozali://`, redirect URL `gozali://auth/callback`.
+7. Auth → providers:
+   - **Apple:** an App ID with Sign in with Apple (bundle id `app.gozali`), a Services ID, and a key; paste them into the Apple provider. Add the bundle id to the provider's client IDs for native sign-in.
+   - **Google:** the app signs in with Google through the browser, so one OAuth client of type Web application is enough (Google Cloud → APIs & Services → Credentials, in the Google Cloud project Firebase creates). Its authorized redirect URI is `https://<project-ref>.supabase.co/auth/v1/callback`; paste its client ID and secret into the Google provider. The app shows its Google button only while this provider is on (it reads the project's public auth settings), so turning it on needs no new build.
+8. The email code template (`supabase/templates/sign_in_code.html`) is only for the development login; it can stay off in production.
+
+## 2. EAS builds
+
+1. `npm install -g eas-cli`, `eas login`, then in `apps/mobile`: `eas init`. This writes the project id into `app.json`, which push tokens need.
+2. The Apple Team ID is in `app.json` → `expo.ios.appleTeamId` (3DYA8J45VJ; the widget target needs it) and is the default in `web/build.mjs`.
+3. Environment variables for every environment (development, preview, production):
+
+   ```sh
+   eas env:create --name EXPO_PUBLIC_SUPABASE_URL --value https://<project-ref>.supabase.co --environment development
+   eas env:create --name EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY --value <publishable key> --environment development
+   ```
+
+4. A development build for each platform, installed on the phones:
+
+   ```sh
+   eas build --profile development --platform ios
+   eas build --profile development --platform android
+   ```
+
+   EAS creates the App Group `group.app.gozali` for the app and the widget. Then `npx expo start` in `apps/mobile` and open the build.
+5. For push notifications on iOS, let EAS create the push key when it asks during the first build.
+6. Push notifications on Android go through Firebase Cloud Messaging:
+   - In the Firebase console, create a project and add an Android app with the package `app.gozali`. Download `google-services.json` and hand it to EAS as a file variable (`app.config.js` reads it; the file stays out of git):
+
+     ```sh
+     eas env:create --name GOOGLE_SERVICES_JSON --type file --value ./google-services.json --environment development
+     ```
+
+     Repeat for `preview` and `production`.
+   - Firebase → Project settings → Service accounts → Generate new private key, then `eas credentials` → Android → Push Notifications (FCM V1) and upload that key. Keep the key file out of the repo too.
+
+## 3. gozali.app
+
+1. Register the domain.
+2. Build the site with the real values and deploy it. `web/wrangler.jsonc` serves `web/dist` as Cloudflare static assets (they read `_redirects` and `_headers`) on the gozali.app domain, which has to be in the same Cloudflare account:
+
+   ```sh
+   APP_STORE_URL=<app store link> PLAY_STORE_URL=<play store link> ANDROID_SHA256=<release key fingerprint> node web/build.mjs
+   npx wrangler login
+   cd web && npx wrangler deploy
+   ```
+
+   The Android fingerprint is in `eas credentials` (Android → keystore). The landing page shows a store button only for the store URLs that are set. Until the app is in the App Store, `APP_STORE_URL` can be the TestFlight invite link.
+3. The site has the privacy policy (/privacy), the terms (/terms) and the support page (/support) that App Store Connect asks for. Mail to hello@gozali.app is forwarded by Cloudflare Email Routing.
+4. Check `https://gozali.app/.well-known/apple-app-site-association` and `https://gozali.app/.well-known/assetlinks.json` load, then an invite link opens the installed app.
+
+## 4. Before the pilot
+
+- Phase 1 and 2 checks on two phones: sign in with Apple and Google, create a pack, join it from the other phone.
+- The widgets on both platforms (they have only been built by EAS, never tried by hand).
+- A day close on the cloud: the next morning, `select * from day_results order by closed_at desc` shows the night's results.
+- Google Play closed testing needs at least 12 testers for 14 days in a row before publishing.
+
+## 5. During the pilot
+
+Alerts on your own phone: add your profile to the owners, once, and you get a push for every new sign-up and a summary of the day at 21:00 (spec section 8). Your profile id is in the Auth dashboard, or from the profile that has your push token:
+
+```sh
+npx supabase db query --linked "insert into public.app_owners (user_id) values ('<your profile id>')"
+```
+
+The success numbers of spec sections 1 and 15 (active packs, active packs 14 days after they were created, pack size, and invited users who opened a pack of their own):
+
+```sh
+npx supabase db query --linked "select public.pilot_metrics()"
+```
+
+The daily summary on your phone already counts failed function calls, failed scheduled jobs, outages and packs behind on closing days. When something else broke for a while (sign-in or storage down while the functions ran), add it as an outage so the pack days it covered can't fail; days already closed stay as they were:
+
+```sh
+npx supabase db query --linked "insert into public.outages (starts_at, ends_at, note) values ('2026-10-01 08:00+03', '2026-10-01 14:00+03', 'storage down')"
+```
+
+Is the server doing its jobs? The last closed day of every pack (a pack more than a day behind means close-days is failing for it), scheduled jobs that failed, and function calls that didn't answer 200, over the last day:
+
+```sh
+npx supabase db query --linked "select p.name, max(r.day) as last_closed from packs p left join day_results r on r.pack_id = p.id group by p.name order by 2 nulls first"
+npx supabase db query --linked "select jobid, status, return_message, start_time from cron.job_run_details where status <> 'succeeded' and start_time > now() - interval '1 day'"
+npx supabase db query --linked "select created, status_code, timed_out, error_msg, left(content::text, 200) from net._http_response where (status_code is distinct from 200) and created > now() - interval '1 day'"
+```
+
+Errors from members' phones (screens that failed to draw, and JavaScript errors that closed the app, sent on the next start) are kept for 30 days:
+
+```sh
+npx supabase db query --linked "select created_at, platform, app_version, screen, message from app_errors order by created_at desc limit 50"
+```
+
+A fix that touches only JavaScript reaches the installed apps without a new build or a store review, through EAS Update. Each build profile has its own channel, and the runtime version is the app version in `app.json`, so an update only goes to builds of that version:
+
+```sh
+cd apps/mobile
+eas update --channel production --message "Fix the monthly board"
+```
+
+A change to native code (a new native package, app.json plugins, the widgets) needs a new build instead, and a new `version` in `app.json` first, so updates for the old builds and the new ones stay apart. (A fingerprint of the native code would do this by itself, but it came out different on Windows and on the EAS servers and failed the build.)
+
+A bad update can be taken back by publishing the previous one again (`eas update:republish`, or Expo's dashboard → Updates), and a store release can go out as a phased release in App Store Connect.
+
+When a server change would break versions still installed on people's phones, raise the minimum version: older apps show "Time to update" with a button to the store instead of the app. Set the store links once the app is in the stores:
+
+```sh
+npx supabase db query --linked "update public.app_config set min_version = '1.1.0'"
+npx supabase db query --linked "update public.app_config set ios_url = 'https://apps.apple.com/app/id<id>', android_url = 'https://play.google.com/store/apps/details?id=app.gozali'"
+```
+
+Crashes in native code (not JavaScript) don't reach `app_errors`: App Store Connect (TestFlight → Crashes, and Xcode → Organizer) and the Play Console (Android vitals) show them.
+
+Backups: the free plan keeps none, so `scripts/backup.mjs` saves the data of every table and the accounts into `~/Gozali backups` as one JSON file a day (the newest 14 are kept, with a `backup.log`). It goes through the signed-in Supabase CLI, so it needs no keys and no Docker, and takes a few minutes. Photo files aren't included. To run it every evening on this Windows PC (and at the next start when the PC was off at 21:30), in PowerShell:
+
+```powershell
+$action = New-ScheduledTaskAction -Execute (Get-Command node).Source -Argument 'scripts\backup.mjs' -WorkingDirectory 'C:\Ariel\02_Projects\Gozali'
+Register-ScheduledTask -TaskName 'Gozali backup' -Action $action -Trigger (New-ScheduledTaskTrigger -Daily -At '21:30') -Settings (New-ScheduledTaskSettingsSet -StartWhenAvailable)
+```
+
+To restore after a disaster: create a new project, link it and `npx supabase db push` the schema, then `node scripts/restore.mjs "<backup file>"`, and set the Vault values and function secrets again (section 1). The restore refuses a project that already has data. Try it on the local stack first: `node scripts/backup.mjs --local`, `npx supabase db reset`, then the restore with `--local`.
+
+## 6. Sign in with Apple revocation
+
+Apple asks apps with Sign in with Apple to revoke the user's tokens when they delete their account. The code is ready and waits for a key:
+
+1. In Apple Developer → Certificates, IDs & Profiles → Keys, create a key with Sign in with Apple, configured for `app.gozali`, and download the `.p8` file (it can be downloaded once).
+2. Put it in the function secrets, typing the values yourself (the key ID is on the key's page):
+
+   ```sh
+   npx supabase secrets set APPLE_TEAM_ID=3DYA8J45VJ APPLE_KEY_ID=<key id> APPLE_PRIVATE_KEY="$(cat AuthKey_<key id>.p8)"
+   ```
+
+3. Turn it on, so deleting an account on an iPhone asks Apple for a fresh code first:
+
+   ```sh
+   npx supabase db query --linked "update public.app_config set apple_revocation = true"
+   ```
+
+## 7. Dependency warnings
+
+`npm audit --omit=dev` lists about 20 warnings, checked on 2026-09-28:
+
+- Almost all are in the build tools (`@expo/config-plugins`, `xcode`, and `@bacons/xcode` with an old `@xmldom/xmldom` and `uuid`). They read and write this project's own native config files while building, never input from users, so the XML injection and slow-parsing issues have no way in. Forcing newer copies breaks `@bacons/xcode` (it needs `@expo/plist` 0.0.x, which needs the old xmldom), so these wait for Expo and `@bacons/apple-targets` updates.
+- One reaches the app: `decode-uri-component` through expo-router's `query-string` decodes a malformed link slowly, so a crafted link could at most make the app slow while it opens. The fixed version is ES modules only and doesn't load in `query-string` 7, so it waits for expo-router.
+
+Run the audit again after every Expo SDK upgrade.

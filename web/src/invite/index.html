@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Join my pack on Gozali</title>
+    <meta name="description" content="You're invited to raise a pet together on Gozali." />
+    <link rel="icon" href="/icon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&family=Varela+Round&display=swap" />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <!--
+      Invite landing page (spec section 14). With the app installed, the link opens it directly
+      (universal link / app link) and this page is never seen. Otherwise: iOS copies the code on
+      the tap (Safari allows the clipboard only in response to a tap) and the app offers to paste
+      it on first open; Android passes the code to the Play Store as the install referrer.
+    -->
+    <main class="center">
+      <img class="critter" src="/icon.png" alt="" />
+      <h1>You're invited</h1>
+      <p>A friend wants you in their pack. Together you raise a pet by doing your habit every day.</p>
+      <p class="muted">Invite code</p>
+      <p class="code" id="code">········</p>
+      <button class="button" id="get">Copy code and get Gozali</button>
+      <a class="button secondary" id="open">I already have the app</a>
+      <p class="muted" id="copied" hidden>Code copied. Paste it when Gozali asks for it.</p>
+      <p class="muted" id="soon" hidden>Gozali isn't in the stores yet. Keep the code, and ask your friend how to get the app.</p>
+      <footer class="muted"><a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a></footer>
+    </main>
+    <script>
+      const APP_STORE_URL = '{{APP_STORE_URL}}';
+      const PLAY_STORE_URL = '{{PLAY_STORE_URL}}';
+      const code = (location.pathname.split('/')[2] || '').toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g, '').slice(0, 8);
+      const android = /android/i.test(navigator.userAgent);
+      document.getElementById('code').textContent = code || '—';
+      document.getElementById('open').href = 'gozali://i/' + code;
+      document.getElementById('get').addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(code);
+          document.getElementById('copied').hidden = false;
+        } catch (error) {
+          // Some browsers refuse; the code is on the screen to type.
+        }
+        // Before the app is in a store there is no page to go to, so the page says so instead.
+        const store = android
+          ? PLAY_STORE_URL && PLAY_STORE_URL + (PLAY_STORE_URL.includes('?') ? '&' : '?') + 'referrer=' + encodeURIComponent('code=' + code)
+          : APP_STORE_URL;
+        if (store) location.href = store;
+        else document.getElementById('soon').hidden = false;
+      });
+    </script>
+  </body>
+</html>
