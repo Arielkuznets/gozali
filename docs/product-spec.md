@@ -417,7 +417,7 @@ The app includes content that users upload (photos), so it must meet Apple's and
 The pilot is in English, and the public launch is in English and Hebrew. The translation and RTL infrastructure exists from day one, so adding Hebrew is only translation and writing work.
 
 - All texts in translation files (i18n), no hard-coded text in the code. Language detection with `expo-localization`, and the language can be changed in settings.
-- Components are built to support right-to-left (RTL) layout, including the widgets.
+- Components are built to support right-to-left (RTL) layout, including the widgets. While the app is English only, the layout stays left to right on every phone (`supportsRTL` is off in app.json), so a phone set to Hebrew doesn't mirror English screens; it is turned on together with the Hebrew texts.
 - The creatures' lines are written separately for each language, not translated word for word, to keep the humor and personality.
 - Dates and times are shown in the user's time zone and format.
 
