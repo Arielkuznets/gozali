@@ -314,7 +314,7 @@ Few notifications, and only ones that change behavior; each type can be turned o
 - No notifications between 23:00 and 07:00 in the user's time, with no exceptions. A notification created in those hours that is still relevant in the morning (Weekly recap, Evolution, Pet state, Still in?) is sent at 07:00; the rest are dropped.
 - The texts are written in the creature's voice, according to its personality.
 
-**Alerts for the people who run Gozali:** the owners listed in `app_owners` (added by hand, never through the app) get two more pushes: "🐣 Noa joined Gozali, user number 12" when someone finishes the profile setup, and at 21:00 on their clock a summary of the day ("👋 2 new (41 in all) · 🍽️ 18 people fed 7 packs", plus reports and app errors when there were any). They don't count toward the daily limit and the limit doesn't drop them; a sign-up at night waits for 07:00.
+**Alerts for the people who run Gozali:** the owners listed in `app_owners` (added by hand, never through the app) get two more pushes: "🐣 Noa joined Gozali, user number 12" when someone finishes the profile setup, and at 21:00 on their clock a summary of the day ("👋 2 new (41 in all) · 🍽️ 18 people fed 7 packs", plus reports, app errors, calls to the functions that failed, failed scheduled jobs, hours the service was down and packs whose day close is late, when there were any). They don't count toward the daily limit and the limit doesn't drop them; a sign-up at night waits for 07:00.
 
 ## 9. Screens, widgets and flows
 

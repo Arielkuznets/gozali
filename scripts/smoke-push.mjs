@@ -115,6 +115,8 @@ await sendAll(
 check(alertMessages.length === 1 && /^🐣 Lior joined Gozali, user number \d+$/.test(alertMessages[0].body), 'the owner reads "Lior joined Gozali"');
 const summary = render({ type: 'daily_summary', payload: { newUsers: 2, users: 41, feeders: 1, packs: 1, reports: 1, errors: 0 } });
 check(summary.body === '👋 2 new (41 in all) · 🍽️ 1 person fed 1 pack · 🚩 1 report', 'the daily summary fits in one line');
+const trouble = render({ type: 'daily_summary', payload: { newUsers: 0, users: 41, feeders: 0, packs: 0, serverErrors: 3, downHours: 2 } });
+check(trouble.body.endsWith('· 🛠️ 3 server errors · 📴 down 2h'), 'and says when the server had trouble');
 
 await admin.from('packs').delete().eq('id', pack.id);
 for (const id of [noa, dan, maya, lior]) await admin.auth.admin.deleteUser(id);

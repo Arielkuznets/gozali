@@ -393,6 +393,21 @@ export type Database = {
           },
         ];
       };
+      heartbeats: {
+        Row: {
+          at: string;
+          job: string;
+        };
+        Insert: {
+          at: string;
+          job: string;
+        };
+        Update: {
+          at?: string;
+          job?: string;
+        };
+        Relationships: [];
+      };
       name_suggestions: {
         Row: {
           created_at: string;
@@ -517,6 +532,27 @@ export type Database = {
             referencedColumns: ['pack_id', 'user_id'];
           },
         ];
+      };
+      outages: {
+        Row: {
+          ends_at: string;
+          id: number;
+          note: string | null;
+          starts_at: string;
+        };
+        Insert: {
+          ends_at: string;
+          id?: never;
+          note?: string | null;
+          starts_at: string;
+        };
+        Update: {
+          ends_at?: string;
+          id?: never;
+          note?: string | null;
+          starts_at?: string;
+        };
+        Relationships: [];
       };
       pack_events: {
         Row: {
@@ -874,6 +910,27 @@ export type Database = {
           },
         ];
       };
+      service_errors: {
+        Row: {
+          at: string;
+          detail: string | null;
+          response_id: number;
+          status: number | null;
+        };
+        Insert: {
+          at: string;
+          detail?: string | null;
+          response_id: number;
+          status?: number | null;
+        };
+        Update: {
+          at?: string;
+          detail?: string | null;
+          response_id?: number;
+          status?: number | null;
+        };
+        Relationships: [];
+      };
       shop_items: {
         Row: {
           item: string;
@@ -995,6 +1052,7 @@ export type Database = {
         }[];
       };
       clean_up_old_rows: { Args: { at_time?: string }; Returns: undefined };
+      collect_service_errors: { Args: Record<PropertyKey, never>; Returns: number };
       counted_on: { Args: { member: string; pack_date: string; target: string }; Returns: boolean };
       create_pack: {
         Args: {
@@ -1051,8 +1109,10 @@ export type Database = {
         Args: { start: Database['public']['Enums']['week_start']; tz: string };
         Returns: string;
       };
+      note_heartbeat: { Args: { at_time?: string; job_name: string }; Returns: boolean };
       nudge: { Args: { member: string; target: string }; Returns: undefined };
       orphan_photos: { Args: { at_time?: string; max_rows?: number }; Returns: string[] };
+      outage_on: { Args: { pack_date: string; target: string }; Returns: boolean };
       outcome_ids: { Args: { kind: string; outcomes: Json }; Returns: string[] };
       owns_item: {
         Args: { target: string; wanted_item: string; wanted_slot: string };

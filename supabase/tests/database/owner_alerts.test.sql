@@ -1,7 +1,7 @@
 -- Owner alerts: a push when someone finishes signing up, and the day's summary at 21:00.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(17);
+select plan(19);
 
 delete from public.notifications;
 
@@ -69,17 +69,31 @@ select is(public.queue_daily_summaries(pg_temp.at_local('20:50')), 0, 'no summar
 select is(public.queue_daily_summaries(pg_temp.at_local('21:05')), 1, 'the summary is queued after 21:00');
 select is(public.queue_daily_summaries(pg_temp.at_local('21:15')), 0, 'once a day');
 select is(
-  (select payload from public.notifications where type = 'daily_summary'),
+  (select payload - 'failedJobs' - 'serverErrors' - 'packsBehind' from public.notifications where type = 'daily_summary'),
   jsonb_build_object(
     'newUsers', (select count(*) from public.profiles p where p.terms_accepted_at >= pg_temp.at_local('00:00') and p.terms_accepted_at < pg_temp.at_local('00:00') + interval '1 day'),
     'users', (select count(*) from public.profiles p where p.terms_accepted_at is not null),
-    'feeders', 0, 'packs', 0, 'reports', 0, 'errors', 0
+    'feeders', 0, 'packs', 0, 'reports', 0, 'errors', 0, 'downHours', 0
   ),
   'with the day''s numbers'
 );
 select ok(
+  (select payload ?& array['failedJobs', 'serverErrors', 'packsBehind'] from public.notifications where type = 'daily_summary'),
+  'and the server''s health'
+);
+select ok(
   (select (payload ->> 'newUsers')::int >= 2 from public.notifications where type = 'daily_summary'),
   'counting today''s sign-ups'
+);
+
+-- Calls from the database to the functions that failed are kept for the summary.
+insert into net._http_response (id, status_code, content, created)
+values (-1, 503, 'Service is temporarily unavailable', now()), (-2, 200, 'ok', now());
+select public.collect_service_errors();
+select is(
+  (select array_agg(status) from public.service_errors where response_id < 0),
+  array[503],
+  'calls that didn''t answer 200 are kept'
 );
 
 -- Sending: no cap for the owner alerts, and nothing at night.
