@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useQuery } from '@tanstack/react-query';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -9,7 +10,7 @@ import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { LegalLinks } from '@/components/LegalLinks';
 import { Screen } from '@/components/Screen';
-import { isCancellation, signInWithApple, signInWithBrowser } from '@/features/auth/signIn';
+import { isCancellation, isGoogleEnabled, signInWithApple, signInWithBrowser } from '@/features/auth/signIn';
 import { Critter } from '@/features/critter/Critter';
 import { ONBOARDED_KEY } from '@/features/profile/onboarding';
 import { notify } from '@/lib/confirm';
@@ -21,6 +22,7 @@ type Provider = 'apple' | 'google';
 export default function WelcomeScreen() {
   const { t } = useTranslation();
   const [busy, setBusy] = useState<Provider | null>(null);
+  const google = useQuery({ queryKey: ['google-sign-in'], queryFn: isGoogleEnabled, staleTime: Infinity });
 
   // The rules come first, once per install.
   useEffect(() => {
@@ -69,12 +71,14 @@ export default function WelcomeScreen() {
         ) : (
           <Button label={t('welcome.continueWithApple')} loading={busy === 'apple'} onPress={() => void run('apple')} />
         )}
-        <Button
-          label={t('welcome.continueWithGoogle')}
-          variant="secondary"
-          loading={busy === 'google'}
-          onPress={() => void run('google')}
-        />
+        {google.data === true && (
+          <Button
+            label={t('welcome.continueWithGoogle')}
+            variant="secondary"
+            loading={busy === 'google'}
+            onPress={() => void run('google')}
+          />
+        )}
         {__DEV__ && (
           <Button label={t('welcome.devLogin')} variant="secondary" onPress={() => router.push('/dev-login')} />
         )}

@@ -47,7 +47,7 @@ for index in 0 1 2 3; do
   sleep 1
 done
 
-wait_for "Continue with Google"
+wait_for "Continue with Apple"
 adb exec-out screencap -p > android-screens/welcome.png
 
 # Still running after the walk: no crash on the way.
