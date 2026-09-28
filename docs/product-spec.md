@@ -396,7 +396,7 @@ The app includes content that users upload (photos), so it must meet Apple's and
 **Privacy:**
 
 - Photos are visible only to pack members. Storage in a private bucket, access only through short-lived signed links. In the app, the photo cache is keyed by the photo id, because the signed link changes every time.
-- Photos are deleted automatically after 30 days, except photos that went into a weekly recap collage. The collage is stored as a list of references to photos and not as one image, so deleting an account removes them too.
+- Photos are deleted automatically after 30 days; photos that went into a weekly recap collage stay 8 weeks after that week, and then the recap keeps its numbers without the collage. The collage is stored as a list of references to photos and not as one image, so deleting an account removes them too.
 - Sharing a story doesn't include photos of other members (section 7).
 - The widgets don't show photos or names of members (section 9).
 - No location, no contacts, no ad tracking.

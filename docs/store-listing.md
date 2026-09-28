@@ -57,7 +57,7 @@ What the app collects (see docs/legal/privacy-policy.md). No tracking, no ads, n
 | Time zone and reminder settings | Other data, linked | App info: other | App functionality |
 | Error reports (the error, the screen, the app version, iPhone or Android) | Diagnostics: other diagnostic data, linked | App info and performance: diagnostics, collected | App functionality |
 
-Data is encrypted in transit, and users can delete their account and all its data inside the app (Settings → Delete account). Photos are deleted after 30 days.
+Data is encrypted in transit, and users can delete their account and all its data inside the app (Settings → Delete account). Photos are deleted after 30 days (a photo in a weekly recap collage 8 weeks after that week).
 
 ## Notes for Apple's review
 

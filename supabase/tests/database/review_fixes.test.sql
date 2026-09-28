@@ -1,7 +1,7 @@
 -- The fixes from the Sep 27 code review.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(16);
+select plan(18);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a9', 'noa@test.local'),
@@ -134,7 +134,21 @@ values ('00000000-0000-0000-0000-0000000000a9', 'nudge', 'sent', now() - interva
 insert into public.widget_tokens (user_id, token_hash, created_at, last_used_at)
 values ('00000000-0000-0000-0000-0000000000a9', 'old', now() - interval '200 days', now() - interval '100 days'),
        ('00000000-0000-0000-0000-0000000000a9', 'fresh', now() - interval '200 days', now() - interval '1 day');
+insert into public.code_misses (user_id, at)
+values ('00000000-0000-0000-0000-0000000000a9', now() - interval '2 days'),
+       ('00000000-0000-0000-0000-0000000000a9', now());
+insert into cron.job_run_details (jobid, runid, status, start_time, end_time)
+values (0, -1, 'succeeded', now() - interval '8 days', now() - interval '8 days'),
+       (0, -2, 'succeeded', now() - interval '1 day', now() - interval '1 day');
 select public.clean_up_old_rows();
+select is(
+  (select count(*) from public.code_misses where user_id = '00000000-0000-0000-0000-0000000000a9'), 1::bigint,
+  'invite code misses older than a day go'
+);
+select is(
+  (select array_agg(runid order by runid) from cron.job_run_details where jobid = 0), array[-2]::bigint[],
+  'scheduled job logs older than a week go'
+);
 select is(
   (select count(*) from public.notifications where created_at < now() - interval '30 days'), 1::bigint,
   'old sent notifications go, pending ones stay'
