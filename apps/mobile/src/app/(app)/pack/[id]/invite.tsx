@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
   centerText: { textAlign: 'center' },
   muted: { color: colors.inkMuted, maxWidth: 320 },
   qr: { padding: spacing.md, borderRadius: radii.lg, backgroundColor: colors.surface },
-  code: { fontFamily: fonts.bodyBold, fontSize: 32, letterSpacing: 4 },
+  code: { fontFamily: fonts.bodyBold, fontSize: 32, lineHeight: 40, letterSpacing: 4 },
   link: { color: colors.accentText },
   actions: { gap: spacing.sm },
 });
