@@ -67,5 +67,10 @@ Deno.serve(async (request) => {
       html: `<pre style="font-family:system-ui">${escape(lines.join('\n'))}</pre>${photo ? `<img src="${photo}" width="360">` : ''}`,
     }),
   });
-  return Response.json({ emailed: response.ok }, { status: response.ok ? 200 : 502 });
+  if (response.ok) return Response.json({ emailed: true });
+  // Resend says why it refused (a wrong key, or a sender it doesn't allow for that address); the
+  // answer lands in the function log and in net._http_response, where the trigger's call is kept.
+  const reason = await response.text();
+  console.error('report email failed', response.status, reason);
+  return Response.json({ emailed: false, status: response.status, reason }, { status: 502 });
 });
