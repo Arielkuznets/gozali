@@ -62,7 +62,9 @@ Data is encrypted in transit, and users can delete their account and all its dat
 ## Notes for Apple's review
 
 - Sign in with Apple works with the reviewer's own Apple ID; no demo account is needed.
-- A new pack starts as an egg that hatches once two members feed it on the same day. To see a hatched critter, feeds, the shop and a recap right away, join the demo pack with the invite code in the review notes (to create before submitting: a pack with a hatched critter, some coins and a few days of feeds, made with a second test account).
+- A new pack starts as an egg that hatches once two members feed it on the same day. To see a hatched critter, feeds, the shop and a recap right away, join the demo pack with the invite code in the review notes.
+
+Before submitting, the demo pack: one of the packs from TestFlight testing whose pet already hatched, with a few days of feeds (a pack has room for 8, so the reviewer joins as one more member). Put its invite code in App Store Connect → App Review Information → Notes, and tell the pack a reviewer may join. After the review, the admin removes the reviewer's account from Pack settings → Members.
 - Photos are taken in the app only (no gallery uploads), are visible only to the pack, and can be reported from the ⋯ menu on each photo; members can be blocked from the members row. Reports reach the developer by email and are handled within 24 hours.
 - Account deletion: Settings → Delete account.
 

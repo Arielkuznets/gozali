@@ -17,7 +17,7 @@ Gozali (Hebrew for "my little chick") is a mobile app where a small group of fri
 - [`supabase`](supabase) – database schema (migrations), row level security and database tests.
 - [`packages/game-engine`](packages/game-engine) – the game rules as a dependency-free TypeScript module. Node 24+ runs it directly, with no build step.
 - [`e2e`](e2e) – end-to-end tests of the main flows on the web build (Playwright).
-- [`web`](web) – the gozali.app site: landing and invite pages, privacy and terms; `node web/build.mjs` builds it into `web/dist`.
+- [`web`](web) – the gozali.app site: landing, invite, privacy, terms and support pages; `node web/build.mjs` builds it into `web/dist`, and `cd web && npx wrangler deploy` publishes it.
 - [`packages/critter-art`](packages/critter-art) – the temporary critter, drawn as SVG markup from its state (species, stage, health, outfit, night).
 
 ## Development

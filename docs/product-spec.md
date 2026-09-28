@@ -322,7 +322,7 @@ Fourteen screens in version 1, plus widgets for the home screen and the lock scr
 
 | Screen | What's on it |
 | --- | --- |
-| Welcome | Creature animation, Sign in with Apple and Google buttons |
+| Welcome | Creature animation, the Sign in with Apple button, and the Google button once Google sign-in is turned on in the project |
 | Onboarding | Four cards where the creatures explain the rules: feed with a photo, responsible together, the creature never dies, and coins from good days dress it up. Can be skipped |
 | Profile setup | Display name, profile photo (optional), age 13+ declaration and accepting the terms, notification permission request with an explanation |
 | Home | The list of packs: for each pack the creature in its state, a health bar, how many members fed today (3/5) **and a direct Feed button**. A create pack button and join with a code |
