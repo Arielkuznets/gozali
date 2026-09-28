@@ -1,10 +1,12 @@
 // Notifications end to end against the local stack, with a stand-in for Expo Push: feeds queue
 // merged "friend fed" and "last one" notifications, claim_notifications releases them, the
-// send-push code renders the critter's lines, and dead tokens and failed batches are handled.
+// send-push code renders the critter's lines, dead tokens and failed batches are handled, and
+// the owner hears about a new sign-up.
 // Run with `npx supabase start` up: node scripts/smoke-push.mjs
 import { createClient } from '@supabase/supabase-js';
 
 import { addDays, packDayOf, wallClock, zonedTimeToUtc } from '../packages/game-engine/src/index.ts';
+import { render } from '../supabase/functions/send-push/messages.ts';
 import { sendAll } from '../supabase/functions/send-push/push.ts';
 
 const url = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
@@ -95,7 +97,26 @@ await admin.rpc('requeue_notifications', { ids: failed.requeue });
 const { data: evolution } = await admin.from('notifications').select('status').eq('pack_id', pack.id).eq('type', 'evolution').single();
 check(evolution.status === 'pending', 'a failed batch is pending again for the next run');
 
+// Owner alerts: someone finishing the profile setup tells the owner, in plain words.
+const owned = await admin.from('app_owners').insert({ user_id: noa });
+if (owned.error) throw owned.error;
+const lior = await user('Lior');
+await admin.from('profiles').update({ terms_accepted_at: new Date().toISOString() }).eq('id', lior);
+const alerts = await admin.rpc('claim_notifications', { at_time: at.toISOString() });
+if (alerts.error) throw alerts.error;
+const alertMessages = [];
+await sendAll(
+  alerts.data.filter((row) => row.type === 'new_user' && row.user_id === noa),
+  async (batch) => {
+    alertMessages.push(...batch);
+    return batch.map(() => ({ status: 'ok' }));
+  },
+);
+check(alertMessages.length === 1 && /^🐣 Lior joined Gozali, user number \d+$/.test(alertMessages[0].body), 'the owner reads "Lior joined Gozali"');
+const summary = render({ type: 'daily_summary', payload: { newUsers: 2, users: 41, feeders: 1, packs: 1, reports: 1, errors: 0 } });
+check(summary.body === '👋 2 new (41 in all) · 🍽️ 1 person fed 1 pack · 🚩 1 report', 'the daily summary fits in one line');
+
 await admin.from('packs').delete().eq('id', pack.id);
-for (const id of [noa, dan, maya]) await admin.auth.admin.deleteUser(id);
+for (const id of [noa, dan, maya, lior]) await admin.auth.admin.deleteUser(id);
 console.log('all good');
 process.exit(0);

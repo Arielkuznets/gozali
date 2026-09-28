@@ -94,6 +94,12 @@ Everything runs locally without accounts (see the README). This is the one-time 
 
 ## 5. During the pilot
 
+Alerts on your own phone: add your profile to the owners, once, and you get a push for every new sign-up and a summary of the day at 21:00 (spec section 8). Your profile id is in the Auth dashboard, or from the profile that has your push token:
+
+```sh
+npx supabase db query --linked "insert into public.app_owners (user_id) values ('<your profile id>')"
+```
+
 The success numbers of spec sections 1 and 15 (active packs, active packs 14 days after they were created, pack size, and invited users who opened a pack of their own):
 
 ```sh

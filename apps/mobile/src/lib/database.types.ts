@@ -93,6 +93,29 @@ export type Database = {
           },
         ];
       };
+      app_owners: {
+        Row: {
+          created_at: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'app_owners_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: true;
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       blocked_words: {
         Row: {
           match: string;
@@ -1046,6 +1069,7 @@ export type Database = {
         }[];
       };
       pilot_metrics: { Args: { at_time?: string }; Returns: Json };
+      queue_daily_summaries: { Args: { at_time?: string }; Returns: number };
       queue_evening_reminders: { Args: { at_time?: string }; Returns: number };
       react: {
         Args: { emoji: Database['public']['Enums']['reaction_emoji']; target_feed: string };
@@ -1157,7 +1181,9 @@ export type Database = {
         | 'pet_state'
         | 'evolution'
         | 'still_in'
-        | 'weekly_recap';
+        | 'weekly_recap'
+        | 'new_user'
+        | 'daily_summary';
       pack_event_kind:
         | 'joined'
         | 'hatched'
@@ -1333,6 +1359,8 @@ export const Constants = {
         'evolution',
         'still_in',
         'weekly_recap',
+        'new_user',
+        'daily_summary',
       ],
       pack_event_kind: [
         'joined',
