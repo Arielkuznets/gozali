@@ -9,6 +9,7 @@ import { ActionMenu, type Menu } from '@/components/ActionMenu';
 import { AppText } from '@/components/AppText';
 import { HeaderButton } from '@/components/HeaderButton';
 import { Button } from '@/components/Button';
+import { Coins } from '@/components/Coins';
 import { HealthBar } from '@/components/HealthBar';
 import { MemberCircles, type MemberState } from '@/components/MemberCircles';
 import { Screen } from '@/components/Screen';
@@ -205,6 +206,7 @@ export default function PackScreen() {
             pack={pack}
             critter={pack.critters}
             memberCount={members.length}
+            fedCount={fedCount}
             mood={awake.length > 0 ? fedCount / awake.length : 0}
             now={now}
           />
@@ -338,9 +340,34 @@ function memberState(member: PackMember, fed: Set<string>, today: TodayPasses): 
   return today.passes.has(member.user_id) ? 'pass' : 'waiting';
 }
 
-type PanelProps = { pack: Pack; critter: PackCritter; memberCount: number; mood: number; now: Date };
+/**
+ * How the egg hatches (spec section 4), as three steps that tick off: a friend joins, two members
+ * feed on the same day, and the egg hatches when that day ends.
+ */
+function HatchSteps({ friendJoined, fedToday }: { friendJoined: boolean; fedToday: number }) {
+  const { t } = useTranslation();
+  const bothFed = friendJoined && fedToday >= 2;
+  const steps = [
+    { done: friendJoined, text: t('pack.hatch.join') },
+    { done: bothFed, text: bothFed ? t('pack.hatch.fedDone') : t('pack.hatch.feed', { count: Math.min(fedToday, 2) }) },
+    { done: false, text: bothFed ? t('pack.hatch.tonight') : t('pack.hatch.dayEnds') },
+  ];
+  return (
+    <View style={styles.hatch} accessible accessibilityLabel={steps.map((step) => step.text).join('. ')}>
+      <AppText style={styles.hatchTitle}>{t('pack.hatch.title')}</AppText>
+      {steps.map((step) => (
+        <View key={step.text} style={styles.hatchStep}>
+          <AppText style={[styles.hatchMark, step.done && styles.hatchMarkDone]}>{step.done ? '✓' : '○'}</AppText>
+          <AppText style={[styles.hatchText, step.done && styles.hatchTextDone]}>{step.text}</AppText>
+        </View>
+      ))}
+    </View>
+  );
+}
 
-function CritterPanel({ pack, critter, memberCount, mood, now }: PanelProps) {
+type PanelProps = { pack: Pack; critter: PackCritter; memberCount: number; fedCount: number; mood: number; now: Date };
+
+function CritterPanel({ pack, critter, memberCount, fedCount, mood, now }: PanelProps) {
   const { t } = useTranslation();
   const art = critterArt(critter, { category: pack.category, now, mood, cracking: memberCount >= 2 });
   const text = useCritterText(critter, art);
@@ -359,9 +386,10 @@ function CritterPanel({ pack, critter, memberCount, mood, now }: PanelProps) {
       </Pressable>
 
       {art.look === 'egg' && (
-        <AppText style={[styles.centerText, styles.muted]}>
-          {daysRun ? t('pack.eggCracking') : t('pack.eggWaiting')}
-        </AppText>
+        <>
+          <Coins text={t('critter.coins', { count: critter.coins })} accessibilityLabel={t('critter.coinsLabel', { count: critter.coins })} />
+          <HatchSteps friendJoined={daysRun} fedToday={fedCount} />
+        </>
       )}
       {memberCount < 2 && (
         <Button label={t('pack.inviteFriends')} variant="secondary" size="small" onPress={() => router.push(`/pack/${pack.id}/invite`)} />
@@ -383,9 +411,7 @@ function CritterPanel({ pack, critter, memberCount, mood, now }: PanelProps) {
           <HealthBar health={critter.health} />
           <View style={styles.statsRow}>
             <AppText variant="caption">{t('critter.health', { health: critter.health })}</AppText>
-            <AppText variant="caption" accessibilityLabel={t('critter.coinsLabel', { count: critter.coins })}>
-              {t('critter.coins', { count: critter.coins })}
-            </AppText>
+            <Coins text={t('critter.coins', { count: critter.coins })} accessibilityLabel={t('critter.coinsLabel', { count: critter.coins })} />
             <AppText variant="caption">{t('critter.streak', { count: critter.streak })}</AppText>
           </View>
           <AppText variant="caption" style={styles.centerText}>
@@ -411,6 +437,21 @@ function DayCountdown({ timeZone, now }: { timeZone: string; now: Date }) {
 }
 
 const styles = StyleSheet.create({
+  hatch: {
+    alignSelf: 'stretch',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: 16,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  hatchTitle: { fontFamily: fonts.bodyMedium },
+  hatchStep: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
+  hatchMark: { width: 20, textAlign: 'center', color: colors.inkMuted },
+  hatchMarkDone: { color: colors.accentText, fontFamily: fonts.bodyBold },
+  hatchText: { flex: 1, color: colors.inkMuted },
+  hatchTextDone: { color: colors.ink },
   header: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.md },
   headerLinks: { flexDirection: 'row', gap: spacing.lg },
   membersHeader: { flexDirection: 'row', justifyContent: 'space-between' },
