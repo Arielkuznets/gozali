@@ -15,6 +15,7 @@
     "userInterfaceStyle": "light",
     "ios": {
       "bundleIdentifier": "app.gozali",
+      "appleTeamId": "3DYA8J45VJ",
       "supportsTablet": false,
       "usesAppleSignIn": true,
       "entitlements": {

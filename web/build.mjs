@@ -1,6 +1,6 @@
 // Builds the gozali.app site into web/dist: the landing page, the invite page, the privacy
 // policy and terms (from docs/legal), and the files that let https://gozali.app/i/CODE open the
-// app. Run: APP_STORE_URL=... APPLE_TEAM_ID=... ANDROID_SHA256=... node web/build.mjs
+// app. Run: APP_STORE_URL=... ANDROID_SHA256=... node web/build.mjs
 // Missing values become placeholders, with a warning, so a preview build still works.
 import { createHash } from 'node:crypto';
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -19,7 +19,8 @@ function setting(name, fallback) {
 }
 
 const appStoreUrl = setting('APP_STORE_URL', 'https://apps.apple.com/app/gozali');
-const teamId = setting('APPLE_TEAM_ID', 'TEAMID');
+// The Apple team is public (it is in the association file anyway), so it has a real default.
+const teamId = process.env.APPLE_TEAM_ID || '3DYA8J45VJ';
 const androidFingerprint = setting('ANDROID_SHA256', 'SHA256:FINGERPRINT');
 
 rmSync(dist, { recursive: true, force: true });
