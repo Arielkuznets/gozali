@@ -290,6 +290,11 @@ export default function PackScreen() {
             {t('pack.doneToday')}
           </AppText>
         )}
+        {!iFed && members.some((member) => member.user_id === userId && member.status === 'sleeping') && (
+          <AppText variant="caption" style={styles.centerText}>
+            {t('pack.asleepYou', { name: critterName })}
+          </AppText>
+        )}
         {iFed ? (
           <Button label={t('pack.postExtra')} variant="secondary" onPress={() => router.push(`/pack/${id}/feed?extra=1`)} />
         ) : (

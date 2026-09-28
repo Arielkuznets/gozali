@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { createPack, createUser, removeUsers, signIn, type TestUser } from './support';
+import { admin, createPack, createUser, removeUsers, signIn, type TestUser } from './support';
 
 let noa: TestUser;
 let dan: TestUser;
@@ -71,4 +71,14 @@ test('the admin replaces a leaked invite code, and only the admin can', async ({
   // Other members can't replace it.
   const { error } = await dan.client.rpc('renew_invite_code', { target: pack.id });
   expect(error?.message).toContain('admin_only');
+});
+
+test('a member who dozed off is told how to come back', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
+  await admin.from('critters').update({ status: 'active', stage: 'baby', xp: 2, health: 70 }).eq('pack_id', pack.id);
+  await admin.from('pack_members').update({ status: 'sleeping' }).eq('pack_id', pack.id).eq('user_id', noa.id);
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+  await expect(page.getByText("One photo and you're back.", { exact: false })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Noa, asleep' })).toBeVisible();
 });

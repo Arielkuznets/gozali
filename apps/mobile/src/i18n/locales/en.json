@@ -128,6 +128,7 @@
     "back": "Back",
     "eggWaiting": "Waiting for a friend to join.",
     "doneToday": "Your part is done for today ✓",
+    "asleepYou": "You dozed off here after a few missed days, so {{name}} doesn't count on you. One photo and you're back.",
     "inviteFriends": "Invite friends",
     "eggCracking": "The egg is cracking! It hatches on the first day two of you feed it.",
     "members": "Members",
