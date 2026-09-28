@@ -1,5 +1,6 @@
 // Notification texts in the critter's voice (spec sections 4 and 8), one personality per
-// creature. English for the pilot. Texts never say who missed.
+// creature. English for the pilot. Texts never say who missed. The last two types are plain
+// alerts for the people who run Gozali: a sign-up, and the day in numbers.
 
 export type Species = 'mochi' | 'kit' | 'axo' | 'ribbit' | 'hoot' | 'bun';
 export type NotificationType =
@@ -10,7 +11,9 @@ export type NotificationType =
   | 'pet_state'
   | 'evolution'
   | 'still_in'
-  | 'weekly_recap';
+  | 'weekly_recap'
+  | 'new_user'
+  | 'daily_summary';
 
 /** A row returned by claim_notifications. */
 export interface ClaimedRow {
@@ -135,5 +138,29 @@ export function render(row: ClaimedRow): Rendered {
       return { title: pack, body: 'Still in? Your pack misses you 💛', url: home };
     case 'weekly_recap':
       return { title: pack, body: 'Your weekly recap is ready 📊', url: row.pack_id ? `/pack/${row.pack_id}/recap` : '/' };
+    case 'new_user': {
+      const name = typeof row.payload.name === 'string' && row.payload.name ? row.payload.name : 'Someone';
+      const number = Number(row.payload.number);
+      return {
+        title: 'Gozali',
+        body: number > 0 ? `🐣 ${name} joined Gozali, user number ${number}` : `🐣 ${name} joined Gozali`,
+        url: '/',
+      };
+    }
+    case 'daily_summary':
+      return { title: 'Gozali today', body: summaryLine(row.payload), url: '/' };
   }
+}
+
+/** The day in one line: sign-ups, then feeding, then anything that needs a look. */
+function summaryLine(payload: Record<string, unknown>): string {
+  const count = (key: string) => Number(payload[key]) || 0;
+  const amount = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  const parts = [
+    `👋 ${count('newUsers')} new (${count('users')} in all)`,
+    `🍽️ ${amount(count('feeders'), 'person', 'people')} fed ${amount(count('packs'), 'pack', 'packs')}`,
+  ];
+  if (count('reports') > 0) parts.push(`🚩 ${amount(count('reports'), 'report', 'reports')}`);
+  if (count('errors') > 0) parts.push(`⚠️ ${amount(count('errors'), 'app error', 'app errors')}`);
+  return parts.join(' · ');
 }

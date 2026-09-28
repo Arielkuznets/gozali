@@ -312,6 +312,8 @@ Few notifications, and only ones that change behavior; each type can be turned o
 - No notifications between 23:00 and 07:00 in the user's time, with no exceptions. A notification created in those hours that is still relevant in the morning (Weekly recap, Evolution, Pet state, Still in?) is sent at 07:00; the rest are dropped.
 - The texts are written in the creature's voice, according to its personality.
 
+**Alerts for the people who run Gozali:** the owners listed in `app_owners` (added by hand, never through the app) get two more pushes: "🐣 Noa joined Gozali, user number 12" when someone finishes the profile setup, and at 21:00 on their clock a summary of the day ("👋 2 new (41 in all) · 🍽️ 18 people fed 7 packs", plus reports and app errors when there were any). They don't count toward the daily limit and the limit doesn't drop them; a sign-up at night waits for 07:00.
+
 ## 9. Screens, widgets and flows
 
 Fourteen screens in version 1, plus widgets for the home screen and the lock screen; the main screen is the pack screen, where the user spends most of the time.
@@ -446,6 +448,7 @@ Nineteen tables in Postgres (Supabase). All access is protected with Row Level S
 | blocks | blocker\_id, blocked\_id, created\_at |
 | pack\_events | id, pack\_id, kind (joined / hatched / evolved / ran\_away / returned / achievement / joker / dressed / named), actor\_id, payload (jsonb), created\_at. The system lines in the feed, written by triggers (decision D14) |
 | notifications | id, user\_id, pack\_id, type, payload (jsonb), status (pending / sent / dropped), send\_after, created\_at, sent\_at |
+| app\_owners | user\_id, created\_at (who gets the sign-up alerts and the daily summary, section 8) |
 | push\_tokens | user\_id, token, platform, updated\_at |
 | widget\_tokens | id, user\_id, token\_hash, created\_at, last\_used\_at |
 
