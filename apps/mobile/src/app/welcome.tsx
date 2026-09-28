@@ -34,6 +34,8 @@ export default function WelcomeScreen() {
     try {
       await (provider === 'apple' ? signInWithApple() : signInWithBrowser('google'));
     } catch (error) {
+      // The alert says little; in development the log says what went wrong.
+      if (__DEV__) console.warn('Sign-in failed', error);
       if (!isCancellation(error)) {
         notify(error instanceof NotConfiguredError ? t('errors.notConfigured') : t('errors.signInFailed'));
       }
