@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { allowedMisses, memberOutcome, minutesIntoPackDay } from '../src/index.ts';
+import { allowedMisses, closeDay, memberOutcome, minutesIntoPackDay } from '../src/index.ts';
 import { close, critter, fed, member, times } from './builders.ts';
 
 describe('memberOutcome', () => {
@@ -264,5 +264,22 @@ describe('coins', () => {
     assert.equal(close([fed()], { status: 'egg', stage: 'egg', xp: 0, streak: 0 }).coins, 0);
     assert.equal(close([fed(), fed()], { status: 'ran_away', health: 0, streak: 0 }).coins, 0);
     assert.equal(close([fed(), fed()], { status: 'ran_away', health: 0, streak: 2 }).coins, 0, 'not even the day it returns');
+  });
+});
+
+describe('a day the service was down', () => {
+  it('holds no miss against anyone, so the day can not fail', () => {
+    const result = closeDay({ critter: critter({ health: 30, streak: 5 }), members: [member(), member({ recentMisses: 2 })], restDaysPerWeek: 0, outage: true });
+    assert.equal(result.type, 'neutral');
+    assert.deepEqual(result.outcomes.map((row) => row.outcome), ['paused', 'paused']);
+    assert.equal(result.critter.health, 30);
+    assert.equal(result.critter.streak, 5);
+    assert.deepEqual(result.newlySleeping, []);
+  });
+
+  it('still counts the feeds that got through', () => {
+    const result = closeDay({ critter: critter({ xp: 10 }), members: [fed(), member()], restDaysPerWeek: 0, outage: true });
+    assert.equal(result.type, 'success');
+    assert.equal(result.critter.xp, 11);
   });
 });

@@ -40,11 +40,16 @@ async function call<T>(client: RpcClient, fn: string, args: Record<string, unkno
 
 /** Closes one day; null when another run closed it first. */
 export async function closeOneDay(client: RpcClient, packId: string, day: string): Promise<ClosedDay | null> {
-  const input = await call<CloseInput>(client, 'day_close_input', { target: packId, pack_date: day });
+  const [input, outage] = await Promise.all([
+    call<CloseInput>(client, 'day_close_input', { target: packId, pack_date: day }),
+    // A day the service was down for an hour or more can't fail (outage_on, the outages table).
+    call<boolean>(client, 'outage_on', { target: packId, pack_date: day }),
+  ]);
   const result = closeDay({
     critter: input.critter,
     restDaysPerWeek: input.restDaysPerWeek,
     members: input.members.map((member) => ({ ...member, fedAtMinute: member.fedAtMinute ?? undefined })),
+    outage,
   });
   const after = result.critter;
   const achievements = newAchievements(

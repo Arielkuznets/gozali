@@ -47,6 +47,11 @@ export interface DayInput {
   critter: CritterState;
   members: readonly MemberDay[];
   restDaysPerWeek: number;
+  /**
+   * The service was down for part of the day, so some members may not have been able to feed:
+   * a miss doesn't count against anyone, and the day can't fail. Feeds still count.
+   */
+  outage?: boolean;
 }
 
 export type DayEvent =
