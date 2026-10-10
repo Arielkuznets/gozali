@@ -67,6 +67,16 @@ async function readPermission(): Promise<NotificationPermission> {
   return current.granted ? 'granted' : current.canAskAgain ? 'ask' : 'blocked';
 }
 
+/**
+ * On sign-out: the notifications still on the phone, and a tap the app hasn't handled yet,
+ * point to the packs of the account that left.
+ */
+export async function clearNotifications(): Promise<void> {
+  if (Platform.OS === 'web') return;
+  Notifications.clearLastNotificationResponse();
+  await Notifications.dismissAllNotificationsAsync();
+}
+
 /** Opens the screen a tapped notification points to, from `data.url`. */
 export function useNotificationRoutes() {
   useEffect(() => {
