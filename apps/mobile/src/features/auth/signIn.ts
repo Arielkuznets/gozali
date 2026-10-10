@@ -3,8 +3,10 @@ import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
 
+import { clearFocusSession } from '@/features/focus/session';
 import { suggestName } from '@/features/profile/suggestedName';
 import { clearWidgets } from '@/features/widgets/sync';
+import { clearNotifications } from '@/lib/notifications';
 import { unregisterPushToken } from '@/lib/push';
 import { requireSupabase } from '@/lib/supabase';
 
@@ -114,14 +116,20 @@ export async function deleteAccount({ revokeApple }: { revokeApple: boolean }): 
   });
   if (error) throw error;
   // The server already removed the tokens with the account; this clears what the device keeps.
-  await unregisterPushToken().catch(() => undefined);
-  await clearWidgets().catch(() => undefined);
+  await forgetAccountOnDevice();
   await supabase.auth.signOut({ scope: 'local' });
 }
 
 export async function signOut(): Promise<void> {
-  await unregisterPushToken().catch(() => undefined);
-  await clearWidgets().catch(() => undefined);
+  await forgetAccountOnDevice();
   const { error } = await requireSupabase().auth.signOut();
   if (error) throw error;
+}
+
+/** What the phone keeps for the signed-in account, so the next one doesn't open its packs. */
+async function forgetAccountOnDevice(): Promise<void> {
+  await unregisterPushToken().catch(() => undefined);
+  await clearWidgets().catch(() => undefined);
+  await clearFocusSession().catch(() => undefined);
+  await clearNotifications().catch(() => undefined);
 }

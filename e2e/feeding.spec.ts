@@ -47,3 +47,16 @@ test('feeding: camera, caption, send, and the photo shows in the pack', async ({
   await page.getByRole('button', { name: 'Close photo' }).click();
   await expect(page.getByRole('button', { name: 'Close photo' })).toBeHidden();
 });
+
+test("a camera link for a pack you're not in doesn't open the camera", async ({ context, page }) => {
+  await context.grantPermissions(['camera']);
+  const pack = await createPack(dan, { name: 'Night owls', habit: 'reading', species: 'mochi' });
+
+  // For example a notification from before, or from an account that signed out on this phone.
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}/feed`);
+  await expect(page.getByText("This pack isn't here")).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Take photo' })).toBeHidden();
+  await page.getByRole('button', { name: 'Back to your packs' }).click();
+  await expect(page.getByRole('button', { name: 'Join with a code' })).toBeVisible();
+});
