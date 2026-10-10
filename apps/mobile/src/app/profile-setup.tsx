@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
@@ -35,7 +35,8 @@ export default function ProfileSetupScreen() {
 
   return (
     <Screen>
-      <View style={styles.form}>
+      {/* Scrolls when the keyboard leaves too little room, instead of the lines running into each other. */}
+      <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
         <AppText variant="heading">{t('profileSetup.title')}</AppText>
         <AvatarButton name={name} />
         <View style={styles.field}>
@@ -64,7 +65,7 @@ export default function ProfileSetupScreen() {
           <AppText style={styles.agreeText}>{t('profileSetup.agree')}</AppText>
         </Pressable>
         <LegalLinks />
-      </View>
+      </ScrollView>
       <AppText variant="caption" style={styles.notice}>
         {t('profileSetup.notifications')}
       </AppText>
@@ -79,7 +80,7 @@ export default function ProfileSetupScreen() {
 }
 
 const styles = StyleSheet.create({
-  form: { flex: 1, justifyContent: 'center', gap: spacing.lg },
+  form: { flexGrow: 1, justifyContent: 'center', gap: spacing.lg, paddingVertical: spacing.md },
   field: { gap: spacing.xs },
   input: {
     minHeight: 52,

@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
+import { PackMissingScreen } from '@/components/ScreenStates';
 import { TextField } from '@/components/TextField';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { critterArt } from '@/features/critter/art';
@@ -138,6 +139,11 @@ export default function FeedScreen() {
       </SafeAreaView>
     );
   }
+
+  // A link from a pack the user isn't in any more (an old notification, a widget, another
+  // account's link) has nothing to feed. Offline the pack doesn't load at all, and the camera
+  // still works so the feed can wait in the queue.
+  if (pack === null) return <PackMissingScreen />;
 
   if (!permission) {
     return (

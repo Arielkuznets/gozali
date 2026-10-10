@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+import { createSignedUpUser, removeUsers, signIn } from './support';
+
 test('a first launch shows the rules and the reward, then the sign-in screen', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('Feed me with a photo')).toBeVisible();
@@ -39,4 +41,17 @@ test('an app older than the version the server needs asks to update', async ({ p
   await page.goto('/');
   await expect(page.getByText('Time to update')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Continue with Apple' })).toBeHidden();
+});
+
+test('finishing the profile setup opens the home screen', async ({ page }) => {
+  const maya = await createSignedUpUser('Maya');
+  await signIn(page, maya);
+  await page.goto('/');
+  await page.getByPlaceholder('What do your friends call you?').fill('Maya');
+  await page.getByRole('checkbox').click();
+  await page.getByRole('button', { name: 'Continue' }).click();
+
+  await expect(page.getByRole('button', { name: 'Create a pack' })).toBeVisible();
+  await expect(page.getByText('Camera needed')).toBeHidden();
+  await removeUsers(maya);
 });
