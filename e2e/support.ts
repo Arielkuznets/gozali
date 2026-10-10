@@ -18,6 +18,17 @@ export type TestUser = { id: string; name: string; client: SupabaseClient; sessi
 
 /** A signed-in user who finished the profile setup. */
 export async function createUser(name: string): Promise<TestUser> {
+  const user = await createSignedUpUser(name);
+  const profile = await user.client
+    .from('profiles')
+    .update({ display_name: name, terms_accepted_at: new Date().toISOString() })
+    .eq('id', user.id);
+  if (profile.error) throw profile.error;
+  return user;
+}
+
+/** A user who just signed up and hasn't done the profile setup yet. */
+export async function createSignedUpUser(name: string): Promise<TestUser> {
   const email = `${name.toLowerCase()}-e2e-${run}-${Math.random().toString(36).slice(2, 8)}@gozali.test`;
   const password = `e2e-${run}-${name}`;
   const created = await admin.auth.admin.createUser({ email, password, email_confirm: true });
@@ -25,11 +36,6 @@ export async function createUser(name: string): Promise<TestUser> {
   const client = createClient(url, publishableKey!, { auth: { persistSession: false } });
   const signedIn = await client.auth.signInWithPassword({ email, password });
   if (signedIn.error) throw signedIn.error;
-  const profile = await client
-    .from('profiles')
-    .update({ display_name: name, terms_accepted_at: new Date().toISOString() })
-    .eq('id', created.data.user.id);
-  if (profile.error) throw profile.error;
   return { id: created.data.user.id, name, client, session: signedIn.data.session };
 }
 
