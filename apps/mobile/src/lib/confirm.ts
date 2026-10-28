@@ -23,8 +23,8 @@ export function confirm(options: {
   ]);
 }
 
-/** A short message, the same way on every platform. */
-export function notify(message: string) {
-  if (Platform.OS === 'web') window.alert(message);
-  else Alert.alert(message);
+/** A short message, the same way on every platform, with an optional smaller line under it. */
+export function notify(message: string, detail?: string) {
+  if (Platform.OS === 'web') window.alert([message, detail].filter(Boolean).join('\n\n'));
+  else Alert.alert(message, detail);
 }
