@@ -27,7 +27,7 @@ export default function MeScreen() {
   const stats = useMyStats();
 
   const onSignOut = () => {
-    signOut().catch(() => notify(t('errors.signInFailed')));
+    signOut().catch(() => notify(t('errors.signOutFailed')));
   };
 
   const byDay = new Map((stats.data?.days ?? []).map((entry) => [entry.day, entry.status]));
