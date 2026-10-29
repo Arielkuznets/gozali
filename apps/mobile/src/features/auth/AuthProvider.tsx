@@ -1,25 +1,13 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { isAuthRetryableFetchError, type Session } from '@supabase/supabase-js';
 import { useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
 import { forgetKeptQueries } from '@/lib/queryCache';
-import { AUTH_STORAGE_KEY, supabase } from '@/lib/supabase';
+import { storedSession, supabase } from '@/lib/supabase';
 
 /** Whether a stored session's access token has expired, or is about to, so it needs a refresh. */
 function hasExpired(session: Session): boolean {
   return (session.expires_at ?? 0) * 1000 < Date.now() + 90_000;
-}
-
-/** The session as stored, even with an access token that has expired. */
-async function storedSession(): Promise<Session | null> {
-  try {
-    const raw = await AsyncStorage.getItem(AUTH_STORAGE_KEY);
-    const session = raw ? (JSON.parse(raw) as Session) : null;
-    return session?.user?.id ? session : null;
-  } catch {
-    return null;
-  }
 }
 
 type AuthState = { session: Session | null; loading: boolean };

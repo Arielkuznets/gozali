@@ -18,7 +18,7 @@ import { AuthProvider, useAuth } from '@/features/auth/AuthProvider';
 import { readInstallReferrer } from '@/features/packs/invites';
 import { isProfileComplete, useProfile } from '@/features/profile/useProfile';
 import { refetchWhenAppReturns } from '@/lib/appFocus';
-import { persistOptions } from '@/lib/queryCache';
+import { KEEP_MS, persistOptions } from '@/lib/queryCache';
 import { watchForCrashes } from '@/lib/reportError';
 import { colors } from '@/theme/tokens';
 
@@ -30,7 +30,8 @@ refetchWhenAppReturns();
 export { ErrorScreen as ErrorBoundary };
 
 export default function RootLayout() {
-  const [queryClient] = useState(() => new QueryClient());
+  // Queries stay in memory as long as the copy kept on the phone, which holds only what is in memory.
+  const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { gcTime: KEEP_MS } } }));
   return (
     <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
       <AuthProvider>

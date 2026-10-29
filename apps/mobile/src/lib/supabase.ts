@@ -1,7 +1,7 @@
 import 'react-native-url-polyfill/auto';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js';
 import { AppState, Platform } from 'react-native';
 
 import type { Database } from '@/lib/database.types';
@@ -40,6 +40,17 @@ if (supabase && Platform.OS !== 'web') {
     if (state === 'active') supabase.auth.startAutoRefresh();
     else supabase.auth.stopAutoRefresh();
   });
+}
+
+/** The session as stored, even with an access token that has expired. */
+export async function storedSession(): Promise<Session | null> {
+  try {
+    const raw = AUTH_STORAGE_KEY ? await AsyncStorage.getItem(AUTH_STORAGE_KEY) : null;
+    const session = raw ? (JSON.parse(raw) as Session) : null;
+    return session?.user?.id ? session : null;
+  } catch {
+    return null;
+  }
 }
 
 export class NotConfiguredError extends Error {

@@ -2,6 +2,19 @@ import { expect, test } from '@playwright/test';
 
 import { createPack, createUser, removeUsers, signIn, type TestUser } from './support';
 
+/** Signs in once; later loads keep whatever the page has stored since, as a phone does. */
+async function signInOnce(page: import('@playwright/test').Page, user: TestUser) {
+  await page.addInitScript((session) => {
+    window.localStorage.setItem('gozali.onboarded', '1');
+    if (!window.localStorage.getItem('sb-127-auth-token')) {
+      window.localStorage.setItem('sb-127-auth-token', JSON.stringify(session));
+    }
+  }, user.session);
+}
+
+const keptCopy = (page: import('@playwright/test').Page) =>
+  page.evaluate(() => window.localStorage.getItem('gozali.query-cache') ?? '');
+
 let noa: TestUser;
 
 test.beforeEach(async () => {
@@ -61,16 +74,54 @@ test('opening the app without a connection shows the packs it last had', async (
   await page.reload();
   await expect(page.getByText('Gym squad')).toBeVisible();
   await expect(page.getByText("This didn't load")).toBeHidden();
+
+  // The refetches give up after their retries; the copy keeps what they couldn't replace.
+  await page.waitForTimeout(12_000);
+  await page.reload();
+  await expect(page.getByText('Gym squad')).toBeVisible();
+});
+
+test("another account on the phone never gets the last one's packs", async ({ page }) => {
+  const dan = await createUser('Dan');
+  await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' });
+  await signInOnce(page, noa);
+  await page.goto('/');
+  await expect(page.getByText('Gym squad')).toBeVisible();
+  await page.waitForTimeout(1500);
+  expect(await keptCopy(page)).toContain('Gym squad');
+
+  // Noa's session ended where the app didn't see it, and Dan signed in on the same phone.
+  await page.evaluate((session) => window.localStorage.setItem('sb-127-auth-token', JSON.stringify(session)), dan.session);
+  await page.reload();
+  await expect(page.getByText('No packs yet')).toBeVisible();
+  expect(await keptCopy(page)).not.toContain('Gym squad');
+  await removeUsers(dan);
+});
+
+test('a refresh the server refuses ends the session and forgets the copy', async ({ page }) => {
+  await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' });
+  await signInOnce(page, noa);
+  await page.goto('/');
+  await expect(page.getByText('Gym squad')).toBeVisible();
+  await page.waitForTimeout(1500);
+
+  // The access token has expired, and the server turns the refresh down (the account was deleted elsewhere).
+  await page.evaluate(() => {
+    const stored = JSON.parse(window.localStorage.getItem('sb-127-auth-token')!);
+    stored.expires_at = Math.floor(Date.now() / 1000) - 3600;
+    window.localStorage.setItem('sb-127-auth-token', JSON.stringify(stored));
+  });
+  await page.route('**/auth/v1/token**', (route) =>
+    route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ code: 'refresh_token_not_found', message: 'Invalid Refresh Token' }) }),
+  );
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Continue with Apple' })).toBeVisible();
+  expect(await keptCopy(page)).not.toContain('Gym squad');
 });
 
 test('offline with an expired sign-in, the app still opens on the packs', async ({ page }) => {
   await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' });
-  // Signed in once; later loads keep what the page has stored, as a phone does.
-  await page.addInitScript((session) => {
-    if (!window.localStorage.getItem('sb-127-auth-token')) {
-      window.localStorage.setItem('sb-127-auth-token', JSON.stringify(session));
-    }
-  }, noa.session);
+  await signInOnce(page, noa);
   await page.goto('/');
   await expect(page.getByText('Gym squad')).toBeVisible();
   await page.waitForTimeout(1500);
