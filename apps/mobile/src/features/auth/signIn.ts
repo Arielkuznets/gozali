@@ -102,18 +102,20 @@ export async function verifyDevCode(email: string, token: string): Promise<void>
 /**
  * A fresh Apple authorization code, so the server can revoke Sign in with Apple as the account
  * goes (Apple asks for this). Only on iPhones, for people who signed in with Apple. Closing
- * Apple's sheet cancels the deletion; any other trouble lets it go on without the code.
+ * Apple's sheet cancels the deletion; any other trouble, a sheet that never opened included, lets
+ * it go on without the code.
  */
 async function appleCodeForRevocation(): Promise<string | undefined> {
   if (Platform.OS !== 'ios') return undefined;
   const { data } = await requireSupabase().auth.getUser();
   const providers = (data.user?.app_metadata.providers as string[] | undefined) ?? [];
   if (!providers.includes('apple')) return undefined;
+  const started = Date.now();
   try {
     const credential = await AppleAuthentication.signInAsync({ requestedScopes: [] });
     return credential.authorizationCode ?? undefined;
   } catch (error) {
-    if (isCancellation(error)) throw error;
+    if (signInTrouble(error, Date.now() - started) === 'cancelled') throw error;
     return undefined;
   }
 }
