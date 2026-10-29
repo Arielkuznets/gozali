@@ -27,9 +27,18 @@ export async function widgetToken(create: boolean): Promise<string | null> {
   return data;
 }
 
+/**
+ * The state the widgets show, or null without an answer. The server forgets a token nobody used
+ * for 90 days; this device forgets it then too, so the app's next refresh makes a new one. Kept,
+ * it left the widgets on the old picture for good.
+ */
 export async function fetchSnapshot(token: string): Promise<WidgetSnapshot | null> {
   try {
     const response = await fetch(WIDGET_ENDPOINT, { headers: { 'x-widget-token': token } });
+    if (response.status === 401 && (await response.text()) === 'unknown token') {
+      await AsyncStorage.removeItem(TOKEN_KEY);
+      return null;
+    }
     return response.ok ? ((await response.json()) as WidgetSnapshot) : null;
   } catch {
     return null;
