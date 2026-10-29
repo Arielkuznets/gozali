@@ -20,7 +20,12 @@ test.afterEach(async () => {
 test('the egg promises to hatch tonight only once nobody can stop it', async ({ page }) => {
   const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan, eve]);
   // Eve has fed before and the pack has no rest days, so today she would miss without a feed or a joker.
+  // Everyone joined before that feed: a member counts from feeds for the day they joined or later.
   await admin.from('packs').update({ rest_days_per_week: 0 }).eq('id', pack.id);
+  await admin
+    .from('pack_members')
+    .update({ joined_at: new Date(Date.now() - 3 * 24 * 3600_000).toISOString() })
+    .eq('pack_id', pack.id);
   const started = await admin
     .from('feeds')
     .insert({ pack_id: pack.id, user_id: eve.id, day: addDays(packDayOf(new Date(), 'Asia/Jerusalem'), -1) });

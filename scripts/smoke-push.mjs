@@ -40,10 +40,12 @@ const { data: pack } = await admin
   .select('id')
   .single();
 await admin.from('critters').insert({ pack_id: pack.id, species: 'kit', status: 'active', stage: 'kid', name: 'Pixel' });
+// Everyone joined a few days ago: a member counts from feeds for the day they joined or later.
+const joinedAt = new Date(Date.now() - 3 * 24 * 3600_000).toISOString();
 const joined = await admin.from('pack_members').insert([
-  { pack_id: pack.id, user_id: noa, role: 'admin' },
-  { pack_id: pack.id, user_id: dan, role: 'member' },
-  { pack_id: pack.id, user_id: maya, role: 'member' },
+  { pack_id: pack.id, user_id: noa, role: 'admin', joined_at: joinedAt },
+  { pack_id: pack.id, user_id: dan, role: 'member', joined_at: joinedAt },
+  { pack_id: pack.id, user_id: maya, role: 'member', joined_at: joinedAt },
 ]);
 if (joined.error) throw joined.error;
 
