@@ -16,7 +16,7 @@ jest.mock('expo-notifications', () => ({
   },
 }));
 const mockPush = jest.fn();
-const mockPathname = '/pack/p1';
+let mockPathname = '/pack/p1';
 jest.mock('expo-router', () => ({ router: { push: (url: string) => mockPush(url) }, usePathname: () => mockPathname }));
 jest.mock('@/lib/push', () => ({ registerPushToken: async () => undefined }));
 
@@ -34,5 +34,15 @@ describe('tapping a notification', () => {
     expect(mockPush).not.toHaveBeenCalled();
     mockListener?.(tap('/pack/p2'));
     expect(mockPush).toHaveBeenCalledWith('/pack/p2');
+  });
+
+  it('knows the open camera from the focus-end notice, whose link carries a query', async () => {
+    mockPathname = '/pack/p1/feed';
+    mockPush.mockClear();
+    await act(async () => {
+      create(<Routes />);
+    });
+    mockListener?.(tap('/pack/p1/feed?focus=25'));
+    expect(mockPush).not.toHaveBeenCalled();
   });
 });

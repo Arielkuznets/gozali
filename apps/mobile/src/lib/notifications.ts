@@ -88,8 +88,9 @@ export function useNotificationRoutes() {
     if (Platform.OS === 'web') return;
     const open = (response: Notifications.NotificationResponse | null) => {
       const url: unknown = response?.notification.request.content.data?.url;
-      // A tap for the screen already on top would stack a second copy of it.
-      if (typeof url === 'string' && url !== current.current) router.push(url as Href);
+      // A tap for the screen already on top would stack a second copy of it. The path has no
+      // query (the focus-end notice opens the camera with ?focus=).
+      if (typeof url === 'string' && url.split('?')[0] !== current.current) router.push(url as Href);
     };
     void Notifications.getLastNotificationResponseAsync().then((response) => {
       open(response);
