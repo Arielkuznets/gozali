@@ -9,6 +9,8 @@
     "tagline": "Raise a little pet together with your friends. Feed it every day by doing your habit.",
     "critterLabel": "A little pet waiting for its pack",
     "continueWithApple": "Continue with Apple",
+    "appleDidntOpen": "Sign in with Apple didn't open. Please try again.",
+    "cancelled": "Sign-in didn't finish. Tap Continue with Apple to try again.",
     "continueWithGoogle": "Continue with Google",
     "devLogin": "Dev login with email",
     "terms": "By continuing you agree to the Terms and the Privacy Policy."

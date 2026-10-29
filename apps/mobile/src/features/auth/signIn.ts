@@ -73,6 +73,21 @@ export function isCancellation(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === 'ERR_REQUEST_CANCELED';
 }
 
+/** Less than this between the tap and a cancellation is quicker than anyone can close Apple's sheet. */
+const SHEET_CLOSE_MS = 1000;
+
+export type SignInTrouble = 'cancelled' | 'not-opened' | 'failed';
+
+/**
+ * What a sign-in that didn't finish means for the person who tapped: they closed Apple's sheet,
+ * the sheet never opened (which can come back as a cancellation too, but sooner than a person
+ * could cancel), or something else went wrong.
+ */
+export function signInTrouble(error: unknown, elapsedMs: number): SignInTrouble {
+  if (!isCancellation(error)) return 'failed';
+  return elapsedMs < SHEET_CLOSE_MS ? 'not-opened' : 'cancelled';
+}
+
 // Development only: a one-time email code, so the app can be used before Apple and Google are set up.
 export async function sendDevCode(email: string): Promise<void> {
   const { error } = await requireSupabase().auth.signInWithOtp({ email });

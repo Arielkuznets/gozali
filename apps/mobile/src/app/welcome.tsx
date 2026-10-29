@@ -10,7 +10,7 @@ import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { LegalLinks } from '@/components/LegalLinks';
 import { Screen } from '@/components/Screen';
-import { isCancellation, isGoogleEnabled, signInWithApple, signInWithBrowser } from '@/features/auth/signIn';
+import { isGoogleEnabled, signInTrouble, signInWithApple, signInWithBrowser, type SignInTrouble } from '@/features/auth/signIn';
 import { Critter } from '@/features/critter/Critter';
 import { ONBOARDED_KEY } from '@/features/profile/onboarding';
 import { notify } from '@/lib/confirm';
@@ -34,23 +34,27 @@ export default function WelcomeScreen() {
 
   // A second tap while Apple's sheet is on its way would start a second request over the first.
   const pending = useRef(false);
+  const [trouble, setTrouble] = useState<SignInTrouble | null>(null);
 
   const run = async (provider: Provider) => {
     if (pending.current) return;
     pending.current = true;
     setBusy(provider);
+    setTrouble(null);
+    const started = Date.now();
     try {
       await (provider === 'apple' ? signInWithApple() : signInWithBrowser('google'));
     } catch (error) {
       // In development the log says what went wrong; the server hears about it either way.
       if (__DEV__) console.warn('Sign-in failed', error);
       reportSignInProblem(provider, error);
-      if (!isCancellation(error)) {
-        const code = errorCode(error);
-        notify(
-          error instanceof NotConfiguredError ? t('errors.notConfigured') : t('errors.signInFailed'),
-          code ? t('errors.code', { code }) : undefined,
-        );
+      const kind = signInTrouble(error, Date.now() - started);
+      setTrouble(kind);
+      const code = errorCode(error);
+      const detail = code ? t('errors.code', { code }) : undefined;
+      if (kind === 'not-opened') notify(t('welcome.appleDidntOpen'), detail);
+      else if (kind === 'failed') {
+        notify(error instanceof NotConfiguredError ? t('errors.notConfigured') : t('errors.signInFailed'), detail);
       }
     } finally {
       pending.current = false;
@@ -86,6 +90,11 @@ export default function WelcomeScreen() {
         ) : (
           <Button label={t('welcome.continueWithApple')} loading={busy === 'apple'} onPress={() => void run('apple')} />
         )}
+        {trouble === 'cancelled' && (
+          <AppText variant="caption" style={styles.centerText}>
+            {t('welcome.cancelled')}
+          </AppText>
+        )}
         {google.data === true && (
           <Button
             label={t('welcome.continueWithGoogle')}
@@ -113,4 +122,5 @@ const styles = StyleSheet.create({
   appleButton: { height: 52, alignSelf: 'stretch' },
   busy: { opacity: 0.5, pointerEvents: 'none' },
   terms: { textAlign: 'center', marginTop: spacing.sm },
+  centerText: { textAlign: 'center' },
 });
