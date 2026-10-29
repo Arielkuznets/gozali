@@ -27,10 +27,17 @@ export async function signInWithBrowser(provider: 'google' | 'apple'): Promise<v
   const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
   if (result.type !== 'success') return; // closed by the user
 
-  const code = Linking.parse(result.url).queryParams?.code;
-  if (typeof code !== 'string') throw new Error('The sign-in response had no code');
-  const exchange = await auth.exchangeCodeForSession(code);
+  const params = Linking.parse(result.url).queryParams ?? {};
+  if (typeof params.code !== 'string') throw callbackError(params);
+  const exchange = await auth.exchangeCodeForSession(params.code);
   if (exchange.error) throw exchange.error;
+}
+
+/** The reason the auth server gives in the link when it sends the browser back without a code. */
+function callbackError({ error, error_code, error_description }: Linking.QueryParams): Error {
+  const reason = new Error(typeof error_description === 'string' ? error_description : 'The sign-in response had no code');
+  const code = error_code ?? error;
+  return typeof code === 'string' ? Object.assign(reason, { code }) : reason;
 }
 
 /**
@@ -73,6 +80,21 @@ export function isCancellation(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === 'ERR_REQUEST_CANCELED';
 }
 
+/** Less than this between the tap and a cancellation is quicker than anyone can close Apple's sheet. */
+const SHEET_CLOSE_MS = 1000;
+
+export type SignInTrouble = 'cancelled' | 'not-opened' | 'failed';
+
+/**
+ * What a sign-in that didn't finish means for the person who tapped: they closed Apple's sheet,
+ * the sheet never opened (which can come back as a cancellation too, but sooner than a person
+ * could cancel), or something else went wrong.
+ */
+export function signInTrouble(error: unknown, elapsedMs: number): SignInTrouble {
+  if (!isCancellation(error)) return 'failed';
+  return elapsedMs < SHEET_CLOSE_MS ? 'not-opened' : 'cancelled';
+}
+
 // Development only: a one-time email code, so the app can be used before Apple and Google are set up.
 export async function sendDevCode(email: string): Promise<void> {
   const { error } = await requireSupabase().auth.signInWithOtp({ email });
@@ -87,18 +109,20 @@ export async function verifyDevCode(email: string, token: string): Promise<void>
 /**
  * A fresh Apple authorization code, so the server can revoke Sign in with Apple as the account
  * goes (Apple asks for this). Only on iPhones, for people who signed in with Apple. Closing
- * Apple's sheet cancels the deletion; any other trouble lets it go on without the code.
+ * Apple's sheet cancels the deletion; any other trouble, a sheet that never opened included, lets
+ * it go on without the code.
  */
 async function appleCodeForRevocation(): Promise<string | undefined> {
   if (Platform.OS !== 'ios') return undefined;
   const { data } = await requireSupabase().auth.getUser();
   const providers = (data.user?.app_metadata.providers as string[] | undefined) ?? [];
   if (!providers.includes('apple')) return undefined;
+  const started = Date.now();
   try {
     const credential = await AppleAuthentication.signInAsync({ requestedScopes: [] });
     return credential.authorizationCode ?? undefined;
   } catch (error) {
-    if (isCancellation(error)) throw error;
+    if (signInTrouble(error, Date.now() - started) === 'cancelled') throw error;
     return undefined;
   }
 }

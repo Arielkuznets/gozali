@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { allowedMisses, closeDay, memberOutcome, minutesIntoPackDay } from '../src/index.ts';
+import { allowedMisses, closeDay, hatchIsCertain, memberOutcome, minutesIntoPackDay } from '../src/index.ts';
 import { close, critter, fed, member, times } from './builders.ts';
 
 describe('memberOutcome', () => {
@@ -131,6 +131,32 @@ describe('egg', () => {
     assert.equal(result.type, 'fail');
     assert.equal(result.applied, false);
     assert.equal(result.critter.health, 70);
+  });
+});
+
+describe('hatchIsCertain', () => {
+  it('is certain once two fed and nobody else could miss', () => {
+    assert.equal(hatchIsCertain([fed(), fed()], 0), true);
+    assert.equal(hatchIsCertain([fed(), fed(), member({ hasStarted: false }), member({ membership: 'sleeping' })], 0), true);
+    assert.equal(hatchIsCertain([fed(), fed(), member({ paused: true }), member({ restDeclaredToday: true })], 0), true);
+    assert.equal(hatchIsCertain([fed(), fed(), member({ restDaysUsedThisWeek: 1 })], 2), true);
+  });
+
+  it('is not certain with fewer than two feeds', () => {
+    assert.equal(hatchIsCertain([fed(), member({ hasStarted: false })], 0), false);
+  });
+
+  it('is not certain while a member who could still miss would fail the day', () => {
+    assert.equal(hatchIsCertain([fed(), fed(), member()], 0), false);
+    assert.equal(hatchIsCertain([fed(), fed(), member({ restDaysUsedThisWeek: 2 })], 2), false);
+  });
+
+  it('counts the misses a larger pack allows, without the members who could leave', () => {
+    assert.equal(hatchIsCertain([...times(5, () => fed()), member()], 0), true);
+    assert.equal(hatchIsCertain([...times(4, () => fed()), member(), member()], 0), false);
+    // Today the two resting members make five counted, which allows the one miss; if they left
+    // before the day ended, it wouldn't.
+    assert.equal(hatchIsCertain([fed(), fed(), member({ restDeclaredToday: true }), member({ jokerToday: true }), member()], 0), false);
   });
 });
 

@@ -1,7 +1,7 @@
 -- Notifications: rows from feeds and the clock, and the rules applied before sending.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(18);
+select plan(21);
 
 -- Reminders are queued for every pack, so this test runs alone (all rolled back at the end).
 delete from public.packs;
@@ -155,6 +155,37 @@ select is(
 select is(
   (select status::text from public.notifications), 'dropped',
   'and marked dropped'
+);
+
+-- A nudge is how the pack wakes a sleeping member, so it reaches Dan asleep; a declared rest
+-- or a feed still stops it.
+delete from public.notifications;
+update public.pack_members set status = 'sleeping' where user_id = '00000000-0000-0000-0000-0000000000b5';
+insert into public.notifications (user_id, pack_id, type, payload, send_after) values
+  ('00000000-0000-0000-0000-0000000000b5', '10000000-0000-0000-0000-000000000005', 'nudge',
+   jsonb_build_object('from', '00000000-0000-0000-0000-0000000000a5'), timestamptz '2000-01-01');
+select is(
+  (select array_agg(type::text || ' to ' || array_to_string(names, ',')) from public.claim_notifications((select at from noon))),
+  array['nudge to noa'],
+  'a sleeping member gets the nudge, with who sent it'
+);
+delete from public.notifications;
+insert into public.day_passes (pack_id, user_id, day, kind)
+values ('10000000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-0000000000b5', (select day from today), 'rest');
+insert into public.notifications (user_id, pack_id, type, payload, send_after) values
+  ('00000000-0000-0000-0000-0000000000b5', '10000000-0000-0000-0000-000000000005', 'nudge',
+   jsonb_build_object('from', '00000000-0000-0000-0000-0000000000a5'), timestamptz '2000-01-01');
+select is(
+  (select count(*) from public.claim_notifications((select at from noon))), 0::bigint,
+  'but not on a day of a declared rest'
+);
+delete from public.notifications;
+insert into public.notifications (user_id, pack_id, type, payload, send_after) values
+  ('00000000-0000-0000-0000-0000000000c5', '10000000-0000-0000-0000-000000000005', 'nudge',
+   jsonb_build_object('from', '00000000-0000-0000-0000-0000000000a5'), timestamptz '2000-01-01');
+select is(
+  (select count(*) from public.claim_notifications((select at from noon))), 0::bigint,
+  'and nobody gets one once they fed'
 );
 
 select * from finish();

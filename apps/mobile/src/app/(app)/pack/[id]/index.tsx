@@ -17,11 +17,13 @@ import { LoadingScreen, LoadFailedScreen, PackMissingScreen } from '@/components
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useAvatarUrls } from '@/features/profile/avatar';
 import { Critter } from '@/features/critter/Critter';
+import { HatchSteps } from '@/features/critter/HatchSteps';
+import { hatchesTonight } from '@/features/critter/hatch';
 import { MilestoneMoment } from '@/features/critter/MilestoneMoment';
 import { useMilestone } from '@/features/critter/milestones';
 import { critterArt, stageProgress } from '@/features/critter/art';
 import { useCritterText } from '@/features/critter/useCritterText';
-import { useDayStatus, useTodayPasses, type TodayPasses } from '@/features/days/api';
+import { useDayStatus, useMembersToday, useTodayPasses, type TodayPasses } from '@/features/days/api';
 import { FeedList } from '@/features/feeds/FeedList';
 import { FEED_PAGE, fedToday, useCountedFeeds, usePackFeed, usePendingFeeds, type FeedItem } from '@/features/feeds/api';
 import { countedToday, currentMembers, usePack, type Pack, type PackCritter, type PackMember } from '@/features/packs/api';
@@ -58,6 +60,7 @@ export default function PackScreen() {
   const pending = usePendingFeeds(id);
   const now = useNow(30_000);
   const passes = useTodayPasses(pack ?? undefined, now);
+  const membersToday = useMembersToday(pack ?? undefined, now, pack?.critters?.status === 'egg');
   const dayStatus = useDayStatus(id);
   const events = usePackEvents(id, feedLimit);
   const avatars = useAvatarUrls(pack?.pack_members.map((member) => member.profiles?.avatar_path) ?? []);
@@ -207,6 +210,7 @@ export default function PackScreen() {
             critter={pack.critters}
             memberCount={members.length}
             fedCount={fedCount}
+            hatchCertain={hatchesTonight(members, fed, today, membersToday.data)}
             mood={awake.length > 0 ? fedCount / awake.length : 0}
             now={now}
           />
@@ -340,34 +344,17 @@ function memberState(member: PackMember, fed: Set<string>, today: TodayPasses): 
   return today.passes.has(member.user_id) ? 'pass' : 'waiting';
 }
 
-/**
- * How the egg hatches (spec section 4), as three steps that tick off: a friend joins, two members
- * feed on the same day, and the egg hatches when that day ends.
- */
-function HatchSteps({ friendJoined, fedToday }: { friendJoined: boolean; fedToday: number }) {
-  const { t } = useTranslation();
-  const bothFed = friendJoined && fedToday >= 2;
-  const steps = [
-    { done: friendJoined, text: t('pack.hatch.join') },
-    { done: bothFed, text: bothFed ? t('pack.hatch.fedDone') : t('pack.hatch.feed', { count: Math.min(fedToday, 2) }) },
-    { done: false, text: bothFed ? t('pack.hatch.tonight') : t('pack.hatch.dayEnds') },
-  ];
-  return (
-    <View style={styles.hatch} accessible accessibilityLabel={steps.map((step) => step.text).join('. ')}>
-      <AppText style={styles.hatchTitle}>{t('pack.hatch.title')}</AppText>
-      {steps.map((step) => (
-        <View key={step.text} style={styles.hatchStep}>
-          <AppText style={[styles.hatchMark, step.done && styles.hatchMarkDone]}>{step.done ? '✓' : '○'}</AppText>
-          <AppText style={[styles.hatchText, step.done && styles.hatchTextDone]}>{step.text}</AppText>
-        </View>
-      ))}
-    </View>
-  );
-}
+type PanelProps = {
+  pack: Pack;
+  critter: PackCritter;
+  memberCount: number;
+  fedCount: number;
+  hatchCertain: boolean;
+  mood: number;
+  now: Date;
+};
 
-type PanelProps = { pack: Pack; critter: PackCritter; memberCount: number; fedCount: number; mood: number; now: Date };
-
-function CritterPanel({ pack, critter, memberCount, fedCount, mood, now }: PanelProps) {
+function CritterPanel({ pack, critter, memberCount, fedCount, hatchCertain, mood, now }: PanelProps) {
   const { t } = useTranslation();
   const art = critterArt(critter, { category: pack.category, now, mood, cracking: memberCount >= 2 });
   const text = useCritterText(critter, art);
@@ -388,7 +375,7 @@ function CritterPanel({ pack, critter, memberCount, fedCount, mood, now }: Panel
       {art.look === 'egg' && (
         <>
           <Coins text={t('critter.coins', { count: critter.coins })} accessibilityLabel={t('critter.coinsLabel', { count: critter.coins })} />
-          <HatchSteps friendJoined={daysRun} fedToday={fedCount} />
+          <HatchSteps friendJoined={daysRun} fedToday={fedCount} certain={hatchCertain} />
         </>
       )}
       {memberCount < 2 && (
@@ -437,21 +424,6 @@ function DayCountdown({ timeZone, now }: { timeZone: string; now: Date }) {
 }
 
 const styles = StyleSheet.create({
-  hatch: {
-    alignSelf: 'stretch',
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: 16,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  hatchTitle: { fontFamily: fonts.bodyMedium },
-  hatchStep: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm },
-  hatchMark: { width: 20, textAlign: 'center', color: colors.inkMuted },
-  hatchMarkDone: { color: colors.accentText, fontFamily: fonts.bodyBold },
-  hatchText: { flex: 1, color: colors.inkMuted },
-  hatchTextDone: { color: colors.ink },
   header: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.md },
   headerLinks: { flexDirection: 'row', gap: spacing.lg },
   membersHeader: { flexDirection: 'row', justifyContent: 'space-between' },

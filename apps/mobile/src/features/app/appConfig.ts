@@ -9,6 +9,8 @@ export type AppConfig = {
   ios_url: string | null;
   android_url: string | null;
   apple_revocation: boolean;
+  /** Missing on a server without the switch yet, which means off. */
+  apple_web_sign_in?: boolean;
 };
 
 /** The installed version, like 1.2.0 (updates without the store keep it, see docs/setup.md). */
@@ -34,10 +36,9 @@ export function useAppConfig() {
     enabled: supabase !== null,
     staleTime: 60 * 60_000,
     queryFn: async (): Promise<AppConfig | null> => {
-      const { data, error } = await supabase!
-        .from('app_config')
-        .select('min_version, ios_url, android_url, apple_revocation')
-        .maybeSingle();
+      // Every column, so a build that knows a newer switch still reads the rest from a server
+      // that doesn't have it yet.
+      const { data, error } = await supabase!.from('app_config').select('*').maybeSingle();
       if (error) throw error;
       return data;
     },
