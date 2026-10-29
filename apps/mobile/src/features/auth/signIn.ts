@@ -126,9 +126,12 @@ export async function signOut(): Promise<void> {
   // This phone only, like the tokens forgotten above: other phones keep their session, so they
   // don't sit signed out while their pushes and widgets still come.
   const { error } = await auth.signOut({ scope: 'local' });
-  // Without a connection the server doesn't hear about it, but the session is gone from this
-  // phone all the same; only a session still here means signing out didn't work.
-  if (error && (await auth.getSession()).data.session) throw error;
+  if (!error) return;
+  // Without a connection the server doesn't hear about it, but a session that loaded is gone from
+  // this phone all the same. An expired one that couldn't be refreshed was never loaded, so it is
+  // still stored: then getSession reports the same failure, and signing out didn't work.
+  const current = await auth.getSession();
+  if (current.data.session || current.error) throw error;
 }
 
 /** What the phone keeps for the signed-in account, so the next one doesn't open its packs. */
