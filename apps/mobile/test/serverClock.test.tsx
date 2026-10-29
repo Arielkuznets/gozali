@@ -45,4 +45,41 @@ describe("the server's clock", () => {
     });
     expect(seen!.toISOString()).toBe('2026-10-29T12:00:00.000Z');
   });
+
+  it("ignores an answer that took long, which can't say when it was sent", () => {
+    jest.useFakeTimers({ now: at('2026-10-29T09:00:00Z') });
+    noteServerDate('Thu, 29 Oct 2026 12:00:00 GMT', at('2026-10-29T08:59:50Z'), at('2026-10-29T09:00:00Z'));
+    expect(serverNow().toISOString()).toBe('2026-10-29T09:00:00.000Z');
+  });
+
+  it('moves a screen opened before the first answer to the server time once it comes', async () => {
+    jest.useFakeTimers({ now: at('2026-10-29T09:00:00Z') });
+    let seen: Date | null = null;
+    function Clock() {
+      seen = useNow(60_000);
+      return null;
+    }
+    await act(async () => {
+      create(<Clock />);
+    });
+    expect(seen!.toISOString()).toBe('2026-10-29T09:00:00.000Z');
+    await act(async () => {
+      noteServerDate('Thu, 29 Oct 2026 12:00:00 GMT', at('2026-10-29T09:00:00Z'), at('2026-10-29T09:00:00Z'));
+    });
+    expect(seen!.toISOString()).toBe('2026-10-29T12:00:00.000Z');
+  });
+
+  it("leaves a timer on the phone's own clock, as its times were written by it", async () => {
+    jest.useFakeTimers({ now: at('2026-10-29T09:00:00Z') });
+    noteServerDate('Thu, 29 Oct 2026 12:00:00 GMT', at('2026-10-29T09:00:00Z'), at('2026-10-29T09:00:00Z'));
+    let seen: Date | null = null;
+    function Timer() {
+      seen = useNow(1000, 'phone');
+      return null;
+    }
+    await act(async () => {
+      create(<Timer />);
+    });
+    expect(seen!.toISOString()).toBe('2026-10-29T09:00:00.000Z');
+  });
 });

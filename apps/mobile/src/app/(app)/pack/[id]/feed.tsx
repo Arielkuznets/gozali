@@ -127,7 +127,7 @@ export default function FeedScreen() {
       <SafeAreaView style={styles.doneScreen}>
         {pack && critter && name ? (
           <EatingMoment
-            art={{ ...critterArt(critter, { category: pack.category, now: new Date() }), mood: 1, sleeping: false }}
+            art={{ ...critterArt(critter, { category: pack.category, now: serverNow() }), mood: 1, sleeping: false }}
             photoUri={shot?.uri ?? null}
             label={t('feed.ateLabel', { name })}
           />

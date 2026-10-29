@@ -15,6 +15,7 @@ import { INVITE_CODE_LENGTH, categoryInfo, inviteCodeFrom, normalizeInviteCode }
 import { notify } from '@/lib/confirm';
 import { haptics } from '@/lib/haptics';
 import { goBack } from '@/lib/navigation';
+import { serverNow } from '@/lib/serverClock';
 import { colors, radii, spacing } from '@/theme/tokens';
 
 /** Join with a code, typed, pasted or arriving through gozali://join?code=... */
@@ -77,7 +78,7 @@ export default function JoinScreen() {
         {pack && (
           <View style={styles.preview}>
             <Critter
-              art={critterArt(pack.critter, { category: pack.category, now: new Date() })}
+              art={critterArt(pack.critter, { category: pack.category, now: serverNow() })}
               size={72}
               label={pack.critter.name ?? t(`packs.species.${pack.critter.species}`)}
               animated={false}
