@@ -27,26 +27,49 @@ test('turning a notification type off is saved to the profile', async ({ page })
   await expect(page.getByRole('switch', { name: 'Nudges' })).not.toBeChecked();
 });
 
-test('turning two notification types off quickly keeps both off', async ({ page }) => {
+test('turning three notification types off quickly keeps all three off', async ({ page }) => {
   await signIn(page, noa);
   await page.goto('/settings');
-  // The first save is slow to come back, so the second switch is turned before it does.
+  // The first two saves are slow to come back, so the next switches are turned before they do.
   let saves = 0;
   await page.route('**/rest/v1/profiles?**', async (route) => {
-    if (route.request().method() === 'PATCH' && saves++ === 0) await new Promise((resolve) => setTimeout(resolve, 1500));
+    if (route.request().method() === 'PATCH' && saves++ < 2) await new Promise((resolve) => setTimeout(resolve, 1500));
     await route.continue();
   });
+  const recap = page.getByRole('switch', { name: 'Weekly recap' });
   await page.getByRole('switch', { name: 'Nudges' }).click();
-  await page.getByRole('switch', { name: 'Weekly recap' }).click();
-
-  await expect
-    .poll(async () => (await noa.client.from('profiles').select('notification_prefs').single()).data?.notification_prefs, {
-      timeout: 10_000,
-    })
-    .toMatchObject({ nudge: false, weekly_recap: false });
+  await recap.click();
+  // The first save is back and the second is still out: the second switch is still off right now,
+  // and the third choice is made from it.
   await page.waitForTimeout(2000);
-  const { data } = await noa.client.from('profiles').select('notification_prefs').single();
-  expect(data?.notification_prefs).toMatchObject({ nudge: false, weekly_recap: false });
+  expect(await recap.isChecked()).toBe(false);
+  await page.getByRole('switch', { name: 'Hatching, growing and achievements' }).click();
+
+  const prefs = async () => (await noa.client.from('profiles').select('notification_prefs').single()).data?.notification_prefs;
+  const allOff = { nudge: false, weekly_recap: false, evolution: false };
+  await expect.poll(prefs, { timeout: 10_000 }).toMatchObject(allOff);
+  await page.waitForTimeout(2000);
+  expect(await prefs()).toMatchObject(allOff);
+  await expect(recap).not.toBeChecked();
+});
+
+test('a switch whose save fails goes back and says so', async ({ page }) => {
+  const alerts: string[] = [];
+  page.on('dialog', (dialog) => {
+    alerts.push(dialog.message());
+    void dialog.dismiss();
+  });
+  await signIn(page, noa);
+  await page.goto('/settings');
+  const nudges = page.getByRole('switch', { name: 'Nudges' });
+  await expect(nudges).toBeChecked();
+  // Offline the refetch can't put it right either.
+  await page.route('**/rest/v1/profiles?**', (route) => route.abort('internetdisconnected'));
+
+  await nudges.click();
+
+  await expect.poll(() => alerts).toEqual(["Saving didn't work. Please try again."]);
+  await expect(nudges).toBeChecked();
 });
 
 test.describe('on a phone set to a bare offset', () => {

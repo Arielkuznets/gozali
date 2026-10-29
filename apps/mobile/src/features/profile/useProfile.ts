@@ -85,14 +85,29 @@ export function useCompleteProfile() {
   });
 }
 
+const settingsKey = ['profile-settings'] as const;
+
+/** The profile with one change taken back, leaving the notification choices it didn't touch. */
+function withoutChange(profile: Profile, change: ProfileSettings, before: Profile): Profile {
+  const { notification_prefs: prefs, ...fields } = change;
+  const restored: Profile = { ...profile, ...Object.fromEntries(Object.keys(fields).map((key) => [key, before[key as keyof Profile]])) };
+  if (prefs) {
+    restored.notification_prefs = { ...profile.notification_prefs };
+    for (const type of Object.keys(prefs) as NotificationType[]) {
+      if (prefs[type] !== before.notification_prefs[type]) restored.notification_prefs[type] = before.notification_prefs[type];
+    }
+  }
+  return restored;
+}
+
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
   const { session } = useAuth();
   const userId = session?.user.id;
   return useMutation({
-    // Two switches turned quickly sent two copies of all the choices, each missing the other's
-    // change, and whichever arrived last won. Changes now go one at a time, and each one shows
-    // in the profile at once, so the next starts from it.
+    mutationKey: settingsKey,
+    // Each change sends all the notification choices, so changes go one at a time and each shows
+    // in the profile at once: the next one is made from it.
     scope: { id: 'profile-settings' },
     mutationFn: async (settings: ProfileSettings) => {
       if (userId === undefined) throw new Error('Not signed in');
@@ -101,9 +116,21 @@ export function useUpdateProfile() {
     },
     onMutate: async (settings) => {
       await queryClient.cancelQueries({ queryKey: profileKey(userId) });
+      const before = queryClient.getQueryData<Profile>(profileKey(userId));
       queryClient.setQueryData<Profile>(profileKey(userId), (profile) => profile && { ...profile, ...settings });
+      return { before };
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: profileKey(userId) }),
+    // A change that didn't save goes back on screen; offline the refetch below can't fix it.
+    onError: (_error, settings, saved) => {
+      const before = saved?.before;
+      if (before) queryClient.setQueryData<Profile>(profileKey(userId), (profile) => profile && withoutChange(profile, settings, before));
+    },
+    // The server's copy only once nothing else waits: it would overwrite the changes still queued.
+    onSettled: () => {
+      if (queryClient.isMutating({ mutationKey: settingsKey }) === 1) {
+        return queryClient.invalidateQueries({ queryKey: profileKey(userId) });
+      }
+    },
   });
 }
 
