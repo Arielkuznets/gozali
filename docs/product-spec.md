@@ -79,7 +79,7 @@ Each pack is an independent unit with one habit, one creature and its own rules;
 - **Leaving:** any member can leave. If the admin leaves, admin passes to the longest-standing member.
 - A pack with no members is deleted after 30 days.
 
-**Week:** starts on Sunday by default; the admin can change it to Monday. The change takes effect at the end of the current week. When moving from Sunday to Monday, the Sunday in between joins the ending week (one 8-day week); when moving the other way, the current week is cut to 6 days. The rest-day quota of that week doesn't change.
+**Week:** starts on Sunday by default; the admin can change it to Monday. The change takes effect at the end of the current week, which ends as it would have, with its recap (decision D24). The days until the new start day comes round join the first week under it: moving from Sunday to Monday, that week has 8 days; moving from Monday to Sunday, 13. Its rest-day quota grows with its length, rounded up (2 instead of 1 in 8 days, 4 instead of 2 in 13), so the change costs nobody a rest.
 
 ## 4. The critter
 
@@ -432,14 +432,14 @@ Nineteen tables in Postgres (Supabase). All access is protected with Row Level S
 | Table | Main fields |
 | --- | --- |
 | profiles | id (the user in auth.users), display\_name, avatar\_path, timezone, locale, reminder\_time, notification\_prefs (jsonb), terms\_accepted\_at, created\_at |
-| packs | id, name, category, custom\_habit, rest\_days\_per\_week, week\_start, timezone, invite\_code (8 characters, without characters that are easy to confuse, like 0 and O), pending\_rest\_days\_per\_week, pending\_week\_start, pending\_from (settings that apply from the next week start), created\_at |
+| packs | id, name, category, custom\_habit, rest\_days\_per\_week, week\_start, timezone, invite\_code (8 characters, without characters that are easy to confuse, like 0 and O), pending\_rest\_days\_per\_week, pending\_week\_start, pending\_from (settings that apply from the next week start), week\_changed\_on (the first day under the current week start, after a change), created\_at |
 | critters | pack\_id (key: one creature per pack), species (one of the six creatures), name, health, xp, stage, status (egg / active / ran\_away), streak, coins, marks, outfit (jsonb), hatched\_at |
 | pack\_members | pack\_id, user\_id, role (admin / member), status (active / sleeping / left), joined\_at, left\_at, awake\_since (the day that misses toward sleep count from; set when the member wakes up) |
 | pauses | id, pack\_id, user\_id, starts\_on, ends\_on |
 | feeds | id, pack\_id, user\_id, photo\_path, caption, day (date), is\_extra, focus\_minutes, captured\_at, created\_at, hidden\_at |
 | reactions | feed\_id, user\_id, emoji (fire / muscle / laugh / clap / suspicious), created\_at (unique key: feed\_id + user\_id) |
 | day\_passes | pack\_id, user\_id, day (date), kind (joker / rest) |
-| day\_results | pack\_id, day, result (success / neutral / fail), applied, fed\_ids, rested\_ids, joker\_ids, paused\_ids, sleeping\_ids, missed\_ids, health\_before, health\_after, early\_bird, full\_house, night\_owl\_feeds, coins, closed\_at |
+| day\_results | pack\_id, day, result (success / neutral / fail), applied, fed\_ids, rested\_ids, joker\_ids, paused\_ids, sleeping\_ids, missed\_ids, health\_before, health\_after, early\_bird, full\_house, night\_owl\_feeds, coins, week\_from, week\_to (the week the day belonged to when it closed), closed\_at |
 | achievements | pack\_id, key, unlocked\_at |
 | shop\_items | item, slot, price, sort (what the outfit shop sells) |
 | pack\_items | pack\_id, item, bought\_by, bought\_at (what each pack bought) |

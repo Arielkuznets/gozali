@@ -321,6 +321,8 @@ export type Database = {
           rested_ids: string[];
           result: Database['public']['Enums']['day_type'];
           sleeping_ids: string[];
+          week_from: string | null;
+          week_to: string | null;
         };
         Insert: {
           applied: boolean;
@@ -340,6 +342,8 @@ export type Database = {
           rested_ids?: string[];
           result: Database['public']['Enums']['day_type'];
           sleeping_ids?: string[];
+          week_from?: string | null;
+          week_to?: string | null;
         };
         Update: {
           applied?: boolean;
@@ -359,6 +363,8 @@ export type Database = {
           rested_ids?: string[];
           result?: Database['public']['Enums']['day_type'];
           sleeping_ids?: string[];
+          week_from?: string | null;
+          week_to?: string | null;
         };
         Relationships: [
           {
@@ -727,6 +733,7 @@ export type Database = {
           pending_week_start: Database['public']['Enums']['week_start'] | null;
           rest_days_per_week: number;
           timezone: string;
+          week_changed_on: string | null;
           week_start: Database['public']['Enums']['week_start'];
         };
         Insert: {
@@ -741,6 +748,7 @@ export type Database = {
           pending_week_start?: Database['public']['Enums']['week_start'] | null;
           rest_days_per_week: number;
           timezone: string;
+          week_changed_on?: string | null;
           week_start?: Database['public']['Enums']['week_start'];
         };
         Update: {
@@ -755,6 +763,7 @@ export type Database = {
           pending_week_start?: Database['public']['Enums']['week_start'] | null;
           rest_days_per_week?: number;
           timezone?: string;
+          week_changed_on?: string | null;
           week_start?: Database['public']['Enums']['week_start'];
         };
         Relationships: [];
@@ -1095,6 +1104,10 @@ export type Database = {
       create_widget_token: { Args: Record<PropertyKey, never>; Returns: string };
       day_close_input: { Args: { pack_date: string; target: string }; Returns: Json };
       day_closes_at: { Args: { pack_date: string; tz: string }; Returns: string };
+      days_into_week: {
+        Args: { pack_date: string; start: Database['public']['Enums']['week_start'] };
+        Returns: number;
+      };
       dress_critter: { Args: { item: string; slot: string; target: string }; Returns: undefined };
       drop_empty_packs: { Args: { at_time: string }; Returns: number };
       empty_pack_photos: { Args: { at_time: string }; Returns: string[] };
@@ -1119,6 +1132,7 @@ export type Database = {
           total: number;
         }[];
       };
+      fold_pending_settings: { Args: { pack_date: string; target: string }; Returns: undefined };
       forget_photos: { Args: { feed_ids: string[] }; Returns: undefined };
       forget_push_tokens: { Args: { dead: string[] }; Returns: undefined };
       is_clean: { Args: { input: string }; Returns: boolean };
@@ -1132,10 +1146,6 @@ export type Database = {
       my_day_status: { Args: { target: string }; Returns: Json };
       my_stats: { Args: Record<PropertyKey, never>; Returns: Json };
       new_invite_code: { Args: Record<PropertyKey, never>; Returns: string };
-      next_week_start: {
-        Args: { start: Database['public']['Enums']['week_start']; tz: string };
-        Returns: string;
-      };
       note_heartbeat: { Args: { at_time?: string; job_name: string }; Returns: boolean };
       nudge: { Args: { member: string; target: string }; Returns: undefined };
       orphan_photos: { Args: { at_time?: string; max_rows?: number }; Returns: string[] };
@@ -1171,6 +1181,15 @@ export type Database = {
         }[];
       };
       pack_size_limit: { Args: Record<PropertyKey, never>; Returns: number };
+      pack_week_on: {
+        Args: { pack_date: string; target: string };
+        Returns: {
+          rest_days: number;
+          week_from: string;
+          week_start: Database['public']['Enums']['week_start'];
+          week_to: string;
+        }[];
+      };
       packs_to_close: {
         Args: { at_time?: string };
         Returns: {
@@ -1248,6 +1267,17 @@ export type Database = {
       wardrobe_achievement: {
         Args: { item: string; slot: string };
         Returns: Database['public']['Enums']['achievement_key'];
+      };
+      week_of: {
+        Args: {
+          changed_on: string;
+          pack_date: string;
+          start: Database['public']['Enums']['week_start'];
+        };
+        Returns: {
+          week_from: string;
+          week_to: string;
+        }[];
       };
       widget_state: { Args: { at_time?: string; token: string }; Returns: Json };
     };
