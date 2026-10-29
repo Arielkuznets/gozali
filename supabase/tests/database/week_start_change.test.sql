@@ -1,7 +1,7 @@
 -- A pack's week moving to another start day (decision D24).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(12);
+select plan(13);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000f1', 'noa@test.local'),
@@ -122,6 +122,20 @@ select is(
   (select pending_from from public.packs where id = '10000000-0000-0000-0000-0000000000f3'),
   (select week_changed_on + case when week_start = 'monday' then 8 else 13 end from public.packs where id = '10000000-0000-0000-0000-0000000000f3'),
   'new rest days chosen during a longer week start after it'
+);
+
+-- Saving the settings again on the first day of a change, before the day before it has closed
+-- (its first hour, or while closes are behind), keeps the change.
+select pg_temp.add_pack('10000000-0000-0000-0000-0000000000f4', 'WEEKDDDD', 'sunday', 1::smallint, (select day - 30 from today));
+update public.packs set pending_week_start = 'sunday', pending_rest_days_per_week = 2, pending_from = (select day from today)
+where id = '10000000-0000-0000-0000-0000000000f4';
+set local role authenticated;
+select public.update_pack('10000000-0000-0000-0000-0000000000f4', 'Renamed', 2::smallint, 'sunday');
+reset role;
+select is(
+  (select name || ': ' || pending_rest_days_per_week || ' from ' || pending_from from public.packs where id = '10000000-0000-0000-0000-0000000000f4'),
+  'Renamed: 2 from ' || (select day from today),
+  'renaming the pack then keeps the new rest days from today'
 );
 
 -- The rules that pick the week of a day.
