@@ -4,6 +4,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 import { Platform } from 'react-native';
 
 import { feedErrorCode, isFinalRejection, sendFeed, type OutgoingFeed } from '@/features/feeds/send';
+import { isBlockedText } from '@/lib/errors';
 
 // Feeds taken without a connection wait here and go out when it returns (spec section 6).
 // The photo is copied into the app's documents so the system can't clear it meanwhile.
@@ -51,7 +52,9 @@ let flushing: Promise<number> | null = null;
 
 /**
  * Sends what is waiting, oldest first; returns how many were handled. A feed the server turns
- * down for good (already fed, or no longer a member) is dropped; a network error stops the run.
+ * down for good (already fed, or no longer a member) is dropped, except that a second feed of
+ * the day goes out as an extra post and a turned-down caption is left off; a network error
+ * stops the run.
  */
 export function flushQueue(): Promise<number> {
   flushing ??= (async () => {
@@ -64,6 +67,9 @@ export function flushQueue(): Promise<number> {
           if (!isFinalRejection(error)) break;
           // Fed from another phone meanwhile: the photo still goes up, as an extra post.
           if (feedErrorCode(error) === 'already_fed') await sendFeed({ ...feed, extra: true }).catch(() => undefined);
+          // Offline nobody checked the caption, and nobody is there to fix it now: the photo still
+          // feeds the pet, without the words the filter turned down.
+          else if (isBlockedText(error)) await sendFeed({ ...feed, caption: null }).catch(() => undefined);
         }
         sent += 1;
         await write((await read()).filter((item) => item.id !== feed.id));

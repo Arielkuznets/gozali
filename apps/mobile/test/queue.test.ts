@@ -80,6 +80,13 @@ describe('offline feed queue', () => {
     expect(mockSendFeed).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'a', extra: true }));
   });
 
+  it('still feeds when the word filter turns down the caption it was queued with', async () => {
+    await enqueue({ ...feed('a'), caption: 'Kicked ass today' });
+    mockSendFeed.mockRejectedValueOnce({ code: '22023', message: 'text_not_allowed' }).mockResolvedValueOnce('feed-id');
+    expect(await flushQueue()).toBe(1);
+    expect(mockSendFeed).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'a', caption: null }));
+  });
+
   it('lists what waits for one pack', async () => {
     await enqueue(feed('a'));
     await enqueue({ ...feed('b'), packId: 'other' });
