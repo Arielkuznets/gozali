@@ -123,7 +123,9 @@ export async function deleteAccount({ revokeApple }: { revokeApple: boolean }): 
 export async function signOut(): Promise<void> {
   await forgetAccountOnDevice();
   const auth = requireSupabase().auth;
-  const { error } = await auth.signOut();
+  // This phone only, like the tokens forgotten above: other phones keep their session, so they
+  // don't sit signed out while their pushes and widgets still come.
+  const { error } = await auth.signOut({ scope: 'local' });
   // Without a connection the server doesn't hear about it, but the session is gone from this
   // phone all the same; only a session still here means signing out didn't work.
   if (error && (await auth.getSession()).data.session) throw error;
