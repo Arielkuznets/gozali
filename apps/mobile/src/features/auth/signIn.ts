@@ -27,10 +27,17 @@ export async function signInWithBrowser(provider: 'google' | 'apple'): Promise<v
   const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
   if (result.type !== 'success') return; // closed by the user
 
-  const code = Linking.parse(result.url).queryParams?.code;
-  if (typeof code !== 'string') throw new Error('The sign-in response had no code');
-  const exchange = await auth.exchangeCodeForSession(code);
+  const params = Linking.parse(result.url).queryParams ?? {};
+  if (typeof params.code !== 'string') throw callbackError(params);
+  const exchange = await auth.exchangeCodeForSession(params.code);
   if (exchange.error) throw exchange.error;
+}
+
+/** The reason the auth server gives in the link when it sends the browser back without a code. */
+function callbackError({ error, error_code, error_description }: Linking.QueryParams): Error {
+  const reason = new Error(typeof error_description === 'string' ? error_description : 'The sign-in response had no code');
+  const code = error_code ?? error;
+  return typeof code === 'string' ? Object.assign(reason, { code }) : reason;
 }
 
 /**
