@@ -14,6 +14,22 @@ test.afterEach(async () => {
   await removeUsers(noa, dan);
 });
 
+test('a double tap on Create pack makes one pack', async ({ page }) => {
+  await signIn(page, noa);
+  await page.goto('/create-pack');
+  await page.getByLabel('Pack name').fill('Morning runs');
+  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('radio', { name: 'Running' }).click();
+  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('button', { name: 'Create pack' }).dblclick();
+
+  await expect(page.getByText('Invite your friends')).toBeVisible();
+  await page.waitForTimeout(1000);
+  const { data: packs } = await noa.client.from('packs').select('id');
+  expect(packs).toHaveLength(1);
+});
+
 test('creating a pack takes four steps and ends on the invite', async ({ page }) => {
   await signIn(page, noa);
   await page.goto('/');

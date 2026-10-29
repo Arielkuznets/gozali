@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
@@ -35,6 +35,9 @@ export default function CreatePackScreen() {
   const [customHabit, setCustomHabit] = useState('');
   const [restDays, setRestDays] = useState(3);
   const [species, setSpecies] = useState<Species>('mochi');
+  // The mutation's pending state reaches the button a moment after a tap; a second tap in between
+  // would create a second pack.
+  const creating = useRef(false);
 
   const pickCategory = (key: Category, defaultRestDays: number) => {
     setCategory(key);
@@ -52,6 +55,8 @@ export default function CreatePackScreen() {
       setStep(step + 1);
       return;
     }
+    if (creating.current) return;
+    creating.current = true;
     createPack.mutate(
       {
         name: name.trim(),
@@ -66,6 +71,9 @@ export default function CreatePackScreen() {
           router.replace(`/pack/${packId}/invite`);
         },
         onError: (error) => notify(t(packErrorKey(error))),
+        onSettled: () => {
+          creating.current = false;
+        },
       },
     );
   };
