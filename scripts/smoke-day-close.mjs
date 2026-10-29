@@ -6,7 +6,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 import { addDays, closesAt, packDayOf, zonedTimeToUtc } from '../packages/game-engine/src/index.ts';
-import { closeDueDays, dropEmptyPacks } from '../supabase/functions/close-days/close.ts';
+import { cleanupAvatars, closeDueDays, dropEmptyPacks } from '../supabase/functions/close-days/close.ts';
 
 const url = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY;
@@ -189,6 +189,25 @@ await admin.from('outages').delete().eq('note', `smoke ${run}`);
 await admin.from('packs').delete().eq('id', calmId);
 
 for (const user of [noa, dan, maya]) await admin.auth.admin.deleteUser(user.id);
+
+// An account deleted from the dashboard leaves its avatar; the next day's run removes it.
+const leaver = await signedInUser('Leaver');
+const avatar = `${leaver.id}/me.jpg`;
+const uploaded = await admin.storage.from('avatars').upload(avatar, new Uint8Array([1, 2, 3]), { contentType: 'image/jpeg' });
+if (uploaded.error) throw uploaded.error;
+await admin.auth.admin.deleteUser(leaver.id);
+const removed = [];
+await cleanupAvatars(
+  admin,
+  async (paths) => {
+    removed.push(...paths);
+    const { error } = await admin.storage.from('avatars').remove(paths);
+    if (error) throw error;
+  },
+  new Date(Date.now() + 2 * 24 * 3600_000),
+);
+const left = await admin.storage.from('avatars').list(leaver.id);
+check(removed.includes(avatar) && left.data?.length === 0, "a deleted account's avatar is removed");
 
 console.log('all good');
 process.exit(0);
