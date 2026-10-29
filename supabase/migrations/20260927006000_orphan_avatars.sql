@@ -1,7 +1,7 @@
 -- Avatar files of accounts that are gone are cleaned up too (2026-10-29). Deleting an account in the
 -- app removes its avatars, but an account deleted from the Auth dashboard (what the report email
--- says to do with a member who has to go) left them in the avatars bucket. A day's grace keeps a
--- file whose account is being made out of it.
+-- says to do with a member who has to go) left them in the avatars bucket. A day's grace is only a
+-- margin: an avatar can't be written before its profile exists.
 create function public.orphan_avatars(at_time timestamptz default now(), max_rows integer default 500)
 returns setof text
 language sql

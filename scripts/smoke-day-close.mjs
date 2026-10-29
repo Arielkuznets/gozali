@@ -1,7 +1,8 @@
 // Six pack days closed by the real close-days code against the local stack: hatching, a joker,
 // failed days, a member falling asleep, the notifications they cause, and a second run that
 // changes nothing. Then everyone leaves, and the pack goes with its photo files 30 days later.
-// Last, a day the service was down closes without failing. Run with `npx supabase start` up:
+// Then a day the service was down closes without failing, and last an account deleted from the
+// dashboard has its avatar removed. Run with `npx supabase start` up:
 // node scripts/smoke-day-close.mjs
 import { createClient } from '@supabase/supabase-js';
 
