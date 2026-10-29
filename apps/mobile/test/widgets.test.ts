@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { clearWidgets, refreshWidgets } from '@/features/widgets/sync';
+import { clearWidgets, refreshWidgets, resumeWidgets } from '@/features/widgets/sync';
 
 jest.mock('@bacons/apple-targets', () => ({
   ExtensionStorage: class {
@@ -27,6 +27,7 @@ const mockFetch = jest.fn(async (_url: string, init: { headers: Record<string, s
 );
 
 beforeEach(async () => {
+  resumeWidgets();
   await AsyncStorage.clear();
   jest.clearAllMocks();
   globalThis.fetch = mockFetch as unknown as typeof fetch;
@@ -71,5 +72,14 @@ describe('refreshing the widgets', () => {
 
     expect(await AsyncStorage.getItem('gozali.widget-token')).toBeNull();
     expect(await AsyncStorage.getItem('gozali.widget-snapshot')).toBeNull();
+  });
+
+  it('makes no token for an account that has started signing out', async () => {
+    await clearWidgets();
+    // The sign-out is still on its way: the session is valid, and the debounced refresh fires.
+    await refreshWidgets();
+
+    expect(mockRpc).not.toHaveBeenCalledWith('create_widget_token');
+    expect(await AsyncStorage.getItem('gozali.widget-token')).toBeNull();
   });
 });

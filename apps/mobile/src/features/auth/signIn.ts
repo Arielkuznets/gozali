@@ -6,7 +6,7 @@ import { Platform } from 'react-native';
 import { clearQueue } from '@/features/feeds/queue';
 import { clearFocusSession } from '@/features/focus/session';
 import { suggestName } from '@/features/profile/suggestedName';
-import { clearWidgets } from '@/features/widgets/sync';
+import { clearWidgets, resumeWidgets } from '@/features/widgets/sync';
 import { clearNotifications } from '@/lib/notifications';
 import { unregisterPushToken } from '@/lib/push';
 import { requireSupabase } from '@/lib/supabase';
@@ -157,7 +157,11 @@ export async function signOut(): Promise<void> {
     // from this phone all the same. An expired one that couldn't be refreshed was never loaded, so
     // it is still stored: then getSession reports the same failure, and signing out didn't work.
     const current = await auth.getSession();
-    if (current.data.session || current.error) throw error;
+    if (current.data.session || current.error) {
+      // Still signed in: the widgets carry on for this account.
+      resumeWidgets();
+      throw error;
+    }
   }
   await forgetQueuedFeeds();
 }

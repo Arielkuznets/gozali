@@ -31,10 +31,18 @@ async function publish(snapshot: WidgetSnapshot | null, token: string | null): P
 
 // Counts accounts leaving this phone, so a refresh that started before one left can tell.
 let departures = 0;
+// From the moment an account starts leaving until the next one's widgets sync (or the sign-out
+// fails), no refresh starts: the leaving account is still signed in and would get a new token.
+let leaving = false;
+
+/** Lets the widgets refresh again, for the account that is signed in now. */
+export function resumeWidgets(): void {
+  leaving = false;
+}
 
 /** Fetches the widget state with this device's token and redraws the widgets. */
 export async function refreshWidgets(): Promise<void> {
-  if (Platform.OS === 'web') return;
+  if (Platform.OS === 'web' || leaving) return;
   const started = departures;
   const token = await widgetToken(true);
   if (!token) return;
@@ -50,6 +58,7 @@ export async function refreshWidgets(): Promise<void> {
 /** On sign-out the widgets go blank and the token stops working. */
 export async function clearWidgets(): Promise<void> {
   if (Platform.OS === 'web') return;
+  leaving = true;
   departures += 1;
   await forgetWidgetToken();
   await publish(null, null);
@@ -67,6 +76,7 @@ export function useWidgetSync() {
   const queryClient = useQueryClient();
   useEffect(() => {
     if (Platform.OS === 'web') return;
+    resumeWidgets();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const schedule = () => {
       clearTimeout(timer);
