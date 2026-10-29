@@ -45,4 +45,29 @@ describe("a member's status for today", () => {
     expect(mockRpc).toHaveBeenCalledTimes(2);
     client.clear();
   });
+
+  it("asks again when the first answer after 03:00 is still yesterday's", async () => {
+    jest.setSystemTime(new Date('2026-10-29T03:00:10Z'));
+    mockRpc
+      .mockResolvedValueOnce({ data: { day: '2026-10-28', passToday: 'rest' }, error: null })
+      .mockResolvedValue({ data: { day: '2026-10-29', passToday: null }, error: null });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    await act(async () => {
+      create(
+        <QueryClientProvider client={client}>
+          <Status />
+        </QueryClientProvider>,
+      );
+    });
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      jest.advanceTimersByTime(15_000);
+    });
+    expect(mockRpc).toHaveBeenCalledTimes(2);
+    await act(async () => {
+      jest.advanceTimersByTime(30_000);
+    });
+    expect(mockRpc).toHaveBeenCalledTimes(2);
+    client.clear();
+  });
 });

@@ -41,12 +41,16 @@ export function useDayStatus(packId: string) {
   const today = pack ? packDayOf(now, pack.timezone) : null;
   return useQuery({
     queryKey: [...daysKey, 'status', packId, today],
-    enabled: today !== null,
+    // Once the pack is known, or known to be gone: then the server's refusal shows, not a spinner.
+    enabled: pack !== undefined,
     queryFn: async (): Promise<DayStatus> => {
       const { data, error } = await requireSupabase().rpc('my_day_status', { target: packId });
       if (error) throw error;
       return data as DayStatus;
     },
+    // A phone a little fast asks just before the server's 03:00 and gets yesterday back: it asks
+    // again until the answer is for today.
+    refetchInterval: (query) => (today !== null && query.state.data !== undefined && query.state.data.day < today ? 15_000 : false),
   });
 }
 
