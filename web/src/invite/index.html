@@ -14,8 +14,8 @@
     <!--
       Invite landing page (spec section 14). With the app installed, the link opens it directly
       (universal link / app link) and this page is never seen. Otherwise: iOS copies the code on
-      the tap (Safari allows the clipboard only in response to a tap) and the app offers to paste
-      it on first open; Android passes the code to the Play Store as the install referrer.
+      the tap (Safari allows the clipboard only in response to a tap), and the person pastes it
+      under Join with a code; Android passes the code to the Play Store as the install referrer.
     -->
     <main class="center">
       <img class="critter" src="/icon.png" alt="" />
@@ -25,7 +25,7 @@
       <p class="code" id="code">········</p>
       <button class="button" id="get">Copy code and get Gozali</button>
       <a class="button secondary" id="open">I already have the app</a>
-      <p class="muted" id="copied" hidden>Code copied. Paste it when Gozali asks for it.</p>
+      <p class="muted" id="copied" hidden>Code copied. In Gozali, tap Join with a code, then Paste.</p>
       <p class="muted" id="soon" hidden>Gozali isn't in the stores yet. Keep the code, and ask your friend how to get the app.</p>
       <footer class="muted"><a href="/privacy/">Privacy</a> · <a href="/terms/">Terms</a></footer>
     </main>
