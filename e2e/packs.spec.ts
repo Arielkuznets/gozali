@@ -101,6 +101,16 @@ test('the admin replaces a leaked invite code, and only the admin can', async ({
   expect(error?.message).toContain('admin_only');
 });
 
+test("a member who isn't the admin is told the settings are the admin's", async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
+  await signIn(page, dan);
+  await page.goto(`/pack/${pack.id}/settings`);
+
+  await expect(page.getByText('Only the admin, Noa, can change', { exact: false })).toBeVisible();
+  await expect(page.getByRole('radio', { name: '2 rest days a week' })).toBeDisabled();
+  await expect(page.getByRole('radio', { name: 'Monday' })).toBeDisabled();
+});
+
 test('a member who dozed off is told how to come back', async ({ page }) => {
   const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
   await admin.from('critters').update({ status: 'active', stage: 'baby', xp: 2, health: 70 }).eq('pack_id', pack.id);

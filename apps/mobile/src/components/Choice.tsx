@@ -8,16 +8,18 @@ type Props = {
   onPress: () => void;
   label: string;
   children: ReactNode;
+  disabled?: boolean;
   style?: StyleProp<ViewStyle>;
 };
 
 /** A selectable tile for single-choice lists (category, species, color, numbers). */
-export function Choice({ selected, onPress, label, children, style }: Props) {
+export function Choice({ selected, onPress, label, children, disabled = false, style }: Props) {
   return (
     <Pressable
       accessibilityRole="radio"
       accessibilityLabel={label}
-      accessibilityState={{ selected }}
+      accessibilityState={{ selected, disabled }}
+      disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [styles.base, selected && styles.selected, pressed && styles.pressed, style]}>
       {children}

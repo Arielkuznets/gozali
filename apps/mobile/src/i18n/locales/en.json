@@ -198,6 +198,7 @@
     "saved": "Saved",
     "members": "Members",
     "admin": "Admin",
+    "adminOnly": "Only the admin, {{name}}, can change the pack's name, rest days and week start.",
     "remove": "Remove",
     "removeConfirm": "Remove {{name}} from the pack?",
     "invite": "Invite link and QR code",

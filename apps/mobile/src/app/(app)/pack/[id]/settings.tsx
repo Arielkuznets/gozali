@@ -42,7 +42,8 @@ function SettingsForm({ pack }: { pack: Pack }) {
   const { session } = useAuth();
   const userId = session?.user.id;
   const members = currentMembers(pack);
-  const isAdmin = members.some((member) => member.user_id === userId && member.role === 'admin');
+  const admin = members.find((member) => member.role === 'admin');
+  const isAdmin = admin !== undefined && admin.user_id === userId;
 
   // Pending values are what the pack will use from next week, so they are what the form edits.
   const savedRestDays = pack.pending_rest_days_per_week ?? pack.rest_days_per_week;
@@ -96,6 +97,10 @@ function SettingsForm({ pack }: { pack: Pack }) {
       </View>
 
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+        {/* Only the admin changes these. The choices used to take a tap and change nothing, with no word why. */}
+        {!isAdmin && (
+          <AppText variant="caption">{t('settings.adminOnly', { name: admin?.profiles?.display_name ?? '…' })}</AppText>
+        )}
         <TextField
           label={t('settings.name')}
           value={name}
@@ -111,7 +116,8 @@ function SettingsForm({ pack }: { pack: Pack }) {
               key={days}
               label={t('packs.restDays', { count: days })}
               selected={restDays === days}
-              onPress={() => isAdmin && setRestDays(days)}>
+              disabled={!isAdmin}
+              onPress={() => setRestDays(days)}>
               <AppText variant="heading">{days}</AppText>
             </Choice>
           ))}
@@ -120,7 +126,12 @@ function SettingsForm({ pack }: { pack: Pack }) {
         <AppText variant="caption">{t('settings.weekStart')}</AppText>
         <View style={styles.row}>
           {(['sunday', 'monday'] as const).map((day) => (
-            <Choice key={day} label={t(`settings.${day}`)} selected={weekStart === day} onPress={() => isAdmin && setWeekStart(day)}>
+            <Choice
+              key={day}
+              label={t(`settings.${day}`)}
+              selected={weekStart === day}
+              disabled={!isAdmin}
+              onPress={() => setWeekStart(day)}>
               <AppText>{t(`settings.${day}`)}</AppText>
             </Choice>
           ))}
