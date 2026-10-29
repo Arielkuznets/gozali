@@ -1,7 +1,7 @@
 -- A member's push tokens come from register_push_token only, at most ten of them.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(5);
+select plan(7);
 
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000d7', 'noa@test.local');
 
@@ -52,6 +52,15 @@ select is(
   (select count(*) from public.push_tokens where token = 'ExponentPushToken[phone-12]'),
   0::bigint,
   'a member deletes their own token on signing out'
+);
+
+select throws_ok(
+  $$ select public.register_push_token(repeat('x', 201), 'ios') $$,
+  '22023', 'invalid_token', 'a token longer than 200 characters is refused'
+);
+select throws_ok(
+  $$ select public.register_push_token('', 'ios') $$,
+  '22023', 'invalid_token', 'and so is an empty one'
 );
 
 select * from finish();

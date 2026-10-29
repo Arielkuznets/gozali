@@ -44,3 +44,23 @@ where t.token not in (
   ) r
   where r.place <= 10
 );
+
+-- And a token is no longer than 200 characters (Expo's are about 41), so made-up text can't fill
+-- the table, or every push request to that member, with long strings either.
+create or replace function public.register_push_token(device_token text, device public.push_platform)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  caller uuid := public.require_user();
+begin
+  if device_token is null or char_length(device_token) not between 1 and 200 then
+    raise exception 'invalid_token' using errcode = '22023';
+  end if;
+  insert into public.push_tokens (token, user_id, platform, updated_at)
+  values (device_token, caller, device, now())
+  on conflict (token) do update set user_id = excluded.user_id, platform = excluded.platform, updated_at = now();
+end;
+$$;
