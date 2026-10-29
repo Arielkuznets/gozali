@@ -35,6 +35,11 @@ describe('focus timer', () => {
     expect(focusedMinutes(session({ minutes: null }), start + 47 * minute)).toBe(47);
   });
 
+  it('reports an open timer left running overnight as the longest session a feed can show', () => {
+    // The feed takes 1 to 600 minutes; more made every send of that photo fail.
+    expect(focusedMinutes(session({ minutes: null }), start + 11 * 60 * minute)).toBe(600);
+  });
+
   it('has no end for an open timer', () => {
     expect(remainingMs(session({ minutes: null }), start + minute)).toBeNull();
   });
