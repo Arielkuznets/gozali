@@ -77,8 +77,9 @@ export function MemberCircles({ members, color, onNudge, onMenu }: Props) {
   );
 }
 
-function initial(name: string | null): string {
-  return (name?.trim()[0] ?? '?').toUpperCase();
+/** The first character of a name, for a circle without a photo: a whole emoji, not half of one. */
+export function initial(name: string | null | undefined): string {
+  return (Array.from(name?.trim() ?? '')[0] ?? '?').toUpperCase();
 }
 
 const styles = StyleSheet.create({

@@ -71,6 +71,18 @@ test('pasting the whole invite message finds the code in it', async ({ page }) =
   await expect(page.getByLabel('Invite code')).toHaveValue(pack.inviteCode);
 });
 
+test('a name that starts with an emoji shows the whole emoji in the member circle', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
+  const renamed = await dan.client.from('profiles').update({ display_name: '🌸 Dan' }).eq('id', dan.id);
+  expect(renamed.error).toBeNull();
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+
+  await expect(page.getByText('🌸 Dan').first()).toBeVisible();
+  // The circle shows the first character as the name's initial: the whole emoji, not half of it.
+  await expect(page.getByText('🌸', { exact: true })).toBeVisible();
+});
+
 test('the admin replaces a leaked invite code, and only the admin can', async ({ page }) => {
   const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
   page.on('dialog', (dialog) => void dialog.accept());

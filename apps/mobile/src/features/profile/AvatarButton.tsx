@@ -5,6 +5,7 @@ import { Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { ActionMenu, type Menu } from '@/components/ActionMenu';
 import { AppText } from '@/components/AppText';
+import { initial } from '@/components/MemberCircles';
 import { avatarCacheKey, pickAvatar, useAvatarUrls, useSetAvatar } from '@/features/profile/avatar';
 import { useProfile } from '@/features/profile/useProfile';
 import { confirm, notify } from '@/lib/confirm';
@@ -57,7 +58,7 @@ export function AvatarButton({ name }: { name: string | null | undefined }) {
           <Image source={{ uri: url, cacheKey: avatarCacheKey(url) }} style={styles.avatar} contentFit="cover" transition={200} />
         ) : (
           <View style={[styles.avatar, styles.empty]}>
-            <AppText style={styles.initial}>{(name?.trim()[0] ?? '?').toUpperCase()}</AppText>
+            <AppText style={styles.initial}>{initial(name)}</AppText>
           </View>
         )}
         <AppText variant="caption">{url ? t('me.changePhoto') : t('me.addPhoto')}</AppText>
