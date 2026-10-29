@@ -1,6 +1,6 @@
 import * as Notifications from 'expo-notifications';
-import { router, type Href } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { router, usePathname, type Href } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 
 import { FOCUS_CHANNEL } from '@/lib/channels';
@@ -79,11 +79,17 @@ export async function clearNotifications(): Promise<void> {
 
 /** Opens the screen a tapped notification points to, from `data.url`. */
 export function useNotificationRoutes() {
+  const pathname = usePathname();
+  const current = useRef(pathname);
+  useEffect(() => {
+    current.current = pathname;
+  }, [pathname]);
   useEffect(() => {
     if (Platform.OS === 'web') return;
     const open = (response: Notifications.NotificationResponse | null) => {
       const url: unknown = response?.notification.request.content.data?.url;
-      if (typeof url === 'string') router.push(url as Href);
+      // A tap for the screen already on top would stack a second copy of it.
+      if (typeof url === 'string' && url !== current.current) router.push(url as Href);
     };
     void Notifications.getLastNotificationResponseAsync().then((response) => {
       open(response);
