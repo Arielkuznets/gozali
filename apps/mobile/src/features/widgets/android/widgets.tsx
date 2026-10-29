@@ -40,7 +40,7 @@ function link(pack: Pack): string {
 }
 
 /** When the day ends, on this phone's clock: right however long ago the widget was drawn (every half hour). */
-function dayEndTime(pack: Pack): string {
+export function dayEndTime(pack: Pack): string {
   return new Date(pack.dayEndsAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 }
 
