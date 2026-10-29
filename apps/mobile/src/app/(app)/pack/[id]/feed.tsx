@@ -22,7 +22,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { critterArt } from '@/features/critter/art';
 import { EatingMoment } from '@/features/feeds/EatingMoment';
 import { useSendFeed } from '@/features/feeds/api';
-import { compressPhoto } from '@/features/feeds/send';
+import { compressPhoto, isFinalRejection } from '@/features/feeds/send';
 import { clearFocusSession } from '@/features/focus/session';
 import { usePack } from '@/features/packs/api';
 import { categoryInfo } from '@/features/packs/constants';
@@ -30,6 +30,7 @@ import { notify } from '@/lib/confirm';
 import { isBlockedText } from '@/lib/errors';
 import { haptics } from '@/lib/haptics';
 import { goBack } from '@/lib/navigation';
+import { serverNow } from '@/lib/serverClock';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 const CAPTION_MAX = 80;
@@ -48,7 +49,7 @@ export default function FeedScreen() {
   const extra = params.extra === '1';
   const focusMinutes = params.focus && /^[0-9]{1,3}$/.test(params.focus) ? Number(params.focus) : null;
   const { session } = useAuth();
-  const { data: pack } = usePack(packId);
+  const { data: pack, refetch: refetchPack } = usePack(packId);
   const [permission, requestPermission] = useCameraPermissions();
   const camera = useRef<CameraView>(null);
   const [facing, setFacing] = useState<CameraType>('back');
@@ -70,7 +71,8 @@ export default function FeedScreen() {
 
   const capture = async () => {
     if (!camera.current || !ready) return;
-    const capturedAt = new Date().toISOString();
+    // The server checks this against its own clock when the feed comes in late (offline).
+    const capturedAt = serverNow().toISOString();
     haptics.bump('medium');
     for (let attempt = 1; attempt <= CAPTURE_TRIES; attempt++) {
       // The screen may have closed while waiting.
@@ -107,6 +109,9 @@ export default function FeedScreen() {
       if (focusMinutes !== null) await clearFocusSession();
       setResult(outcome);
     } catch (error) {
+      // Removed from the pack while the camera was open, the upload is refused before the server
+      // could say why. With the pack gone the screen says so, instead of "try again".
+      if (isFinalRejection(error) && !isBlockedText(error) && (await refetchPack()).data === null) return;
       notify(isBlockedText(error) ? t('errors.textNotAllowed') : t('feed.failed'));
     } finally {
       sending.current = false;
@@ -122,7 +127,7 @@ export default function FeedScreen() {
       <SafeAreaView style={styles.doneScreen}>
         {pack && critter && name ? (
           <EatingMoment
-            art={{ ...critterArt(critter, { category: pack.category, now: new Date() }), mood: 1, sleeping: false }}
+            art={{ ...critterArt(critter, { category: pack.category, now: serverNow() }), mood: 1, sleeping: false }}
             photoUri={shot?.uri ?? null}
             label={t('feed.ateLabel', { name })}
           />

@@ -2,7 +2,8 @@ import '@/i18n';
 
 import { Rubik_400Regular, Rubik_500Medium, Rubik_700Bold } from '@expo-google-fonts/rubik';
 import { useFonts, VarelaRound_400Regular } from '@expo-google-fonts/varela-round';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -17,6 +18,7 @@ import { AuthProvider, useAuth } from '@/features/auth/AuthProvider';
 import { readInstallReferrer } from '@/features/packs/invites';
 import { isProfileComplete, useProfile } from '@/features/profile/useProfile';
 import { refetchWhenAppReturns } from '@/lib/appFocus';
+import { KEEP_MS, persistOptions } from '@/lib/queryCache';
 import { watchForCrashes } from '@/lib/reportError';
 import { colors } from '@/theme/tokens';
 
@@ -28,14 +30,15 @@ refetchWhenAppReturns();
 export { ErrorScreen as ErrorBoundary };
 
 export default function RootLayout() {
-  const [queryClient] = useState(() => new QueryClient());
+  // Queries stay in memory as long as the copy kept on the phone, which holds only what is in memory.
+  const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { gcTime: KEEP_MS } } }));
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
       <AuthProvider>
         <StatusBar style="dark" />
         <RootNavigator />
       </AuthProvider>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }
 

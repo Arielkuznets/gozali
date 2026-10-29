@@ -147,6 +147,17 @@ export async function cleanupPhotos(
   return expired.length + orphans.length;
 }
 
+/** Deletes the avatar files of accounts that are gone (deleted from the Auth dashboard). */
+export async function cleanupAvatars(
+  client: RpcClient,
+  removeFiles: (paths: string[]) => Promise<void>,
+  now: Date,
+): Promise<number> {
+  const orphans = await call<string[]>(client, 'orphan_avatars', { at_time: now.toISOString() });
+  if (orphans.length > 0) await removeFiles(orphans);
+  return orphans.length;
+}
+
 /** Deletes packs nobody has been in for 30 days (spec section 3), their photo files first. */
 export async function dropEmptyPacks(
   client: RpcClient,

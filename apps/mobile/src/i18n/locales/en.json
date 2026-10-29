@@ -779,7 +779,7 @@
   "widgets": {
     "signedOut": "Open Gozali to see your pack",
     "feed": "Feed",
-    "endsIn": "ends in {{time}}",
+    "endsAt": "ends at {{time}}",
     "whichPack": "Which pack?",
     "openFirst": "Open Gozali first, then add the widget again.",
     "cancel": "Cancel",

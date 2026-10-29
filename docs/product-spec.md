@@ -67,7 +67,7 @@ Each pack is an independent unit with one habit, one creature and its own rules;
 
 - **Invite link.** If the app is installed, the link opens the Join pack screen. If not, the landing page shows the invite code, copies it to the clipboard when the download button is tapped, and sends to the store. After installing and signing up:
   - **Android:** the code arrives through Google Play (Install Referrer), and the user joins automatically.
-  - **iOS:** a "Have an invite code?" screen appears with a paste button or manual typing. On iOS there is no fully automatic join without a paid service, and that is a conscious trade-off.
+  - **iOS:** the invite page copies the code; in the app, Join with a code has a paste button or manual typing. On iOS there is no fully automatic join without a paid service, and that is a conscious trade-off.
 - **QR code:** the invite link is also available as a QR code in the pack settings, for inviting face to face.
 - Maximum 8 members. A full pack shows a matching message. The limit is enforced in the database, so two people joining at the same moment can't go over it.
 - **A new member counts only from the day of their first feed.** Until then they appear in the members row as not started yet, they can be nudged, and they don't affect the creature. That way a member who joined and never started doesn't hurt the pack.
@@ -326,7 +326,7 @@ Fourteen screens in version 1, plus widgets for the home screen and the lock scr
 | Onboarding | Four cards where the creatures explain the rules: feed with a photo, responsible together, the creature never dies, and coins from good days dress it up. Can be skipped |
 | Profile setup | Display name, profile photo (optional), age 13+ declaration and accepting the terms, notification permission request with an explanation |
 | Home | The list of packs: for each pack the creature in its state, a health bar, how many members fed today (3/5) **and a direct Feed button**. A create pack button and join with a code |
-| Join pack | The pack name, the habit, the creature and the members, and a join button. On the first open after installing on iOS: "Have an invite code?" with paste or typing |
+| Join pack | The pack name, the habit, the creature and the members, and a join button. Join with a code (on the home screen) takes a pasted or typed code |
 | Pack | The animated creature in the center, health bar, coins, streak, a countdown to the end of the day, a row of member circles (colored = fed, dashed = rest or joker, 💤 = asleep or paused, gray = not yet, including someone who hasn't started), a big Feed button with "Not today" next to it (rest or joker) and in packs of sitting habits (Study, Reading, Meditation, Language, Music practice) also Focus, and the feed below |
 | Camera | Capture, switch camera, retake, caption, send |
 | Focus | The running timer, the creature "studying" or "reading" next to it, pause and cancel |
@@ -344,7 +344,7 @@ Reporting and blocking are in the menu of every feed item and of every member.
 | Widget | Platform | What it shows | Tap |
 | --- | --- | --- | --- |
 | Pack, small | iOS and Android | The creature in its state, a health bar, "3/5", and a mark if the user already fed | Opens the pack's camera, or the pack screen if the user already fed |
-| Pack, medium | iOS and Android | Also: the members' circles without names, the streak, and the time left until the day ends | Like the small one, and a Feed button opens the camera |
+| Pack, medium | iOS and Android | Also: the members' circles without names, the streak, and when the day ends: a live countdown on iOS, the time it ends on Android (which redraws only every half hour) | Like the small one, and a Feed button opens the camera |
 | All packs, large | iOS and Android | Up to 3 packs: for each the creature, health and "3/5" | Opens the pack that was tapped |
 | Lock screen | iOS | A health ring and "3/5"; the rectangular version also shows the creature's name | Opens the pack screen |
 
@@ -521,7 +521,7 @@ Important: the widgets and some of the modules require a **development build**, 
   - `delete-account`: deletes the user, the photos and all the data. It needs service role permissions, so it must run on the server.
   - `on-report`: sends an email to the developer for every new report.
 
-**Invite links:** a simple landing page at an address like `gozali.app/i/CODE`, which opens the app if it's installed (universal link on iOS, App Link on Android). If not, the page shows the code, copies it to the clipboard when the download button is tapped (Safari allows copying to the clipboard only in response to a tap), and sends to the store. On Android the code is also passed in the referrer parameter of the Google Play link, and the app reads it after installing (`getInstallReferrerAsync` from expo-application), so joining is automatic. On iOS there is no free equivalent: on the first open, "Have an invite code?" appears with a paste button (iOS shows a confirmation dialog for pasting from another app) or manual typing. That way a paid deferred deep link service isn't needed.
+**Invite links:** a simple landing page at an address like `gozali.app/i/CODE`, which opens the app if it's installed (universal link on iOS, App Link on Android). If not, the page shows the code, copies it to the clipboard when the download button is tapped (Safari allows copying to the clipboard only in response to a tap), and sends to the store. On Android the code is also passed in the referrer parameter of the Google Play link, and the app reads it after installing (`getInstallReferrerAsync` from expo-application), so joining is automatic. On iOS there is no free equivalent: the person opens Join with a code and pastes it (iOS shows a confirmation dialog for pasting from another app) or types it. That way a paid deferred deep link service isn't needed.
 
 **Widgets:** the app writes the packs' state to shared storage (an App Group on iOS, the app's storage on Android) and asks for a widget refresh after every action. In addition, the widget pulls a fresh state from `widget-state` about every 30 minutes, and schedules a refresh for the end of the day. The official `expo-widgets` was checked and not chosen: right now it is iOS only, in alpha, and without image support. The app and the widgets read the same payload: the app fetches `widget-state` with the device's widget token and hands the result to the widgets, so there is one shape and one source. The critter picture comes from the same drawing code as the app (decision D16): the iOS widget loads PNGs that `widget-state` renders, a day and a night version, and the Android widget draws the SVG on the device. Single-pack widgets choose their pack in the widget settings (an App Intent on iOS, a configuration screen on Android).
 
@@ -628,7 +628,7 @@ All the decisions that blocked version 1 are closed; the details and reasoning a
 - **Running away:** no XP is added while away, and coming back is measured by the streak (no recovery\_days field).
 - **Rest days:** you can declare "Resting today" in advance. Version 1 showed a dashed circle for rest, but the rest was only decided at the day close.
 - **Joker and declared rest:** feeding on the same day cancels them and returns them to the member.
-- **Joining:** automatic joining on Android through Install Referrer; on iOS a code screen with pasting, as a stated trade-off.
+- **Joining:** automatic joining on Android through Install Referrer; on iOS pasting the code under Join with a code, as a stated trade-off.
 - **3 taps:** a direct Feed button on the pack card on the home screen.
 - **Privacy:** the story doesn't include photos of other members; collages are stored as references and deleted with the account.
 - **Notifications:** a daily limit per user and not per pack; no exceptions to quiet hours; a new "Still in?" notification; an evening reminder for members in another time zone; no reminders for someone who isn't counted today.

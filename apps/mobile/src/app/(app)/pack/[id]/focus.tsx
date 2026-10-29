@@ -18,6 +18,7 @@ import { confirm } from '@/lib/confirm';
 import { allowNotifications } from '@/lib/notifications';
 import { goBack } from '@/lib/navigation';
 import { useNow } from '@/lib/useNow';
+import { serverNow } from '@/lib/serverClock';
 import { colors, fonts, spacing } from '@/theme/tokens';
 
 function clock(ms: number): string {
@@ -36,7 +37,8 @@ export default function FocusScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: pack, isPending, isError, refetch } = usePack(id);
   const focus = useFocusSession({ title: t('focus.doneTitle'), body: t('focus.doneBody') });
-  const now = useNow(1000);
+  // The session's times are the phone's own (Date.now), and so is its notification.
+  const now = useNow(1000, 'phone');
   const opened = useRef(false);
 
   const session = focus.session?.packId === id ? focus.session : null;
@@ -142,7 +144,7 @@ export default function FocusScreen() {
 
 function FocusCritter({ pack }: { pack: NonNullable<ReturnType<typeof usePack>['data']> }) {
   const critter = pack.critters!;
-  const art = { ...critterArt(critter, { category: pack.category, now: new Date() }), sleeping: false };
+  const art = { ...critterArt(critter, { category: pack.category, now: serverNow() }), sleeping: false };
   const text = useCritterText(critter, art);
   return <Critter art={art} size={160} label={text.label} lines={text.lines} />;
 }

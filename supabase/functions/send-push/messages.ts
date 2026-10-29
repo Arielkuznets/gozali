@@ -108,7 +108,13 @@ export function render(row: ClaimedRow): Rendered {
     case 'friend_fed':
       return {
         title: pack,
-        body: row.names.length === 1 ? `${row.names[0]} fed ${critter} 🍽️` : `${row.names.length} friends fed ${critter} 🍽️`,
+        // Feeders whose accounts are gone have no name left.
+        body:
+          row.names.length === 0
+            ? `Someone fed ${critter} 🍽️`
+            : row.names.length === 1
+              ? `${row.names[0]} fed ${critter} 🍽️`
+              : `${row.names.length} friends fed ${critter} 🍽️`,
         url: home,
       };
     case 'evening_reminder':

@@ -9,6 +9,7 @@ import { enqueue, flushQueue, isOnline, pendingFeeds } from '@/features/feeds/qu
 import { PHOTO_BUCKET, feedErrorCode, isFinalRejection, sendFeed, type OutgoingFeed } from '@/features/feeds/send';
 import type { ReactionTotal } from '@/features/social/api';
 import { requireSupabase } from '@/lib/supabase';
+import { serverNow } from '@/lib/serverClock';
 
 export type FeedItem = {
   id: string;
@@ -39,7 +40,7 @@ export function useCountedFeeds() {
   return useQuery({
     queryKey: [...feedsKey, 'counted'],
     queryFn: async (): Promise<CountedFeed[]> => {
-      const since = addDays(new Date().toISOString().slice(0, 10), -2);
+      const since = addDays(serverNow().toISOString().slice(0, 10), -2);
       const { data, error } = await requireSupabase()
         .from('feeds')
         .select('pack_id, user_id, day')

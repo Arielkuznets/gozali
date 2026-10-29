@@ -988,6 +988,21 @@ export type Database = {
         };
         Relationships: [];
       };
+      sign_in_report_sources: {
+        Row: {
+          at: string;
+          source: string;
+        };
+        Insert: {
+          at?: string;
+          source: string;
+        };
+        Update: {
+          at?: string;
+          source?: string;
+        };
+        Relationships: [];
+      };
       weekly_recaps: {
         Row: {
           created_at: string;
@@ -1150,6 +1165,7 @@ export type Database = {
       new_invite_code: { Args: Record<PropertyKey, never>; Returns: string };
       note_heartbeat: { Args: { at_time?: string; job_name: string }; Returns: boolean };
       nudge: { Args: { member: string; target: string }; Returns: undefined };
+      orphan_avatars: { Args: { at_time?: string; max_rows?: number }; Returns: string[] };
       orphan_photos: { Args: { at_time?: string; max_rows?: number }; Returns: string[] };
       outage_on: { Args: { pack_date: string; target: string }; Returns: boolean };
       outcome_ids: { Args: { kind: string; outcomes: Json }; Returns: string[] };

@@ -2,7 +2,7 @@ import { signOut } from '@/features/auth/signIn';
 
 // What the phone keeps for the account is forgotten first; here that is all a no-op.
 jest.mock('@/lib/push', () => ({ unregisterPushToken: async () => undefined }));
-jest.mock('@/features/widgets/sync', () => ({ clearWidgets: async () => undefined }));
+jest.mock('@/features/widgets/sync', () => ({ clearWidgets: async () => undefined, resumeWidgets: () => undefined }));
 jest.mock('@/features/focus/session', () => ({ clearFocusSession: async () => undefined }));
 jest.mock('@/lib/notifications', () => ({ clearNotifications: async () => undefined }));
 const mockClearQueue = jest.fn(async () => undefined);

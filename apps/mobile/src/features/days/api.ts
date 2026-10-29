@@ -1,9 +1,10 @@
 import { packDayOf } from '@gozali/game-engine';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import type { Pack } from '@/features/packs/api';
+import { usePack, type Pack } from '@/features/packs/api';
 import { isBlockedText } from '@/lib/errors';
 import { requireSupabase } from '@/lib/supabase';
+import { useNow } from '@/lib/useNow';
 
 /** my_day_status: what the caller can do today in a pack. */
 export type DayStatus = {
@@ -33,14 +34,23 @@ export type MembersToday = {
 export const daysKey = ['days'] as const;
 export const PAUSE_LENGTHS = [3, 7, 14, 30, 60] as const;
 
+/** Keyed by the pack day, so a screen left open past 03:00 asks again instead of showing yesterday. */
 export function useDayStatus(packId: string) {
+  const { data: pack } = usePack(packId);
+  const now = useNow(60_000);
+  const today = pack ? packDayOf(now, pack.timezone) : null;
   return useQuery({
-    queryKey: [...daysKey, 'status', packId],
+    queryKey: [...daysKey, 'status', packId, today],
+    // Once the pack is known, or known to be gone: then the server's refusal shows, not a spinner.
+    enabled: pack !== undefined,
     queryFn: async (): Promise<DayStatus> => {
       const { data, error } = await requireSupabase().rpc('my_day_status', { target: packId });
       if (error) throw error;
       return data as DayStatus;
     },
+    // A phone a little fast asks just before the server's 03:00 and gets yesterday back: it asks
+    // again until the answer is for today.
+    refetchInterval: (query) => (today !== null && query.state.data !== undefined && query.state.data.day < today ? 15_000 : false),
   });
 }
 

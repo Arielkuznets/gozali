@@ -40,10 +40,12 @@ const { data: pack } = await admin
   .select('id')
   .single();
 await admin.from('critters').insert({ pack_id: pack.id, species: 'kit', status: 'active', stage: 'kid', name: 'Pixel' });
+// Everyone joined a few days ago: a member counts from feeds for the day they joined or later.
+const joinedAt = new Date(Date.now() - 3 * 24 * 3600_000).toISOString();
 const joined = await admin.from('pack_members').insert([
-  { pack_id: pack.id, user_id: noa, role: 'admin' },
-  { pack_id: pack.id, user_id: dan, role: 'member' },
-  { pack_id: pack.id, user_id: maya, role: 'member' },
+  { pack_id: pack.id, user_id: noa, role: 'admin', joined_at: joinedAt },
+  { pack_id: pack.id, user_id: dan, role: 'member', joined_at: joinedAt },
+  { pack_id: pack.id, user_id: maya, role: 'member', joined_at: joinedAt },
 ]);
 if (joined.error) throw joined.error;
 
@@ -155,6 +157,8 @@ await sendAll(
 check(alertMessages.length === 1 && /^🐣 Lior joined Gozali, user number \d+$/.test(alertMessages[0].body), 'the owner reads "Lior joined Gozali"');
 const summary = render({ type: 'daily_summary', payload: { newUsers: 2, users: 41, feeders: 1, packs: 1, reports: 1, errors: 0 } });
 check(summary.body === '👋 2 new (41 in all) · 🍽️ 1 person fed 1 pack · 🚩 1 report', 'the daily summary fits in one line');
+const unnamed = render({ type: 'friend_fed', payload: {}, names: [], critter_name: 'Pixel' });
+check(unnamed.body === 'Someone fed Pixel 🍽️', 'a friend-fed notice with no feeder left reads "Someone fed Pixel"');
 const trouble = render({ type: 'daily_summary', payload: { newUsers: 0, users: 41, feeders: 0, packs: 0, serverErrors: 3, downHours: 2 } });
 check(trouble.body.endsWith('· 🛠️ 3 server errors · 📴 down 2h'), 'and says when the server had trouble');
 
