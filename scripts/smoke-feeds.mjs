@@ -80,7 +80,11 @@ const fed = await noa.client.rpc('submit_feed', {
 });
 check(!fed.error && typeof fed.data === 'string', 'Noa feeds with a caption and a 45 minute focus session');
 const twice = await noa.client.rpc('submit_feed', { target: packId, photo: path });
-check(twice.error?.message.includes('already_fed'), 'a second counted feed the same day is refused');
+check(twice.data === fed.data, 'the same feed sent again (its answer was lost) gets back the feed it made');
+const second = `${packId}/${noa.id}/${run}-2.jpg`;
+await noa.client.storage.from('feed-photos').upload(second, photo, { contentType: 'image/jpeg' });
+const another = await noa.client.rpc('submit_feed', { target: packId, photo: second });
+check(another.error?.message.includes('already_fed'), 'a second counted feed the same day is refused');
 
 const until = Date.now() + 5000;
 while (heard.length === 0 && Date.now() < until) await new Promise((resolve) => setTimeout(resolve, 100));
@@ -99,7 +103,7 @@ const eveFeeds = await eve.client.from('feeds').select('id').eq('pack_id', packI
 check(eveFeeds.data?.length === 0, 'and sees no feeds');
 
 await dan.client.removeChannel(channel);
-await admin.storage.from('feed-photos').remove([path]);
+await admin.storage.from('feed-photos').remove([path, second]);
 for (const user of [noa, dan, eve]) await admin.auth.admin.deleteUser(user.id);
 console.log('all good');
 process.exit(0);
