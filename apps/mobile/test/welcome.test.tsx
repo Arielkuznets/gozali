@@ -18,9 +18,29 @@ jest.mock('expo-apple-authentication', () => ({
   AppleAuthenticationScope: { FULL_NAME: 0, EMAIL: 1 },
   signInAsync: (...args: unknown[]) => mockSignInAsync(...args),
 }));
+jest.mock('expo-linking', () => ({ createURL: (path: string) => `gozali://${path}` }));
+const mockOpenAuthSession = jest.fn();
+jest.mock('expo-web-browser', () => ({ openAuthSessionAsync: (...args: unknown[]) => mockOpenAuthSession(...args) }));
+let mockAppleWebSignIn = false;
+const mockConfig = () => ({
+  min_version: '1.0.0',
+  ios_url: null,
+  android_url: null,
+  apple_revocation: false,
+  apple_web_sign_in: mockAppleWebSignIn,
+});
+const mockSignInWithOAuth = jest.fn();
 jest.mock('@/lib/supabase', () => ({
-  supabase: { rpc: () => Promise.resolve({ error: null }) },
-  requireSupabase: () => ({ auth: { signInWithIdToken: () => Promise.resolve({ error: null }) } }),
+  supabase: {
+    rpc: () => Promise.resolve({ error: null }),
+    from: () => ({ select: () => ({ maybeSingle: () => Promise.resolve({ data: mockConfig(), error: null }) }) }),
+  },
+  requireSupabase: () => ({
+    auth: {
+      signInWithIdToken: () => Promise.resolve({ error: null }),
+      signInWithOAuth: (...args: unknown[]) => mockSignInWithOAuth(...args),
+    },
+  }),
   NotConfiguredError: class extends Error {},
 }));
 
@@ -37,6 +57,8 @@ beforeEach(async () => {
   globalThis.fetch = jest.fn(async () => ({ ok: false })) as unknown as typeof fetch;
   alert.mockClear();
   mockSignInAsync.mockReset();
+  mockOpenAuthSession.mockReset().mockResolvedValue({ type: 'cancel' });
+  mockSignInWithOAuth.mockReset().mockResolvedValue({ data: { url: 'https://auth.test/authorize?provider=apple' }, error: null });
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   await act(async () => {
     tree = create(
@@ -62,6 +84,7 @@ async function tapApple(waitMs: number) {
 }
 
 const shown = () => JSON.stringify(tree.toJSON());
+const browserButtons = () => tree.root.findAll((node) => node.props.label === 'Continue with Apple in the browser');
 
 describe('signing in with Apple', () => {
   it('says so when Apple cancels before any sheet could show', async () => {
@@ -82,5 +105,49 @@ describe('signing in with Apple', () => {
     await tapApple(100);
     expect(alert).toHaveBeenCalledWith("Sign-in didn't work. Please try again.", 'Code: ERR_REQUEST_UNKNOWN');
     expect(shown()).not.toContain("Sign-in didn't finish");
+  });
+});
+
+describe("Apple's sign-in page as a fallback", () => {
+  afterEach(() => {
+    mockAppleWebSignIn = false;
+  });
+
+  /** Opens the welcome screen again, with the server's switch as given. */
+  async function reopen(appleWebSignIn: boolean) {
+    act(() => tree.unmount());
+    client.clear();
+    mockAppleWebSignIn = appleWebSignIn;
+    await act(async () => {
+      tree = create(
+        <QueryClientProvider client={client}>
+          <WelcomeScreen />
+        </QueryClientProvider>,
+      );
+    });
+  }
+
+  it("is offered once Apple's sheet failed, while the server allows it", async () => {
+    await reopen(true);
+    expect(browserButtons()).toHaveLength(0);
+    mockSignInAsync.mockImplementation(rejectAfter(50, cancelled));
+    await tapApple(100);
+    const [button] = browserButtons();
+    expect(button).toBeDefined();
+
+    await act(async () => {
+      button.props.onPress();
+    });
+    expect(mockSignInWithOAuth).toHaveBeenCalledWith(expect.objectContaining({ provider: 'apple' }));
+    expect(mockOpenAuthSession).toHaveBeenCalledWith('https://auth.test/authorize?provider=apple', 'gozali://auth/callback');
+    // Closing the browser leaves the way open to try again.
+    expect(browserButtons()).not.toHaveLength(0);
+  });
+
+  it('is not offered while the server keeps it off', async () => {
+    await reopen(false);
+    mockSignInAsync.mockImplementation(rejectAfter(50, failed));
+    await tapApple(100);
+    expect(browserButtons()).toHaveLength(0);
   });
 });

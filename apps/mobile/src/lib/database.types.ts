@@ -53,6 +53,7 @@ export type Database = {
         Row: {
           android_url: string | null;
           apple_revocation: boolean;
+          apple_web_sign_in: boolean;
           id: boolean;
           ios_url: string | null;
           min_version: string;
@@ -60,6 +61,7 @@ export type Database = {
         Insert: {
           android_url?: string | null;
           apple_revocation?: boolean;
+          apple_web_sign_in?: boolean;
           id?: boolean;
           ios_url?: string | null;
           min_version?: string;
@@ -67,6 +69,7 @@ export type Database = {
         Update: {
           android_url?: string | null;
           apple_revocation?: boolean;
+          apple_web_sign_in?: boolean;
           id?: boolean;
           ios_url?: string | null;
           min_version?: string;

@@ -11,6 +11,7 @@
     "continueWithApple": "Continue with Apple",
     "appleDidntOpen": "Sign in with Apple didn't open. Please try again.",
     "cancelled": "Sign-in didn't finish. Tap Continue with Apple to try again.",
+    "appleInBrowser": "Continue with Apple in the browser",
     "continueWithGoogle": "Continue with Google",
     "devLogin": "Dev login with email",
     "terms": "By continuing you agree to the Terms and the Privacy Policy."

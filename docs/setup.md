@@ -36,7 +36,7 @@ Everything runs locally without accounts (see the README). This is the one-time 
 
 6. Auth → URL configuration: site URL `gozali://`, redirect URL `gozali://auth/callback`.
 7. Auth → providers:
-   - **Apple:** an App ID with Sign in with Apple (bundle id `app.gozali`), a Services ID, and a key; paste them into the Apple provider. Add the bundle id to the provider's client IDs for native sign-in.
+   - **Apple:** an App ID with Sign in with Apple (bundle id `app.gozali`), and the bundle id in the provider's client IDs: that is all the native sign-in on iPhones needs. Signing in with Apple in the browser (on Android, and as the fallback on iPhones) also needs a Services ID and a secret, see section 8.
    - **Google:** the app signs in with Google through the browser, so one OAuth client of type Web application is enough (Google Cloud → APIs & Services → Credentials, in the Google Cloud project Firebase creates). Its authorized redirect URI is `https://<project-ref>.supabase.co/auth/v1/callback`; paste its client ID and secret into the Google provider. The app shows its Google button only while this provider is on (it reads the project's public auth settings), so turning it on needs no new build.
 8. The email code template (`supabase/templates/sign_in_code.html`) is only for the development login; it can stay off in production.
 
@@ -180,3 +180,18 @@ Apple asks apps with Sign in with Apple to revoke the user's tokens when they de
 - One reaches the app: `decode-uri-component` through expo-router's `query-string` decodes a malformed link slowly, so a crafted link could at most make the app slow while it opens. The fixed version is ES modules only and doesn't load in `query-string` 7, so it waits for expo-router.
 
 Run the audit again after every Expo SDK upgrade.
+
+## 8. Sign in with Apple in the browser
+
+On iPhones and iPads the app signs in with Apple's own sheet. Where that sheet fails (App Review once couldn't sign in on an iPad), the welcome screen can also offer Apple's sign-in page in the browser. It needs the Apple provider set up for the web:
+
+1. Apple Developer → Certificates, IDs & Profiles → Identifiers → + → Services IDs, for example `app.gozali.web`. Turn on Sign in with Apple and configure it: primary App ID `app.gozali`, domain `<project-ref>.supabase.co`, return URL `https://<project-ref>.supabase.co/auth/v1/callback`.
+2. Generate the client secret for the Services ID from a key with Sign in with Apple for `app.gozali` (the key from section 6 will do), with the tool in Supabase's guide to Apple sign-in. Apple lets a secret live six months at most, so put a reminder in the calendar to generate the next one.
+3. Auth → providers → Apple: put the Services ID first in the client IDs, before `app.gozali` (the browser sign-in uses the first one, the native sign-in accepts any of them), and paste the secret into the secret key field. Continue with Apple on Android works from here on, because it always uses the browser.
+4. Turn on the fallback for iPhones:
+
+   ```sh
+   npx supabase db query --linked "update public.app_config set apple_web_sign_in = true"
+   ```
+
+   The button shows only after Apple's sheet failed or was closed, under Continue with Apple.

@@ -10,6 +10,7 @@ import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { LegalLinks } from '@/components/LegalLinks';
 import { Screen } from '@/components/Screen';
+import { useAppConfig } from '@/features/app/appConfig';
 import { isGoogleEnabled, signInTrouble, signInWithApple, signInWithBrowser, type SignInTrouble } from '@/features/auth/signIn';
 import { Critter } from '@/features/critter/Critter';
 import { ONBOARDED_KEY } from '@/features/profile/onboarding';
@@ -18,12 +19,19 @@ import { errorCode, reportSignInProblem } from '@/lib/reportError';
 import { NotConfiguredError } from '@/lib/supabase';
 import { critterColors, radii, spacing } from '@/theme/tokens';
 
-type Provider = 'apple' | 'google';
+type Provider = 'apple' | 'apple-web' | 'google';
+
+const SIGN_IN: Record<Provider, () => Promise<void>> = {
+  apple: signInWithApple,
+  'apple-web': () => signInWithBrowser('apple'),
+  google: () => signInWithBrowser('google'),
+};
 
 export default function WelcomeScreen() {
   const { t } = useTranslation();
   const [busy, setBusy] = useState<Provider | null>(null);
   const google = useQuery({ queryKey: ['google-sign-in'], queryFn: isGoogleEnabled, staleTime: Infinity });
+  const config = useAppConfig();
 
   // The rules come first, once per install.
   useEffect(() => {
@@ -35,6 +43,10 @@ export default function WelcomeScreen() {
   // A second tap while Apple's sheet is on its way would start a second request over the first.
   const pending = useRef(false);
   const [trouble, setTrouble] = useState<SignInTrouble | null>(null);
+  // Apple's sign-in page, for a device where Apple's own sheet lets people down. It works once the
+  // Apple provider is set up for the web, so the server turns it on (app_config.apple_web_sign_in).
+  const [appleFailed, setAppleFailed] = useState(false);
+  const offerAppleWeb = Platform.OS === 'ios' && appleFailed && config.data?.apple_web_sign_in === true;
 
   const run = async (provider: Provider) => {
     if (pending.current) return;
@@ -43,11 +55,12 @@ export default function WelcomeScreen() {
     setTrouble(null);
     const started = Date.now();
     try {
-      await (provider === 'apple' ? signInWithApple() : signInWithBrowser('google'));
+      await SIGN_IN[provider]();
     } catch (error) {
       // In development the log says what went wrong; the server hears about it either way.
       if (__DEV__) console.warn('Sign-in failed', error);
       reportSignInProblem(provider, error);
+      if (provider === 'apple') setAppleFailed(true);
       const kind = signInTrouble(error, Date.now() - started);
       setTrouble(kind);
       const code = errorCode(error);
@@ -94,6 +107,14 @@ export default function WelcomeScreen() {
           <AppText variant="caption" style={styles.centerText}>
             {t('welcome.cancelled')}
           </AppText>
+        )}
+        {offerAppleWeb && (
+          <Button
+            label={t('welcome.appleInBrowser')}
+            variant="secondary"
+            loading={busy === 'apple-web'}
+            onPress={() => void run('apple-web')}
+          />
         )}
         {google.data === true && (
           <Button
