@@ -50,3 +50,12 @@ export function inviteLink(code: string): string {
 export function normalizeInviteCode(input: string): string {
   return input.toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g, '').slice(0, INVITE_CODE_LENGTH);
 }
+
+/**
+ * The code in what someone pasted: the invite message and the link carry it after "/i/" or
+ * "Code:", and the letters of the rest would make a wrong code. Anything else is the code itself.
+ */
+export function inviteCodeFrom(input: string): string {
+  const found = /gozali(?:\.app|:\/)\/i\/([a-z0-9-]+)/i.exec(input) ?? /\bcode:\s*([a-z0-9-]+)/i.exec(input);
+  return normalizeInviteCode(found?.[1] ?? input);
+}

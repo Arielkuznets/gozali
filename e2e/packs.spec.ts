@@ -55,6 +55,22 @@ test('joining with a code shows the pack first, then opens it', async ({ page })
   expect(members).toHaveLength(2);
 });
 
+test('pasting the whole invite message finds the code in it', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' });
+  await signIn(page, dan);
+  await page.goto('/join');
+  // What the invite screen shares, as it arrives in a chat.
+  await page
+    .getByLabel('Invite code')
+    .fill(`Join my pack "Gym squad" on Gozali! Code: ${pack.inviteCode}\nhttps://gozali.app/i/${pack.inviteCode}`);
+
+  await expect(page.getByLabel('Invite code')).toHaveValue(pack.inviteCode);
+  await expect(page.getByText('Gym squad')).toBeVisible();
+
+  await page.getByLabel('Invite code').fill(`https://gozali.app/i/${pack.inviteCode.toLowerCase()}`);
+  await expect(page.getByLabel('Invite code')).toHaveValue(pack.inviteCode);
+});
+
 test('the admin replaces a leaked invite code, and only the admin can', async ({ page }) => {
   const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
   page.on('dialog', (dialog) => void dialog.accept());

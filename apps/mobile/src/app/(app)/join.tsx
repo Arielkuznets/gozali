@@ -11,7 +11,7 @@ import { TextField } from '@/components/TextField';
 import { Critter } from '@/features/critter/Critter';
 import { critterArt } from '@/features/critter/art';
 import { packErrorKey, useJoinPack, usePackPreview } from '@/features/packs/api';
-import { INVITE_CODE_LENGTH, categoryInfo, normalizeInviteCode } from '@/features/packs/constants';
+import { INVITE_CODE_LENGTH, categoryInfo, inviteCodeFrom, normalizeInviteCode } from '@/features/packs/constants';
 import { notify } from '@/lib/confirm';
 import { haptics } from '@/lib/haptics';
 import { goBack } from '@/lib/navigation';
@@ -26,7 +26,7 @@ export default function JoinScreen() {
   const joinPack = useJoinPack();
 
   const onPaste = async () => {
-    setCode(normalizeInviteCode(await Clipboard.getStringAsync()));
+    setCode(inviteCodeFrom(await Clipboard.getStringAsync()));
   };
 
   const onJoin = () => {
@@ -54,7 +54,7 @@ export default function JoinScreen() {
               autoCapitalize="characters"
               autoCorrect={false}
               value={code}
-              onChangeText={(text) => setCode(normalizeInviteCode(text))}
+              onChangeText={(text) => setCode(inviteCodeFrom(text))}
               returnKeyType="join"
               onSubmitEditing={() => pack && !pack.is_full && onJoin()}
             />
