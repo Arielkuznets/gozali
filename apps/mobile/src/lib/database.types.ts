@@ -1201,6 +1201,10 @@ export type Database = {
         Returns: undefined;
       };
       report_details: { Args: { report: string }; Returns: Json };
+      report_sign_in_problem: {
+        Args: { app_version?: string; device?: string; problem: string };
+        Returns: undefined;
+      };
       requeue_notifications: { Args: { ids: string[] }; Returns: undefined };
       require_admin: { Args: { target: string }; Returns: string };
       require_membership: { Args: { member: string; target: string }; Returns: string };

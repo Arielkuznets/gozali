@@ -46,6 +46,33 @@ export function reportError(error: unknown, screen: string | null = null): void 
   void send(describe(error, screen, false)).catch(() => undefined);
 }
 
+/** The code a native module or the server gave the error, if any. */
+export function errorCode(error: unknown): string | null {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code != null ? String(error.code) : null;
+}
+
+/**
+ * Tells the developer why a sign-in didn't finish, cancellations included: Apple's own failures can
+ * look like the user closing the sheet, and a failure before anyone is signed in leaves no other
+ * trace (App Review once couldn't sign in on an iPad and the server saw nothing). Never throws.
+ */
+export function reportSignInProblem(provider: string, error: unknown): void {
+  if (!supabase) return;
+  const message = error instanceof Error ? error.message : String(error);
+  const { systemName, osVersion } = Platform.constants as { systemName?: string; osVersion?: string };
+  const system = `${systemName ?? Platform.OS} ${osVersion ?? Platform.Version}`;
+  void supabase
+    .rpc('report_sign_in_problem', {
+      problem: `${provider} ${errorCode(error) ?? 'no code'}: ${message} (${system})`,
+      device: Platform.OS,
+      app_version: appVersion(),
+    })
+    .then(
+      () => undefined,
+      () => undefined,
+    );
+}
+
 /**
  * Catches JavaScript errors nothing else handled. A fatal one closes the app before a request
  * could finish, so it is kept on the phone and sent on the next start.

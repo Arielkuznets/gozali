@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery } from '@tanstack/react-query';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, StyleSheet, View } from 'react-native';
 
@@ -14,6 +14,7 @@ import { isCancellation, isGoogleEnabled, signInWithApple, signInWithBrowser } f
 import { Critter } from '@/features/critter/Critter';
 import { ONBOARDED_KEY } from '@/features/profile/onboarding';
 import { notify } from '@/lib/confirm';
+import { errorCode, reportSignInProblem } from '@/lib/reportError';
 import { NotConfiguredError } from '@/lib/supabase';
 import { critterColors, radii, spacing } from '@/theme/tokens';
 
@@ -31,17 +32,28 @@ export default function WelcomeScreen() {
     });
   }, []);
 
+  // A second tap while Apple's sheet is on its way would start a second request over the first.
+  const pending = useRef(false);
+
   const run = async (provider: Provider) => {
+    if (pending.current) return;
+    pending.current = true;
     setBusy(provider);
     try {
       await (provider === 'apple' ? signInWithApple() : signInWithBrowser('google'));
     } catch (error) {
-      // The alert says little; in development the log says what went wrong.
+      // In development the log says what went wrong; the server hears about it either way.
       if (__DEV__) console.warn('Sign-in failed', error);
+      reportSignInProblem(provider, error);
       if (!isCancellation(error)) {
-        notify(error instanceof NotConfiguredError ? t('errors.notConfigured') : t('errors.signInFailed'));
+        const code = errorCode(error);
+        notify(
+          error instanceof NotConfiguredError ? t('errors.notConfigured') : t('errors.signInFailed'),
+          code ? t('errors.code', { code }) : undefined,
+        );
       }
     } finally {
+      pending.current = false;
       setBusy(null);
     }
   };
@@ -60,14 +72,17 @@ export default function WelcomeScreen() {
 
       <View style={styles.actions}>
         {Platform.OS === 'ios' ? (
-          // Apple requires its own button style for Sign in with Apple on iOS.
-          <AppleAuthentication.AppleAuthenticationButton
-            buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
-            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-            cornerRadius={radii.pill}
-            style={styles.appleButton}
-            onPress={() => void run('apple')}
-          />
+          // Apple requires its own button style for Sign in with Apple on iOS. It has no loading
+          // state, so it dims while Apple's sheet is on its way.
+          <View style={busy === 'apple' && styles.busy}>
+            <AppleAuthentication.AppleAuthenticationButton
+              buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+              cornerRadius={radii.pill}
+              style={styles.appleButton}
+              onPress={() => void run('apple')}
+            />
+          </View>
         ) : (
           <Button label={t('welcome.continueWithApple')} loading={busy === 'apple'} onPress={() => void run('apple')} />
         )}
@@ -96,5 +111,6 @@ const styles = StyleSheet.create({
   tagline: { textAlign: 'center', maxWidth: 320 },
   actions: { gap: spacing.sm },
   appleButton: { height: 52, alignSelf: 'stretch' },
+  busy: { opacity: 0.5, pointerEvents: 'none' },
   terms: { textAlign: 'center', marginTop: spacing.sm },
 });
