@@ -767,6 +767,7 @@
     "changePhoto": "Change photo",
     "takePhoto": "Take a photo",
     "choosePhoto": "Choose from library",
+    "cameraOff": "Gozali can't use the camera. Allow it in your phone's settings, or choose a photo from your library.",
     "removePhoto": "Remove photo",
     "boardDay": "{{day}}, {{status}}"
   },
