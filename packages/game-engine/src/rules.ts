@@ -50,6 +50,18 @@ export function memberOutcome(member: MemberDay, restDaysPerWeek: number): Membe
   return 'missed';
 }
 
+/**
+ * Whether an egg hatches when today ends whatever the members who haven't fed yet do: two of them
+ * fed, and the day succeeds even if every other member who could miss does, and those resting or
+ * on a joker leave the pack (which lowers the misses allowed).
+ */
+export function hatchIsCertain(members: readonly MemberDay[], restDaysPerWeek: number): boolean {
+  const outcomes = members.map((member) => memberOutcome(member, restDaysPerWeek));
+  const feeds = outcomes.filter((outcome) => outcome === 'fed').length;
+  const misses = outcomes.filter((outcome) => outcome === 'missed').length;
+  return feeds >= FEEDERS_TO_HATCH && misses <= allowedMisses(feeds + misses);
+}
+
 /** Closes one pack day: who counted, what kind of day it was, and the critter's new state. */
 export function closeDay(input: DayInput): DayResult {
   const rows = input.members.map((member) => {

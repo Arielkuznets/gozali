@@ -24,6 +24,12 @@ export type TodayPasses = {
   paused: Set<string>;
 };
 
+/** members_today: what the pack screen doesn't load of today's close. */
+export type MembersToday = {
+  restDaysPerWeek: number;
+  members: { userId: string; membership: 'active' | 'sleeping' | 'left'; hasStarted: boolean; restDaysUsedThisWeek: number }[];
+};
+
 export const daysKey = ['days'] as const;
 export const PAUSE_LENGTHS = [3, 7, 14, 30, 60] as const;
 
@@ -34,6 +40,20 @@ export function useDayStatus(packId: string) {
       const { data, error } = await requireSupabase().rpc('my_day_status', { target: packId });
       if (error) throw error;
       return data as DayStatus;
+    },
+  });
+}
+
+/** Whether each member has started and the rest days they used, for the hatch steps. */
+export function useMembersToday(pack: Pick<Pack, 'id' | 'timezone'> | undefined, now: Date, enabled: boolean) {
+  const today = pack ? packDayOf(now, pack.timezone) : '';
+  return useQuery({
+    queryKey: [...daysKey, 'members', pack?.id, today],
+    enabled: pack !== undefined && enabled,
+    queryFn: async (): Promise<MembersToday> => {
+      const { data, error } = await requireSupabase().rpc('members_today', { target: pack!.id });
+      if (error) throw error;
+      return data as MembersToday;
     },
   });
 }

@@ -1144,6 +1144,7 @@ export type Database = {
         Returns: boolean;
       };
       leave_pack: { Args: { target: string }; Returns: undefined };
+      members_today: { Args: { target: string }; Returns: Json };
       my_day_status: { Args: { target: string }; Returns: Json };
       my_stats: { Args: Record<PropertyKey, never>; Returns: Json };
       new_invite_code: { Args: Record<PropertyKey, never>; Returns: string };

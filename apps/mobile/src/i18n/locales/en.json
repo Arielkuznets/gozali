@@ -154,7 +154,8 @@
       "feed_other": "Two of you feed on the same day ({{count}}/2 today)",
       "fedDone": "Two of you fed today",
       "dayEnds": "It hatches when that day ends, at night",
-      "tonight": "It hatches tonight, when today ends 🎉"
+      "tonight": "It hatches tonight, when today ends 🎉",
+      "tonightIf": "It hatches tonight if no one else misses today"
     },
     "doneToday": "Your part is done for today ✓",
     "asleepYou": "You dozed off here after a few missed days, so {{name}} doesn't count on you. One photo and you're back.",
