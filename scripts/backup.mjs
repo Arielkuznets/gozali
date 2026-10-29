@@ -58,10 +58,14 @@ function backUp() {
   const backup = { takenAt: new Date().toISOString(), source: target.slice(2), tables: {} };
   for (const table of tables) {
     const rows = [];
+    // In the order of whole rows, the same on every page. By the first column alone, the rows that
+    // share it (a pack's day results) came in a different order on each page, so some were saved
+    // twice and others not at all.
     for (let offset = 0; ; offset += PAGE) {
       const page = json(
-        query(`select coalesce(json_agg(t), '[]'::json) as rows from (select * from ${table} order by 1 limit ${PAGE} offset ${offset}) t`)[0]
-          .rows,
+        query(
+          `select coalesce(json_agg(t), '[]'::json) as rows from (select * from ${table} as r order by (r.*) limit ${PAGE} offset ${offset}) t`,
+        )[0].rows,
       );
       rows.push(...page);
       if (page.length < PAGE) break;
