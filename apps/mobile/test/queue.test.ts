@@ -87,6 +87,26 @@ describe('offline feed queue', () => {
     expect(mockSendFeed).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'a', caption: null }));
   });
 
+  it('keeps a feed whose second try meets a network error, without the refused caption', async () => {
+    await enqueue({ ...feed('a'), caption: 'Kicked ass today' });
+    mockSendFeed
+      .mockRejectedValueOnce({ code: '22023', message: 'text_not_allowed' })
+      .mockRejectedValueOnce(new TypeError('Network request failed'));
+    expect(await flushQueue()).toBe(0);
+    expect(await pendingFeeds()).toEqual([expect.objectContaining({ id: 'a', caption: null })]);
+  });
+
+  it('posts a feed without its refused caption as an extra when the day was fed meanwhile', async () => {
+    await enqueue({ ...feed('a'), caption: 'Kicked ass today' });
+    mockSendFeed
+      .mockRejectedValueOnce({ code: '22023', message: 'text_not_allowed' })
+      .mockRejectedValueOnce({ code: 'P0001', message: 'already_fed' })
+      .mockResolvedValueOnce('feed-id');
+    expect(await flushQueue()).toBe(1);
+    expect(mockSendFeed).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'a', caption: null, extra: true }));
+    expect(await pendingFeeds()).toEqual([]);
+  });
+
   it('lists what waits for one pack', async () => {
     await enqueue(feed('a'));
     await enqueue({ ...feed('b'), packId: 'other' });
