@@ -14,6 +14,7 @@ import {
 
 const JERUSALEM = 'Asia/Jerusalem';
 const NEW_YORK = 'America/New_York';
+const ATHENS = 'Europe/Athens';
 const HOUR = 3_600_000;
 
 describe('pack days', () => {
@@ -41,6 +42,23 @@ describe('pack days', () => {
     assert.equal(length('2026-10-24', JERUSALEM), 25);
     assert.equal(length('2026-03-07', NEW_YORK), 23);
     assert.equal(length('2026-09-26', JERUSALEM), 24);
+  });
+
+  it('ends a day at the first 03:00 when the clocks go back over it', () => {
+    // In Athens the clocks go back from 04:00 to 03:00 on 2026-10-25, so 03:00 happens twice.
+    assert.equal(dayEnd('2026-10-24', ATHENS).toISOString(), '2026-10-25T00:00:00.000Z');
+    assert.equal(packDayOf(new Date('2026-10-24T23:59:59Z'), ATHENS), '2026-10-24');
+    assert.equal(packDayOf(new Date('2026-10-25T00:00:00Z'), ATHENS), '2026-10-25');
+  });
+
+  it('agrees with packDayOf on every day end, DST changes included', () => {
+    for (const zone of [JERUSALEM, NEW_YORK, ATHENS, 'Australia/Lord_Howe', 'America/Santiago']) {
+      for (let day = '2026-01-01'; day < '2027-01-01'; day = addDays(day, 1)) {
+        const end = dayEnd(day, zone).getTime();
+        assert.equal(packDayOf(new Date(end - 1), zone), day, `${zone} ${day} before the end`);
+        assert.equal(packDayOf(new Date(end), zone), addDays(day, 1), `${zone} ${day} at the end`);
+      }
+    }
   });
 });
 
