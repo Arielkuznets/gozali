@@ -4,7 +4,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Platform, StyleSheet, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
@@ -77,7 +77,8 @@ export default function WelcomeScreen() {
 
   return (
     <Screen>
-      <View style={styles.hero}>
+      {/* An iPad shows the app in a window that can be shorter than any phone. */}
+      <ScrollView contentContainerStyle={styles.hero}>
         <Critter
           art={{ species: 'mochi', color: critterColors.mochi, stage: 'kid', look: 'happy' }}
           size={180}
@@ -85,7 +86,7 @@ export default function WelcomeScreen() {
         />
         <AppText variant="title">Gozali</AppText>
         <AppText style={styles.tagline}>{t('welcome.tagline')}</AppText>
-      </View>
+      </ScrollView>
 
       <View style={styles.actions}>
         {Platform.OS === 'ios' ? (
@@ -137,7 +138,7 @@ export default function WelcomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  hero: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
+  hero: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
   tagline: { textAlign: 'center', maxWidth: 320 },
   actions: { gap: spacing.sm },
   appleButton: { height: 52, alignSelf: 'stretch' },

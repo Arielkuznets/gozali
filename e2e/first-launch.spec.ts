@@ -1,6 +1,14 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator } from '@playwright/test';
 
 import { createSignedUpUser, removeUsers, signIn } from './support';
+
+/** Scrolls to `text` and checks that `button` doesn't cover it. */
+async function expectClearOf(text: Locator, button: Locator) {
+  await text.scrollIntoViewIfNeeded();
+  const textBox = (await text.boundingBox())!;
+  const buttonBox = (await button.boundingBox())!;
+  expect(textBox.y + textBox.height).toBeLessThanOrEqual(buttonBox.y);
+}
 
 test('a first launch shows the rules and the reward, then the sign-in screen', async ({ page }) => {
   await page.goto('/');
@@ -21,6 +29,21 @@ test('a first launch shows the rules and the reward, then the sign-in screen', a
   // Shown once: the next launch goes straight to sign-in.
   await page.reload();
   await expect(page.getByRole('button', { name: 'Continue with Apple' })).toBeVisible();
+});
+
+test('in a window shorter than a phone the texts scroll instead of hiding behind the buttons', async ({ page }) => {
+  // An iPad shows the app in a window people can make this short.
+  await page.setViewportSize({ width: 600, height: 300 });
+  await page.goto('/');
+  const next = page.getByRole('button', { name: 'Next' });
+  await expectClearOf(page.getByText('That is what feeds me.', { exact: false }), next);
+  await next.click();
+  await expectClearOf(page.getByText('I count on the whole pack.', { exact: false }), next);
+
+  await page.getByRole('button', { name: 'Skip' }).click();
+  const apple = page.getByRole('button', { name: 'Continue with Apple' });
+  await expectClearOf(page.getByText('Raise a little pet together', { exact: false }), apple);
+  await expect(apple).toBeInViewport({ ratio: 1 });
 });
 
 test('the Google button shows once the project turns Google sign-in on', async ({ page }) => {
