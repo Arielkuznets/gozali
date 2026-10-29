@@ -29,18 +29,28 @@ async function publish(snapshot: WidgetSnapshot | null, token: string | null): P
   }
 }
 
+// Counts accounts leaving this phone, so a refresh that started before one left can tell.
+let departures = 0;
+
 /** Fetches the widget state with this device's token and redraws the widgets. */
 export async function refreshWidgets(): Promise<void> {
   if (Platform.OS === 'web') return;
+  const started = departures;
   const token = await widgetToken(true);
   if (!token) return;
+  if (started !== departures) {
+    // Signed out meanwhile: a token made for the account that left must not stay for the next one.
+    await forgetWidgetToken();
+    return;
+  }
   const snapshot = await fetchSnapshot(token);
-  if (snapshot) await publish(snapshot, token);
+  if (snapshot && started === departures) await publish(snapshot, token);
 }
 
 /** On sign-out the widgets go blank and the token stops working. */
 export async function clearWidgets(): Promise<void> {
   if (Platform.OS === 'web') return;
+  departures += 1;
   await forgetWidgetToken();
   await publish(null, null);
 }

@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { refreshWidgets } from '@/features/widgets/sync';
+import { clearWidgets, refreshWidgets } from '@/features/widgets/sync';
 
 jest.mock('@bacons/apple-targets', () => ({
   ExtensionStorage: class {
@@ -55,5 +55,21 @@ describe('refreshing the widgets', () => {
 
     expect(mockRpc).not.toHaveBeenCalled();
     expect(await AsyncStorage.getItem('gozali.widget-token')).toBe('old-token');
+  });
+
+  it("doesn't leave a token for the account that signed out while it ran", async () => {
+    let made: (answer: { data: string; error: null }) => void = () => undefined;
+    mockRpc.mockImplementation(async (name: string) =>
+      name === 'create_widget_token' ? new Promise((resolve) => (made = resolve)) : { data: null, error: null },
+    );
+
+    const refresh = refreshWidgets();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await clearWidgets();
+    made({ data: 'new-token', error: null });
+    await refresh;
+
+    expect(await AsyncStorage.getItem('gozali.widget-token')).toBeNull();
+    expect(await AsyncStorage.getItem('gozali.widget-snapshot')).toBeNull();
   });
 });
