@@ -12,12 +12,16 @@ const publishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
 type Client = SupabaseClient<Database>;
 
+/** Where supabase-js keeps the session: its default key, named so the app can read it (AuthProvider). */
+export const AUTH_STORAGE_KEY = url ? `sb-${new URL(url).hostname.split('.')[0]}-auth-token` : '';
+
 /** Null until .env points at a Supabase project, so the app still opens before the backend exists. */
 export const supabase: Client | null =
   url && publishableKey
     ? createClient<Database>(url, publishableKey, {
         auth: {
           storage: AsyncStorage,
+          storageKey: AUTH_STORAGE_KEY,
           autoRefreshToken: true,
           persistSession: true,
           detectSessionInUrl: false,
