@@ -16,6 +16,7 @@ import { useMyStats } from '@/features/social/api';
 import { notify } from '@/lib/confirm';
 import { deviceTimeZone, formatDay } from '@/lib/dates';
 import { goBack } from '@/lib/navigation';
+import { serverNow } from '@/lib/serverClock';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 const BOARD_DAYS = 35;
@@ -32,7 +33,7 @@ export default function MeScreen() {
 
   const byDay = new Map((stats.data?.days ?? []).map((entry) => [entry.day, entry.status]));
   // The pack day on this phone: until 03:00 it is still yesterday's.
-  const last = packDayOf(new Date(), deviceTimeZone());
+  const last = packDayOf(serverNow(), deviceTimeZone());
   const days = Array.from({ length: BOARD_DAYS }, (_, index) => addDays(last, index - BOARD_DAYS + 1));
 
   return (

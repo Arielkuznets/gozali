@@ -30,6 +30,7 @@ import { notify } from '@/lib/confirm';
 import { isBlockedText } from '@/lib/errors';
 import { haptics } from '@/lib/haptics';
 import { goBack } from '@/lib/navigation';
+import { serverNow } from '@/lib/serverClock';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 const CAPTION_MAX = 80;
@@ -70,7 +71,8 @@ export default function FeedScreen() {
 
   const capture = async () => {
     if (!camera.current || !ready) return;
-    const capturedAt = new Date().toISOString();
+    // The server checks this against its own clock when the feed comes in late (offline).
+    const capturedAt = serverNow().toISOString();
     haptics.bump('medium');
     for (let attempt = 1; attempt <= CAPTURE_TRIES; attempt++) {
       // The screen may have closed while waiting.
