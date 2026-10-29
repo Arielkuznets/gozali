@@ -58,9 +58,9 @@ function backUp() {
   const backup = { takenAt: new Date().toISOString(), source: target.slice(2), tables: {} };
   for (const table of tables) {
     const rows = [];
-    // In the order of whole rows, the same on every page. By the first column alone, the rows that
-    // share it (a pack's day results) came in a different order on each page, so some were saved
-    // twice and others not at all.
+    // In the order of whole rows, so every page sees the same order. Rows that share a first
+    // column (a pack's day results) have no order by it alone, and pages would repeat some of them
+    // and skip others.
     for (let offset = 0; ; offset += PAGE) {
       const page = json(
         query(

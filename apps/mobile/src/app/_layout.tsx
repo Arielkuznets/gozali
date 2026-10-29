@@ -62,8 +62,8 @@ function RootNavigator() {
   if (config.data && isOlder(installedVersion(), config.data.min_version)) {
     return <UpdateRequired storeUrl={Platform.OS === 'android' ? config.data.android_url : config.data.ios_url} />;
   }
-  // A profile that didn't load (no connection at the start) is no reason to set it up again. The
-  // profile setup would load it again on opening, and that kept the app blank in a loop.
+  // A profile that didn't load (no connection at the start) is no reason to set it up again: the
+  // profile setup loads it again on opening, and fails the same way.
   if (signedIn && profile.isError && !profile.data) {
     return <LoadFailedScreen onRetry={() => void profile.refetch()} />;
   }

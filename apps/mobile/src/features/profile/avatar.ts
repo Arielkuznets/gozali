@@ -24,7 +24,7 @@ export function avatarCacheKey(url: string): string {
 
 /**
  * Lets the member take or pick a square photo; null when they cancel. Throws `camera_blocked`
- * when the camera isn't allowed, which needs saying: a tap that did nothing looked broken.
+ * when the camera isn't allowed, so the screen can say why nothing opens.
  */
 export async function pickAvatar(source: 'camera' | 'library'): Promise<string | null> {
   const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 1 };

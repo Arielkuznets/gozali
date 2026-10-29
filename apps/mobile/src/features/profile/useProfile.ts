@@ -145,7 +145,7 @@ export function useAccountSync() {
   const userId = session?.user.id;
   const zone = profile.data?.timezone;
   // Once per zone: the server saves a zone it doesn't know as UTC (Android names a zone picked by
-  // hand like GMT+02:00), and sending it again on every answer went on while the app was open.
+  // hand like GMT+02:00), so the device's zone never shows up and would be sent on every answer.
   const sentZone = useRef<string | null>(null);
 
   useEffect(() => {
