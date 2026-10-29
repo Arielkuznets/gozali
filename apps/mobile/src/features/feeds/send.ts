@@ -40,6 +40,10 @@ async function photoBytes(uri: string): Promise<ArrayBuffer> {
  */
 export async function sendFeed(feed: OutgoingFeed): Promise<string> {
   const supabase = requireSupabase();
+  // Back online after the access token expired, a refresh that fails leaves no session, and the
+  // requests would go out signed out: the server's refusal looked final and the feed was dropped.
+  // This error is not final, so the feed waits for the next try.
+  if (!(await supabase.auth.getSession()).data.session) throw new Error('not_signed_in');
   const path = `${feed.packId}/${feed.userId}/${feed.id}.jpg`;
   const upload = await supabase.storage
     .from(PHOTO_BUCKET)
