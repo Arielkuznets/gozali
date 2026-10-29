@@ -27,6 +27,45 @@ test('turning a notification type off is saved to the profile', async ({ page })
   await expect(page.getByRole('switch', { name: 'Nudges' })).not.toBeChecked();
 });
 
+test('turning two notification types off quickly keeps both off', async ({ page }) => {
+  await signIn(page, noa);
+  await page.goto('/settings');
+  // The first save is slow to come back, so the second switch is turned before it does.
+  let saves = 0;
+  await page.route('**/rest/v1/profiles?**', async (route) => {
+    if (route.request().method() === 'PATCH' && saves++ === 0) await new Promise((resolve) => setTimeout(resolve, 1500));
+    await route.continue();
+  });
+  await page.getByRole('switch', { name: 'Nudges' }).click();
+  await page.getByRole('switch', { name: 'Weekly recap' }).click();
+
+  await expect
+    .poll(async () => (await noa.client.from('profiles').select('notification_prefs').single()).data?.notification_prefs, {
+      timeout: 10_000,
+    })
+    .toMatchObject({ nudge: false, weekly_recap: false });
+  await page.waitForTimeout(2000);
+  const { data } = await noa.client.from('profiles').select('notification_prefs').single();
+  expect(data?.notification_prefs).toMatchObject({ nudge: false, weekly_recap: false });
+});
+
+test.describe('on a phone set to a bare offset', () => {
+  // Android names a time zone picked by hand like GMT+02:00, which the server doesn't know and saves as UTC.
+  test.use({ timezoneId: 'GMT+02:00' });
+
+  test('the time zone is sent once, not over and over', async ({ page }) => {
+    let updates = 0;
+    page.on('request', (request) => {
+      if (request.method() === 'PATCH' && request.url().includes('/rest/v1/profiles')) updates += 1;
+    });
+    await signIn(page, noa);
+    await page.goto('/');
+    await expect(page.getByText('No packs yet')).toBeVisible();
+    await page.waitForTimeout(3000);
+    expect(updates).toBe(1);
+  });
+});
+
 test('deleting the account shows it is under way, and goes out once', async ({ page }) => {
   page.on('dialog', (dialog) => void dialog.accept());
   // The real function needs `supabase functions serve`; this one answers when the test lets it.

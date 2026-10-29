@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getLocales } from 'expo-localization';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -90,12 +90,20 @@ export function useUpdateProfile() {
   const { session } = useAuth();
   const userId = session?.user.id;
   return useMutation({
+    // Two switches turned quickly sent two copies of all the choices, each missing the other's
+    // change, and whichever arrived last won. Changes now go one at a time, and each one shows
+    // in the profile at once, so the next starts from it.
+    scope: { id: 'profile-settings' },
     mutationFn: async (settings: ProfileSettings) => {
       if (userId === undefined) throw new Error('Not signed in');
       const { error } = await requireSupabase().from('profiles').update(settings).eq('id', userId);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: profileKey(userId) }),
+    onMutate: async (settings) => {
+      await queryClient.cancelQueries({ queryKey: profileKey(userId) });
+      queryClient.setQueryData<Profile>(profileKey(userId), (profile) => profile && { ...profile, ...settings });
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: profileKey(userId) }),
   });
 }
 
@@ -109,9 +117,15 @@ export function useAccountSync() {
   const { mutate: updateProfile } = useUpdateProfile();
   const userId = session?.user.id;
   const zone = profile.data?.timezone;
+  // Once per zone: the server saves a zone it doesn't know as UTC (Android names a zone picked by
+  // hand like GMT+02:00), and sending it again on every answer went on while the app was open.
+  const sentZone = useRef<string | null>(null);
 
   useEffect(() => {
-    if (zone !== undefined && zone !== deviceTimeZone()) updateProfile({ timezone: deviceTimeZone() });
+    const device = deviceTimeZone();
+    if (zone === undefined || zone === device || sentZone.current === device) return;
+    sentZone.current = device;
+    updateProfile({ timezone: device });
   }, [zone, updateProfile]);
 
   // Also on coming back to the app: permission may have been granted in the meantime.
