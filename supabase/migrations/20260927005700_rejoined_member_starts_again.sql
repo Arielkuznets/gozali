@@ -1,6 +1,7 @@
--- A member who rejoins a pack starts again (2026-10-29): until their first feed since joining they
--- aren't counted, like a new member, so they can't miss on the day they come back. Their feeds from
--- before they left belong to the old membership. joined_at is the latest join (join_pack sets it).
+-- A member who rejoins a pack starts again (2026-10-29): until a feed of theirs counts for the day
+-- they joined or later, they aren't counted, like a new member, so they can't miss on the day they
+-- come back. Feeds for earlier days belong to the old membership; a feed earlier on the day of the
+-- rejoin still counts for it. joined_at is the latest join (join_pack sets it).
 create or replace function public.day_close_input(target uuid, pack_date date)
 returns jsonb
 language sql
@@ -44,7 +45,7 @@ as $$
       'hasStarted', exists (
         select 1 from public.feeds f
         where f.pack_id = target and f.user_id = m.user_id and not f.is_extra and f.day <= pack_date
-          and f.created_at >= m.joined_at
+          and f.day >= public.pack_day(pack.tz, m.joined_at)
       ),
       'paused', exists (
         select 1 from public.pauses s
@@ -140,7 +141,8 @@ begin
     and not public.fed_on(new.pack_id, m.user_id, new.day)
     and exists (
       select 1 from public.feeds f
-      where f.pack_id = new.pack_id and f.user_id = m.user_id and not f.is_extra and f.created_at >= m.joined_at
+      where f.pack_id = new.pack_id and f.user_id = m.user_id and not f.is_extra
+        and f.day >= public.pack_day((select p.timezone from public.packs p where p.id = new.pack_id), m.joined_at)
     );
   if cardinality(remaining) = 1 then
     insert into public.notifications (user_id, pack_id, type, day)

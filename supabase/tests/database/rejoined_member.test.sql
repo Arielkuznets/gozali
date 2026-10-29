@@ -1,7 +1,7 @@
 -- A member who rejoins starts again: feeds from before they left don't make them counted.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(3);
+select plan(4);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000d8', 'noa@test.local'),
@@ -53,6 +53,30 @@ select is(
    where m ->> 'userId' = '00000000-0000-0000-0000-0000000000e8'),
   'true',
   'a feed since he rejoined starts him again'
+);
+
+-- Tal feeds this morning, leaves, and joins again the same day: the feed still counts for today.
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000a8', 'tal@test.local');
+insert into public.pack_members (pack_id, user_id, role, joined_at)
+values ('10000000-0000-0000-0000-000000000008', '00000000-0000-0000-0000-0000000000a8', 'member', now() - interval '20 days');
+insert into public.feeds (pack_id, user_id, day, created_at)
+values ('10000000-0000-0000-0000-000000000008', '00000000-0000-0000-0000-0000000000a8', (select day from today), now() - interval '1 minute');
+create function pg_temp.act_as(member uuid) returns void language sql as $$
+  select set_config('request.jwt.claims', json_build_object('sub', member, 'role', 'authenticated')::text, true);
+$$;
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000a8');
+select public.leave_pack('10000000-0000-0000-0000-000000000008');
+select public.join_pack('WALK3456');
+reset role;
+select is(
+  (select (m ->> 'hasStarted') || '/' || (m ->> 'fedToday')
+   from jsonb_array_elements(
+     public.day_close_input('10000000-0000-0000-0000-000000000008', (select day from today)) -> 'members'
+   ) m
+   where m ->> 'userId' = '00000000-0000-0000-0000-0000000000a8'),
+  'true/true',
+  'a feed earlier on the day of the rejoin still counts'
 );
 
 select * from finish();

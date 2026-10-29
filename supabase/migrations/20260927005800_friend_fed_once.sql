@@ -41,7 +41,8 @@ begin
     and not public.fed_on(new.pack_id, m.user_id, new.day)
     and exists (
       select 1 from public.feeds f
-      where f.pack_id = new.pack_id and f.user_id = m.user_id and not f.is_extra and f.created_at >= m.joined_at
+      where f.pack_id = new.pack_id and f.user_id = m.user_id and not f.is_extra
+        and f.day >= public.pack_day((select p.timezone from public.packs p where p.id = new.pack_id), m.joined_at)
     );
   if cardinality(remaining) = 1 then
     insert into public.notifications (user_id, pack_id, type, day)
