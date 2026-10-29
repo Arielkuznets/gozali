@@ -52,6 +52,12 @@ await maya.client.rpc('join_pack', { code: pack.invite_code });
 // Day 1 is the day the second member joined; the plan below feeds days 1 to 6.
 const first = packDayOf(new Date(), tz);
 const day = (n) => addDays(first, n - 1);
+// The feeds below happen at set hours of day 1, so everyone joined as it began: a member counts
+// from their feeds since joining, and a join after them would make those feeds older than it.
+await admin
+  .from('pack_members')
+  .update({ joined_at: new Date(zonedTimeToUtc(day(1), 3, tz)).toISOString() })
+  .eq('pack_id', packId);
 const feed = async (who, n, hour) => {
   const { error } = await admin.from('feeds').insert({
     pack_id: packId,
@@ -153,6 +159,11 @@ const { data: calmId } = await noa.client.rpc('create_pack', {
 const { data: calm } = await noa.client.from('packs').select('invite_code').eq('id', calmId).single();
 await dan.client.rpc('join_pack', { code: calm.invite_code });
 const calmFirst = packDayOf(new Date(), tz);
+// As above: both joined as the day began, before their feeds at 09:00.
+await admin
+  .from('pack_members')
+  .update({ joined_at: new Date(zonedTimeToUtc(calmFirst, 3, tz)).toISOString() })
+  .eq('pack_id', calmId);
 for (const who of [noa, dan]) {
   const fed = await admin.from('feeds').insert({
     pack_id: calmId,
@@ -178,5 +189,6 @@ await admin.from('outages').delete().eq('note', `smoke ${run}`);
 await admin.from('packs').delete().eq('id', calmId);
 
 for (const user of [noa, dan, maya]) await admin.auth.admin.deleteUser(user.id);
+
 console.log('all good');
 process.exit(0);
