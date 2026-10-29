@@ -7,6 +7,11 @@ import { hasCronSecret } from '../_shared/secret.ts';
 import type { ClaimedRow } from './messages.ts';
 import { EXPO_PUSH_URL, RefusedRequest, sendAll, type PushMessage, type PushTicket } from './push.ts';
 
+// The function may run for 150 seconds. A request to Expo that hangs is given up after 20, and
+// sending stops after 100, which leaves time to put back what wasn't sent.
+const REQUEST_TIMEOUT_MS = 20_000;
+const SEND_BUDGET_MS = 100_000;
+
 async function expoSend(batch: PushMessage[]): Promise<PushTicket[]> {
   const token = Deno.env.get('EXPO_ACCESS_TOKEN');
   const response = await fetch(EXPO_PUSH_URL, {
@@ -17,6 +22,7 @@ async function expoSend(batch: PushMessage[]): Promise<PushTicket[]> {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify(batch),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
   if (!response.ok) {
     const message = `expo push ${response.status}`;
@@ -37,7 +43,8 @@ Deno.serve(async (request) => {
   if (claimed.error) return Response.json({ error: claimed.error.message }, { status: 500 });
 
   const rows = claimed.data as ClaimedRow[];
-  const result = await sendAll(rows, expoSend);
+  const started = Date.now();
+  const result = await sendAll(rows, expoSend, () => Date.now() - started > SEND_BUDGET_MS);
   if (result.requeue.length > 0) await client.rpc('requeue_notifications', { ids: result.requeue });
   if (result.deadTokens.length > 0) await client.rpc('forget_push_tokens', { dead: result.deadTokens });
   return Response.json({ claimed: rows.length, sent: result.sent, requeued: result.requeue.length });

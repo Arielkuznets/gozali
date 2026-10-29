@@ -119,6 +119,24 @@ check(
 );
 await admin.rpc('requeue_notifications', { ids: refused.requeue });
 
+// A run out of time sends nothing more and puts the rest back, before the time limit cuts it off.
+const late = await admin.rpc('claim_notifications', { at_time: at.toISOString() });
+const lateRows = late.data.filter((row) => row.pack_id === pack.id);
+let lateAttempts = 0;
+const outOfTime = await sendAll(
+  lateRows,
+  async (batch) => {
+    lateAttempts += 1;
+    return batch.map(() => ({ status: 'ok' }));
+  },
+  () => true,
+);
+check(
+  lateRows.length > 0 && lateAttempts === 0 && outOfTime.sent === 0 && outOfTime.requeue.length === new Set(lateRows.map((row) => row.id)).size,
+  'a run out of time puts what is left back instead of sending it',
+);
+await admin.rpc('requeue_notifications', { ids: outOfTime.requeue });
+
 // Owner alerts: someone finishing the profile setup tells the owner, in plain words.
 const owned = await admin.from('app_owners').insert({ user_id: noa });
 if (owned.error) throw owned.error;
