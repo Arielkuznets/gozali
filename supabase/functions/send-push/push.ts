@@ -20,6 +20,9 @@ export interface PushTicket {
 export const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 const BATCH = 100;
 
+/** The push service turned a request down for what is in it, not because it is down or busy. */
+export class RefusedRequest extends Error {}
+
 export function toMessages(rows: readonly ClaimedRow[]): PushMessage[] {
   return rows.flatMap((row) => {
     const text = render(row);
@@ -35,8 +38,9 @@ export function toMessages(rows: readonly ClaimedRow[]): PushMessage[] {
 }
 
 /**
- * Sends every message. A batch the service rejects puts its notifications back in the queue;
- * tokens Expo reports as no longer registered are returned so they can be forgotten.
+ * Sends every message. A batch the service refuses is sent again one notification at a time,
+ * and the notifications it still refuses go back in the queue, like a batch it fails to take
+ * while down; tokens Expo reports as no longer registered are returned so they can be forgotten.
  */
 export async function sendAll(
   rows: readonly ClaimedRow[],
@@ -46,8 +50,7 @@ export async function sendAll(
   const requeue = new Set<string>();
   const deadTokens: string[] = [];
   let sent = 0;
-  for (let start = 0; start < messages.length; start += BATCH) {
-    const batch = messages.slice(start, start + BATCH);
+  const deliver = async (batch: PushMessage[]): Promise<'sent' | 'refused' | 'failed'> => {
     try {
       const tickets = await send(batch);
       tickets.forEach((ticket, index) => {
@@ -56,8 +59,22 @@ export async function sendAll(
         if (ticket.status === 'ok') sent += 1;
         else if (ticket.details?.error === 'DeviceNotRegistered') deadTokens.push(message.to);
       });
-    } catch {
-      for (const message of batch) requeue.add(message.data.notificationId);
+      return 'sent';
+    } catch (error) {
+      return error instanceof RefusedRequest ? 'refused' : 'failed';
+    }
+  };
+  for (let start = 0; start < messages.length; start += BATCH) {
+    const batch = messages.slice(start, start + BATCH);
+    const outcome = await deliver(batch);
+    if (outcome === 'sent') continue;
+    const ids = new Set(batch.map((message) => message.data.notificationId));
+    // Expo turns down a whole request for one bad message (a token of another Expo project is
+    // enough), and the same batch would fail again on every run, holding up everyone in it. A
+    // service that is down or busy gets no more requests: the run has to requeue before it ends.
+    for (const id of ids) {
+      const alone = outcome === 'refused' && ids.size > 1;
+      if (!alone || (await deliver(batch.filter((message) => message.data.notificationId === id))) !== 'sent') requeue.add(id);
     }
   }
   return { sent, requeue: [...requeue], deadTokens };

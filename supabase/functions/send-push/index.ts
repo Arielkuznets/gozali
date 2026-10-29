@@ -5,7 +5,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 
 import { hasCronSecret } from '../_shared/secret.ts';
 import type { ClaimedRow } from './messages.ts';
-import { EXPO_PUSH_URL, sendAll, type PushMessage, type PushTicket } from './push.ts';
+import { EXPO_PUSH_URL, RefusedRequest, sendAll, type PushMessage, type PushTicket } from './push.ts';
 
 async function expoSend(batch: PushMessage[]): Promise<PushTicket[]> {
   const token = Deno.env.get('EXPO_ACCESS_TOKEN');
@@ -18,7 +18,12 @@ async function expoSend(batch: PushMessage[]): Promise<PushTicket[]> {
     },
     body: JSON.stringify(batch),
   });
-  if (!response.ok) throw new Error(`expo push ${response.status}`);
+  if (!response.ok) {
+    const message = `expo push ${response.status}`;
+    // A 4xx is about what the request carries, unless it is the access token or the rate limit.
+    if (response.status < 500 && ![401, 403, 429].includes(response.status)) throw new RefusedRequest(message);
+    throw new Error(message);
+  }
   const { data } = (await response.json()) as { data: PushTicket[] };
   return data;
 }

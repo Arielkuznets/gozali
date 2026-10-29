@@ -7,7 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 
 import { addDays, packDayOf, wallClock, zonedTimeToUtc } from '../packages/game-engine/src/index.ts';
 import { render } from '../supabase/functions/send-push/messages.ts';
-import { sendAll } from '../supabase/functions/send-push/push.ts';
+import { RefusedRequest, sendAll } from '../supabase/functions/send-push/push.ts';
 
 const url = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const secretKey = process.env.SUPABASE_SECRET_KEY;
@@ -88,14 +88,36 @@ const { data: mayaTokens } = await admin.from('push_tokens').select('token').eq(
 check(mayaTokens.length === 0, 'and forgotten');
 
 // A batch the push service rejects goes back to the queue.
-await admin.from('notifications').insert({ user_id: noa, pack_id: pack.id, type: 'evolution', payload: { event: 'evolved', to: 'teen' } });
+await admin.from('notifications').insert(
+  [noa, dan].map((id) => ({ user_id: id, pack_id: pack.id, type: 'evolution', payload: { event: 'evolved', to: 'teen' } })),
+);
 const again = await admin.rpc('claim_notifications', { at_time: at.toISOString() });
+let attempts = 0;
 const failed = await sendAll(again.data.filter((row) => row.pack_id === pack.id), async () => {
+  attempts += 1;
   throw new Error('push service down');
 });
 await admin.rpc('requeue_notifications', { ids: failed.requeue });
-const { data: evolution } = await admin.from('notifications').select('status').eq('pack_id', pack.id).eq('type', 'evolution').single();
-check(evolution.status === 'pending', 'a failed batch is pending again for the next run');
+const { data: evolution } = await admin.from('notifications').select('status').eq('pack_id', pack.id).eq('type', 'evolution');
+check(evolution.length === 2 && evolution.every((row) => row.status === 'pending'), 'a failed batch is pending again for the next run');
+// Sending each one again would only take time from a run that has to put them back before it ends.
+check(attempts === 1, 'a push service that is down is asked once, not once per notification');
+
+// A token from another Expo project makes the push service turn down the whole request. The
+// notification with it waits alone; the others in its batch still go out.
+await admin.from('notifications').insert({ user_id: dan, pack_id: pack.id, type: 'evolution', payload: { event: 'evolved', to: 'teen' } });
+const mixed = await admin.rpc('claim_notifications', { at_time: at.toISOString() });
+const batchRows = mixed.data.filter((row) => row.pack_id === pack.id);
+const refused = await sendAll(batchRows, async (batch) => {
+  if (batch.some((message) => message.to.includes('Dan'))) throw new RefusedRequest('expo push 400');
+  return batch.map(() => ({ status: 'ok' }));
+});
+const dans = batchRows.filter((row) => row.user_id === dan).map((row) => row.id);
+check(
+  batchRows.length > dans.length && refused.sent === batchRows.length - dans.length && refused.requeue.join() === dans.join(),
+  'only the notification the push service refuses waits for the next run',
+);
+await admin.rpc('requeue_notifications', { ids: refused.requeue });
 
 // Owner alerts: someone finishing the profile setup tells the owner, in plain words.
 const owned = await admin.from('app_owners').insert({ user_id: noa });
