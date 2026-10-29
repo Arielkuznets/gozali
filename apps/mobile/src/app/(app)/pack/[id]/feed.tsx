@@ -22,7 +22,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { critterArt } from '@/features/critter/art';
 import { EatingMoment } from '@/features/feeds/EatingMoment';
 import { useSendFeed } from '@/features/feeds/api';
-import { compressPhoto } from '@/features/feeds/send';
+import { compressPhoto, isFinalRejection } from '@/features/feeds/send';
 import { clearFocusSession } from '@/features/focus/session';
 import { usePack } from '@/features/packs/api';
 import { categoryInfo } from '@/features/packs/constants';
@@ -48,7 +48,7 @@ export default function FeedScreen() {
   const extra = params.extra === '1';
   const focusMinutes = params.focus && /^[0-9]{1,3}$/.test(params.focus) ? Number(params.focus) : null;
   const { session } = useAuth();
-  const { data: pack } = usePack(packId);
+  const { data: pack, refetch: refetchPack } = usePack(packId);
   const [permission, requestPermission] = useCameraPermissions();
   const camera = useRef<CameraView>(null);
   const [facing, setFacing] = useState<CameraType>('back');
@@ -107,6 +107,9 @@ export default function FeedScreen() {
       if (focusMinutes !== null) await clearFocusSession();
       setResult(outcome);
     } catch (error) {
+      // Removed from the pack while the camera was open, the upload is refused before the server
+      // could say why. With the pack gone the screen says so, instead of "try again".
+      if (isFinalRejection(error) && !isBlockedText(error) && (await refetchPack()).data === null) return;
       notify(isBlockedText(error) ? t('errors.textNotAllowed') : t('feed.failed'));
     } finally {
       sending.current = false;

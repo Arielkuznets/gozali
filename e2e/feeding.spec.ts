@@ -48,6 +48,30 @@ test('feeding: camera, caption, send, and the photo shows in the pack', async ({
   await expect(page.getByRole('button', { name: 'Close photo' })).toBeHidden();
 });
 
+test('a member removed while the camera is open is told the pack is gone', async ({ context, page }) => {
+  await context.grantPermissions(['camera']);
+  const pack = await createPack(noa, { name: 'Study buddies', habit: 'study', species: 'mochi' }, [dan]);
+  const alerts: string[] = [];
+  page.on('dialog', (dialog) => {
+    alerts.push(dialog.message());
+    void dialog.dismiss();
+  });
+
+  await signIn(page, dan);
+  await page.goto(`/pack/${pack.id}/feed`);
+  await page.waitForFunction(() => {
+    const video = document.querySelector('video');
+    return video !== null && video.readyState >= 2 && video.videoWidth > 0;
+  });
+  await page.getByRole('button', { name: 'Take photo' }).click();
+  const removed = await noa.client.rpc('remove_member', { target: pack.id, member: dan.id });
+  expect(removed.error).toBeNull();
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page.getByText("This pack isn't here")).toBeVisible();
+  expect(alerts).toEqual([]);
+});
+
 test("a camera link for a pack you're not in doesn't open the camera", async ({ context, page }) => {
   await context.grantPermissions(['camera']);
   const pack = await createPack(dan, { name: 'Night owls', habit: 'reading', species: 'mochi' });
