@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { enqueue, flushQueue, pendingFeeds } from '@/features/feeds/queue';
+import { clearQueue, enqueue, flushQueue, pendingFeeds } from '@/features/feeds/queue';
 import type { OutgoingFeed } from '@/features/feeds/send';
 
 // The queue keeps photos in the app's documents folder; here files are just names.
@@ -21,6 +21,7 @@ jest.mock('expo-file-system', () => {
       this.uri = parts.map((part) => (typeof part === 'string' ? part : part.uri)).join('/');
     }
     create() {}
+    delete() {}
   }
   return { File, Directory, Paths: { document: { uri: 'documents' } } };
 });
@@ -78,6 +79,40 @@ describe('offline feed queue', () => {
     mockSendFeed.mockRejectedValueOnce({ code: 'P0001', message: 'already_fed' }).mockResolvedValueOnce('feed-id');
     await flushQueue();
     expect(mockSendFeed).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'a', extra: true }));
+  });
+
+  it('still feeds when the word filter turns down the caption it was queued with', async () => {
+    await enqueue({ ...feed('a'), caption: 'Kicked ass today' });
+    mockSendFeed.mockRejectedValueOnce({ code: '22023', message: 'text_not_allowed' }).mockResolvedValueOnce('feed-id');
+    expect(await flushQueue()).toBe(1);
+    expect(mockSendFeed).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'a', caption: null }));
+  });
+
+  it('keeps a feed whose second try meets a network error, without the refused caption', async () => {
+    await enqueue({ ...feed('a'), caption: 'Kicked ass today' });
+    mockSendFeed
+      .mockRejectedValueOnce({ code: '22023', message: 'text_not_allowed' })
+      .mockRejectedValueOnce(new TypeError('Network request failed'));
+    expect(await flushQueue()).toBe(0);
+    expect(await pendingFeeds()).toEqual([expect.objectContaining({ id: 'a', caption: null })]);
+  });
+
+  it('posts a feed without its refused caption as an extra when the day was fed meanwhile', async () => {
+    await enqueue({ ...feed('a'), caption: 'Kicked ass today' });
+    mockSendFeed
+      .mockRejectedValueOnce({ code: '22023', message: 'text_not_allowed' })
+      .mockRejectedValueOnce({ code: 'P0001', message: 'already_fed' })
+      .mockResolvedValueOnce('feed-id');
+    expect(await flushQueue()).toBe(1);
+    expect(mockSendFeed).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'a', caption: null, extra: true }));
+    expect(await pendingFeeds()).toEqual([]);
+  });
+
+  it('forgets everything that waits', async () => {
+    await enqueue(feed('a'));
+    await enqueue({ ...feed('b'), packId: 'other' });
+    await clearQueue();
+    expect(await pendingFeeds()).toEqual([]);
   });
 
   it('lists what waits for one pack', async () => {

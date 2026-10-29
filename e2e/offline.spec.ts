@@ -27,3 +27,17 @@ test('a pack that fails to load offers to try again, not "pack missing"', async 
   await page.getByRole('button', { name: 'Try again' }).click();
   await expect(page.getByRole('button', { name: 'Feed', exact: true })).toBeVisible();
 });
+
+test('a profile that fails to load offers to try again, not the profile setup', async ({ page }) => {
+  const profileRequests = '**/rest/v1/profiles?**';
+  await page.route(profileRequests, (route) => route.abort('internetdisconnected'));
+  await signIn(page, noa);
+  await page.goto('/');
+
+  await expect(page.getByText("This didn't load")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('About you')).toBeHidden();
+
+  await page.unroute(profileRequests);
+  await page.getByRole('button', { name: 'Try again' }).click();
+  await expect(page.getByText('Your packs')).toBeVisible();
+});

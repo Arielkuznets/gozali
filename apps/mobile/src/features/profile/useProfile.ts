@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getLocales } from 'expo-localization';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -85,17 +85,52 @@ export function useCompleteProfile() {
   });
 }
 
+const settingsKey = ['profile-settings'] as const;
+
+/** The profile with one change taken back, leaving the notification choices it didn't touch. */
+function withoutChange(profile: Profile, change: ProfileSettings, before: Profile): Profile {
+  const { notification_prefs: prefs, ...fields } = change;
+  const restored: Profile = { ...profile, ...Object.fromEntries(Object.keys(fields).map((key) => [key, before[key as keyof Profile]])) };
+  if (prefs) {
+    restored.notification_prefs = { ...profile.notification_prefs };
+    for (const type of Object.keys(prefs) as NotificationType[]) {
+      if (prefs[type] !== before.notification_prefs[type]) restored.notification_prefs[type] = before.notification_prefs[type];
+    }
+  }
+  return restored;
+}
+
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
   const { session } = useAuth();
   const userId = session?.user.id;
   return useMutation({
+    mutationKey: settingsKey,
+    // Each change sends all the notification choices, so changes go one at a time and each shows
+    // in the profile at once: the next one is made from it.
+    scope: { id: 'profile-settings' },
     mutationFn: async (settings: ProfileSettings) => {
       if (userId === undefined) throw new Error('Not signed in');
       const { error } = await requireSupabase().from('profiles').update(settings).eq('id', userId);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: profileKey(userId) }),
+    onMutate: async (settings) => {
+      await queryClient.cancelQueries({ queryKey: profileKey(userId) });
+      const before = queryClient.getQueryData<Profile>(profileKey(userId));
+      queryClient.setQueryData<Profile>(profileKey(userId), (profile) => profile && { ...profile, ...settings });
+      return { before };
+    },
+    // A change that didn't save goes back on screen; offline the refetch below can't fix it.
+    onError: (_error, settings, saved) => {
+      const before = saved?.before;
+      if (before) queryClient.setQueryData<Profile>(profileKey(userId), (profile) => profile && withoutChange(profile, settings, before));
+    },
+    // The server's copy only once nothing else waits: it would overwrite the changes still queued.
+    onSettled: () => {
+      if (queryClient.isMutating({ mutationKey: settingsKey }) === 1) {
+        return queryClient.invalidateQueries({ queryKey: profileKey(userId) });
+      }
+    },
   });
 }
 
@@ -109,9 +144,15 @@ export function useAccountSync() {
   const { mutate: updateProfile } = useUpdateProfile();
   const userId = session?.user.id;
   const zone = profile.data?.timezone;
+  // Once per zone: the server saves a zone it doesn't know as UTC (Android names a zone picked by
+  // hand like GMT+02:00), so the device's zone never shows up and would be sent on every answer.
+  const sentZone = useRef<string | null>(null);
 
   useEffect(() => {
-    if (zone !== undefined && zone !== deviceTimeZone()) updateProfile({ timezone: deviceTimeZone() });
+    const device = deviceTimeZone();
+    if (zone === undefined || zone === device || sentZone.current === device) return;
+    sentZone.current = device;
+    updateProfile({ timezone: device });
   }, [zone, updateProfile]);
 
   // Also on coming back to the app: permission may have been granted in the meantime.

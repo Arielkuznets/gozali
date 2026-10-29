@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 
 import { ErrorScreen } from '@/components/ErrorScreen';
+import { LoadFailedScreen, LoadingScreen } from '@/components/ScreenStates';
 import { UpdateRequired } from '@/components/UpdateRequired';
 import { installedVersion, isOlder, useAppConfig } from '@/features/app/appConfig';
 import { AuthProvider, useAuth } from '@/features/auth/AuthProvider';
@@ -54,10 +55,17 @@ function RootNavigator() {
     void readInstallReferrer();
   }, []);
 
-  if (!ready) return null;
+  // Waiting for the profile again (trying it once more, or just after signing in) shows a
+  // spinner; at the start the splash screen still covers it.
+  if (!ready) return fontsLoaded && !loading ? <LoadingScreen /> : null;
   // A version the server no longer supports stops here, whoever is signed in.
   if (config.data && isOlder(installedVersion(), config.data.min_version)) {
     return <UpdateRequired storeUrl={Platform.OS === 'android' ? config.data.android_url : config.data.ios_url} />;
+  }
+  // A profile that didn't load (no connection at the start) is no reason to set it up again: the
+  // profile setup loads it again on opening, and fails the same way.
+  if (signedIn && profile.isError && !profile.data) {
+    return <LoadFailedScreen onRetry={() => void profile.refetch()} />;
   }
 
   const profileComplete = isProfileComplete(profile.data);

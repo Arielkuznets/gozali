@@ -30,6 +30,13 @@ export default function SettingsScreen() {
   const blocked = useBlocked();
   const config = useAppConfig();
   const notifications = useNotificationPermission();
+  // Deleting takes a few seconds on the server; meanwhile a second tap would start it again.
+  const removal = useMutation({
+    mutationFn: () => deleteAccount({ revokeApple: config.data?.apple_revocation === true }),
+    onError: (error) => {
+      if (!isCancellation(error)) notify(t('settings.app.deleteFailed'));
+    },
+  });
 
   if (!profile.data) {
     return (
@@ -55,10 +62,7 @@ export default function SettingsScreen() {
       confirm: t('settings.app.deleteConfirm'),
       cancel: t('settings.cancel'),
       destructive: true,
-      onConfirm: () =>
-        void deleteAccount({ revokeApple: config.data?.apple_revocation === true }).catch((error) => {
-          if (!isCancellation(error)) notify(t('settings.app.deleteFailed'));
-        }),
+      onConfirm: () => removal.mutate(),
     });
   };
 
@@ -158,8 +162,15 @@ export default function SettingsScreen() {
           <AppText variant="caption">{t('settings.app.contact')}</AppText>
         </View>
 
-        <Pressable accessibilityRole="button" onPress={onDelete} hitSlop={8}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled: removal.isPending, busy: removal.isPending }}
+          disabled={removal.isPending}
+          onPress={onDelete}
+          hitSlop={8}
+          style={styles.deleteRow}>
           <AppText style={styles.danger}>{t('settings.app.deleteAccount')}</AppText>
+          {removal.isPending && <ActivityIndicator color={colors.danger} />}
         </Pressable>
       </ScrollView>
     </Screen>
@@ -218,5 +229,6 @@ const styles = StyleSheet.create({
   muted: { color: colors.inkMuted },
   link: { color: colors.accentText },
   notice: { gap: spacing.sm, padding: spacing.md, borderRadius: radii.lg, backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.accent },
+  deleteRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   danger: { color: colors.danger, paddingVertical: spacing.sm },
 });

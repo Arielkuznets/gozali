@@ -44,6 +44,7 @@
   "errors": {
     "notConfigured": "The app is not connected to the server yet.",
     "signInFailed": "Sign-in didn't work. Please try again.",
+    "signOutFailed": "Signing out didn't work. Please try again.",
     "code": "Code: {{code}}",
     "saveFailed": "Saving didn't work. Please try again.",
     "loadFailed": "This didn't load. Check the connection and try again.",
@@ -197,6 +198,7 @@
     "saved": "Saved",
     "members": "Members",
     "admin": "Admin",
+    "adminOnly": "Only the admin, {{name}}, can change the pack's name, rest days and week start.",
     "remove": "Remove",
     "removeConfirm": "Remove {{name}} from the pack?",
     "invite": "Invite link and QR code",
@@ -766,6 +768,7 @@
     "changePhoto": "Change photo",
     "takePhoto": "Take a photo",
     "choosePhoto": "Choose from library",
+    "cameraOff": "Gozali can't use the camera. Allow it in your phone's settings, or choose a photo from your library.",
     "removePhoto": "Remove photo",
     "boardDay": "{{day}}, {{status}}"
   },

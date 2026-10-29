@@ -16,6 +16,9 @@ const run = Date.now();
 
 export type TestUser = { id: string; name: string; client: SupabaseClient; session: Session };
 
+// How each test user signs in, for signing in again elsewhere.
+const credentials = new Map<string, { email: string; password: string }>();
+
 /** A signed-in user who finished the profile setup. */
 export async function createUser(name: string): Promise<TestUser> {
   const user = await createSignedUpUser(name);
@@ -36,7 +39,16 @@ export async function createSignedUpUser(name: string): Promise<TestUser> {
   const client = createClient(url, publishableKey!, { auth: { persistSession: false } });
   const signedIn = await client.auth.signInWithPassword({ email, password });
   if (signedIn.error) throw signedIn.error;
+  credentials.set(created.data.user.id, { email, password });
   return { id: created.data.user.id, name, client, session: signedIn.data.session };
+}
+
+/** The same account signed in on another phone: a session of its own. */
+export async function signInElsewhere(user: TestUser): Promise<SupabaseClient> {
+  const client = createClient(url, publishableKey!, { auth: { persistSession: false } });
+  const signedIn = await client.auth.signInWithPassword(credentials.get(user.id)!);
+  if (signedIn.error) throw signedIn.error;
+  return client;
 }
 
 /** Deletes the users and every pack they were in. */

@@ -1,4 +1,5 @@
 import { addDays, packDayOf } from '@gozali/game-engine';
+import { useMutation } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
@@ -26,9 +27,8 @@ export default function MeScreen() {
   const profile = useProfile();
   const stats = useMyStats();
 
-  const onSignOut = () => {
-    signOut().catch(() => notify(t('errors.signInFailed')));
-  };
+  // With an expired token signing out waits for the refresh to give up; meanwhile a tap would start it again.
+  const leaving = useMutation({ mutationFn: signOut, onError: () => notify(t('errors.signOutFailed')) });
 
   const byDay = new Map((stats.data?.days ?? []).map((entry) => [entry.day, entry.status]));
   // The pack day on this phone: until 03:00 it is still yesterday's.
@@ -107,7 +107,7 @@ export default function MeScreen() {
         </ScrollView>
       )}
 
-      <Button label={t('me.signOut')} variant="secondary" onPress={onSignOut} />
+      <Button label={t('me.signOut')} variant="secondary" loading={leaving.isPending} onPress={() => leaving.mutate()} />
     </Screen>
   );
 }

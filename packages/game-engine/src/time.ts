@@ -88,7 +88,8 @@ function localAsUtc(instant: number, timeZone: string): number {
 
 /**
  * The instant at which a local date and hour happen in a time zone. When the clocks go back
- * over that hour it happens twice, and the first time is returned.
+ * over that hour it happens twice, and the first time is returned; when they jump over it, it
+ * never happens, and the jump is returned.
  */
 export function zonedTimeToUtc(day: string, hour: number, timeZone: string): Date {
   const target = Date.parse(`${day}T00:00:00Z`) + hour * 60 * MS_PER_MINUTE;
@@ -101,6 +102,18 @@ export function zonedTimeToUtc(day: string, hour: number, timeZone: string): Dat
   // force a day earlier (the one before the change) and keep the earliest exact match.
   const earlier = target - (localAsUtc(target - MS_PER_DAY, timeZone) - (target - MS_PER_DAY));
   if (earlier < guess && localAsUtc(earlier, timeZone) === target) guess = earlier;
+  // A skipped hour (Chatham jumps from 02:45 to 03:45) leaves the guess on one side of the jump:
+  // look for the first minute whose local time is past the hour, within three hours of it.
+  if (localAsUtc(guess, timeZone) !== target) {
+    let before = guess - 180 * MS_PER_MINUTE;
+    let after = guess + 180 * MS_PER_MINUTE;
+    while (after - before > MS_PER_MINUTE) {
+      const middle = before + Math.floor((after - before) / MS_PER_MINUTE / 2) * MS_PER_MINUTE;
+      if (localAsUtc(middle, timeZone) < target) before = middle;
+      else after = middle;
+    }
+    guess = after;
+  }
   return new Date(guess);
 }
 

@@ -7,10 +7,11 @@ import { packsKey } from '@/features/packs/api';
 import { supabase } from '@/lib/supabase';
 
 /**
- * Refetches when a pack's critter, members, feeds, events, reactions, day passes or bought items change on
- * the server. Row level security
- * applies to Realtime too, so a user only hears about packs they belong to. Without an id the
- * subscription covers every pack of the user (the home screen).
+ * Refetches when a pack's critter, members, feeds, events, reactions, day passes or bought items
+ * are added or change on the server. Row level security applies to Realtime too, so a user only
+ * hears about packs they belong to. Deletes aren't published (decision D23): something taken back
+ * shows on the next refetch. Without an id the subscription covers every pack of the user (the
+ * home screen).
  */
 export function usePackRealtime(packId?: string) {
   const queryClient = useQueryClient();
@@ -27,9 +28,8 @@ export function usePackRealtime(packId?: string) {
     const refetchDays = () => void queryClient.invalidateQueries({ queryKey: daysKey });
     const refetchSocial = () => void queryClient.invalidateQueries({ queryKey: ['social'] });
     // A reaction changes one photo's totals; only those are fetched again, not the whole feed.
-    // On a delete the new row is empty and the old one still has its key.
-    const refetchReactions = (payload: { new: { feed_id?: string }; old: { feed_id?: string } }) => {
-      const feedId = payload.new.feed_id ?? payload.old.feed_id;
+    const refetchReactions = (payload: { new: { feed_id?: string } }) => {
+      const feedId = payload.new.feed_id;
       if (feedId) void refreshReactions(queryClient, feedId).catch(refetchFeeds);
       else refetchFeeds();
     };

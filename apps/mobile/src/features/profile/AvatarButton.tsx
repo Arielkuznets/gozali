@@ -1,13 +1,15 @@
 import { Image } from 'expo-image';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { ActionMenu, type Menu } from '@/components/ActionMenu';
 import { AppText } from '@/components/AppText';
+import { initial } from '@/components/MemberCircles';
 import { avatarCacheKey, pickAvatar, useAvatarUrls, useSetAvatar } from '@/features/profile/avatar';
 import { useProfile } from '@/features/profile/useProfile';
-import { notify } from '@/lib/confirm';
+import { confirm, notify } from '@/lib/confirm';
+import { errorMessage } from '@/lib/errors';
 import { colors, fonts, spacing } from '@/theme/tokens';
 
 const SIZE = 88;
@@ -26,8 +28,19 @@ export function AvatarButton({ name }: { name: string | null | undefined }) {
   const url = path ? urls.data?.get(path) : undefined;
 
   const saveFailed = () => notify(t('errors.saveFailed'));
+  const cameraOff = () =>
+    confirm({
+      title: t('feed.permissionTitle'),
+      message: t('me.cameraOff'),
+      confirm: t('feed.openSettings'),
+      cancel: t('social.cancel'),
+      onConfirm: () => void Linking.openSettings(),
+    });
   const pickFrom = (source: 'camera' | 'library') => () =>
-    void pickAvatar(source).then((uri) => uri && setAvatar.mutate(uri, { onError: saveFailed }));
+    void pickAvatar(source).then(
+      (uri) => uri && setAvatar.mutate(uri, { onError: saveFailed }),
+      (error: unknown) => (errorMessage(error) === 'camera_blocked' ? cameraOff() : saveFailed()),
+    );
   const open = () =>
     setMenu({
       title: t('me.photo'),
@@ -45,7 +58,7 @@ export function AvatarButton({ name }: { name: string | null | undefined }) {
           <Image source={{ uri: url, cacheKey: avatarCacheKey(url) }} style={styles.avatar} contentFit="cover" transition={200} />
         ) : (
           <View style={[styles.avatar, styles.empty]}>
-            <AppText style={styles.initial}>{(name?.trim()[0] ?? '?').toUpperCase()}</AppText>
+            <AppText style={styles.initial}>{initial(name)}</AppText>
           </View>
         )}
         <AppText variant="caption">{url ? t('me.changePhoto') : t('me.addPhoto')}</AppText>

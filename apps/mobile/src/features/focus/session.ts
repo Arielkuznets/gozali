@@ -21,6 +21,8 @@ export type FocusSession = {
 
 const STORAGE_KEY = 'gozali.focus';
 export const FOCUS_LENGTHS = [15, 25, 45, 60] as const;
+/** The longest session a feed shows: the server takes 1 to 600 minutes. */
+const FOCUS_MAX_MINUTES = 600;
 
 export function elapsedMs(session: FocusSession, now: number): number {
   return (session.pausedAt ?? now) - session.startedAt - session.pausedMs;
@@ -30,10 +32,13 @@ export function remainingMs(session: FocusSession, now: number): number | null {
   return session.minutes === null ? null : Math.max(0, session.minutes * 60_000 - elapsedMs(session, now));
 }
 
-/** Whole minutes to show on the feed, at least one. */
+/**
+ * Whole minutes to show on the feed: at least one, at most the planned length, and an open timer
+ * left running overnight at most what the server takes (more and the photo couldn't be sent).
+ */
 export function focusedMinutes(session: FocusSession, now: number): number {
   const minutes = Math.round(elapsedMs(session, now) / 60_000);
-  return Math.max(1, session.minutes === null ? minutes : Math.min(minutes, session.minutes));
+  return Math.max(1, Math.min(minutes, session.minutes ?? FOCUS_MAX_MINUTES));
 }
 
 async function scheduleEnd(session: FocusSession, text: { title: string; body: string }): Promise<string | null> {

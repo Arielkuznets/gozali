@@ -22,12 +22,15 @@ export function avatarCacheKey(url: string): string {
   return url.split('?')[0] ?? url;
 }
 
-/** Lets the member take or pick a square photo; null when they cancel. */
+/**
+ * Lets the member take or pick a square photo; null when they cancel. Throws `camera_blocked`
+ * when the camera isn't allowed, so the screen can say why nothing opens.
+ */
 export async function pickAvatar(source: 'camera' | 'library'): Promise<string | null> {
   const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 1 };
   if (source === 'camera') {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) return null;
+    if (!permission.granted) throw new Error('camera_blocked');
   }
   const result = source === 'camera' ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
   return result.canceled ? null : (result.assets[0]?.uri ?? null);

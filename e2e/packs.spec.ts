@@ -55,6 +55,34 @@ test('joining with a code shows the pack first, then opens it', async ({ page })
   expect(members).toHaveLength(2);
 });
 
+test('pasting the whole invite message finds the code in it', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' });
+  await signIn(page, dan);
+  await page.goto('/join');
+  // What the invite screen shares, as it arrives in a chat.
+  await page
+    .getByLabel('Invite code')
+    .fill(`Join my pack "Gym squad" on Gozali! Code: ${pack.inviteCode}\nhttps://gozali.app/i/${pack.inviteCode}`);
+
+  await expect(page.getByLabel('Invite code')).toHaveValue(pack.inviteCode);
+  await expect(page.getByText('Gym squad')).toBeVisible();
+
+  await page.getByLabel('Invite code').fill(`https://gozali.app/i/${pack.inviteCode.toLowerCase()}`);
+  await expect(page.getByLabel('Invite code')).toHaveValue(pack.inviteCode);
+});
+
+test('a name that starts with an emoji shows the whole emoji in the member circle', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
+  const renamed = await dan.client.from('profiles').update({ display_name: '🌸 Dan' }).eq('id', dan.id);
+  expect(renamed.error).toBeNull();
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+
+  await expect(page.getByText('🌸 Dan').first()).toBeVisible();
+  // The circle shows the first character as the name's initial: the whole emoji, not half of it.
+  await expect(page.getByText('🌸', { exact: true })).toBeVisible();
+});
+
 test('the admin replaces a leaked invite code, and only the admin can', async ({ page }) => {
   const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
   page.on('dialog', (dialog) => void dialog.accept());
@@ -71,6 +99,16 @@ test('the admin replaces a leaked invite code, and only the admin can', async ({
   // Other members can't replace it.
   const { error } = await dan.client.rpc('renew_invite_code', { target: pack.id });
   expect(error?.message).toContain('admin_only');
+});
+
+test("a member who isn't the admin is told the settings are the admin's", async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
+  await signIn(page, dan);
+  await page.goto(`/pack/${pack.id}/settings`);
+
+  await expect(page.getByText('Only the admin, Noa, can change', { exact: false })).toBeVisible();
+  await expect(page.getByRole('radio', { name: '2 rest days a week' })).toBeDisabled();
+  await expect(page.getByRole('radio', { name: 'Monday' })).toBeDisabled();
 });
 
 test('a member who dozed off is told how to come back', async ({ page }) => {
