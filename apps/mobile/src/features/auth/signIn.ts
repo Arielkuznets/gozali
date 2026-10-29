@@ -3,6 +3,7 @@ import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
 
+import { clearQueue } from '@/features/feeds/queue';
 import { clearFocusSession } from '@/features/focus/session';
 import { suggestName } from '@/features/profile/suggestedName';
 import { clearWidgets } from '@/features/widgets/sync';
@@ -117,6 +118,7 @@ export async function deleteAccount({ revokeApple }: { revokeApple: boolean }): 
   if (error) throw error;
   // The server already removed the tokens with the account; this clears what the device keeps.
   await forgetAccountOnDevice();
+  await forgetQueuedFeeds();
   await supabase.auth.signOut({ scope: 'local' });
 }
 
@@ -126,12 +128,22 @@ export async function signOut(): Promise<void> {
   // This phone only, like the tokens forgotten above: other phones keep their session, so they
   // don't sit signed out while their pushes and widgets still come.
   const { error } = await auth.signOut({ scope: 'local' });
-  if (!error) return;
-  // Without a connection the server doesn't hear about it, but a session that loaded is gone from
-  // this phone all the same. An expired one that couldn't be refreshed was never loaded, so it is
-  // still stored: then getSession reports the same failure, and signing out didn't work.
-  const current = await auth.getSession();
-  if (current.data.session || current.error) throw error;
+  if (error) {
+    // Without a connection the server doesn't hear about it, but a session that loaded is gone
+    // from this phone all the same. An expired one that couldn't be refreshed was never loaded, so
+    // it is still stored: then getSession reports the same failure, and signing out didn't work.
+    const current = await auth.getSession();
+    if (current.data.session || current.error) throw error;
+  }
+  await forgetQueuedFeeds();
+}
+
+/**
+ * Feeds still waiting to go out: without the session they can't, and their photos are the
+ * account's. Only once it is signed out, so a failed sign-out keeps them.
+ */
+async function forgetQueuedFeeds(): Promise<void> {
+  await clearQueue().catch(() => undefined);
 }
 
 /** What the phone keeps for the signed-in account, so the next one doesn't open its packs. */

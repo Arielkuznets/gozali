@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { enqueue, flushQueue, pendingFeeds } from '@/features/feeds/queue';
+import { clearQueue, enqueue, flushQueue, pendingFeeds } from '@/features/feeds/queue';
 import type { OutgoingFeed } from '@/features/feeds/send';
 
 // The queue keeps photos in the app's documents folder; here files are just names.
@@ -21,6 +21,7 @@ jest.mock('expo-file-system', () => {
       this.uri = parts.map((part) => (typeof part === 'string' ? part : part.uri)).join('/');
     }
     create() {}
+    delete() {}
   }
   return { File, Directory, Paths: { document: { uri: 'documents' } } };
 });
@@ -104,6 +105,13 @@ describe('offline feed queue', () => {
       .mockResolvedValueOnce('feed-id');
     expect(await flushQueue()).toBe(1);
     expect(mockSendFeed).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'a', caption: null, extra: true }));
+    expect(await pendingFeeds()).toEqual([]);
+  });
+
+  it('forgets everything that waits', async () => {
+    await enqueue(feed('a'));
+    await enqueue({ ...feed('b'), packId: 'other' });
+    await clearQueue();
     expect(await pendingFeeds()).toEqual([]);
   });
 

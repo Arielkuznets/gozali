@@ -43,6 +43,14 @@ export async function enqueue(feed: OutgoingFeed): Promise<boolean> {
   return true;
 }
 
+/** Forgets what waits, photos included: they belong to an account that is leaving this phone. */
+export async function clearQueue(): Promise<void> {
+  await AsyncStorage.removeItem(STORAGE_KEY);
+  if (Platform.OS === 'web') return;
+  const directory = new Directory(Paths.document, 'feed-queue');
+  if (directory.exists) directory.delete();
+}
+
 export async function pendingFeeds(packId?: string): Promise<OutgoingFeed[]> {
   const queue = await read();
   return packId ? queue.filter((feed) => feed.packId === packId) : queue;
