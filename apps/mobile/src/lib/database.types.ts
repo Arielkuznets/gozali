@@ -1113,6 +1113,7 @@ export type Database = {
       empty_pack_photos: { Args: { at_time: string }; Returns: string[] };
       empty_packs: { Args: { at_time: string }; Returns: string[] };
       end_pause: { Args: { target: string }; Returns: undefined };
+      excused_on: { Args: { member: string; pack_date: string; target: string }; Returns: boolean };
       expired_photos: {
         Args: { at_time?: string; max_rows?: number };
         Returns: {
