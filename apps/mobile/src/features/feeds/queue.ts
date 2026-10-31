@@ -88,17 +88,19 @@ async function sendOrReplace(feed: OutgoingFeed): Promise<boolean> {
 /**
  * Sends what is waiting, oldest first; returns how many were handled. A feed the server turns
  * down for good (already fed, or no longer a member) is dropped, except for its replacements
- * above; a network error stops the run and keeps the feed.
+ * above; so is one whose photo is gone, since it can never go out and the ones behind it can. A
+ * network error stops the run and keeps the feed.
  */
 export function flushQueue(): Promise<number> {
   flushing ??= (async () => {
     let sent = 0;
     try {
       for (const feed of await read()) {
-        if (!(await sendOrReplace(feed))) break;
+        // By name, not by the stored path: iOS moves the app's folder when the app updates.
+        const photo = new File(queueDirectory(), `${feed.id}.jpg`);
+        if (photo.exists && !(await sendOrReplace({ ...feed, photoUri: photo.uri }))) break;
         sent += 1;
         await write((await read()).filter((item) => item.id !== feed.id));
-        const photo = new File(feed.photoUri);
         if (photo.exists) photo.delete();
       }
     } finally {

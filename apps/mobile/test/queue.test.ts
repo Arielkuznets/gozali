@@ -7,9 +7,11 @@ import type { OutgoingFeed } from '@/features/feeds/send';
 jest.mock('expo-file-system', () => {
   class File {
     uri: string;
-    exists = true;
     constructor(...parts: (string | { uri: string })[]) {
       this.uri = parts.map((part) => (typeof part === 'string' ? part : part.uri)).join('/');
+    }
+    get exists() {
+      return !mockMissing.has(this.uri);
     }
     copy() {}
     delete() {}
@@ -26,6 +28,7 @@ jest.mock('expo-file-system', () => {
   return { File, Directory, Paths: { document: { uri: 'documents' } } };
 });
 
+const mockMissing = new Set<string>();
 const mockSendFeed = jest.fn();
 jest.mock('@/features/feeds/send', () => ({
   ...jest.requireActual('@/features/feeds/send'),
@@ -46,9 +49,40 @@ const feed = (id: string): OutgoingFeed => ({
 beforeEach(async () => {
   await AsyncStorage.clear();
   mockSendFeed.mockReset();
+  mockMissing.clear();
 });
 
+// Reading a file that isn't there throws, which is not a refusal from the server.
+const sendsWhatExists = async (sent: OutgoingFeed) => {
+  if (mockMissing.has(sent.photoUri)) throw new Error('file not found');
+  return 'feed-id';
+};
+
 describe('offline feed queue', () => {
+  it('goes past a feed whose photo is gone', async () => {
+    await enqueue(feed('a'));
+    await enqueue(feed('b'));
+    mockMissing.add('documents/feed-queue/a.jpg');
+    mockSendFeed.mockImplementation(sendsWhatExists);
+    expect(await flushQueue()).toBe(2);
+    expect(mockSendFeed.mock.calls.map(([sent]) => sent.id)).toEqual(['b']);
+    expect(await pendingFeeds()).toEqual([]);
+  });
+
+  it('finds the photo by its name when the app moved to a new folder', async () => {
+    await enqueue(feed('a'));
+    const [queued] = await pendingFeeds();
+    await AsyncStorage.setItem(
+      'gozali.feed-queue',
+      JSON.stringify([{ ...queued, photoUri: 'old-container/feed-queue/a.jpg' }]),
+    );
+    mockMissing.add('old-container/feed-queue/a.jpg');
+    mockSendFeed.mockImplementation(sendsWhatExists);
+    expect(await flushQueue()).toBe(1);
+    expect(mockSendFeed.mock.calls[0][0].photoUri).toBe('documents/feed-queue/a.jpg');
+    expect(await pendingFeeds()).toEqual([]);
+  });
+
   it('keeps feeds in order and sends them oldest first', async () => {
     await enqueue(feed('a'));
     await enqueue(feed('b'));
