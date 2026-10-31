@@ -130,8 +130,10 @@ A fix that touches only JavaScript reaches the installed apps without a new buil
 
 ```sh
 cd apps/mobile
-eas update --channel production --message "Fix the monthly board"
+eas update --channel production --environment production --clear-cache --message "Fix the monthly board"
 ```
+
+Both flags are required. Without `--environment` the CLI bundles `apps/mobile/.env`, which points at the local stack, and without `--clear-cache` Metro can reuse a bundle with an old `EXPO_PUBLIC_*` value inlined, because its cache doesn't look at those values. Either way every installed phone gets an app that calls `127.0.0.1`.
 
 A change to native code (a new native package, app.json plugins, the widgets) needs a new build instead, and a new `version` in `app.json` first, so updates for the old builds and the new ones stay apart. (A fingerprint of the native code would do this by itself, but it came out different on Windows and on the EAS servers and failed the build.)
 
