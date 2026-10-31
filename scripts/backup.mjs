@@ -27,19 +27,22 @@ export function query(sql, where = target) {
   try {
     // One command line (npx is a script on Windows, so it runs through the shell); the SQL goes
     // through the file, never through the command line.
-    const result = spawnSync(`npx supabase db query ${where} -f "${file}"`, {
+    const result = spawnSync(`npx supabase db query ${where} -o json -f "${file}"`, {
       cwd: root,
       shell: true,
       encoding: 'utf8',
       maxBuffer: 1024 * 1024 * 1024,
     });
     const text = result.stdout ?? '';
-    const start = text.indexOf('{');
+    const start = text.search(/[[{]/);
     if (result.status !== 0 || text.includes('"_tag":"Error"')) {
       throw new Error(`query failed: ${`${text}\n${result.stderr ?? ''}`.trim().slice(0, 800)}`);
     }
     // A statement without rows (DO, UPDATE) prints only its name.
-    return start < 0 ? [] : JSON.parse(text.slice(start)).rows;
+    if (start < 0) return [];
+    // A plain list of rows, or the list inside an object when an AI agent runs the CLI.
+    const parsed = JSON.parse(text.slice(start));
+    return Array.isArray(parsed) ? parsed : parsed.rows;
   } finally {
     rmSync(file, { force: true });
   }
@@ -54,6 +57,8 @@ function backUp() {
      where table_type = 'BASE TABLE' and table_schema = 'public'
      union all select 'auth.users' union all select 'auth.identities' order by 1`,
   ).map((row) => row.name);
+  // An empty file would count as a good backup and push a real one out of the newest 14.
+  if (!tables.includes('public.profiles')) throw new Error('the database listed no tables');
 
   const backup = { takenAt: new Date().toISOString(), source: target.slice(2), tables: {} };
   for (const table of tables) {
