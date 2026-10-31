@@ -66,6 +66,15 @@ describe('offline feed queue', () => {
     expect((await pendingFeeds()).map((item) => item.id)).toEqual(['a', 'b']);
   });
 
+  it('keeps a feed through a refusal that can pass later', async () => {
+    await enqueue(feed('a'));
+    mockSendFeed.mockRejectedValueOnce({ statusCode: '403', message: '"exp" claim timestamp check failed' });
+    expect(await flushQueue()).toBe(0);
+    mockSendFeed.mockRejectedValueOnce({ code: '57014', message: 'canceling statement due to statement timeout' });
+    expect(await flushQueue()).toBe(0);
+    expect((await pendingFeeds()).map((item) => item.id)).toEqual(['a']);
+  });
+
   it('drops a feed the server refused for good and goes on', async () => {
     await enqueue(feed('a'));
     await enqueue(feed('b'));

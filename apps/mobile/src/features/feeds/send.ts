@@ -72,13 +72,19 @@ function isAlreadyUploaded(error: object): boolean {
 }
 
 /**
- * True when the server turned the feed down for good, as opposed to a network failure: a
- * database error has a SQLSTATE code, and storage answers with an HTTP status.
+ * True when this feed can never pass: a queued feed that gets this answer is dropped with its only
+ * photo, so anything else waits. The database refuses with a raised error, bad data, a broken
+ * constraint or a missing privilege (SQLSTATE); storage refuses with row-level security, or a
+ * missing bucket or a file it won't take. A timeout, a lock or an expired token passes on a later
+ * try, and storage answers that last one with a 403 too.
  */
 export function isFinalRejection(error: unknown): boolean {
   if (typeof error !== 'object' || error === null) return false;
-  if ('code' in error && /^[0-9A-Z]{5}$/.test(String(error.code))) return true;
-  return 'statusCode' in error && /^4[0-9]{2}$/.test(String(error.statusCode));
+  if ('code' in error && /^(P0[0-9A-Z]{3}|2[23][0-9A-Z]{3}|42501)$/.test(String(error.code))) return true;
+  if (!('statusCode' in error)) return false;
+  const status = String(error.statusCode);
+  if (status === '403') return 'message' in error && String(error.message).includes('row-level security');
+  return status === '404' || status === '413' || status === '415';
 }
 
 export function feedErrorCode(error: unknown): 'already_fed' | 'not_a_member' | 'other' {
