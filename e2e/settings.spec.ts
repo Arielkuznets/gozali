@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { admin, createUser, layOutTextLikeAPhone, removeUsers, signIn, type TestUser } from './support';
+import { admin, createPack, createUser, layOutTextLikeAPhone, removeUsers, signIn, type TestUser } from './support';
 
 let noa: TestUser;
 
@@ -70,6 +70,40 @@ test('a switch whose save fails goes back and says so', async ({ page }) => {
 
   await expect.poll(() => alerts).toEqual(["Saving didn't work. Please try again."]);
   await expect(nudges).toBeChecked();
+});
+
+test.describe('with someone blocked', () => {
+  let dan: TestUser;
+
+  test.beforeEach(async () => {
+    dan = await createUser('Dan');
+    await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' }, [dan]);
+    const blocked = await noa.client.from('blocks').insert({ blocker_id: noa.id, blocked_id: dan.id });
+    if (blocked.error) throw blocked.error;
+  });
+
+  test.afterEach(async () => {
+    await removeUsers(dan);
+  });
+
+  test('an unblock that fails says so and leaves them listed', async ({ page }) => {
+    const alerts: string[] = [];
+    page.on('dialog', (dialog) => {
+      alerts.push(dialog.message());
+      void dialog.dismiss();
+    });
+    await signIn(page, noa);
+    await page.goto('/settings');
+    await expect(page.getByText('Dan')).toBeVisible();
+    await page.route('**/rest/v1/blocks?**', (route) =>
+      route.request().method() === 'DELETE' ? route.abort('internetdisconnected') : route.continue(),
+    );
+
+    await page.getByRole('button', { name: 'Unblock' }).click();
+
+    await expect.poll(() => alerts).toEqual(["Saving didn't work. Please try again."]);
+    await expect(page.getByText('Dan')).toBeVisible();
+  });
 });
 
 async function createAPack(page: Page) {

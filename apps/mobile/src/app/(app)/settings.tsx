@@ -179,6 +179,7 @@ export default function SettingsScreen() {
 
 /** People the user blocked, with their names where they still share a pack. */
 function useBlocked() {
+  const { t } = useTranslation();
   const { session } = useAuth();
   const queryClient = useQueryClient();
   const userId = session?.user.id;
@@ -199,6 +200,7 @@ function useBlocked() {
       const { error } = await requireSupabase().from('blocks').delete().eq('blocker_id', userId ?? '').eq('blocked_id', blockedId);
       if (error) throw error;
     },
+    onError: () => notify(t('errors.saveFailed')),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['blocks'] });
       void queryClient.invalidateQueries({ queryKey: ['feeds'] });
