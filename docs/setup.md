@@ -161,7 +161,7 @@ $action = New-ScheduledTaskAction -Execute (Get-Command node).Source -Argument '
 Register-ScheduledTask -TaskName 'Gozali backup' -Action $action -Trigger (New-ScheduledTaskTrigger -Daily -At '21:30') -Settings (New-ScheduledTaskSettingsSet -StartWhenAvailable)
 ```
 
-To restore after a disaster: create a new project, link it and `npx supabase db push` the schema, then `node scripts/restore.mjs "<backup file>"`, and set the Vault values and function secrets again (section 1). The restore refuses a project that already has data. Try it on the local stack first: `node scripts/backup.mjs --local`, `npx supabase db reset`, then the restore with `--local`.
+To restore after a disaster: create a new project, link it and `npx supabase db push` the schema, then `node scripts/restore.mjs "<backup file>"`, and set the Vault values and function secrets again (section 1). The restore refuses a project that already has data. A backup reads one table after another while people use the app, so a row can be in it without its parent, like a reaction to a feed posted after `feeds` was read. The restore skips such a row, and it prints how many it skipped per table and in total at the end. Try it on the local stack first: `node scripts/backup.mjs --local`, `npx supabase db reset`, then the restore with `--local`.
 
 ## 6. Sign in with Apple revocation
 

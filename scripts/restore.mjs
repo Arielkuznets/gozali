@@ -5,9 +5,11 @@
 //   node scripts/restore.mjs <backup.json> --local --database <name>   into that database of the stack
 // Accounts go first, then the tables in the order their foreign keys need, with each table's own
 // triggers off so nothing is queued or counted twice. A row the migrations seeded gives way to the
-// backup's, and one the backup doesn't hold stays. Photo files aren't in backups, so the restored
-// feeds and profiles forget their photo paths. The Vault values (CRON_SECRET, functions_url) and the
-// function secrets are set again by hand (docs/setup.md, section 1).
+// backup's, and one the backup doesn't hold stays. A backup reads one table after another while
+// people use the app, so a row can be in it without its parent: that row is skipped, and the run
+// says how many per table. Photo files aren't in backups, so the restored feeds and profiles forget
+// their photo paths. The Vault values (CRON_SECRET, functions_url) and the function secrets are set
+// again by hand (docs/setup.md, section 1).
 import { readFileSync } from 'node:fs';
 
 import { query } from './backup.mjs';
@@ -62,6 +64,7 @@ const columns = new Map(
   ).map((row) => [row.t, row]),
 );
 
+const leftOut = [];
 for (const table of order) {
   const rows = backup.tables[table] ?? [];
   const { cols: allCols, identity } = columns.get(table);
@@ -79,12 +82,22 @@ for (const table of order) {
   for (let start = 0; start < rows.length; start += BATCH) {
     const data = JSON.stringify(rows.slice(start, start + BATCH));
     if (data.includes('$gz$') || data.includes('$restore$')) throw new Error(`${table} holds text that ends the SQL quote`);
-    // One statement (the CLI sends one), so a DO block: all of it happens, or none.
-    run(`do $restore$ begin
+    // One statement (the CLI sends one), so a DO block: all of it happens, or none. Row by row,
+    // because an insert of them all would fail on the one without a parent.
+    run(`do $restore$
+declare
+  backup_row jsonb;
+begin
 ${own ? `alter table ${table} disable trigger user;` : ''}
-insert into ${table} (${cols}) ${identity ? 'overriding system value' : ''}
-select ${cols} from jsonb_populate_recordset(null::${table}, $gz$${data}$gz$::jsonb)
-on conflict ${onConflict};
+for backup_row in select jsonb_array_elements($gz$${data}$gz$::jsonb) loop
+  begin
+    insert into ${table} (${cols}) ${identity ? 'overriding system value' : ''}
+    select ${cols} from jsonb_populate_record(null::${table}, backup_row)
+    on conflict ${onConflict};
+  exception when foreign_key_violation then
+    null;
+  end;
+end loop;
 ${own ? `alter table ${table} enable trigger user;` : ''}
 end $restore$`);
   }
@@ -95,7 +108,12 @@ end $restore$`);
        where c.table_schema || '.' || c.table_name = '${table}' and c.identity_generation = 'ALWAYS'`,
     );
   }
-  console.log(`${table}: ${rows.length}`);
+  // A DO block has no way to answer, so the rows now in the table tell how many were skipped. Only a
+  // seeded table holds any before its own go in.
+  const restored = Number(run(`select count(*) as c from ${table}`)[0].c);
+  const skipped = SEEDED.has(table) ? 0 : rows.length - restored;
+  console.log(`${table}: ${restored}${skipped > 0 ? `, skipped ${skipped}` : ''}`);
+  if (skipped > 0) leftOut.push({ table, skipped });
 }
 
 run(`do $restore$ begin
@@ -107,3 +125,8 @@ alter table public.feeds enable trigger user;
 alter table public.profiles enable trigger user;
 end $restore$`);
 console.log(`Restored the backup from ${backup.takenAt}.`);
+if (leftOut.length > 0) {
+  const total = leftOut.reduce((sum, { skipped }) => sum + skipped, 0);
+  const tables = leftOut.map(({ table, skipped }) => `${table} ${skipped}`).join(', ');
+  console.log(`Left out ${total} rows the backup holds without their parent, or holds twice: ${tables}.`);
+}

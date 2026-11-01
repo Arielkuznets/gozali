@@ -63,7 +63,8 @@ test.describe('a restore', () => {
   const stack = 'supabase_db_gozali';
   const newProject = 'gozali_restore_new_project';
   const target = 'gozali_restore_target';
-  const allowedTime = 180_000;
+  const allowedTime = 300_000;
+  let dan: TestUser;
 
   function psql(database: string, sql: string) {
     const args = ['exec', '-i', stack, 'psql', '-U', 'supabase_admin', '-d', database, '-At', '-v', 'ON_ERROR_STOP=1'];
@@ -90,10 +91,13 @@ test.describe('a restore', () => {
         'auth.users': saved('auth.users', `id in (${ids})`),
         'auth.identities': saved('auth.identities', `user_id in (${ids})`),
         'public.app_config': saved('public.app_config', 'true'),
+        'public.app_errors': saved('public.app_errors', `user_id in (${ids})`),
         'public.profiles': saved('public.profiles', `id in (${ids})`),
         'public.packs': saved('public.packs', `id = '${packId}'`),
         'public.critters': saved('public.critters', `pack_id = '${packId}'`),
         'public.pack_members': saved('public.pack_members', `pack_id = '${packId}'`),
+        'public.feeds': saved('public.feeds', `pack_id = '${packId}'`),
+        'public.reactions': saved('public.reactions', `feed_id in (select id from public.feeds where pack_id = '${packId}')`),
       },
     };
   }
@@ -117,9 +121,14 @@ test.describe('a restore', () => {
     psql('postgres', `drop database if exists ${target} with (force); drop database if exists ${newProject} with (force);`);
   });
 
-  test.beforeEach(() => {
+  test.beforeEach(async () => {
     test.setTimeout(allowedTime);
     psql('postgres', `drop database if exists ${target} with (force); create database ${target} template ${newProject};`);
+    dan = await createUser('Dan');
+  });
+
+  test.afterEach(async () => {
+    await removeUsers(dan);
   });
 
   test('a backup older than the schema leaves the newer columns their defaults', async () => {
@@ -157,5 +166,48 @@ test.describe('a restore', () => {
     expect(psql(target, `select match from public.blocked_words where word = '${word!.word}'`)).toBe('prefix');
     // A seeded row the backup doesn't hold is newer than the backup.
     expect(psql(target, 'select count(*) from public.shop_items')).toBe(String(otherItems.length + 1));
+  });
+
+  test('a row whose parent the backup missed is skipped, and the run says how many', async () => {
+    const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
+    const fed = await admin
+      .from('feeds')
+      .insert([noa, dan].map((member) => ({ pack_id: pack.id, user_id: member.id, photo_path: `${member.name}.jpg`, day: '2026-10-29' })))
+      .select('id, user_id');
+    expect(fed.error).toBeNull();
+    const noasFeed = fed.data!.find((row) => row.user_id === noa.id)!.id;
+    const dansFeed = fed.data!.find((row) => row.user_id === dan.id)!.id;
+    const reacted = await admin.from('reactions').insert([
+      { feed_id: noasFeed, user_id: noa.id, emoji: 'fire' as const },
+      { feed_id: noasFeed, user_id: dan.id, emoji: 'clap' as const },
+      { feed_id: dansFeed, user_id: noa.id, emoji: 'muscle' as const },
+    ]);
+    expect(reacted.error).toBeNull();
+    const reported = await admin
+      .from('app_errors')
+      .insert([noa, dan].map((member) => ({ user_id: member.id, message: 'test', platform: 'ios' })))
+      .select('id, user_id');
+    expect(reported.error).toBeNull();
+    const backup = backUp([noa, dan], pack.id);
+    // Dan signed up after the backup read the accounts, and before it read everything else.
+    backup.tables['auth.users'] = backup.tables['auth.users']!.filter((row) => row.id !== dan.id);
+    backup.tables['auth.identities'] = backup.tables['auth.identities']!.filter((row) => row.user_id !== dan.id);
+
+    const printed = restore(backup);
+
+    expect(printed).toContain('public.app_errors: 1, skipped 1');
+    expect(printed).toContain('public.profiles: 1, skipped 1');
+    expect(printed).toContain('public.pack_members: 1, skipped 1');
+    expect(printed).toContain('public.feeds: 1, skipped 1');
+    expect(printed).toContain('public.reactions: 1, skipped 2');
+    expect(printed).toContain('Left out 6 rows');
+    expect(psql(target, 'select id from public.profiles')).toBe(noa.id);
+    expect(psql(target, 'select user_id from public.pack_members')).toBe(noa.id);
+    expect(psql(target, 'select id from public.feeds')).toBe(noasFeed);
+    expect(psql(target, 'select feed_id, user_id, emoji from public.reactions')).toBe(`${noasFeed}|${noa.id}|fire`);
+    const noasReport = reported.data!.find((row) => row.user_id === noa.id)!.id;
+    expect(psql(target, 'select id from public.app_errors')).toBe(String(noasReport));
+    expect(psql(target, `select name from public.packs where id = '${pack.id}'`)).toBe('Gym squad');
+    expect(psql(target, `select count(*) from pg_trigger where tgenabled = 'D'`)).toBe('0');
   });
 });
