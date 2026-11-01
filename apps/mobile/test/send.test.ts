@@ -11,7 +11,7 @@ jest.mock('expo-file-system', () => {
     constructor(...parts: (string | { uri: string })[]) {
       this.uri = parts.map((part) => (typeof part === 'string' ? part : part.uri)).join('/');
     }
-    copy() {}
+    async copy() {}
     delete() {}
     async arrayBuffer() {
       return new ArrayBuffer(8);

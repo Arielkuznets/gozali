@@ -13,7 +13,9 @@ jest.mock('expo-file-system', () => {
     get exists() {
       return !mockMissing.has(this.uri);
     }
-    copy() {}
+    copy() {
+      return mockCopy();
+    }
     delete() {}
   }
   class Directory {
@@ -29,6 +31,7 @@ jest.mock('expo-file-system', () => {
 });
 
 const mockMissing = new Set<string>();
+const mockCopy = jest.fn();
 const mockSendFeed = jest.fn();
 jest.mock('@/features/feeds/send', () => ({
   ...jest.requireActual('@/features/feeds/send'),
@@ -49,6 +52,7 @@ const feed = (id: string): OutgoingFeed => ({
 beforeEach(async () => {
   await AsyncStorage.clear();
   mockSendFeed.mockReset();
+  mockCopy.mockReset().mockResolvedValue(undefined);
   mockMissing.clear();
 });
 
@@ -59,6 +63,27 @@ const sendsWhatExists = async (sent: OutgoingFeed) => {
 };
 
 describe('offline feed queue', () => {
+  it("answers with the failure when the photo can't be kept, and lists nothing", async () => {
+    mockCopy.mockRejectedValueOnce(new Error('No space left on device'));
+    await expect(enqueue(feed('a'))).rejects.toThrow('No space left on device');
+    expect(await pendingFeeds()).toEqual([]);
+  });
+
+  it('lists a feed only once its photo is in place', async () => {
+    let finishCopy = () => {};
+    mockCopy.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        finishCopy = resolve;
+      }),
+    );
+    const queued = enqueue(feed('a'));
+    await new Promise((resolve) => setTimeout(resolve));
+    expect(await pendingFeeds()).toEqual([]);
+    finishCopy();
+    await queued;
+    expect((await pendingFeeds()).map((item) => item.id)).toEqual(['a']);
+  });
+
   it('goes past a feed whose photo is gone', async () => {
     await enqueue(feed('a'));
     await enqueue(feed('b'));

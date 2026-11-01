@@ -38,7 +38,7 @@ export async function isOnline(): Promise<boolean> {
 export async function enqueue(feed: OutgoingFeed): Promise<boolean> {
   if (Platform.OS === 'web') return false;
   const kept = new File(queueDirectory(), `${feed.id}.jpg`);
-  new File(feed.photoUri).copy(kept);
+  await new File(feed.photoUri).copy(kept);
   await write([...(await read()), { ...feed, photoUri: kept.uri }]);
   return true;
 }
