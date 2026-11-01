@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { admin, createPack, createUser, feed, photo, removeUsers, signIn, type TestUser } from './support';
+import { admin, createPack, createUser, feed, layOutTextLikeAPhone, photo, removeUsers, signIn, type TestUser } from './support';
 
 let noa: TestUser;
 let dan: TestUser;
@@ -58,6 +58,30 @@ test('members nudge, report and block from the pack screen', async ({ page }) =>
   await expect.poll(() => dialogs.at(-1)).toContain('Blocked.');
   const { data: blocks } = await admin.from('blocks').select('blocked_id').eq('blocker_id', noa.id);
   expect(blocks).toEqual([{ blocked_id: maya.id }]);
+});
+
+test('the menu of a photo stays on the screen beside a long name', async ({ page }) => {
+  await dan.client.from('profiles').update({ display_name: 'Bartholomew Montgomery-Smithso' }).eq('id', dan.id);
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' }, [dan]);
+  await feed(dan, pack.id, await photo(page, '🏋️'), 'Leg day');
+  // A photo from another day shows the date as well as the time.
+  await admin.from('feeds').update({ created_at: new Date(Date.now() - 3 * 86_400_000).toISOString() }).eq('pack_id', pack.id);
+
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+  const more = page.getByRole('button', { name: 'More' });
+  await expect(more).toBeVisible();
+  await layOutTextLikeAPhone(page);
+
+  // Read without scrolling: anything that scrolled to the button could carry it in sideways.
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 844 });
+    const box = (await more.boundingBox())!;
+    expect(box.x + box.width).toBeLessThanOrEqual(width);
+  }
+
+  await more.click();
+  await expect(page.getByRole('menuitem')).toHaveText(['Report photo', 'Block Bartholomew Montgomery-Smithso']);
 });
 
 test('the profile photo menu adds and removes a photo', async ({ page }) => {

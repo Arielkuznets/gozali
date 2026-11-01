@@ -124,9 +124,11 @@ function PhotoCard({ feed, name, emoji, now, own, onReact, onMore, onOpen }: Car
   return (
     <View style={styles.card}>
       <View style={styles.meta}>
-        <AppText style={styles.name}>{name}</AppText>
+        <AppText style={styles.name} numberOfLines={1}>
+          {name}
+        </AppText>
         <View style={styles.metaRight}>
-          <AppText variant="caption">
+          <AppText variant="caption" style={styles.time}>
             {formatMoment(feed.created_at, now)}
             {feed.is_extra ? ` · ${t('pack.extra')}` : ''}
           </AppText>
@@ -193,9 +195,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  meta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  metaRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  name: { fontFamily: fonts.bodyMedium },
+  meta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.sm },
+  // ⋯ is the only way to report a photo, so it stays on the card: a long name gives way to it, and
+  // at the largest text sizes the time wraps.
+  metaRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, maxWidth: '100%' },
+  name: { fontFamily: fonts.bodyMedium, flexShrink: 1 },
+  time: { flexShrink: 1 },
   more: { fontSize: 20, lineHeight: 22, color: colors.inkMuted },
   photo: { width: '100%', aspectRatio: 3 / 4, borderRadius: radii.md, backgroundColor: colors.border },
   noPhoto: { aspectRatio: 4 },

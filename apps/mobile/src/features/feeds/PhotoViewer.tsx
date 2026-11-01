@@ -35,7 +35,9 @@ export function PhotoViewer({ photo, onClose }: { photo: ViewedPhoto | null; onC
           </ScrollView>
         )}
         <View style={[styles.top, { paddingTop: insets.top + spacing.sm }]}>
-          <AppText style={styles.light}>{photo?.name}</AppText>
+          <AppText style={[styles.light, styles.name]} numberOfLines={1}>
+            {photo?.name}
+          </AppText>
           <Pressable accessibilityRole="button" accessibilityLabel={t('feed.closePhoto')} onPress={onClose} hitSlop={12}>
             <AppText style={[styles.light, styles.close]}>✕</AppText>
           </Pressable>
@@ -61,10 +63,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: spacing.sm,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.sm,
     backgroundColor: 'rgba(0,0,0,0.35)',
   },
+  name: { flexShrink: 1 },
   bottom: {
     position: 'absolute',
     left: 0,
