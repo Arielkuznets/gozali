@@ -4,7 +4,8 @@
 //   node scripts/restore.mjs <backup.json> --local                     into the local stack
 //   node scripts/restore.mjs <backup.json> --local --database <name>   into that database of the stack
 // Accounts go first, then the tables in the order their foreign keys need, with each table's own
-// triggers off so nothing is queued or counted twice. Photo files aren't in backups, so the restored
+// triggers off so nothing is queued or counted twice. A row the migrations seeded gives way to the
+// backup's, and one the backup doesn't hold stays. Photo files aren't in backups, so the restored
 // feeds and profiles forget their photo paths. The Vault values (CRON_SECRET, functions_url) and the
 // function secrets are set again by hand (docs/setup.md, section 1).
 import { readFileSync } from 'node:fs';
@@ -20,6 +21,12 @@ const localDatabase = `--db-url postgresql://postgres:postgres@127.0.0.1:54322/$
 const where = database ? localDatabase : local ? '--local' : '--linked';
 const backup = JSON.parse(readFileSync(file, 'utf8'));
 const BATCH = 200;
+// The tables the migrations seed, with their keys.
+const SEEDED = new Map([
+  ['public.app_config', 'id'],
+  ['public.blocked_words', 'word'],
+  ['public.shop_items', 'item'],
+]);
 const run = (sql) => query(sql, where);
 
 if (Number(run('select count(*) as c from public.profiles')[0].c) > 0) {
@@ -63,6 +70,9 @@ for (const table of order) {
     .split(', ')
     .filter((col) => col.replaceAll('"', '') in (rows[0] ?? {}))
     .join(', ');
+  const key = SEEDED.get(table);
+  const updates = cols.split(', ').filter((col) => col !== key).map((col) => `${col} = excluded.${col}`);
+  const onConflict = key ? `(${key}) do update set ${updates.join(', ')}` : 'do nothing';
   const own = table.startsWith('public.');
   // New accounts get a profile from a trigger; the backup's profiles replace them.
   if (table === 'public.profiles') run('delete from public.profiles');
@@ -74,7 +84,7 @@ for (const table of order) {
 ${own ? `alter table ${table} disable trigger user;` : ''}
 insert into ${table} (${cols}) ${identity ? 'overriding system value' : ''}
 select ${cols} from jsonb_populate_recordset(null::${table}, $gz$${data}$gz$::jsonb)
-on conflict do nothing;
+on conflict ${onConflict};
 ${own ? `alter table ${table} enable trigger user;` : ''}
 end $restore$`);
   }

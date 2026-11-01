@@ -132,4 +132,30 @@ test.describe('a restore', () => {
     expect(psql(target, 'select apple_web_sign_in from public.app_config')).toBe('f');
     expect(psql(target, `select name from public.packs where id = '${pack.id}'`)).toBe('Gym squad');
   });
+
+  test('what a backup holds replaces what the migrations seeded', async () => {
+    const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' });
+    const backup = backUp([noa], pack.id);
+    const config = {
+      id: true,
+      min_version: '1.2.0',
+      ios_url: 'https://apps.apple.com/app/id1',
+      android_url: 'https://play.google.com/store/apps/details?id=app.gozali',
+      apple_revocation: true,
+      apple_web_sign_in: true,
+    };
+    const [item, ...otherItems] = saved('public.shop_items', 'true');
+    const [word] = saved('public.blocked_words', `match = 'word'`);
+    backup.tables['public.app_config'] = [config];
+    backup.tables['public.shop_items'] = [{ ...item, price: 999 }];
+    backup.tables['public.blocked_words'] = [{ ...word, match: 'prefix' }];
+
+    restore(backup);
+
+    expect(JSON.parse(psql(target, 'select row_to_json(c) from public.app_config c'))).toEqual(config);
+    expect(psql(target, `select price from public.shop_items where item = '${item!.item}'`)).toBe('999');
+    expect(psql(target, `select match from public.blocked_words where word = '${word!.word}'`)).toBe('prefix');
+    // A seeded row the backup doesn't hold is newer than the backup.
+    expect(psql(target, 'select count(*) from public.shop_items')).toBe(String(otherItems.length + 1));
+  });
 });
