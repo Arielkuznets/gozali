@@ -126,6 +126,12 @@ Errors from members' phones (screens that failed to draw, JavaScript errors that
 npx supabase db query --linked "select created_at, platform, app_version, screen, message from app_errors order by created_at desc limit 50"
 ```
 
+A release goes out in this order:
+
+1. `npx supabase db push`, at about :05 or :20 past the hour. Day closes run at :00, :15, :30 and :45, and a close or a settings save caught inside a migration's commit carries on with the old function.
+2. `npx supabase functions deploy close-days send-push widget-state on-report delete-account`. The functions call what the migrations add, so deployed first they fail until the schema catches up.
+3. The build. People get the new app last, so it finds the server it was made for.
+
 A fix that touches only JavaScript reaches the installed apps without a new build or a store review, through EAS Update. Each build profile has its own channel, and the runtime version is the app version in `app.json`, so an update only goes to builds of that version:
 
 ```sh
