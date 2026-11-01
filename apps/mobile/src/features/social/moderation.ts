@@ -18,12 +18,12 @@ export function useModeration(onBlocked?: () => void) {
   const userId = session?.user.id;
   const fail = (error: unknown) => notify(t(socialErrorKey(error)));
 
-  const reportPhoto = (feedId: string) => {
+  const reportFeed = (feedId: string, title: string, action: string) => {
     if (!userId) return;
     confirm({
-      title: t('social.reportTitle'),
+      title,
       message: t('social.reportBody'),
-      confirm: t('social.report'),
+      confirm: action,
       cancel: t('social.cancel'),
       destructive: true,
       onConfirm: () =>
@@ -72,14 +72,18 @@ export function useModeration(onBlocked?: () => void) {
     });
   };
 
-  /** The menu of a photo someone else posted. */
-  const photoMenu = (photo: { id: string; userId: string; name: string }): Menu => ({
-    title: photo.name,
-    actions: [
-      { label: t('social.report'), onPress: () => reportPhoto(photo.id) },
-      { label: t('social.block', { name: photo.name }), destructive: true, onPress: () => block(photo.userId, photo.name) },
-    ],
-  });
+  /** The menu of a photo someone else posted. Past its 30 days only a caption is left to report. */
+  const photoMenu = (photo: { id: string; userId: string; name: string; url: string | null; caption: string | null }): Menu => {
+    const action = t(photo.url ? 'social.report' : 'social.reportCaption');
+    const title = t(photo.url ? 'social.reportTitle' : 'social.reportCaptionTitle');
+    return {
+      title: photo.name,
+      actions: [
+        ...(photo.url || photo.caption ? [{ label: action, onPress: () => reportFeed(photo.id, title, action) }] : []),
+        { label: t('social.block', { name: photo.name }), destructive: true, onPress: () => block(photo.userId, photo.name) },
+      ],
+    };
+  };
 
   /** What the menu of someone else offers wherever they are listed. */
   const memberActions = (memberId: string, name: string): MenuAction[] => [

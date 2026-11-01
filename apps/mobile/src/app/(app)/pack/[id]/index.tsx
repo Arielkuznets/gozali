@@ -139,7 +139,8 @@ export default function PackScreen() {
   };
 
   const onMore = (item: FeedItem) => {
-    setMenu(photoMenu({ id: item.id, userId: item.user_id, name: names.get(item.user_id) ?? '…' }));
+    const name = names.get(item.user_id) ?? '…';
+    setMenu(photoMenu({ id: item.id, userId: item.user_id, name, url: item.photoUrl, caption: item.caption }));
   };
 
   return (

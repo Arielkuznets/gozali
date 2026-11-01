@@ -217,6 +217,44 @@ test('a recap photo can be reported and its poster blocked', async ({ page }) =>
   await expect(page.getByLabel('Photo from Dan')).toBeHidden();
 });
 
+test.describe('a photo past its 30 days', () => {
+  async function postAndExpire(page: Page, caption: string) {
+    const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' }, [dan]);
+    await feed(dan, pack.id, await photo(page, '🏋️'), caption);
+    const { data: posted } = await admin.from('feeds').update({ photo_path: null }).eq('pack_id', pack.id).select('id').single();
+    return { pack, feedId: posted!.id as string };
+  }
+
+  test('says why it is gone, and leaves its caption to report', async ({ page }) => {
+    const { pack, feedId } = await postAndExpire(page, 'Leg day');
+
+    const dialogs = answerDialogs(page);
+    await signIn(page, noa);
+    await page.goto(`/pack/${pack.id}`);
+    await expect(page.getByText('Photos are kept for 30 days.')).toBeVisible();
+    await expect(page.getByText('Leg day')).toBeVisible();
+
+    await page.getByRole('button', { name: 'More' }).click();
+    await expect(page.getByRole('menuitem')).toHaveText(['Report caption', 'Block Dan']);
+    await page.getByRole('menuitem', { name: 'Report caption' }).click();
+    await expect.poll(() => dialogs.at(-1)).toContain('We will look at it');
+    expect(dialogs.at(-2)).toContain('Report this caption?');
+    const { data: reports } = await admin.from('reports').select('feed_id, reporter_id').eq('reporter_id', noa.id);
+    expect(reports).toEqual([{ feed_id: feedId, reporter_id: noa.id }]);
+  });
+
+  test('with no caption has nothing left to report', async ({ page }) => {
+    const { pack } = await postAndExpire(page, '');
+
+    await signIn(page, noa);
+    await page.goto(`/pack/${pack.id}`);
+    await expect(page.getByText('Photos are kept for 30 days.')).toBeVisible();
+
+    await page.getByRole('button', { name: 'More' }).click();
+    await expect(page.getByRole('menuitem')).toHaveText(['Block Dan']);
+  });
+});
+
 /** Gives the member a profile photo the way the app does. */
 async function setAvatar(member: TestUser, picture: Buffer): Promise<void> {
   const path = `${member.id}/me.jpg`;

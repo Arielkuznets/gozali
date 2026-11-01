@@ -275,7 +275,7 @@ A user feeds the creature with a photo taken inside the app right now; this is t
 
 The social part creates the positive pressure and the reason to open the app even after you fed.
 
-**Pack feed:** all feeds and extra posts, newest first. Each item shows a photo, caption, name, time and reactions. System events are mixed into the feed: "Pixel evolved to Teen", "Noa is taking a joker", "Pixel ran away", achievements ("Pixel unlocked Two weeks strong"), wardrobe changes ("Noa put a scarf on Pixel"), and a "Name me!" card after hatching. After 30 days the photo is deleted (section 11), and the item stays without a photo.
+**Pack feed:** all feeds and extra posts, newest first. Each item shows a photo, caption, name, time and reactions. System events are mixed into the feed: "Pixel evolved to Teen", "Noa is taking a joker", "Pixel ran away", achievements ("Pixel unlocked Two weeks strong"), wardrobe changes ("Noa put a scarf on Pixel"), and a "Name me!" card after hatching. After 30 days the photo is deleted (section 11), and the item stays with a short line in its place.
 
 **Reactions:** a fixed set of 5 emoji: 🔥 💪 😂 👏 🤨. One reaction per user per item, and it can be changed. 🤨 (for a suspicious photo) has **no effect at all on the creature**; it's only social pressure, and it is shown as a number without names, including to the person who posted. For the other reactions you can see who reacted.
 
@@ -411,7 +411,7 @@ The app includes content that users upload (photos), so it must meet Apple's and
 - **Account deletion inside the app**, including all photos and data, also photos in weekly recaps.
 - **Sign in with Apple** next to Google, to meet Apple's requirement for a privacy-preserving sign-in option.
 - **Filtering:** captions are filtered for offensive words before they are posted.
-- **Reporting content:** every photo has a Report option, and so does every member, for their name or profile photo. Every report sends an email to the developer and is handled within 24 hours: hiding the item, and if needed removing the user.
+- **Reporting content:** every photo has a Report option, and so does every member, for their name or profile photo. An item whose photo is gone after 30 days offers to report its caption instead, if it has one. Every report sends an email to the developer and is handled within 24 hours: hiding the item, and if needed removing the user.
 - **Blocking:** a user can block another user. The blocked user's photos, profile photo and reactions are hidden for them, and the blocked user can't nudge them; if they are in the same pack, leaving is offered too. They still show as fed and count for the day, as the day close counts them. In addition, anyone can leave a pack at any moment, and an admin can remove a member, who then can't come back with the invite code. If a link reached the wrong people, the admin replaces the code and the old one stops working.
 - **Terms of use** that forbid offensive content, and a way to get in touch (an email address).
 - **Minimum age 13**, with a declaration at sign-up.

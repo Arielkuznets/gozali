@@ -150,7 +150,11 @@ function PhotoCard({ feed, name, emoji, now, own, onReact, onMore, onOpen }: Car
           />
         </Pressable>
       ) : (
-        <View style={[styles.photo, styles.noPhoto]} />
+        <View style={styles.noPhoto}>
+          <AppText variant="caption" style={styles.noPhotoText}>
+            {t('feed.photoGone')}
+          </AppText>
+        </View>
       )}
       {feed.focus_minutes !== null && (
         <AppText style={styles.focus}>{t('feed.focusChip', { minutes: feed.focus_minutes, emoji })}</AppText>
@@ -203,7 +207,8 @@ const styles = StyleSheet.create({
   time: { flexShrink: 1 },
   more: { fontSize: 20, lineHeight: 22, color: colors.inkMuted },
   photo: { width: '100%', aspectRatio: 3 / 4, borderRadius: radii.md, backgroundColor: colors.border },
-  noPhoto: { aspectRatio: 4 },
+  noPhoto: { padding: spacing.lg, borderRadius: radii.md, backgroundColor: colors.background },
+  noPhotoText: { textAlign: 'center' },
   focus: { fontFamily: fonts.bodyMedium, color: colors.inkMuted },
   reactions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
   reaction: {
