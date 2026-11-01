@@ -279,7 +279,7 @@ The social part creates the positive pressure and the reason to open the app eve
 
 **Reactions:** a fixed set of 5 emoji: 🔥 💪 😂 👏 🤨. One reaction per user per item, and it can be changed. 🤨 (for a suspicious photo) has **no effect at all on the creature**; it's only social pressure, and it is shown as a number without names, including to the person who posted. For the other reactions you can see who reacted.
 
-**Nudge:** next to a member who hasn't fed yet, including a member who hasn't started or is asleep, there is a button that sends them a notification: "{petName} is looking at you 👀". Limit: one nudge per day from each member to each member. You can't nudge a paused member, or a member who activated a joker or declared a rest today.
+**Nudge:** next to a member who hasn't fed yet, including a member who hasn't started or is asleep, there is a button that sends them a notification: "{petName} is looking at you 👀". Limit: one nudge per day from each member to each member. You can't nudge a paused member, or a member who activated a joker or declared a rest today. A nudge into the receiver's quiet hours (section 8) is turned down with a message, and the day's nudge stays unused.
 
 **Weekly recap:** created at the end of every week (by the pack's week start) and saved.
 
@@ -312,7 +312,7 @@ Few notifications, and only ones that change behavior; each type can be turned o
 - No more than 6 notifications per day per user **in total, across all packs together**. When the limit is reached, only Evening reminder and Last one are sent.
 - Friend fed doesn't count toward the limit, because it is merged: notifications waiting for the same user about the same pack are sent together ("3 friends fed Pixel"), after waiting up to 10 minutes. Timer done doesn't count either, because the user started it.
 - Reminders and Last one are not sent to someone who isn't counted today (paused, asleep) or who activated a joker or declared a rest. A nudge does reach a sleeping member, since waking them is what it's for, but not someone paused, on a joker or resting.
-- No notifications between 23:00 and 07:00 in the user's time, with no exceptions. A notification created in those hours that is still relevant in the morning (Weekly recap, Evolution, Pet state, Still in?) is sent at 07:00; the rest are dropped.
+- No notifications between 23:00 and 07:00 in the user's time, with no exceptions. A notification created in those hours that is still relevant in the morning (Weekly recap, Evolution, Pet state, Still in?) is sent at 07:00; the rest are dropped. A nudge never gets that far: `nudge` refuses it, so the sender knows.
 - The texts are written in the creature's voice, according to its personality.
 - The app asks for the notification permission by itself once per install, as the first home screen opens: right after the profile setup for a new account, and right after signing in for an account that skips the setup (a new phone, a reinstall). After that only the notice in settings and starting a focus timer ask.
 
@@ -510,7 +510,7 @@ Important: the widgets and some of the modules require a **development build**, 
   - `use_day_pass` (joker or declaring a rest, today only) and `cancel_day_pass`; `start_pause` and `end_pause`; `my_day_status` (rest days left this week, the month's joker, today's pass, the current pause and when the next one is allowed).
   - `counted_feeds`: who fed in the last few days in the member's packs, for the circles and counts; like the day close it ignores blocks and hidden photos, and it returns no photo or caption.
   - `react` (one reaction per member per item, changeable) and `feed_reactions` (totals for a page of items, names for every emoji but 🤨).
-  - `nudge`: one a day per pair, never to someone who fed, rests, is on a joker or a pause today, or who blocked the sender; writes a notification.
+  - `nudge`: one a day per pair, never to someone who fed, rests, is on a joker or a pause today, who blocked the sender, or whose clock is in quiet hours; writes a notification.
   - `suggest_name` (up to 3 per member, only while the hatched critter has no name) and `choose_name` (admin).
   - `buy_item`: any member buys a shop item with the pack's coins; the check and the payment are one statement, so two members buying at once can't overspend.
   - `dress_critter`: any member, one owned item per slot (unlocked or bought).

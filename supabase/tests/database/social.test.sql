@@ -1,7 +1,7 @@
 -- Feed events, reactions, nudges, naming, the wardrobe and personal stats.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(34);
+select plan(38);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a4', 'noa@test.local'),
@@ -12,6 +12,27 @@ update public.profiles set display_name = 'Dan' where id = '00000000-0000-0000-0
 
 create function pg_temp.act_as(member uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', member, 'role', 'authenticated')::text, true);
+$$;
+
+-- The zone whose clock shows this hour right now; Etc names carry the sign the other way around.
+create function pg_temp.zone_at(local_hour integer) returns text language sql as $$
+  select format('Etc/GMT%s%s', case when ahead > 0 then '-' else '+' end, abs(ahead))
+  from (select ((local_hour - extract(hour from now() at time zone 'utc')::integer + 36) % 24) - 12 as ahead) clock;
+$$;
+
+-- What becomes of Dan's nudge when it is this hour on Noa's clock.
+create function pg_temp.nudge_noa_at(local_hour integer) returns text language plpgsql as $$
+begin
+  delete from public.nudges;
+  delete from public.notifications where type = 'nudge';
+  update public.profiles set timezone = pg_temp.zone_at(local_hour) where id = '00000000-0000-0000-0000-0000000000a4';
+  begin
+    perform public.nudge((select id from pack), '00000000-0000-0000-0000-0000000000a4');
+  exception when raise_exception then
+    return sqlerrm;
+  end;
+  return case when exists (select 1 from public.claim_notifications() c where c.type = 'nudge') then 'delivered' else 'lost' end;
+end;
 $$;
 
 set local role authenticated;
@@ -131,7 +152,12 @@ select throws_ok(
   'P0002', 'feed_not_found', 'a stranger cannot react'
 );
 
--- Nudges.
+-- Nudges. Quiet hours go by the receiver's clock, so it is noon for Noa and the middle of the night
+-- for Dan, whose clock has no say in a nudge to Noa.
+reset role;
+update public.profiles set timezone = pg_temp.zone_at(12) where id = '00000000-0000-0000-0000-0000000000a4';
+update public.profiles set timezone = pg_temp.zone_at(2) where id = '00000000-0000-0000-0000-0000000000b4';
+set local role authenticated;
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000a4');
 insert into public.blocks (blocker_id, blocked_id) values ('00000000-0000-0000-0000-0000000000a4', '00000000-0000-0000-0000-0000000000b4');
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000b4');
@@ -165,6 +191,29 @@ select pg_temp.act_as('00000000-0000-0000-0000-0000000000a4');
 select throws_ok(
   $$ select public.nudge((select id from pack), '00000000-0000-0000-0000-0000000000b4') $$,
   'P0001', 'already_fed', 'no nudging someone who fed'
+);
+
+-- A nudge in the receiver's quiet hours would be dropped, so it is refused and not used up.
+reset role;
+delete from public.nudges;
+delete from public.notifications where type = 'nudge';
+update public.profiles set timezone = pg_temp.zone_at(23) where id = '00000000-0000-0000-0000-0000000000a4';
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000b4');
+select throws_ok(
+  $$ select public.nudge((select id from pack), '00000000-0000-0000-0000-0000000000a4') $$,
+  'P0001', 'receiver_quiet', 'no nudge once it is night on the receiver''s clock'
+);
+reset role;
+select is((select count(*) from public.nudges), 0::bigint, 'a nudge refused at night leaves the day''s nudge unused');
+select is((select count(*) from public.notifications where type = 'nudge'), 0::bigint, 'and queues nothing');
+
+-- Whatever the hour, a nudge is delivered or refused, never accepted and lost.
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000b4');
+select is(
+  (select array_agg(pg_temp.nudge_noa_at(local_hour) order by local_hour) from generate_series(0, 23) local_hour),
+  array_fill('receiver_quiet'::text, array[7]) || array_fill('delivered'::text, array[16]) || array['receiver_quiet'],
+  'the hours a nudge is refused are the hours it would be dropped'
 );
 
 -- Personal stats: fed, missed, fed, fed, rested gives a best streak of 3 and a current one of 3.

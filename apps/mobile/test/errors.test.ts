@@ -1,4 +1,5 @@
 import { feedErrorCode, feedErrorKey, isFinalRejection, isNetworkFailure } from '@/features/feeds/send';
+import { socialErrorKey } from '@/features/social/api';
 import { isBlockedText } from '@/lib/errors';
 
 describe('feed errors', () => {
@@ -64,5 +65,11 @@ describe('feed errors', () => {
     expect(feedErrorKey({ code: 'P0001', message: 'too_many_posts' })).toBe('feed.tooManyPosts');
     expect(feedErrorKey({ code: 'P0001', message: 'photo_missing' })).toBe('feed.failed');
     expect(feedErrorKey(new Error('boom'))).toBe('feed.failed');
+  });
+});
+
+describe('social errors', () => {
+  it('says a nudge has to wait for their morning', () => {
+    expect(socialErrorKey({ code: 'P0001', message: 'receiver_quiet' })).toBe('social.errors.receiver_quiet');
   });
 });

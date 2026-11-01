@@ -84,7 +84,7 @@ Each entry: what was decided, what the options were, and why. Decisions D1–D11
 
 ## D15 · Notification rules run when a row is claimed
 
-- **Decided:** actions only queue rows; the rules of spec section 8 (preferences, quiet hours, the daily cap, and whether a reminder still makes sense) run in `claim_notifications`, in the database, at the moment a row is due. The send-push function only renders texts and talks to Expo Push.
+- **Decided:** actions only queue rows; the rules of spec section 8 (preferences, quiet hours, the daily cap, and whether a reminder still makes sense) run in `claim_notifications`, in the database, at the moment a row is due. The send-push function only renders texts and talks to Expo Push. One rule also runs earlier: `nudge` refuses a nudge in the receiver's quiet hours, because the sender is waiting for an answer and a dropped nudge would use up the day's one.
 - **Options:** filter when queueing; or apply the rules in the Edge Function.
 - **Why:** most rules depend on the moment of sending, not of queueing: a reminder queued at 20:00 is pointless if the member fed at 20:03, and the daily cap depends on what already went out that day. Doing it at claim time, with `for update skip locked`, also keeps two overlapping runs from sending the same row. SQL makes each rule testable in pgTAP with a chosen clock.
 

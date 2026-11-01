@@ -313,6 +313,7 @@ export function socialErrorKey(error: unknown) {
     'already_fed',
     'not_counted_today',
     'cannot_nudge',
+    'receiver_quiet',
     'too_many_suggestions',
     'name_not_open',
     'item_locked',

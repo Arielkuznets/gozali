@@ -51,6 +51,17 @@ export async function signInElsewhere(user: TestUser): Promise<SupabaseClient> {
   return client;
 }
 
+/**
+ * Sets the member's clock to this hour of the day, for what goes by it: the same test then runs at
+ * any time. Etc names carry the sign the other way around, so Etc/GMT-2 is two hours ahead of UTC.
+ */
+export async function setClock(member: TestUser, hour: number): Promise<void> {
+  const ahead = ((hour - new Date().getUTCHours() + 36) % 24) - 12;
+  const timezone = `Etc/GMT${ahead > 0 ? '-' : '+'}${Math.abs(ahead)}`;
+  const saved = await member.client.from('profiles').update({ timezone }).eq('id', member.id);
+  if (saved.error) throw saved.error;
+}
+
 /** Deletes the users and every pack they were in. */
 export async function removeUsers(...users: TestUser[]): Promise<void> {
   const ids = users.map((user) => user.id);

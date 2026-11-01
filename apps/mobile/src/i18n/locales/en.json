@@ -709,6 +709,7 @@
       "already_fed": "They already fed today.",
       "not_counted_today": "They're resting or away today.",
       "cannot_nudge": "You can't nudge this member.",
+      "receiver_quiet": "It's night for them. Try after 07:00 their time.",
       "too_many_suggestions": "You can suggest up to 3 names.",
       "name_not_open": "The pet already has a name.",
       "item_locked": "Unlock this item with its achievement first.",

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { admin, createPack, createUser, feed, layOutTextLikeAPhone, photo, removeUsers, signIn, type TestUser } from './support';
+import { admin, createPack, createUser, feed, layOutTextLikeAPhone, photo, removeUsers, setClock, signIn, type TestUser } from './support';
 
 let noa: TestUser;
 let dan: TestUser;
@@ -30,6 +30,7 @@ test('members nudge, report and block from the pack screen', async ({ page }) =>
   const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' }, [dan, maya]);
   await admin.from('critters').update({ status: 'active', stage: 'baby', xp: 2, health: 70 }).eq('pack_id', pack.id);
   await feed(dan, pack.id, await photo(page, '🏋️'), 'Leg day');
+  await setClock(maya, 12);
 
   const dialogs = answerDialogs(page);
   await signIn(page, noa);
@@ -58,6 +59,21 @@ test('members nudge, report and block from the pack screen', async ({ page }) =>
   await expect.poll(() => dialogs.at(-1)).toContain('Blocked.');
   const { data: blocks } = await admin.from('blocks').select('blocked_id').eq('blocker_id', noa.id);
   expect(blocks).toEqual([{ blocked_id: maya.id }]);
+});
+
+test("a nudge during the night on their clock says so and doesn't use up the day's nudge", async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' }, [maya]);
+  await setClock(maya, 23);
+
+  const dialogs = answerDialogs(page);
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+  await page.getByRole('button', { name: 'Maya, not yet today' }).click();
+
+  await expect.poll(() => dialogs.at(-1)).toBe("It's night for them. Try after 07:00 their time.");
+  expect(dialogs.at(-2)).toContain('Nudge Maya?');
+  const { data: nudges } = await admin.from('nudges').select('to_user').eq('pack_id', pack.id);
+  expect(nudges).toEqual([]);
 });
 
 test('a member reported from their menu reaches the developer', async ({ page }) => {
