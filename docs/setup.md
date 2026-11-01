@@ -120,7 +120,7 @@ npx supabase db query --linked "select jobid, status, return_message, start_time
 npx supabase db query --linked "select created, status_code, timed_out, error_msg, left(content::text, 200) from net._http_response where (status_code is distinct from 200) and created > now() - interval '1 day'"
 ```
 
-Errors from members' phones (screens that failed to draw, and JavaScript errors that closed the app, sent on the next start) are kept for 30 days:
+Errors from members' phones (screens that failed to draw, JavaScript errors that closed the app, sent on the next start, and queued feeds that were dropped or got stuck) are kept for 30 days:
 
 ```sh
 npx supabase db query --linked "select created_at, platform, app_version, screen, message from app_errors order by created_at desc limit 50"

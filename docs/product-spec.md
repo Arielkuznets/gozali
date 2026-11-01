@@ -260,7 +260,7 @@ A user feeds the creature with a photo taken inside the app right now; this is t
 - A user in several packs feeds each pack separately.
 - Photos are compressed on the device before upload (maximum width 1080px, JPEG at quality 0.7).
 - The caption is filtered for offensive words before it is posted (a store requirement, section 11).
-- **Offline mode:** if there is no internet, the feed is queued and sent when the connection returns. If it was captured before the day ended and reached the server within the grace window, it counts for the day it was captured. This is the only case where the server trusts the phone clock, and it is a conscious trade-off: the window is limited to one hour, and the photo is visible to the members. The day close waits for the end of the grace window, so its result is final.
+- **Offline mode:** if there is no internet, the feed is queued and sent when the connection returns. If it was captured before the day ended and reached the server within the grace window, it counts for the day it was captured. This is the only case where the server trusts the phone clock, and it is a conscious trade-off: the window is limited to one hour, and the photo is visible to the members. The day close waits for the end of the grace window, so its result is final. A queued feed the server refuses for good, or whose photo is gone, is dropped: the member is told, and an error report goes to the developer.
 
 **Focus timer (Study, Reading, Meditation, Language and Music practice):**
 

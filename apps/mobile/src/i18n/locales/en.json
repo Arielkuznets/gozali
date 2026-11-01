@@ -510,6 +510,8 @@
     "ateLabel": "{{name}} eating",
     "queuedTitle": "Saved for later",
     "queuedBody": "You're offline. The feed goes out when you're back online, and it still counts for the day you took it if that's within an hour after the day ends.",
+    "dropped_one": "A saved feed couldn't go out and was removed. Take a new photo if you still need to feed today.",
+    "dropped_other": "{{count}} saved feeds couldn't go out and were removed. Take a new photo if you still need to feed today.",
     "failed": "The feed didn't go through. Please try again.",
     "captureFailed": "The photo wasn't taken. Please try again.",
     "permissionTitle": "Camera needed",

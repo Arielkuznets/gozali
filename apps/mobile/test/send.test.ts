@@ -68,7 +68,7 @@ describe('sending a queued feed', () => {
     mockGetSession.mockResolvedValue({ data: { session: null }, error: new Error('Network request failed') });
     await enqueue(feed);
 
-    expect(await flushQueue()).toBe(0);
+    expect((await flushQueue()).handled).toBe(0);
     expect(mockUpload).not.toHaveBeenCalled();
     expect((await pendingFeeds()).map((item) => item.id)).toEqual(['a']);
   });
@@ -78,7 +78,7 @@ describe('sending a queued feed', () => {
     mockUpload.mockResolvedValue({ error: null });
     await enqueue(feed);
 
-    expect(await flushQueue()).toBe(1);
+    expect((await flushQueue()).handled).toBe(1);
     expect(mockRpc).toHaveBeenCalledWith('submit_feed', expect.objectContaining({ photo: 'pack/noa/a.jpg' }));
     expect(await pendingFeeds()).toEqual([]);
   });

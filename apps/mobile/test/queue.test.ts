@@ -80,6 +80,16 @@ function holdNextWrite() {
   return { started, finish };
 }
 
+/** The queue as the next start of the app finds it. */
+function afterRestart() {
+  type Queue = typeof import('@/features/feeds/queue');
+  let queue: Queue | undefined;
+  jest.isolateModules(() => {
+    queue = jest.requireActual<Queue>('@/features/feeds/queue');
+  });
+  return queue!;
+}
+
 // Reading a file that isn't there throws, which is not a refusal from the server.
 const sendsWhatExists = async (sent: OutgoingFeed) => {
   if (mockMissing.has(sent.photoUri)) throw new Error('file not found');
@@ -181,9 +191,9 @@ describe('offline feed queue', () => {
     await enqueue(feed('a'));
     mockSendFeed.mockResolvedValue('feed-id');
     jest.mocked(AsyncStorage.getItem).mockRejectedValueOnce(new Error('disk I/O error'));
-    expect(await flushQueue()).toBe(0);
+    expect((await flushQueue()).handled).toBe(0);
     expect(mockSendFeed).not.toHaveBeenCalled();
-    expect(await flushQueue()).toBe(1);
+    expect((await flushQueue()).handled).toBe(1);
   });
 
   it('goes past a feed whose photo is gone', async () => {
@@ -191,7 +201,7 @@ describe('offline feed queue', () => {
     await enqueue(feed('b'));
     mockMissing.add('documents/feed-queue/a.jpg');
     mockSendFeed.mockImplementation(sendsWhatExists);
-    expect(await flushQueue()).toBe(2);
+    expect((await flushQueue()).handled).toBe(2);
     expect(mockSendFeed.mock.calls.map(([sent]) => sent.id)).toEqual(['b']);
     expect(await pendingFeeds()).toEqual([]);
   });
@@ -205,7 +215,7 @@ describe('offline feed queue', () => {
     );
     mockMissing.add('old-container/feed-queue/a.jpg');
     mockSendFeed.mockImplementation(sendsWhatExists);
-    expect(await flushQueue()).toBe(1);
+    expect((await flushQueue()).handled).toBe(1);
     expect(mockSendFeed.mock.calls[0][0].photoUri).toBe('documents/feed-queue/a.jpg');
     expect(await pendingFeeds()).toEqual([]);
   });
@@ -214,7 +224,7 @@ describe('offline feed queue', () => {
     await enqueue(feed('a'));
     await enqueue(feed('b'));
     mockSendFeed.mockResolvedValue('feed-id');
-    expect(await flushQueue()).toBe(2);
+    expect((await flushQueue()).handled).toBe(2);
     expect(mockSendFeed.mock.calls.map(([sent]) => sent.id)).toEqual(['a', 'b']);
     expect(await pendingFeeds()).toEqual([]);
   });
@@ -223,16 +233,16 @@ describe('offline feed queue', () => {
     await enqueue(feed('a'));
     await enqueue(feed('b'));
     mockSendFeed.mockRejectedValueOnce(new TypeError('Network request failed'));
-    expect(await flushQueue()).toBe(0);
+    expect((await flushQueue()).handled).toBe(0);
     expect((await pendingFeeds()).map((item) => item.id)).toEqual(['a', 'b']);
   });
 
   it('keeps a feed through a refusal that can pass later', async () => {
     await enqueue(feed('a'));
     mockSendFeed.mockRejectedValueOnce({ statusCode: '403', message: '"exp" claim timestamp check failed' });
-    expect(await flushQueue()).toBe(0);
+    expect((await flushQueue()).handled).toBe(0);
     mockSendFeed.mockRejectedValueOnce({ code: '57014', message: 'canceling statement due to statement timeout' });
-    expect(await flushQueue()).toBe(0);
+    expect((await flushQueue()).handled).toBe(0);
     expect((await pendingFeeds()).map((item) => item.id)).toEqual(['a']);
   });
 
@@ -240,7 +250,7 @@ describe('offline feed queue', () => {
     await enqueue(feed('a'));
     await enqueue(feed('b'));
     mockSendFeed.mockRejectedValueOnce({ code: 'P0001', message: 'photo_missing' }).mockResolvedValueOnce('feed-id');
-    expect(await flushQueue()).toBe(2);
+    expect((await flushQueue()).handled).toBe(2);
     expect(await pendingFeeds()).toEqual([]);
   });
 
@@ -254,7 +264,7 @@ describe('offline feed queue', () => {
   it('still feeds when the word filter turns down the caption it was queued with', async () => {
     await enqueue({ ...feed('a'), caption: 'Kicked ass today' });
     mockSendFeed.mockRejectedValueOnce({ code: '22023', message: 'text_not_allowed' }).mockResolvedValueOnce('feed-id');
-    expect(await flushQueue()).toBe(1);
+    expect((await flushQueue()).handled).toBe(1);
     expect(mockSendFeed).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'a', caption: null }));
   });
 
@@ -263,7 +273,7 @@ describe('offline feed queue', () => {
     mockSendFeed
       .mockRejectedValueOnce({ code: '22023', message: 'text_not_allowed' })
       .mockRejectedValueOnce(new TypeError('Network request failed'));
-    expect(await flushQueue()).toBe(0);
+    expect((await flushQueue()).handled).toBe(0);
     expect(await pendingFeeds()).toEqual([expect.objectContaining({ id: 'a', caption: null })]);
   });
 
@@ -273,9 +283,20 @@ describe('offline feed queue', () => {
       .mockRejectedValueOnce({ code: '22023', message: 'text_not_allowed' })
       .mockRejectedValueOnce({ code: 'P0001', message: 'already_fed' })
       .mockResolvedValueOnce('feed-id');
-    expect(await flushQueue()).toBe(1);
+    expect((await flushQueue()).handled).toBe(1);
     expect(mockSendFeed).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'a', caption: null, extra: true }));
     expect(await pendingFeeds()).toEqual([]);
+  });
+
+  it('sends a feed queued during the run, in the same run', async () => {
+    await enqueue(feed('a'));
+    mockSendFeed.mockImplementationOnce(async () => {
+      await enqueue(feed('b'));
+      return 'feed-id';
+    });
+    mockSendFeed.mockResolvedValueOnce('feed-id');
+    expect((await flushQueue()).handled).toBe(2);
+    expect(mockSendFeed.mock.calls.map(([sent]) => sent.id)).toEqual(['a', 'b']);
   });
 
   it('forgets everything that waits', async () => {
@@ -289,5 +310,95 @@ describe('offline feed queue', () => {
     await enqueue(feed('a'));
     await enqueue({ ...feed('b'), packId: 'other' });
     expect((await pendingFeeds('pack')).map((item) => item.id)).toEqual(['a']);
+  });
+});
+
+describe('what a run tells its caller', () => {
+  const timeout = { code: '57014', message: 'canceling statement due to statement timeout' };
+  const noAnswer = [
+    { message: 'TypeError: Network request failed', details: '', hint: '', code: '' },
+    Object.assign(new Error('Network request failed'), { name: 'StorageUnknownError' }),
+    new Error('not_signed_in'),
+  ];
+
+  it('says what it dropped: a final refusal, and a photo that is gone', async () => {
+    const refusal = { code: '42501', message: 'not_a_member' };
+    await enqueue(feed('a'));
+    await enqueue(feed('b'));
+    await enqueue(feed('c'));
+    mockMissing.add('documents/feed-queue/b.jpg');
+    mockSendFeed.mockRejectedValueOnce(refusal).mockResolvedValueOnce('feed-id');
+    expect(await flushQueue()).toEqual({ handled: 3, dropped: [refusal, expect.any(Error)], stuck: null });
+  });
+
+  it('counts a feed that went out as its replacement as sent', async () => {
+    await enqueue({ ...feed('a'), caption: 'Kicked ass today' });
+    mockSendFeed.mockRejectedValueOnce({ code: '22023', message: 'text_not_allowed' }).mockResolvedValueOnce('feed-id');
+    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], stuck: null });
+  });
+
+  it("doesn't call a network failure stuck", async () => {
+    await enqueue(feed('a'));
+    for (const failure of noAnswer) {
+      mockSendFeed.mockRejectedValueOnce(failure);
+      expect(await flushQueue()).toEqual({ handled: 0, dropped: [], stuck: null });
+    }
+  });
+
+  it('says once what a feed is stuck on, also after the app starts again', async () => {
+    await enqueue(feed('a'));
+    await enqueue(feed('b'));
+    mockSendFeed.mockRejectedValue(timeout);
+    expect((await flushQueue()).stuck).toBe(timeout);
+    expect((await flushQueue()).stuck).toBeNull();
+    expect((await afterRestart().flushQueue()).stuck).toBeNull();
+    expect(await waiting()).toEqual(['a', 'b']);
+  });
+
+  it('says it again for the next feed that gets stuck', async () => {
+    await enqueue(feed('a'));
+    await enqueue(feed('b'));
+    mockSendFeed.mockRejectedValueOnce(timeout);
+    expect((await flushQueue()).stuck).toBe(timeout);
+    mockSendFeed.mockResolvedValueOnce('feed-id').mockRejectedValueOnce(timeout);
+    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], stuck: timeout });
+  });
+
+  it('keeps quiet about a stuck feed through its replacement', async () => {
+    await enqueue({ ...feed('a'), caption: 'Kicked ass today' });
+    mockSendFeed.mockRejectedValueOnce(timeout);
+    expect((await flushQueue()).stuck).toBe(timeout);
+    mockSendFeed.mockRejectedValueOnce({ code: '22023', message: 'text_not_allowed' }).mockRejectedValueOnce(timeout);
+    expect((await flushQueue()).stuck).toBeNull();
+    expect(await pendingFeeds()).toEqual([expect.objectContaining({ id: 'a', caption: null })]);
+  });
+
+  it("says once per start of the app that the phone's storage failed", async () => {
+    const restarted = afterRestart();
+    const failure = new Error('disk I/O error');
+    jest.mocked(AsyncStorage.getItem).mockRejectedValueOnce(failure).mockRejectedValueOnce(failure);
+    expect((await restarted.flushQueue()).stuck).toBe(failure);
+    expect((await restarted.flushQueue()).stuck).toBeNull();
+  });
+
+  it('tells only the caller that started the run', async () => {
+    const refusal = { code: '42501', message: 'not_a_member' };
+    await enqueue(feed('a'));
+    mockSendFeed.mockRejectedValueOnce(refusal);
+    const [started, joined] = await Promise.all([flushQueue(), flushQueue()]);
+    expect(started).toEqual({ handled: 1, dropped: [refusal], stuck: null });
+    expect(joined).toEqual({ handled: 0, dropped: [], stuck: null });
+  });
+
+  it("doesn't call feeds dropped when the queue was forgotten during the run", async () => {
+    await enqueue(feed('a'));
+    await enqueue(feed('b'));
+    mockSendFeed.mockImplementationOnce(async () => {
+      await clearQueue();
+      mockMissing.add('documents/feed-queue/b.jpg');
+      return 'feed-id';
+    });
+    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], stuck: null });
+    expect(mockSendFeed).toHaveBeenCalledTimes(1);
   });
 });

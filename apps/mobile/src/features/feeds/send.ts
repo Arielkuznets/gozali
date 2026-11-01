@@ -2,6 +2,7 @@ import { File } from 'expo-file-system';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { Platform } from 'react-native';
 
+import { errorMessage } from '@/lib/errors';
 import { requireSupabase } from '@/lib/supabase';
 
 export const PHOTO_BUCKET = 'feed-photos';
@@ -85,6 +86,16 @@ export function isFinalRejection(error: unknown): boolean {
   const status = String(error.statusCode);
   if (status === '403') return 'message' in error && String(error.message).includes('row-level security');
   return status === '404' || status === '413' || status === '415';
+}
+
+/**
+ * True when the server gave no answer: supabase-js hands a failed request back with an empty code,
+ * and storage as its "unknown" error. Without a session the refresh failed the same way.
+ */
+export function isNetworkFailure(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  if ('name' in error && error.name === 'StorageUnknownError') return true;
+  return ('code' in error && error.code === '') || errorMessage(error) === 'not_signed_in';
 }
 
 export function feedErrorCode(error: unknown): 'already_fed' | 'not_a_member' | 'other' {

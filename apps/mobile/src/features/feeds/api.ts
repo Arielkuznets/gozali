@@ -2,12 +2,16 @@ import { addDays, packDayOf } from '@gozali/game-engine';
 import NetInfo from '@react-native-community/netinfo';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AppState } from 'react-native';
 
 import type { Pack } from '@/features/packs/api';
 import { enqueue, flushQueue, isOnline, pendingFeeds } from '@/features/feeds/queue';
 import { PHOTO_BUCKET, feedErrorCode, isFinalRejection, sendFeed, type OutgoingFeed } from '@/features/feeds/send';
 import type { ReactionTotal } from '@/features/social/api';
+import { notify } from '@/lib/confirm';
+import { errorMessage } from '@/lib/errors';
+import { errorCode, reportError } from '@/lib/reportError';
 import { requireSupabase } from '@/lib/supabase';
 import { serverNow } from '@/lib/serverClock';
 
@@ -146,13 +150,25 @@ export function useSendFeed() {
   });
 }
 
-/** Sends queued feeds when the app starts, comes back to the foreground or gets online. */
+/** A refusal from the server is a plain object, which a report couldn't name on its own. */
+function queueError(what: string, error: unknown): Error {
+  return new Error(`${what}: ${[errorCode(error), errorMessage(error)].filter(Boolean).join(' ')}`);
+}
+
+/**
+ * Sends queued feeds when the app starts, comes back to the foreground or gets online. The member
+ * was told a queued feed is safe, so they hear about one that was dropped.
+ */
 export function useFeedQueue() {
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
   useEffect(() => {
     const flush = () => {
-      void flushQueue().then((handled) => {
+      void flushQueue().then(({ handled, dropped, stuck }) => {
         if (handled > 0) void queryClient.invalidateQueries({ queryKey: feedsKey });
+        if (dropped.length > 0) notify(t('feed.dropped', { count: dropped.length }));
+        for (const error of dropped) reportError(queueError('Queued feed dropped', error));
+        if (stuck !== null) reportError(queueError('Feed queue stuck', stuck));
       });
     };
     flush();
@@ -162,5 +178,5 @@ export function useFeedQueue() {
       appState.remove();
       network();
     };
-  }, [queryClient]);
+  }, [queryClient, t]);
 }

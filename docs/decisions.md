@@ -126,7 +126,7 @@ Each entry: what was decided, what the options were, and why. Decisions D1–D11
 
 ## D22 · Error reports in our own database for the pilot
 
-- **Decided:** the app reports its errors to a table in the project's database (`app_errors`, written only through `report_app_error`, at most 50 a day per member, kept 30 days): screens that fail to draw right away, and JavaScript errors that close the app on the next start. Native crashes come from TestFlight and the Google Play Console. The pilot's numbers come from `pilot_metrics`, so there is no analytics service either.
+- **Decided:** the app reports its errors to a table in the project's database (`app_errors`, written only through `report_app_error`, at most 50 a day per member, kept 30 days): screens that fail to draw right away, JavaScript errors that close the app on the next start, and queued feeds that were dropped or got stuck (once per feed). Native crashes come from TestFlight and the Google Play Console. The pilot's numbers come from `pilot_metrics`, so there is no analytics service either.
 - **Options:** Sentry for crashes and PostHog for analytics (spec version 3.2); nothing until the launch.
 - **Why:** it needs no new account or key, the reports stay in the EU with the rest of the data, and a few lines of SQL answer every question a pilot of 5 or 6 packs raises. Sentry adds symbolicated native stacks and alerts, which matter at the scale of a public launch; the decision is revisited then.
 

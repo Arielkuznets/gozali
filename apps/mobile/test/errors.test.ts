@@ -1,4 +1,4 @@
-import { feedErrorCode, isFinalRejection } from '@/features/feeds/send';
+import { feedErrorCode, isFinalRejection, isNetworkFailure } from '@/features/feeds/send';
 import { isBlockedText } from '@/lib/errors';
 
 describe('feed errors', () => {
@@ -31,6 +31,21 @@ describe('feed errors', () => {
     for (const statusCode of ['404', '413', '415']) {
       expect(isFinalRejection({ statusCode, message: 'refused' })).toBe(true);
     }
+  });
+
+  it('knows when the server gave no answer', () => {
+    // What supabase-js hands back when fetch fails, from the database's API and from storage.
+    expect(isNetworkFailure({ message: 'TypeError: Network request failed', details: '', hint: '', code: '' })).toBe(true);
+    expect(isNetworkFailure(Object.assign(new Error('Aborted'), { name: 'StorageUnknownError' }))).toBe(true);
+    expect(isNetworkFailure(new Error('not_signed_in'))).toBe(true);
+  });
+
+  it('knows an answer, or a failure on the phone, from a network failure', () => {
+    expect(isNetworkFailure({ code: '57014', message: 'canceling statement due to statement timeout' })).toBe(false);
+    expect(isNetworkFailure({ statusCode: '503', message: 'Service Unavailable' })).toBe(false);
+    expect(isNetworkFailure({ message: '<html>Bad gateway</html>' })).toBe(false);
+    expect(isNetworkFailure(new Error('file not found'))).toBe(false);
+    expect(isNetworkFailure(null)).toBe(false);
   });
 
   it('names the refusals the app handles', () => {
