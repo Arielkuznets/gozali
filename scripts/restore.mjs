@@ -1,7 +1,8 @@
 // Puts a backup from scripts/backup.mjs back into an empty project, after the schema is there
 // (`supabase db push` to a new project, or `supabase db reset` locally):
-//   node scripts/restore.mjs <backup.json>            into the linked cloud project
-//   node scripts/restore.mjs <backup.json> --local    into the local stack
+//   node scripts/restore.mjs <backup.json>                             into the linked cloud project
+//   node scripts/restore.mjs <backup.json> --local                     into the local stack
+//   node scripts/restore.mjs <backup.json> --local --database <name>   into that database of the stack
 // Accounts go first, then the tables in the order their foreign keys need, with each table's own
 // triggers off so nothing is queued or counted twice. Photo files aren't in backups, so the restored
 // feeds and profiles forget their photo paths. The Vault values (CRON_SECRET, functions_url) and the
@@ -11,8 +12,12 @@ import { readFileSync } from 'node:fs';
 import { query } from './backup.mjs';
 
 const [file, ...flags] = process.argv.slice(2);
-if (!file) throw new Error('Usage: node scripts/restore.mjs <backup.json> [--local]');
-const where = flags.includes('--local') ? '--local' : '--linked';
+if (!file) throw new Error('Usage: node scripts/restore.mjs <backup.json> [--local [--database <name>]]');
+const local = flags.includes('--local');
+const database = flags.includes('--database') ? flags[flags.indexOf('--database') + 1] : undefined;
+if (database && !local) throw new Error('--database names a database of the local stack, so it needs --local.');
+const localDatabase = `--db-url postgresql://postgres:postgres@127.0.0.1:54322/${database}`;
+const where = database ? localDatabase : local ? '--local' : '--linked';
 const backup = JSON.parse(readFileSync(file, 'utf8'));
 const BATCH = 200;
 const run = (sql) => query(sql, where);
