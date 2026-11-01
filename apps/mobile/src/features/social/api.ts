@@ -79,18 +79,22 @@ export function useReact() {
       if (error) throw error;
     },
     onMutate: async ({ feedId, emoji }) => {
+      const reloading = queryClient.isFetching({ queryKey: packFeedsKey }) > 0;
       await queryClient.cancelQueries({ queryKey: packFeedsKey });
       const before = queryClient.getQueriesData<FeedItem[]>({ queryKey: packFeedsKey });
       queryClient.setQueriesData<FeedItem[]>({ queryKey: packFeedsKey }, (feeds) =>
         feeds?.map((feed) => (feed.id === feedId ? { ...feed, reactions: withMyReaction(feed.reactions, emoji) } : feed)),
       );
-      return { before };
+      return { before, reloading };
     },
     onError: (_error, _variables, context) => {
       for (const [key, feeds] of context?.before ?? []) queryClient.setQueryData(key, feeds);
     },
-    onSettled: (_data, _error, { feedId }) =>
-      refreshReactions(queryClient, feedId).catch(() => queryClient.invalidateQueries({ queryKey: feedsKey })),
+    // A reload cancelled above may have been bringing a new photo, so it runs again, totals included.
+    onSettled: (_data, _error, { feedId }, context) =>
+      context?.reloading
+        ? queryClient.invalidateQueries({ queryKey: packFeedsKey })
+        : refreshReactions(queryClient, feedId).catch(() => queryClient.invalidateQueries({ queryKey: feedsKey })),
   });
 }
 

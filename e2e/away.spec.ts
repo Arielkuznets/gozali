@@ -126,3 +126,31 @@ test("a reaction to a friend's new photo doesn't keep that photo from the pack",
   await page.getByText('Reacted').first().click();
   await expect(page.getByText('dan new')).toBeVisible();
 });
+
+test('a reaction tapped while the pack reloads on coming back leaves the new photo to arrive', async ({ page }) => {
+  const socket = await watchSocket(page);
+  const pack = await createPack(noa, { name: 'Tapped', habit: 'gym', species: 'kit' }, [dan]);
+  const image = await photo(page, '🏋️');
+  await feed(noa, pack.id, image, 'noa first');
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+  await expect(page.getByText('noa first')).toBeVisible();
+  await listening(socket);
+
+  socket.away = true;
+  await feed(dan, pack.id, image, 'dan while away');
+  await page.waitForTimeout(1500);
+  socket.away = false;
+
+  // A slow list, so the tap lands while it loads.
+  await page.route('**/rest/v1/feeds?**', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await route.continue();
+  });
+  const listRequested = page.waitForRequest('**/rest/v1/feeds?**');
+  await comeBack(page);
+  await listRequested;
+  await page.getByRole('button', { name: 'React with 🔥' }).first().click();
+
+  await expect(page.getByText('dan while away')).toBeVisible();
+});
