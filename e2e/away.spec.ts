@@ -101,3 +101,28 @@ test('a reaction a friend took back goes on coming back to the pack', async ({ p
 
   await expect(suspicious).not.toContainText('1');
 });
+
+test("a reaction to a friend's new photo doesn't keep that photo from the pack", async ({ page }) => {
+  const socket = await watchSocket(page);
+  const pack = await createPack(noa, { name: 'Reacted', habit: 'gym', species: 'kit' }, [dan]);
+  const image = await photo(page, '🏋️');
+  await feed(noa, pack.id, image, 'noa first');
+  await signIn(page, noa);
+  await page.goto('/');
+  await page.getByText('Reacted').first().click();
+  await expect(page.getByText('noa first')).toBeVisible();
+  await page.getByRole('button', { name: 'Back', exact: true }).first().click();
+  await expect(page.getByText('Your packs')).toBeVisible();
+  await listening(socket);
+
+  // The cached page of the pack is flagged stale by Dan's photo, then written to by his reaction.
+  await feed(dan, pack.id, image, 'dan new');
+  await expect(page.getByText('2/2 fed today').first()).toBeVisible({ timeout: 15_000 });
+  const { data: posted } = await admin.from('feeds').select('id').eq('pack_id', pack.id).eq('user_id', dan.id).single();
+  const reactionsFetched = page.waitForResponse('**/rest/v1/rpc/feed_reactions', { timeout: 15_000 });
+  await dan.client.rpc('react', { target_feed: posted!.id, emoji: 'fire' });
+  await reactionsFetched;
+
+  await page.getByText('Reacted').first().click();
+  await expect(page.getByText('dan new')).toBeVisible();
+});
