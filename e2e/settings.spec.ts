@@ -271,6 +271,131 @@ test('a long name leaves the way to the settings on the screen', async ({ page }
   await expect(page.getByRole('button', { name: 'Delete account' })).toBeVisible();
 });
 
+test.describe('changing your name', () => {
+  const field = (page: Page) => page.getByLabel('Your name');
+  const save = (page: Page) => page.getByRole('button', { name: 'Save', exact: true });
+  const back = (page: Page) => page.getByRole('button', { name: 'Back', exact: true }).first();
+  const savedName = async () => (await noa.client.from('profiles').select('display_name').single()).data?.display_name;
+
+  test('shows on Me and stays after a reload', async ({ page }) => {
+    await signIn(page, noa);
+    await page.goto('/me');
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await expect(field(page)).toHaveValue('Noa');
+
+    await field(page).fill('  Noa K  ');
+    await save(page).click();
+
+    await expect(page.getByRole('button', { name: 'Saved' })).toBeVisible();
+    expect(await savedName()).toBe('Noa K');
+    await back(page).click();
+    await expect(page.getByText('Noa K')).toBeVisible();
+    await page.reload();
+    await expect(page.getByText('Noa K')).toBeVisible();
+  });
+
+  test('reaches the packs the phone keeps, with no connection to ask', async ({ page }) => {
+    const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' });
+    await signIn(page, noa);
+    await page.goto(`/pack/${pack.id}/settings`);
+    await expect(page.getByText('Noa', { exact: true })).toBeVisible();
+    await back(page).click();
+    await page.getByRole('button', { name: 'Me' }).click();
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await field(page).fill('Noa K');
+    await save(page).click();
+    await expect(page.getByRole('button', { name: 'Saved' })).toBeVisible();
+
+    await page.route('**/rest/v1/packs?**', (route) => route.abort('internetdisconnected'));
+    await back(page).click();
+    await back(page).click();
+    await page.getByRole('button', { name: /^Axo, an egg Gym squad/ }).click();
+
+    await expect(page.getByLabel('Noa K, not yet today')).toBeVisible();
+  });
+
+  test('has to have something in it and stops at 30 characters', async ({ page }) => {
+    await signIn(page, noa);
+    await page.goto('/settings');
+    await expect(field(page)).toHaveValue('Noa');
+    await expect(save(page)).toBeDisabled();
+
+    await field(page).fill('   ');
+    await expect(save(page)).toBeDisabled();
+
+    await field(page).fill('');
+    await field(page).pressSequentially('x'.repeat(31));
+    await expect(field(page)).toHaveValue('x'.repeat(30));
+    await expect(save(page)).toBeEnabled();
+  });
+
+  test('a word the filter turns down says so and leaves the name to be fixed', async ({ page }) => {
+    const alerts: string[] = [];
+    page.on('dialog', (dialog) => {
+      alerts.push(dialog.message());
+      void dialog.dismiss();
+    });
+    await signIn(page, noa);
+    await page.goto('/me');
+    await page.getByRole('button', { name: 'Settings' }).click();
+
+    await field(page).fill('Bitchy');
+    await save(page).click();
+
+    await expect.poll(() => alerts).toEqual(["Let's keep it friendly: that has a word we don't allow."]);
+    await expect(field(page)).toHaveValue('Bitchy');
+    await expect(save(page)).toBeEnabled();
+    expect(await savedName()).toBe('Noa');
+    await back(page).click();
+    await expect(page.getByText('Noa', { exact: true })).toBeVisible();
+  });
+
+  test('a save turned down after leaving the screen still says so', async ({ page }) => {
+    const alerts: string[] = [];
+    page.on('dialog', (dialog) => {
+      alerts.push(dialog.message());
+      void dialog.dismiss();
+    });
+    await signIn(page, noa);
+    await page.goto('/me');
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await expect(field(page)).toHaveValue('Noa');
+    await page.route('**/rest/v1/profiles?**', async (route) => {
+      if (route.request().method() === 'PATCH') await new Promise((resolve) => setTimeout(resolve, 1000));
+      await route.continue();
+    });
+
+    await field(page).fill('Bitchy');
+    await save(page).click();
+    await back(page).click();
+
+    await expect.poll(() => alerts).toEqual(["Let's keep it friendly: that has a word we don't allow."]);
+    await expect(page.getByText('Noa', { exact: true })).toBeVisible();
+  });
+
+  test('a save that fails says so and goes back to the old name', async ({ page }) => {
+    const alerts: string[] = [];
+    page.on('dialog', (dialog) => {
+      alerts.push(dialog.message());
+      void dialog.dismiss();
+    });
+    await signIn(page, noa);
+    await page.goto('/me');
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await expect(field(page)).toHaveValue('Noa');
+    await page.route('**/rest/v1/profiles?**', (route) => route.abort('internetdisconnected'));
+
+    await field(page).fill('Noa K');
+    await save(page).click();
+
+    await expect.poll(() => alerts).toEqual(["Saving didn't work. Please try again."]);
+    await expect(field(page)).toHaveValue('Noa K');
+    await expect(save(page)).toBeEnabled();
+    await back(page).click();
+    await expect(page.getByText('Noa', { exact: true })).toBeVisible();
+  });
+});
+
 test('the rules can be read again from the settings', async ({ page }) => {
   await signIn(page, noa);
   await page.goto('/settings');

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 
@@ -9,10 +10,11 @@ import { Button } from '@/components/Button';
 import { Choice } from '@/components/Choice';
 import { PRIVACY_URL, TERMS_URL } from '@/components/LegalLinks';
 import { Screen } from '@/components/Screen';
+import { TextField } from '@/components/TextField';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useAppConfig } from '@/features/app/appConfig';
 import { deleteAccount, isCancellation } from '@/features/auth/signIn';
-import { NOTIFICATION_TYPES, useProfile, useUpdateProfile, type NotificationType } from '@/features/profile/useProfile';
+import { NAME_MAX_LENGTH, NOTIFICATION_TYPES, useProfile, useUpdateProfile, type NotificationType } from '@/features/profile/useProfile';
 import { confirm, notify } from '@/lib/confirm';
 import { isBlockedText } from '@/lib/errors';
 import { useNotificationPermission } from '@/lib/notifications';
@@ -22,7 +24,9 @@ import { colors, radii, spacing } from '@/theme/tokens';
 
 const REMINDER_TIMES = ['17:00', '18:00', '19:00', '20:00', '21:00', '22:00'] as const;
 
-/** App settings (spec section 9): reminder time, notifications by type, blocked people. */
+const saveErrorKey = (error: unknown) => (isBlockedText(error) ? ('errors.textNotAllowed' as const) : ('errors.saveFailed' as const));
+
+/** App settings (spec section 9): name, reminder time, notifications by type, blocked people. */
 export default function SettingsScreen() {
   const { t } = useTranslation();
   const profile = useProfile();
@@ -51,7 +55,7 @@ export default function SettingsScreen() {
   const reminder = profile.data.reminder_time.slice(0, 5);
   const save = (settings: Parameters<typeof update.mutate>[0]) =>
     update.mutate(settings, {
-      onError: (error) => notify(isBlockedText(error) ? t('errors.textNotAllowed') : t('errors.saveFailed')),
+      onError: (error) => notify(t(saveErrorKey(error))),
     });
   const toggle = (type: NotificationType, on: boolean) => save({ notification_prefs: { ...prefs, [type]: on } });
 
@@ -74,7 +78,9 @@ export default function SettingsScreen() {
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.body}>
+      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+        <NameField saved={profile.data.display_name ?? ''} />
+
         <View style={styles.section}>
           <AppText variant="caption">{t('settings.app.reminder')}</AppText>
           <View style={styles.row}>
@@ -174,6 +180,39 @@ export default function SettingsScreen() {
         </Pressable>
       </ScrollView>
     </Screen>
+  );
+}
+
+/** The name pack mates see, by the rules of the profile setup. */
+function NameField({ saved }: { saved: string }) {
+  const { t } = useTranslation();
+  const update = useUpdateProfile();
+  const [name, setName] = useState(saved);
+  const trimmed = name.trim();
+  const changed = trimmed !== saved;
+
+  const onSave = () => {
+    // The promise, because mutate's callbacks are dropped once this screen has closed.
+    void update.mutateAsync({ display_name: trimmed }).catch((error: unknown) => notify(t(saveErrorKey(error))));
+  };
+
+  return (
+    <View style={styles.section}>
+      <TextField
+        label={t('profileSetup.nameLabel')}
+        value={name}
+        maxLength={NAME_MAX_LENGTH}
+        autoComplete="name"
+        onChangeText={setName}
+      />
+      <Button
+        label={update.isSuccess && !changed ? t('settings.saved') : t('settings.save')}
+        size="small"
+        disabled={!changed || trimmed.length === 0}
+        loading={update.isPending}
+        onPress={onSave}
+      />
+    </View>
   );
 }
 

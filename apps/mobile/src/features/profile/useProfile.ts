@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 
 import { useAuth } from '@/features/auth/AuthProvider';
+import { renameMember } from '@/features/packs/api';
 import { deviceTimeZone } from '@/lib/dates';
 import { askForNotificationsOnce } from '@/lib/notifications';
 import { registerPushToken, unregisterPushToken } from '@/lib/push';
@@ -132,6 +133,9 @@ export function useUpdateProfile() {
       const before = queryClient.getQueryData<Profile>(profileKey(userId));
       queryClient.setQueryData<Profile>(profileKey(userId), (profile) => profile && { ...profile, ...settings });
       return { before };
+    },
+    onSuccess: (_data, { display_name: name }) => {
+      if (userId !== undefined && name) renameMember(queryClient, userId, name);
     },
     // A change that didn't save goes back on screen; offline the refetch below can't fix it.
     onError: (_error, settings, saved) => {

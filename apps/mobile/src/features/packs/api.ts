@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import type { Category, CritterStage, CritterStatus, Species, WeekStart } from '@/features/packs/constants';
 import { deviceTimeZone } from '@/lib/dates';
@@ -84,6 +84,19 @@ export function countedToday(pack: Pack, paused: ReadonlySet<string>): PackMembe
 export function restDaysOn(pack: Pick<Pack, 'rest_days_per_week' | 'pending_rest_days_per_week' | 'pending_from'>, day: string): number {
   const started = pack.pending_from !== null && pack.pending_from <= day;
   return started ? (pack.pending_rest_days_per_week ?? pack.rest_days_per_week) : pack.rest_days_per_week;
+}
+
+/** Puts a member's new name into the packs the phone holds, which a pack screen draws first. */
+export function renameMember(queryClient: QueryClient, userId: string, name: string): void {
+  const renamed = (pack: Pack): Pack => ({
+    ...pack,
+    pack_members: pack.pack_members.map((member) =>
+      member.user_id === userId && member.profiles ? { ...member, profiles: { ...member.profiles, display_name: name } } : member,
+    ),
+  });
+  queryClient.setQueriesData<Pack[] | Pack | null>({ queryKey: packsKey }, (packs) =>
+    Array.isArray(packs) ? packs.map(renamed) : packs && renamed(packs),
+  );
 }
 
 export function useMyPacks() {

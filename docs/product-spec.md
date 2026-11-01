@@ -337,7 +337,7 @@ Fourteen screens in version 1, plus widgets for the home screen and the lock scr
 | Weekly recap | The weekly recap and the button to share it as a story |
 | Pack settings | Name, rest days, week start, members (removal for the admin), invite link and QR code (the admin can replace the code), pause, joker, leave |
 | Me | Personal stats: total feeds, current and best personal streak (days in a row without a miss in any pack), and a personal monthly board across all packs |
-| Settings | Reminder time, notifications by type, language, privacy, blocked users, how to add widgets, delete account |
+| Settings | Display name, reminder time, notifications by type, language, privacy, blocked users, how to add widgets, delete account |
 
 Reporting and blocking are in the menu of every feed item and of every member.
 
