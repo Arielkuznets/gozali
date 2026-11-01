@@ -1,3 +1,4 @@
+import { packDayOf } from '@gozali/game-engine';
 import { getCalendars } from 'expo-localization';
 
 import i18n from '@/i18n';
@@ -28,9 +29,38 @@ export function formatMoment(at: string, now: Date): string {
   return `${formatter({ month: 'short', day: 'numeric' }).format(date)}, ${time}`;
 }
 
+/** A zone given only by its distance from UTC: GMT+02:00 on Android, +02:00 in a browser. */
+const BARE_OFFSET = /^(?:GMT)?([+-])(\d{1,2})(?::?(\d{2}))?$/;
+
+/**
+ * Neither the server nor Intl on an Android phone reads a bare offset, so it goes by the Etc zone
+ * at that offset, whose sign runs the other way: UTC+2 is Etc/GMT-2. Those zones are whole hours
+ * from UTC-12 to UTC+14, so any other offset is UTC.
+ */
+function namedZone(zone: string): string {
+  const match = BARE_OFFSET.exec(zone);
+  if (!match) return zone;
+  const [, sign, hours, minutes = '00'] = match;
+  const east = sign === '+';
+  const whole = Number(hours);
+  if (whole === 0 || whole > (east ? 14 : 12) || minutes !== '00') return 'UTC';
+  return `Etc/GMT${east ? '-' : '+'}${whole}`;
+}
+
+/** Me draws the pack day in this zone, and it is the way to Settings and Delete account. */
+function isReadable(zone: string): boolean {
+  try {
+    packDayOf(new Date(), zone);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** The phone's time zone, like "Asia/Jerusalem". */
 export function deviceTimeZone(): string {
-  return getCalendars()[0]?.timeZone ?? 'UTC';
+  const zone = namedZone(getCalendars()[0]?.timeZone ?? 'UTC');
+  return isReadable(zone) ? zone : 'UTC';
 }
 
 /** The month (YYYY-MM) `by` months before or after `month`. */

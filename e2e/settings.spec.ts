@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import { admin, createUser, layOutTextLikeAPhone, removeUsers, signIn, type TestUser } from './support';
 
@@ -72,11 +72,23 @@ test('a switch whose save fails goes back and says so', async ({ page }) => {
   await expect(nudges).toBeChecked();
 });
 
+async function createAPack(page: Page) {
+  await page.goto('/create-pack');
+  await page.getByLabel('Pack name').fill('Morning runs');
+  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('radio', { name: 'Running' }).click();
+  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('button', { name: 'Create pack' }).click();
+  await expect(page.getByText('Invite your friends')).toBeVisible();
+}
+
 test.describe('on a phone set to a bare offset', () => {
-  // Android names a time zone picked by hand like GMT+02:00, which the server doesn't know and saves as UTC.
+  // Android names a time zone picked by hand like GMT+02:00, and the browser reports +02:00.
+  // Neither is a name the server knows.
   test.use({ timezoneId: 'GMT+02:00' });
 
-  test('the time zone is sent once, not over and over', async ({ page }) => {
+  test('the time zone is sent once, under the name of that offset', async ({ page }) => {
     let updates = 0;
     page.on('request', (request) => {
       if (request.method() === 'PATCH' && request.url().includes('/rest/v1/profiles')) updates += 1;
@@ -86,6 +98,29 @@ test.describe('on a phone set to a bare offset', () => {
     await expect(page.getByText('No packs yet')).toBeVisible();
     await page.waitForTimeout(3000);
     expect(updates).toBe(1);
+    const { data: profile } = await noa.client.from('profiles').select('timezone').single();
+    expect(profile?.timezone).toBe('Etc/GMT-2');
+  });
+
+  test('a pack can be created, in the zone of that offset', async ({ page }) => {
+    await signIn(page, noa);
+    await createAPack(page);
+
+    const { data: packs } = await noa.client.from('packs').select('timezone');
+    expect(packs).toEqual([{ timezone: 'Etc/GMT-2' }]);
+  });
+});
+
+test.describe('on a phone set to an offset that is not a whole hour', () => {
+  // No Etc zone has it, so the pack runs on UTC.
+  test.use({ timezoneId: 'GMT+05:30' });
+
+  test('a pack can still be created', async ({ page }) => {
+    await signIn(page, noa);
+    await createAPack(page);
+
+    const { data: packs } = await noa.client.from('packs').select('timezone');
+    expect(packs).toEqual([{ timezone: 'UTC' }]);
   });
 });
 

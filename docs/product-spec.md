@@ -237,6 +237,7 @@ Examples: in a pack of 6 where one missed, the day is successful, health goes up
 - The day close must be idempotent: running the same day twice doesn't change the result.
 - Days close in order, because each day depends on the result of the previous one. If a close failed or was late, the next run fills in all the missing days.
 - The end of the day is computed by the pack's time zone (IANA), so on a daylight saving change the day lasts 23 or 25 hours.
+- A phone set to a bare offset instead of a named zone (Android calls a zone picked by hand GMT+02:00) uses the IANA zone at that offset, Etc/GMT-2. Those zones are whole hours from UTC-12 to UTC+14, so an offset like GMT+05:30 uses UTC.
 
 **The rules module and the simulator:** the rules are implemented as a pure TypeScript module with no dependencies (`packages/game-engine`): the previous state and the day's data go in, a result comes out. The same module is used by the server day close, the tests and the simulator, which runs the rules over simulated packs of different sizes, categories and reliability levels, and measures the rate of successful days, average health, the chance of running away and the time to each stage. The latest results are in [simulation.md](simulation.md).
 

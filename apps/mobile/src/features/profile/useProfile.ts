@@ -156,8 +156,8 @@ export function useAccountSync() {
   const { mutate: updateProfile } = useUpdateProfile();
   const userId = session?.user.id;
   const zone = profile.data?.timezone;
-  // Once per zone: the server saves a zone it doesn't know as UTC (Android names a zone picked by
-  // hand like GMT+02:00), so the device's zone never shows up and would be sent on every answer.
+  // Once per zone: the server saves a zone it doesn't know as UTC (a phone's list of zones can be
+  // newer than the server's), so the device's zone never shows up and would be sent on every answer.
   const sentZone = useRef<string | null>(null);
 
   useEffect(() => {
