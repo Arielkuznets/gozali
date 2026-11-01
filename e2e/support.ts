@@ -76,6 +76,16 @@ export async function layOutTextLikeAPhone(page: Page): Promise<void> {
   await page.addStyleTag({ content: ':where(div[dir=auto]){flex-shrink:0;max-width:100%}' });
 }
 
+/**
+ * Scrolls down the way a finger does, which moves only what really scrolls. Playwright's own
+ * scrolling also moves boxes that clip their overflow, where nobody could reach what it finds.
+ */
+export async function swipeUp(page: Page): Promise<void> {
+  const { width, height } = page.viewportSize()!;
+  await page.mouse.move(width / 2, height / 2);
+  await page.mouse.wheel(0, 2000);
+}
+
 type NewPack = { name: string; habit: Database['public']['Enums']['habit_category']; species: Database['public']['Enums']['critter_species'] };
 
 /** A pack made by `owner`, with the others joined. Returns its id and invite code. */

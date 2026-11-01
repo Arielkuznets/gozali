@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
@@ -42,7 +42,8 @@ export default function NotTodayScreen() {
 
   return (
     <Screen>
-      <View style={styles.body}>
+      {/* An iPad shows the app in a window that can be shorter than any phone. */}
+      <ScrollView contentContainerStyle={styles.body}>
         <AppText variant="heading">{t('days.title')}</AppText>
         <AppText style={styles.muted}>{t('days.body')}</AppText>
 
@@ -90,7 +91,7 @@ export default function NotTodayScreen() {
           </>
         )}
         <AppText variant="caption">{t('days.feedCancels')}</AppText>
-      </View>
+      </ScrollView>
 
       <View style={styles.actions}>
         <Button label={t('days.away')} variant="secondary" onPress={() => router.replace(`/pack/${id}/settings`)} />
@@ -102,7 +103,7 @@ export default function NotTodayScreen() {
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  body: { flex: 1, gap: spacing.md, paddingTop: spacing.xl },
+  body: { flexGrow: 1, gap: spacing.md, paddingTop: spacing.xl, paddingBottom: spacing.md },
   muted: { color: colors.inkMuted },
   card: {
     flexDirection: 'row',

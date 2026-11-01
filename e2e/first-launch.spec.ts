@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
-import { createPack, createSignedUpUser, createUser, removeUsers, signIn, type TestUser } from './support';
+import { createPack, createSignedUpUser, createUser, removeUsers, signIn, swipeUp, type TestUser } from './support';
 
 /** Scrolls to `text` and checks that `button` doesn't cover it. */
 async function expectClearOf(text: Locator, button: Locator) {
@@ -44,6 +44,52 @@ test('in a window shorter than a phone the texts scroll instead of hiding behind
   const apple = page.getByRole('button', { name: 'Continue with Apple' });
   await expectClearOf(page.getByText('Raise a little pet together', { exact: false }), apple);
   await expect(apple).toBeInViewport({ ratio: 1 });
+});
+
+test.describe('in a window shorter than a phone', () => {
+  let noa: TestUser;
+  let dan: TestUser;
+  let pack: { id: string; inviteCode: string };
+
+  test.beforeEach(async ({ page }) => {
+    noa = await createUser('Noa');
+    dan = await createUser('Dan');
+    pack = await createPack(noa, { name: 'Reading club', habit: 'reading', species: 'hoot' }, [dan]);
+    await signIn(page, noa);
+    await page.setViewportSize({ width: 600, height: 300 });
+  });
+
+  test.afterEach(async () => {
+    await removeUsers(noa, dan);
+  });
+
+  test('Not today scrolls to all it offers, clear of the buttons below', async ({ page }) => {
+    await page.goto(`/pack/${pack.id}/not-today`);
+    const away = page.getByRole('button', { name: 'Pause for a few days' });
+    await expectClearOf(page.getByRole('button', { name: 'Use', exact: true }).last(), away);
+    await expectClearOf(page.getByText('If you feed today anyway', { exact: false }), away);
+  });
+
+  test('Focus scrolls to the session without a time limit', async ({ page }) => {
+    await page.goto(`/pack/${pack.id}/focus`);
+    const open = page.getByRole('button', { name: 'No time limit' });
+    await expect(open).toBeAttached();
+    await swipeUp(page);
+    await expect(open).toBeInViewport({ ratio: 1 });
+  });
+
+  test('a menu scrolls its choices and keeps its ways out', async ({ page }) => {
+    await page.goto(`/pack/${pack.id}/settings`);
+    await page.getByRole('button', { name: 'Pause', exact: true }).click();
+
+    await expect(page.getByRole('button', { name: 'Cancel' })).toBeInViewport({ ratio: 1 });
+    await swipeUp(page);
+    await expect(page.getByRole('menuitem', { name: '2 months' })).toBeInViewport({ ratio: 1 });
+
+    // The dim part above the sheet closes it too.
+    await page.mouse.click(300, 10);
+    await expect(page.getByRole('menuitem')).toHaveCount(0);
+  });
 });
 
 test('the Google button shows once the project turns Google sign-in on', async ({ page }) => {

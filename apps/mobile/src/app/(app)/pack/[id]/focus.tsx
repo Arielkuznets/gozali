@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { HeaderButton } from '@/components/HeaderButton';
@@ -86,7 +86,8 @@ export default function FocusScreen() {
         <HeaderButton icon="‹" label={t('pack.back')} onPress={() => goBack(`/pack/${id}`)} />
       </View>
 
-      <View style={styles.body}>
+      {/* An iPad shows the app in a window that can be shorter than any phone. */}
+      <ScrollView contentContainerStyle={styles.body}>
         {pack.critters && <FocusCritter pack={pack} />}
         {session ? (
           <>
@@ -119,7 +120,7 @@ export default function FocusScreen() {
             <Button label={t('focus.open')} variant="secondary" onPress={() => void start(null)} />
           </>
         )}
-      </View>
+      </ScrollView>
 
       {session && (
         <View style={styles.actions}>
@@ -151,7 +152,7 @@ function FocusCritter({ pack }: { pack: NonNullable<ReturnType<typeof usePack>['
 
 const styles = StyleSheet.create({
   header: { alignItems: 'flex-start', paddingVertical: spacing.md },
-  body: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
+  body: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md, paddingVertical: spacing.md },
   centerText: { textAlign: 'center' },
   muted: { color: colors.inkMuted, maxWidth: 320 },
   clock: { fontFamily: fonts.heading, fontSize: 64, lineHeight: 76, fontVariant: ['tabular-nums'] },
