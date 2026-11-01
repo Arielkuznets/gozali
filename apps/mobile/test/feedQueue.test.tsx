@@ -56,7 +56,11 @@ jest.mock('@/lib/reportError', () => ({
   ...jest.requireActual('@/lib/reportError'),
   reportError: (error: Error) => mockReport(error.message),
 }));
-jest.mock('@/lib/supabase', () => ({ supabase: null, requireSupabase: () => ({}) }));
+jest.mock('@/lib/supabase', () => ({
+  supabase: null,
+  requireSupabase: () => ({}),
+  storedSession: async () => ({ user: { id: 'noa' } }),
+}));
 
 const feed = (id: string): OutgoingFeed => ({
   id,

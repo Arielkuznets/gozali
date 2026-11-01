@@ -39,6 +39,9 @@ jest.mock('expo-image-manipulator', () => ({}));
 jest.mock('@react-native-community/netinfo', () => ({
   fetch: async () => ({ isConnected: true, isInternetReachable: true }),
 }));
+// One account stays on this phone here, so nothing of what an account leaves behind comes up.
+jest.mock('@/features/auth/signIn', () => ({ forgetOtherAccounts: async () => undefined }));
+jest.mock('@/features/widgets/sync', () => ({ clearWidgets: async () => undefined }));
 
 type Supabase = typeof import('@/lib/supabase');
 

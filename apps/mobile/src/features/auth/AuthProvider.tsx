@@ -2,6 +2,8 @@ import { isAuthRetryableFetchError, type Session } from '@supabase/supabase-js';
 import { useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
+import { forgetOtherAccounts } from '@/features/auth/signIn';
+import { clearWidgets } from '@/features/widgets/sync';
 import { forgetKeptQueries } from '@/lib/queryCache';
 import { clockRestored, serverNow } from '@/lib/serverClock';
 import { storedSession, supabase } from '@/lib/supabase';
@@ -39,7 +41,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (event === 'SIGNED_OUT') {
         queryClient.clear();
         void forgetKeptQueries().catch(() => undefined);
+        void clearWidgets().catch(() => undefined);
       }
+      if (session) void forgetOtherAccounts(session.user.id).catch(() => undefined);
       // An offline start keeps the stored session until a real one (or a sign-out) comes.
       if (event === 'INITIAL_SESSION' && !session) return;
       setState({ session, loading: false });

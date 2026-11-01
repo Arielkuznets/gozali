@@ -5,6 +5,7 @@ import { Platform } from 'react-native';
 
 import { feedErrorCode, isFinalRejection, isNetworkFailure, sendFeed, type OutgoingFeed } from '@/features/feeds/send';
 import { isBlockedText } from '@/lib/errors';
+import { storedSession } from '@/lib/supabase';
 
 // Feeds that can't go out yet wait here until the app is open with a connection (spec section 6).
 // The photo is copied into the app's documents so the system can't clear it meanwhile.
@@ -71,6 +72,20 @@ export async function clearQueue(): Promise<void> {
   if (directory.exists) directory.delete();
 }
 
+/**
+ * Forgets what other accounts left waiting, photos included. A session the server ended leaves its
+ * feeds here for the same person to come back to, and nobody else can send them.
+ */
+export async function forgetFeedsOfOthers(userId: string): Promise<void> {
+  const others = (await read()).filter((feed) => feed.userId !== userId);
+  if (others.length === 0) return;
+  await update((queue) => queue.filter((feed) => feed.userId === userId));
+  for (const { id } of others) {
+    const photo = new File(queueDirectory(), `${id}.jpg`);
+    if (photo.exists) photo.delete();
+  }
+}
+
 export async function pendingFeeds(packId?: string): Promise<OutgoingFeed[]> {
   const queue = await read();
   return packId ? queue.filter((feed) => feed.packId === packId) : queue;
@@ -93,6 +108,12 @@ const PHOTO_GONE = new Error('queued_photo_gone');
 
 let flushing: Promise<FlushResult> | null = null;
 let storageFailureReported = false;
+
+/** What can go out now: the server would turn down another account's feed for good. */
+async function sendable(): Promise<QueuedFeed[]> {
+  const userId = (await storedSession())?.user.id;
+  return (await read()).filter((feed) => feed.userId === userId);
+}
 
 /**
  * The feed to send instead of one the server turned down for good, if there is one: fed from
@@ -122,16 +143,16 @@ async function sendOrReplace(feed: QueuedFeed): Promise<Attempt> {
 }
 
 /**
- * Sends what is waiting, oldest first. A feed the server turns down for good (already fed, or no
- * longer a member) is dropped, except for its replacements above; so is one whose photo is gone,
- * since it can never go out and the ones behind it can. Any other error stops the run and keeps
- * the feed. The list is read again for each feed, so one queued meanwhile goes out too, and nothing
- * goes on after the queue was forgotten.
+ * Sends what the signed-in account has waiting, oldest first. A feed the server turns down for
+ * good (already fed, or no longer a member) is dropped, except for its replacements above; so is
+ * one whose photo is gone, since it can never go out and the ones behind it can. Any other error
+ * stops the run and keeps the feed. The list is read again for each feed, so one queued meanwhile
+ * goes out too, and nothing goes on after the queue was forgotten.
  */
 async function run(): Promise<FlushResult> {
   const result: FlushResult = { handled: 0, dropped: [], stuck: null };
   try {
-    for (let queue = await read(); queue.length > 0; queue = await read()) {
+    for (let queue = await sendable(); queue.length > 0; queue = await sendable()) {
       const feed = queue[0];
       // By name, not by the stored path: iOS moves the app's folder when the app updates.
       const photo = new File(queueDirectory(), `${feed.id}.jpg`);

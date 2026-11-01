@@ -36,6 +36,7 @@ const mockUpload = jest.fn();
 const mockRemove = jest.fn();
 const mockRpc = jest.fn();
 jest.mock('@/lib/supabase', () => ({
+  storedSession: async () => ({ user: { id: 'noa' } }),
   requireSupabase: () => ({
     auth: { getSession: () => mockGetSession() },
     storage: { from: () => ({ upload: mockUpload, remove: mockRemove }) },

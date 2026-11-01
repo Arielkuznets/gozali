@@ -9,6 +9,7 @@ jest.mock('expo-image-picker', () => ({
 }));
 jest.mock('expo-image-manipulator', () => ({}));
 jest.mock('@/lib/supabase', () => ({ supabase: null, requireSupabase: jest.fn() }));
+jest.mock('@/features/auth/AuthProvider', () => ({}));
 
 const picker = jest.mocked(ImagePicker);
 

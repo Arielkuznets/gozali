@@ -9,6 +9,7 @@ import {
   WIDGET_ENDPOINT,
   fetchSnapshot,
   forgetWidgetToken,
+  loadSnapshot,
   saveSnapshot,
   widgetToken,
   type WidgetSnapshot,
@@ -45,7 +46,12 @@ export async function refreshWidgets(): Promise<void> {
   if (Platform.OS === 'web' || leaving) return;
   const started = departures;
   const token = await widgetToken(true);
-  if (!token) return;
+  if (!token) {
+    // Nothing to show, which the widgets may not know yet: another account's token can have gone
+    // with no new one to take its place.
+    if (!(await loadSnapshot())) await publish(null, null);
+    return;
+  }
   if (started !== departures) {
     // Signed out meanwhile: a token made for the account that left must not stay for the next one.
     await forgetWidgetToken();
@@ -55,9 +61,9 @@ export async function refreshWidgets(): Promise<void> {
   if (snapshot && started === departures) await publish(snapshot, token);
 }
 
-/** On sign-out the widgets go blank and the token stops working. */
+/** On sign-out the widgets go blank and the token stops working, once per account that leaves. */
 export async function clearWidgets(): Promise<void> {
-  if (Platform.OS === 'web') return;
+  if (Platform.OS === 'web' || leaving) return;
   leaving = true;
   departures += 1;
   await forgetWidgetToken();

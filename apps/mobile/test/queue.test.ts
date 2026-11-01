@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { clearQueue, enqueue, flushQueue, pendingFeeds } from '@/features/feeds/queue';
+import { clearQueue, enqueue, flushQueue, forgetFeedsOfOthers, pendingFeeds } from '@/features/feeds/queue';
 import type { OutgoingFeed } from '@/features/feeds/send';
 
 // The queue keeps photos in the app's documents folder; here files are just names.
@@ -41,6 +41,12 @@ jest.mock('@/features/feeds/send', () => ({
   sendFeed: (feed: OutgoingFeed) => mockSendFeed(feed),
 }));
 
+// Whose session the phone holds; the feeds here are Noa's unless a test says otherwise.
+let mockSignedIn: string | null;
+jest.mock('@/lib/supabase', () => ({
+  storedSession: async () => (mockSignedIn ? { user: { id: mockSignedIn } } : null),
+}));
+
 const feed = (id: string): OutgoingFeed => ({
   id,
   packId: 'pack',
@@ -54,6 +60,7 @@ const feed = (id: string): OutgoingFeed => ({
 
 beforeEach(async () => {
   await AsyncStorage.clear();
+  mockSignedIn = 'noa';
   mockSendFeed.mockReset();
   mockCopy.mockReset().mockResolvedValue(undefined);
   mockMissing.clear();
@@ -310,6 +317,63 @@ describe('offline feed queue', () => {
     await enqueue(feed('a'));
     await enqueue({ ...feed('b'), packId: 'other' });
     expect((await pendingFeeds('pack')).map((item) => item.id)).toEqual(['a']);
+  });
+});
+
+describe('feeds of different accounts', () => {
+  const dansFeed = (id: string): OutgoingFeed => ({ ...feed(id), userId: 'dan' });
+
+  it('goes past the feed of another account, untouched, to the signed-in one', async () => {
+    await enqueue(dansFeed('a'));
+    await enqueue(feed('b'));
+    mockSendFeed.mockResolvedValue('feed-id');
+
+    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], stuck: null });
+
+    expect(mockSendFeed.mock.calls.map(([sent]) => sent.id)).toEqual(['b']);
+    expect(await waiting()).toEqual(['a']);
+    expect(mockDeleted).toEqual(['documents/feed-queue/b.jpg']);
+  });
+
+  it('sends a feed once its own account is back', async () => {
+    await enqueue(dansFeed('a'));
+    mockSendFeed.mockResolvedValue('feed-id');
+    expect((await flushQueue()).handled).toBe(0);
+
+    mockSignedIn = 'dan';
+
+    expect((await flushQueue()).handled).toBe(1);
+    expect(await waiting()).toEqual([]);
+  });
+
+  it('sends nothing with nobody signed in', async () => {
+    mockSignedIn = null;
+    await enqueue(feed('a'));
+
+    expect(await flushQueue()).toEqual({ handled: 0, dropped: [], stuck: null });
+
+    expect(mockSendFeed).not.toHaveBeenCalled();
+    expect(await waiting()).toEqual(['a']);
+  });
+
+  it("forgets the feeds and photos of the others, and keeps the account's own", async () => {
+    await enqueue(dansFeed('a'));
+    await enqueue(feed('b'));
+    await enqueue(dansFeed('c'));
+
+    await forgetFeedsOfOthers('noa');
+
+    expect(await waiting()).toEqual(['b']);
+    expect(mockDeleted).toEqual(['documents/feed-queue/a.jpg', 'documents/feed-queue/c.jpg']);
+  });
+
+  it('leaves the list alone when there are no others', async () => {
+    await enqueue(feed('a'));
+    jest.mocked(AsyncStorage.setItem).mockClear();
+
+    await forgetFeedsOfOthers('noa');
+
+    expect(AsyncStorage.setItem).not.toHaveBeenCalled();
   });
 });
 

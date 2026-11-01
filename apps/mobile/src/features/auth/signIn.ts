@@ -1,9 +1,10 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
 
-import { clearQueue } from '@/features/feeds/queue';
+import { clearQueue, forgetFeedsOfOthers } from '@/features/feeds/queue';
 import { clearFocusSession } from '@/features/focus/session';
 import { suggestName } from '@/features/profile/suggestedName';
 import { clearWidgets, resumeWidgets } from '@/features/widgets/sync';
@@ -181,4 +182,22 @@ async function forgetAccountOnDevice(): Promise<void> {
   await clearQueue().catch(() => undefined);
   await clearFocusSession().catch(() => undefined);
   await clearNotifications().catch(() => undefined);
+}
+
+const LAST_ACCOUNT_KEY = 'gozali.last-account';
+
+/**
+ * A session the server ended leaves the feeds, the focus timer and the notifications here, for the
+ * same person to come back to. They go when another account signs in. With no last account on
+ * record (a phone from before there was one) what is here is taken to be this account's.
+ */
+export async function forgetOtherAccounts(userId: string): Promise<void> {
+  await forgetFeedsOfOthers(userId).catch(() => undefined);
+  const last = await AsyncStorage.getItem(LAST_ACCOUNT_KEY);
+  if (last === userId) return;
+  if (last) {
+    await clearFocusSession().catch(() => undefined);
+    await clearNotifications().catch(() => undefined);
+  }
+  await AsyncStorage.setItem(LAST_ACCOUNT_KEY, userId);
 }

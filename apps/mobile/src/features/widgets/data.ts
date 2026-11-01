@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { WidgetPack } from '../../../../../supabase/functions/widget-state/state.ts';
-import { supabase } from '@/lib/supabase';
+import { storedSession, supabase } from '@/lib/supabase';
 
 /** What the widget-state endpoint returns; the widgets show exactly this. */
 export type WidgetSnapshot = {
@@ -15,15 +15,29 @@ export const WIDGET_ENDPOINT = `${process.env.EXPO_PUBLIC_SUPABASE_URL ?? ''}/fu
 export const APP_GROUP = 'group.app.gozali';
 
 const TOKEN_KEY = 'gozali.widget-token';
+const OWNER_KEY = 'gozali.widget-token-owner';
 const SNAPSHOT_KEY = 'gozali.widget-snapshot';
 
-/** This device's widget token, created on first use while signed in. */
+/**
+ * This device's widget token, created on first use while signed in. It belongs to the account it
+ * was made for, and with `create` it must be the signed-in one's: a session the server ended leaves
+ * its token behind, and the next account's widgets would go on showing the packs of the last. A
+ * token from before owners were kept goes the same way, since nothing says whose it is.
+ */
 export async function widgetToken(create: boolean): Promise<string | null> {
   const saved = await AsyncStorage.getItem(TOKEN_KEY);
-  if (saved || !create || !supabase) return saved;
+  if (!create || !supabase) return saved;
+  const [owner, session] = await Promise.all([AsyncStorage.getItem(OWNER_KEY), storedSession()]);
+  const account = session?.user.id;
+  if (saved && owner === account) return saved;
+  if (saved) await forgetWidgetToken();
+  if (!account) return null;
   const { data, error } = await supabase.rpc('create_widget_token');
   if (error) return null;
-  await AsyncStorage.setItem(TOKEN_KEY, data);
+  await AsyncStorage.multiSet([
+    [TOKEN_KEY, data],
+    [OWNER_KEY, account],
+  ]);
   return data;
 }
 
@@ -59,7 +73,7 @@ export async function saveSnapshot(snapshot: WidgetSnapshot | null): Promise<voi
 export async function forgetWidgetToken(): Promise<void> {
   const token = await AsyncStorage.getItem(TOKEN_KEY);
   if (token && supabase) await supabase.rpc('revoke_widget_token', { token });
-  await AsyncStorage.multiRemove([TOKEN_KEY, SNAPSHOT_KEY]);
+  await AsyncStorage.multiRemove([TOKEN_KEY, OWNER_KEY, SNAPSHOT_KEY]);
 }
 
 /** The absolute address of a pack picture, from the relative one in the snapshot. */
