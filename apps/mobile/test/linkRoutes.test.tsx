@@ -17,18 +17,6 @@ import { useNotificationRoutes } from '@/lib/notifications';
 
 // The real router and the real link routes, under guards like the root layout's. A link reaches
 // the router the way it does on a phone: through the listener on expo-linking.
-type Tap = { notification: { request: { content: { data: { url: string } } } } };
-const mockTapListeners = new Set<(response: Tap) => void>();
-jest.mock('expo-notifications', () => ({
-  setNotificationHandler: () => undefined,
-  getLastNotificationResponseAsync: async () => null,
-  clearLastNotificationResponseAsync: async () => undefined,
-  addNotificationResponseReceivedListener: (listener: (response: Tap) => void) => {
-    mockTapListeners.add(listener);
-    return { remove: () => mockTapListeners.delete(listener) };
-  },
-}));
-jest.mock('@/lib/push', () => ({}));
 let mockLinkListener: ((event: { url: string }) => void) | null = null;
 jest.mock('expo-linking', () => ({
   ...jest.requireActual('expo-linking'),
@@ -39,6 +27,19 @@ jest.mock('expo-linking', () => ({
     return { remove: () => undefined };
   },
 }));
+type Tap = { notification: { request: { content: { data: { url: string } } } } };
+const mockTapListeners = new Set<(response: Tap) => void>();
+let mockTapThatStartedApp: Tap | null = null;
+jest.mock('expo-notifications', () => ({
+  setNotificationHandler: () => undefined,
+  getLastNotificationResponseAsync: async () => mockTapThatStartedApp,
+  clearLastNotificationResponseAsync: async () => undefined,
+  addNotificationResponseReceivedListener: (listener: (response: Tap) => void) => {
+    mockTapListeners.add(listener);
+    return { remove: () => mockTapListeners.delete(listener) };
+  },
+}));
+jest.mock('@/lib/push', () => ({}));
 let mockSession: { user: { id: string } } | null = null;
 jest.mock('@/features/auth/AuthProvider', () => ({ useAuth: () => ({ session: mockSession, loading: false }) }));
 let mockAnswerProfile: ((answer: { data: unknown; error: null }) => void) | null = null;
@@ -174,9 +175,11 @@ async function goBack() {
   await settle();
 }
 
+const tapOn = (url: string): Tap => ({ notification: { request: { content: { data: { url } } } } });
+
 async function tapNotification(url: string) {
   await act(async () => {
-    for (const listener of mockTapListeners) listener({ notification: { request: { content: { data: { url } } } } });
+    for (const listener of mockTapListeners) listener(tapOn(url));
   });
   await settle();
 }
@@ -187,6 +190,7 @@ beforeEach(() => {
   opened.length = 0;
   mockSession = null;
   mockAnswerProfile = null;
+  mockTapThatStartedApp = null;
   client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
 });
 
@@ -323,6 +327,31 @@ describe('an invite link opening the app', () => {
 
     await tapNotification('/pack/p9');
     expect(appStack()).toEqual(['index', 'pack/[id]/index']);
+  });
+});
+
+describe('a widget link reaching the app while it is running', () => {
+  it('opens its screen in the one copy of the app', async () => {
+    signInWith(finished);
+    await start('/');
+
+    await followLink('gozali://pack/p1');
+
+    expect(rootRoutes()).toEqual(['(app)']);
+    expect(appLayouts).toBe(1);
+    expect(appStack()).toEqual(['index', 'pack/[id]/index']);
+  });
+});
+
+describe('a notification that opens the app', () => {
+  it('opens its screen once, over the home screen', async () => {
+    mockTapThatStartedApp = tapOn('/pack/p9');
+    signInWith(finished);
+    await start('/');
+
+    expect(rootRoutes()).toEqual(['(app)']);
+    expect(appStack()).toEqual(['index', 'pack/[id]/index']);
+    expect(opened).toEqual(['home', 'pack']);
   });
 });
 
