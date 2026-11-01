@@ -1,6 +1,6 @@
 import { act, create } from 'react-test-renderer';
 
-import { noteServerDate, serverNow } from '@/lib/serverClock';
+import { noteServerDate, onServerClockChange, serverNow } from '@/lib/serverClock';
 import { useNow } from '@/lib/useNow';
 
 const at = (iso: string) => Date.parse(iso);
@@ -67,6 +67,45 @@ describe("the server's clock", () => {
       noteServerDate('Thu, 29 Oct 2026 12:00:00 GMT', at('2026-10-29T09:00:00Z'), at('2026-10-29T09:00:00Z'));
     });
     expect(seen!.toISOString()).toBe('2026-10-29T12:00:00.000Z');
+  });
+
+  describe('a phone that hears many answers', () => {
+    /** Answers from a server this far ahead of the phone, a little apart, each cut to the second. */
+    function hearAnswers(serverAhead: number, count: number) {
+      const changes = jest.fn();
+      const stop = onServerClockChange(changes);
+      for (let answer = 0; answer < count; answer += 1) {
+        jest.advanceTimersByTime(137);
+        const receivedAt = Date.now();
+        noteServerDate(new Date(receivedAt - 50 + serverAhead).toUTCString(), receivedAt - 100, receivedAt);
+      }
+      stop();
+      return changes.mock.calls.length;
+    }
+
+    it('settles once at the edge of a minute off, where the cut second lands on either side', () => {
+      jest.useFakeTimers({ now: at('2026-10-29T09:00:00Z') });
+      expect(hearAnswers(60_300, 40)).toBeLessThanOrEqual(1);
+    });
+
+    it('stays put over answers that only differ by the cut second', () => {
+      jest.useFakeTimers({ now: at('2026-10-29T09:00:00Z') });
+      expect(hearAnswers(3 * 60 * 60_000, 10)).toBe(1);
+    });
+
+    it('moves again when the phone has really moved by a minute', () => {
+      jest.useFakeTimers({ now: at('2026-10-29T09:00:00Z') });
+      expect(hearAnswers(3 * 60 * 60_000, 3)).toBe(1);
+      expect(hearAnswers(2 * 60 * 60_000, 3)).toBe(1);
+      expect(Math.abs(serverNow().getTime() - Date.now() - 2 * 60 * 60_000)).toBeLessThan(1000);
+    });
+
+    it('goes back to the phone once the phone is right', () => {
+      jest.useFakeTimers({ now: at('2026-10-29T09:00:00Z') });
+      hearAnswers(3 * 60 * 60_000, 3);
+      expect(hearAnswers(0, 3)).toBe(1);
+      expect(serverNow().getTime()).toBe(Date.now());
+    });
   });
 
   it("leaves a timer on the phone's own clock, as its times were written by it", async () => {
