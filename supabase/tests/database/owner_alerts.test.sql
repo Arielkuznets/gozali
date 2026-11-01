@@ -1,7 +1,7 @@
 -- Owner alerts: a push when someone finishes signing up, and the day's summary at 21:00.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(19);
+select plan(22);
 
 delete from public.notifications;
 
@@ -134,6 +134,30 @@ select throws_ok(
   'or queue summaries'
 );
 reset role;
+
+-- When the terms were accepted is the server's to say: the phone's clock can be days off.
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000d9', 'maya@test.local');
+update public.profiles set display_name = 'Dan', terms_accepted_at = now() + interval '2 days'
+where id = '00000000-0000-0000-0000-0000000000c9';
+select is(
+  (select terms_accepted_at from public.profiles where id = '00000000-0000-0000-0000-0000000000c9'),
+  now(),
+  'a first acceptance from a phone days ahead takes the server''s time'
+);
+update public.profiles set display_name = 'Maya', terms_accepted_at = now() - interval '2 days'
+where id = '00000000-0000-0000-0000-0000000000d9';
+select is(
+  (select terms_accepted_at from public.profiles where id = '00000000-0000-0000-0000-0000000000d9'),
+  now(),
+  'and so does one from a phone days behind'
+);
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000e9', 'tom@test.local');
+update public.profiles set terms_accepted_at = null where id = '00000000-0000-0000-0000-0000000000e9';
+select is(
+  (select terms_accepted_at from public.profiles where id = '00000000-0000-0000-0000-0000000000e9'),
+  null,
+  'saving no acceptance leaves the terms unaccepted'
+);
 
 select * from finish();
 rollback;

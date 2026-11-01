@@ -90,6 +90,7 @@ export function useCompleteProfile() {
           display_name: displayName,
           timezone: deviceTimeZone(),
           locale: getLocales()[0]?.languageCode ?? 'en',
+          // Only says they were accepted: the server stamps when, by its own clock.
           terms_accepted_at: new Date().toISOString(),
         })
         .eq('id', userId);
