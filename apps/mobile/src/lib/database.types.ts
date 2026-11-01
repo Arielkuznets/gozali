@@ -1150,6 +1150,7 @@ export type Database = {
       };
       fold_pending_settings: { Args: { pack_date: string; target: string }; Returns: undefined };
       forget_photos: { Args: { feed_ids: string[] }; Returns: undefined };
+      forget_push_token: { Args: { device_token: string }; Returns: undefined };
       forget_push_tokens: { Args: { dead: string[] }; Returns: undefined };
       is_clean: { Args: { input: string }; Returns: boolean };
       is_pack_member: { Args: { target_pack: string }; Returns: boolean };

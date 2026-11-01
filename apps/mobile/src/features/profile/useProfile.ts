@@ -5,7 +5,7 @@ import { AppState } from 'react-native';
 
 import { useAuth } from '@/features/auth/AuthProvider';
 import { deviceTimeZone } from '@/lib/dates';
-import { registerPushToken } from '@/lib/push';
+import { registerPushToken, unregisterPushToken } from '@/lib/push';
 import { sendPendingCrash } from '@/lib/reportError';
 import { requireSupabase } from '@/lib/supabase';
 
@@ -165,4 +165,23 @@ export function useAccountSync() {
     });
     return () => subscription.remove();
   }, [userId]);
+}
+
+/**
+ * Nobody signed in means nobody's pushes. A sign-out without a connection can't tell the server,
+ * and a session the server ends never signs out here at all, so each start and each return to the
+ * app try until the server has forgotten the token.
+ */
+export function useSignedOutSync() {
+  const { session, loading } = useAuth();
+  const signedOut = !loading && session === null;
+
+  useEffect(() => {
+    if (!signedOut) return;
+    void unregisterPushToken();
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void unregisterPushToken();
+    });
+    return () => subscription.remove();
+  }, [signedOut]);
 }

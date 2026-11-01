@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { createUser, removeUsers, signIn, signInElsewhere, type TestUser } from './support';
+import { admin, createUser, removeUsers, signIn, signInElsewhere, type TestUser } from './support';
 
 let noa: TestUser;
 
@@ -11,6 +11,15 @@ test.beforeEach(async () => {
 test.afterEach(async () => {
   await removeUsers(noa);
 });
+
+/** A push token saved for the user, and how many rows the server has for it. */
+async function registerToken(user: TestUser) {
+  const token = `ExponentPushToken[e2e-${user.id}]`;
+  const { error } = await user.client.rpc('register_push_token', { device_token: token, device: 'ios' });
+  if (error) throw error;
+  const rowsOnServer = async () => (await admin.from('push_tokens').select('token').eq('token', token)).data?.length;
+  return { token, rowsOnServer };
+}
 
 test('signing out without a connection signs out, without saying it failed', async ({ page }) => {
   const alerts: string[] = [];
@@ -27,6 +36,47 @@ test('signing out without a connection signs out, without saying it failed', asy
 
   await expect(page.getByRole('button', { name: 'Continue with Apple' })).toBeVisible();
   expect(alerts).toEqual([]);
+});
+
+test('a phone that signed out offline has the server forget its push token once it is back', async ({ context, page }) => {
+  const { token, rowsOnServer } = await registerToken(noa);
+  await page.addInitScript(() => window.localStorage.setItem('gozali.onboarded', '1'));
+  await signIn(page, noa);
+  await page.goto('/me');
+  const signOut = page.getByRole('button', { name: 'Sign out' });
+  await expect(signOut).toBeVisible();
+  // The web build never registers a token, so the phone's memory of one is put there by hand.
+  await page.evaluate((value) => window.localStorage.setItem('gozali.push-token', value), token);
+  await page.route(/\/(rest|auth)\/v1\//, (route) => route.abort('internetdisconnected'));
+
+  await signOut.click();
+
+  await expect(page.getByRole('button', { name: 'Continue with Apple' })).toBeVisible();
+  expect(await rowsOnServer()).toBe(1);
+
+  // The app starts again signed out, with a connection.
+  await page.close();
+  const restarted = await context.newPage();
+  await restarted.goto('/');
+  await expect(restarted.getByRole('button', { name: 'Continue with Apple' })).toBeVisible();
+  await expect.poll(rowsOnServer).toBe(0);
+});
+
+test('a session the server ended takes its push token along', async ({ page }) => {
+  const { token, rowsOnServer } = await registerToken(noa);
+  await page.addInitScript((value) => {
+    window.localStorage.setItem('gozali.onboarded', '1');
+    window.localStorage.setItem('gozali.push-token', value);
+  }, token);
+  await signIn(page, { ...noa, session: { ...noa.session, expires_at: Math.floor(Date.now() / 1000) - 3600 } });
+  await page.route('**/auth/v1/token**', (route) =>
+    route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ code: 'refresh_token_not_found', message: 'Invalid Refresh Token' }) }),
+  );
+
+  await page.goto('/');
+
+  await expect(page.getByRole('button', { name: 'Continue with Apple' })).toBeVisible();
+  await expect.poll(rowsOnServer).toBe(0);
 });
 
 test('signing out on one phone leaves the other phone signed in', async ({ page }) => {

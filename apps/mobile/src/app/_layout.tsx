@@ -16,7 +16,7 @@ import { UpdateRequired } from '@/components/UpdateRequired';
 import { installedVersion, isOlder, useAppConfig } from '@/features/app/appConfig';
 import { AuthProvider, useAuth } from '@/features/auth/AuthProvider';
 import { readInstallReferrer } from '@/features/packs/invites';
-import { isProfileComplete, useProfile } from '@/features/profile/useProfile';
+import { isProfileComplete, useProfile, useSignedOutSync } from '@/features/profile/useProfile';
 import { refetchWhenAppReturns } from '@/lib/appFocus';
 import { KEEP_MS, persistOptions } from '@/lib/queryCache';
 import { watchForCrashes } from '@/lib/reportError';
@@ -48,6 +48,7 @@ function RootNavigator() {
   const signedIn = session !== null;
   const profile = useProfile();
   const config = useAppConfig();
+  useSignedOutSync();
   const ready = fontsLoaded && !loading && (!signedIn || !profile.isPending);
 
   useEffect(() => {
