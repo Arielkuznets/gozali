@@ -324,7 +324,7 @@ Fourteen screens in version 1, plus widgets for the home screen and the lock scr
 | --- | --- |
 | Welcome | Creature animation, the Sign in with Apple button, and the Google button once Google sign-in is turned on in the project |
 | Onboarding | Four cards where the creatures explain the rules: feed with a photo, responsible together, the creature never dies, and coins from good days dress it up. Can be skipped |
-| Profile setup | Display name, profile photo (optional), age 13+ declaration and accepting the terms, notification permission request with an explanation |
+| Profile setup | Display name, profile photo (optional), age 13+ declaration and accepting the terms, notification permission request with an explanation, and a quiet Sign out for the wrong account or terms the person doesn't accept |
 | Home | The list of packs: for each pack the creature in its state, a health bar, how many members fed today (3/5) **and a direct Feed button**. A create pack button and join with a code |
 | Join pack | The pack name, the habit, the creature and the members, and a join button. Join with a code (on the home screen) takes a pasted or typed code |
 | Pack | The animated creature in the center, health bar, coins, streak, a countdown to the end of the day, a row of member circles (colored = fed, dashed = rest or joker, 💤 = asleep or paused, gray = not yet, including someone who hasn't started), a big Feed button with "Not today" next to it (rest or joker) and in packs of sitting habits (Study, Reading, Meditation, Language, Music practice) also Focus, and the feed below |

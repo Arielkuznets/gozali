@@ -1,6 +1,6 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
-import { admin, createUser, removeUsers, signIn, signInElsewhere, type TestUser } from './support';
+import { admin, createSignedUpUser, createUser, removeUsers, signIn, signInElsewhere, type TestUser } from './support';
 
 let noa: TestUser;
 
@@ -104,4 +104,98 @@ test('signing out on one phone leaves the other phone signed in', async ({ page 
   // The other phone keeps its session, and with it its pushes and widgets make sense.
   const { error } = await otherPhone.auth.refreshSession();
   expect(error).toBeNull();
+});
+
+test.describe('on the profile setup', () => {
+  let maya: TestUser;
+
+  test.beforeEach(async ({ page }) => {
+    maya = await createSignedUpUser('Maya');
+    await page.addInitScript(() => window.localStorage.setItem('gozali.onboarded', '1'));
+    await signIn(page, maya);
+    await page.goto('/');
+    await expect(page.getByText('About you')).toBeVisible();
+  });
+
+  test.afterEach(async () => {
+    await removeUsers(maya);
+  });
+
+  /** What Continue needs: the name and the tick. */
+  async function fillIn(page: Page) {
+    await page.getByPlaceholder('What do your friends call you?').fill('Maya');
+    await page.getByRole('checkbox').click();
+  }
+
+  test('signing out opens the sign-in screen', async ({ page }) => {
+    await page.getByRole('button', { name: 'Sign out' }).click();
+
+    await expect(page.getByRole('button', { name: 'Continue with Apple' })).toBeVisible();
+    expect(await page.evaluate(() => window.localStorage.getItem('sb-127-auth-token'))).toBeNull();
+  });
+
+  test('signing out without a connection signs out, without saying it failed', async ({ page }) => {
+    const alerts: string[] = [];
+    page.on('dialog', (dialog) => {
+      alerts.push(dialog.message());
+      void dialog.dismiss();
+    });
+    await page.route(/\/(rest|auth)\/v1\//, (route) => route.abort('internetdisconnected'));
+
+    await page.getByRole('button', { name: 'Sign out' }).click();
+
+    await expect(page.getByRole('button', { name: 'Continue with Apple' })).toBeVisible();
+    expect(alerts).toEqual([]);
+  });
+
+  test('Continue waits while signing out, and nothing is saved', async ({ page }) => {
+    await fillIn(page);
+    let answer = () => {};
+    const answered = new Promise<void>((resolve) => (answer = resolve));
+    await page.route('**/auth/v1/logout**', async (route) => {
+      await answered;
+      await route.continue();
+    });
+
+    await page.getByRole('button', { name: 'Sign out' }).click();
+    const next = page.getByRole('button', { name: 'Continue' });
+    await expect(next).toBeDisabled();
+    await next.click({ force: true });
+    answer();
+
+    await expect(page.getByRole('button', { name: 'Continue with Apple' })).toBeVisible();
+    const { data } = await admin.from('profiles').select('display_name, terms_accepted_at').eq('id', maya.id).single();
+    expect(data).toEqual({ display_name: null, terms_accepted_at: null });
+  });
+
+  test('Sign out waits while the setup is saving', async ({ page }) => {
+    await fillIn(page);
+    let answer = () => {};
+    const answered = new Promise<void>((resolve) => (answer = resolve));
+    await page.route('**/rest/v1/profiles?**', async (route) => {
+      if (route.request().method() === 'PATCH') await answered;
+      await route.continue();
+    });
+
+    await page.getByRole('button', { name: 'Continue' }).click();
+    const signOut = page.getByRole('button', { name: 'Sign out' });
+    await expect(signOut).toBeDisabled();
+    await signOut.click({ force: true });
+    answer();
+
+    await expect(page.getByRole('button', { name: 'Create a pack' })).toBeVisible();
+  });
+
+  test('in a window shorter than a phone Sign out stays in view, well away from Continue', async ({ page }) => {
+    // An iPad shows the app in a window people can make this short.
+    await page.setViewportSize({ width: 600, height: 300 });
+    const signOut = page.getByRole('button', { name: 'Sign out' });
+    const next = page.getByRole('button', { name: 'Continue' });
+    await expect(signOut).toBeInViewport({ ratio: 1 });
+    await expect(next).toBeInViewport({ ratio: 1 });
+
+    const top = (await signOut.boundingBox())!;
+    const bottom = (await next.boundingBox())!;
+    expect(bottom.y - (top.y + top.height)).toBeGreaterThan(top.height);
+  });
 });

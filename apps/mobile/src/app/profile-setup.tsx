@@ -1,11 +1,13 @@
+import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { LegalLinks } from '@/components/LegalLinks';
 import { Screen } from '@/components/Screen';
+import { signOut } from '@/features/auth/signIn';
 import { AvatarButton } from '@/features/profile/AvatarButton';
 import { suggestedName } from '@/features/profile/suggestedName';
 import { NAME_MAX_LENGTH, useCompleteProfile, useProfile } from '@/features/profile/useProfile';
@@ -21,6 +23,9 @@ export default function ProfileSetupScreen() {
   const [name, setName] = useState((profile?.display_name ?? suggestedName() ?? '').slice(0, NAME_MAX_LENGTH));
   const [agreed, setAgreed] = useState(false);
   const completeProfile = useCompleteProfile();
+  // With an expired token signing out waits for the refresh to give up; meanwhile a tap would start it again.
+  const leaving = useMutation({ mutationFn: signOut, onError: () => notify(t('errors.signOutFailed')) });
+  const busy = leaving.isPending || completeProfile.isPending;
 
   const trimmed = name.trim();
   const canContinue = trimmed.length > 0 && agreed;
@@ -35,6 +40,17 @@ export default function ProfileSetupScreen() {
 
   return (
     <Screen>
+      {/* The way out for a wrong Apple ID or terms someone won't accept: plain, and far from Continue. */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ disabled: busy, busy: leaving.isPending }}
+        disabled={busy}
+        onPress={() => leaving.mutate()}
+        hitSlop={8}
+        style={styles.signOut}>
+        {leaving.isPending && <ActivityIndicator color={colors.inkMuted} />}
+        <AppText variant="caption">{t('me.signOut')}</AppText>
+      </Pressable>
       {/* Scrolls when the keyboard leaves too little room, instead of the lines running into each other. */}
       <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
         <AppText variant="heading">{t('profileSetup.title')}</AppText>
@@ -71,7 +87,7 @@ export default function ProfileSetupScreen() {
       </AppText>
       <Button
         label={t('profileSetup.continue')}
-        disabled={!canContinue}
+        disabled={!canContinue || leaving.isPending}
         loading={completeProfile.isPending}
         onPress={onContinue}
       />
@@ -80,6 +96,7 @@ export default function ProfileSetupScreen() {
 }
 
 const styles = StyleSheet.create({
+  signOut: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end', gap: spacing.sm, minHeight: 44 },
   form: { flexGrow: 1, justifyContent: 'center', gap: spacing.lg, paddingVertical: spacing.md },
   field: { gap: spacing.xs },
   input: {
