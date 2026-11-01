@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
+import type { ComponentType } from 'react';
 import { act, create } from 'react-test-renderer';
 
 import '@/i18n';
@@ -40,9 +41,10 @@ jest.mock('@/features/feeds/send', () => ({
 }));
 
 // The real listener hears the current state as soon as it subscribes, so a mount flushes twice.
-let mockConnected: ((state: { isConnected: boolean }) => void) | null = null;
+type Connection = { isConnected: boolean; isInternetReachable?: boolean | null };
+let mockConnected: ((state: Connection) => void) | null = null;
 jest.mock('@react-native-community/netinfo', () => ({
-  addEventListener: (listener: (state: { isConnected: boolean }) => void) => {
+  addEventListener: (listener: (state: Connection) => void) => {
     mockConnected = listener;
     listener({ isConnected: true });
     return () => undefined;
@@ -78,16 +80,33 @@ function Queue() {
   return null;
 }
 
-async function openApp() {
-  const client = new QueryClient();
+async function openApp(Screen: ComponentType = () => null) {
+  // No garbage collection, whose timers would outlive the test.
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
   await act(async () => {
     create(
       <QueryClientProvider client={client}>
         <Queue />
+        <Screen />
       </QueryClientProvider>,
     );
   });
+  return client;
 }
+
+const mockLoadPacks = jest.fn();
+
+/** A screen on the packs, whatever the queue is doing. */
+function Packs() {
+  useQuery<string[]>({ queryKey: ['packs'], queryFn: () => mockLoadPacks() });
+  return null;
+}
+
+const connection = (state: Connection) =>
+  act(async () => {
+    mockConnected?.(state);
+    await new Promise((resolve) => setTimeout(resolve));
+  });
 
 beforeEach(async () => {
   await AsyncStorage.clear();
@@ -95,6 +114,7 @@ beforeEach(async () => {
   mockNotify.mockReset();
   mockReport.mockReset();
   mockMissing.clear();
+  mockLoadPacks.mockReset().mockResolvedValue(['Gym squad']);
 });
 
 describe('queued feeds that were dropped', () => {
@@ -152,5 +172,63 @@ describe('a queue that is stuck', () => {
     await openApp();
     expect(mockReport).not.toHaveBeenCalled();
     expect(mockNotify).not.toHaveBeenCalled();
+  });
+});
+
+describe('the connection', () => {
+  it('coming back reloads what is on screen', async () => {
+    await openApp(Packs);
+    await connection({ isConnected: false });
+    await connection({ isConnected: true });
+    expect(mockLoadPacks).toHaveBeenCalledTimes(2);
+  });
+
+  it('reloads once for each time it comes back', async () => {
+    await openApp(Packs);
+    await connection({ isConnected: false });
+    await connection({ isConnected: true });
+    await connection({ isConnected: true });
+    await connection({ isConnected: false });
+    await connection({ isConnected: false });
+    await connection({ isConnected: true });
+    expect(mockLoadPacks).toHaveBeenCalledTimes(3);
+  });
+
+  it("reloads nothing when it was there all along, as at the start or when it changes hands", async () => {
+    await openApp(Packs);
+    await connection({ isConnected: true, isInternetReachable: null });
+    await connection({ isConnected: true, isInternetReachable: true });
+    expect(mockLoadPacks).toHaveBeenCalledTimes(1);
+  });
+
+  it("isn't back until the internet behind it is", async () => {
+    await openApp(Packs);
+    await connection({ isConnected: false, isInternetReachable: false });
+    await connection({ isConnected: true, isInternetReachable: false });
+    expect(mockLoadPacks).toHaveBeenCalledTimes(1);
+    await connection({ isConnected: true, isInternetReachable: true });
+    expect(mockLoadPacks).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps what the screen had when the reload fails', async () => {
+    const client = await openApp(Packs);
+    await connection({ isConnected: false });
+    mockLoadPacks.mockRejectedValue(new TypeError('Network request failed'));
+    await connection({ isConnected: true });
+    expect(mockLoadPacks).toHaveBeenCalledTimes(2);
+    expect(client.getQueryData(['packs'])).toEqual(['Gym squad']);
+  });
+});
+
+describe('a queued feed that went out', () => {
+  it('reloads the pack too: the feed woke its sender and took back their pass', async () => {
+    await enqueue(feed('a'));
+    mockSendFeed.mockResolvedValue('feed-id');
+    await openApp(Packs);
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve));
+    });
+    expect(mockSendFeed).toHaveBeenCalledTimes(1);
+    expect(mockLoadPacks).toHaveBeenCalledTimes(2);
   });
 });

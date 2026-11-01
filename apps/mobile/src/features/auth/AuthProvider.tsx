@@ -1,5 +1,5 @@
 import { isAuthRetryableFetchError, type Session } from '@supabase/supabase-js';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
 import { forgetOtherAccounts } from '@/features/auth/signIn';
@@ -11,6 +11,11 @@ import { storedSession, supabase } from '@/lib/supabase';
 /** Whether a stored session's access token has expired, or is about to, so it needs a refresh. */
 function hasExpired(session: Session): boolean {
   return (session.expires_at ?? 0) * 1000 < serverNow().getTime() + 90_000;
+}
+
+/** Whether a read on screen failed its last try, even if it hasn't given up yet. */
+function hasFailedRead(queryClient: QueryClient): boolean {
+  return queryClient.getQueryCache().getAll().some((query) => query.isActive() && query.state.fetchFailureCount > 0);
 }
 
 type AuthState = { session: Session | null; loading: boolean };
@@ -43,6 +48,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         void forgetKeptQueries().catch(() => undefined);
         void clearWidgets().catch(() => undefined);
       }
+      // After a failed refresh auth-js waits a minute before the next, connection or not, and reads
+      // go out without a token meanwhile: most are refused, and storage answers as if to nobody. So
+      // all of them go again, but only after a failure, as reads waiting for this refresh are fine.
+      if (event === 'TOKEN_REFRESHED' && hasFailedRead(queryClient)) void queryClient.invalidateQueries();
       if (session) void forgetOtherAccounts(session.user.id).catch(() => undefined);
       // An offline start keeps the stored session until a real one (or a sign-out) comes.
       if (event === 'INITIAL_SESSION' && !session) return;

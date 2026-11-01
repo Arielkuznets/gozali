@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { AppState } from 'react-native';
 
 import type { Pack } from '@/features/packs/api';
-import { enqueue, flushQueue, isOnline, pendingFeeds } from '@/features/feeds/queue';
+import { enqueue, flushQueue, hasConnection, isOnline, pendingFeeds } from '@/features/feeds/queue';
 import { PHOTO_BUCKET, feedErrorCode, isFinalRejection, sendFeed, type OutgoingFeed } from '@/features/feeds/send';
 import type { ReactionTotal } from '@/features/social/api';
 import { notify } from '@/lib/confirm';
@@ -164,7 +164,9 @@ function queueError(what: string, error: unknown): Error {
 
 /**
  * Sends queued feeds when the app starts, comes back to the foreground or gets online. The member
- * was told a queued feed is safe, so they hear about one that was dropped.
+ * was told a queued feed is safe, so they hear about one that was dropped. Getting online also
+ * reloads what is on screen: Realtime replays nothing it missed, and nothing else hears about the
+ * network (lib/appFocus.ts).
  */
 export function useFeedQueue() {
   const queryClient = useQueryClient();
@@ -172,7 +174,9 @@ export function useFeedQueue() {
   useEffect(() => {
     const flush = () => {
       void flushQueue().then(({ handled, dropped, stuck }) => {
-        if (handled > 0) void queryClient.invalidateQueries({ queryKey: feedsKey });
+        // Not only the feeds: one going out also wakes its sender and takes back their pass. Realtime
+        // never sends the second, and may not be back yet for the first.
+        if (handled > 0) void queryClient.invalidateQueries();
         if (dropped.length > 0) notify(t('feed.dropped', { count: dropped.length }));
         for (const error of dropped) reportError(queueError('Queued feed dropped', error));
         if (stuck !== null) reportError(queueError('Feed queue stuck', stuck));
@@ -180,7 +184,12 @@ export function useFeedQueue() {
     };
     flush();
     const appState = AppState.addEventListener('change', (state) => state === 'active' && flush());
-    const network = NetInfo.addEventListener((state) => state.isConnected && flush());
+    let offline = false;
+    const network = NetInfo.addEventListener((state) => {
+      if (offline && hasConnection(state)) void queryClient.invalidateQueries();
+      offline = !hasConnection(state);
+      if (state.isConnected) flush();
+    });
     return () => {
       appState.remove();
       network();

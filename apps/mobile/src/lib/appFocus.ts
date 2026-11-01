@@ -8,6 +8,7 @@ import { AppState, Platform } from 'react-native';
  *
  * The network side (onlineManager) stays off on purpose: it would pause requests while
  * offline instead of failing them, and the offline screen and the feed queue rely on failures.
+ * A connection that comes back reloads the screen through useFeedQueue instead.
  */
 export function refetchWhenAppReturns(): void {
   if (Platform.OS === 'web') return;

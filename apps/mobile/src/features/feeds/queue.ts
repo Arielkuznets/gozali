@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import NetInfo from '@react-native-community/netinfo';
+import NetInfo, { type NetInfoState } from '@react-native-community/netinfo';
 import { Directory, File, Paths } from 'expo-file-system';
 import { Platform } from 'react-native';
 
@@ -44,9 +44,13 @@ function queueDirectory(): Directory {
   return directory;
 }
 
-export async function isOnline(): Promise<boolean> {
-  const state = await NetInfo.fetch();
+/** Unknown counts as a connection: the request itself will find out. */
+export function hasConnection(state: Pick<NetInfoState, 'isConnected' | 'isInternetReachable'>): boolean {
   return state.isConnected !== false && state.isInternetReachable !== false;
+}
+
+export async function isOnline(): Promise<boolean> {
+  return hasConnection(await NetInfo.fetch());
 }
 
 /** Keeps a feed for later. Web has no durable file storage, so there it is dropped. */
