@@ -159,3 +159,43 @@ test('a sign-in link for a finished account opens the home screen', async ({ pag
   await expect(page.getByRole('button', { name: 'Create a pack' })).toBeVisible();
   await removeUsers(noa);
 });
+
+test.describe('a link to a screen the app does not have', () => {
+  const LINKS = ['/nothing-here', '/i/', '/_sitemap', '/pack/some-pack/nothing-here'];
+
+  test('leads to the sign-in screen for nobody signed in', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('gozali.onboarded', '1'));
+    for (const link of LINKS) {
+      await page.goto(link);
+      await expect(page.getByRole('button', { name: 'Continue with Apple' })).toBeVisible();
+    }
+  });
+
+  test('leads to the home screen for a finished account', async ({ page }) => {
+    const noa = await createUser('Noa');
+    await signIn(page, noa);
+    for (const link of LINKS) {
+      await page.goto(link);
+      await expect(page.getByRole('button', { name: 'Create a pack' })).toBeVisible();
+    }
+    await removeUsers(noa);
+  });
+
+  test('leads to the setup for someone on it', async ({ page }) => {
+    const maya = await createSignedUpUser('Maya');
+    await signIn(page, maya);
+    for (const link of LINKS) {
+      await page.goto(link);
+      await expect(page.getByText('About you')).toBeVisible();
+    }
+    await removeUsers(maya);
+  });
+});
+
+test('this release build has no development sign-in', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('gozali.onboarded', '1'));
+  await page.goto('/dev-login');
+  await expect(page.getByRole('button', { name: 'Continue with Apple' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Dev login with email' })).toBeHidden();
+  await expect(page.getByPlaceholder('Email')).toBeHidden();
+});

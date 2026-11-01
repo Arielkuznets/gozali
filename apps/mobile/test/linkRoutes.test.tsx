@@ -7,7 +7,9 @@ import { useEffect } from 'react';
 import { ActivityIndicator, Text } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
+import NotFound from '@/app/+not-found';
 import AuthCallback from '@/app/auth/callback';
+import DevLoginRoute from '@/app/dev-login';
 import InviteLinkScreen from '@/app/i/[code]';
 import { takePendingInvite } from '@/features/packs/invites';
 import { isProfileComplete, useProfile, type Profile } from '@/features/profile/useProfile';
@@ -61,6 +63,7 @@ function RootLayout() {
       </Stack.Protected>
       <Stack.Protected guard={!signedIn}>
         <Stack.Screen name="welcome" />
+        <Stack.Screen name="dev-login" />
       </Stack.Protected>
       <Stack.Screen name="auth/callback" />
       <Stack.Screen name="i/[code]" />
@@ -83,8 +86,10 @@ const routes = {
   '(app)/index': { default: () => <Opens name="home" /> },
   'profile-setup': { default: () => <Opens name="setup" /> },
   welcome: { default: () => <Opens name="welcome" /> },
+  'dev-login': { default: DevLoginRoute },
   'auth/callback': { default: AuthCallback },
   'i/[code]': { default: InviteLinkScreen },
+  '+not-found': { default: NotFound },
 };
 
 let client: QueryClient;
@@ -217,5 +222,124 @@ describe('a sign-in link', () => {
 
     expect(rootRoutes()).toEqual(['(app)']);
     expect(opened).toEqual(['home']);
+  });
+});
+
+describe('a link to a screen the app does not have', () => {
+  it('opening the app signed out shows the sign-in screen', async () => {
+    await start('/nothing-here');
+
+    expect(store.getRouteInfo().pathname).toBe('/welcome');
+    expect(opened).toEqual(['welcome']);
+  });
+
+  it('opening the app on the profile setup shows the setup', async () => {
+    signInWith(started);
+    await start('/nothing-here');
+
+    expect(store.getRouteInfo().pathname).toBe('/profile-setup');
+    expect(opened).toEqual(['setup']);
+  });
+
+  it('opening the app with a finished profile shows the home screen', async () => {
+    signInWith(finished);
+    await start('/nothing-here');
+
+    expect(store.getRouteInfo().pathname).toBe('/');
+    expect(opened).toEqual(['home']);
+  });
+
+  it('reaching the sign-in screen goes back to the one that is open', async () => {
+    await start('/');
+
+    await followLink('gozali://nothing-here');
+
+    expect(rootRoutes()).toEqual(['welcome']);
+    expect(opened).toEqual(['welcome']);
+  });
+
+  it('reaching the profile setup goes back to the one that is open', async () => {
+    signInWith(started);
+    await start('/');
+
+    await followLink('gozali://nothing-here');
+
+    expect(rootRoutes()).toEqual(['profile-setup']);
+    expect(opened).toEqual(['setup']);
+  });
+
+  it('reaching the home screen goes back to the one that is open', async () => {
+    signInWith(finished);
+    await start('/');
+
+    await followLink('gozali://nothing-here');
+
+    expect(rootRoutes()).toEqual(['(app)']);
+    expect(opened).toEqual(['home']);
+  });
+
+  it('includes an invite link with no code in it', async () => {
+    signInWith(finished);
+    await start('/');
+
+    await followLink('gozali://i/');
+
+    expect(rootRoutes()).toEqual(['(app)']);
+    expect(opened).toEqual(['home']);
+    await expect(takePendingInvite()).resolves.toBeNull();
+  });
+});
+
+describe('the development sign-in', () => {
+  const asRelease = () => jest.replaceProperty(globalThis as unknown as { __DEV__: boolean }, '__DEV__', false);
+  const fields = () => app.root.findAll((node) => node.type === 'TextInput');
+
+  it('is a form in a development build', async () => {
+    await start('/dev-login');
+
+    expect(rootRoutes()).toEqual(['dev-login']);
+    expect(fields()).toHaveLength(1);
+  });
+
+  it('is only the way to the sign-in screen in a release build', async () => {
+    const release = asRelease();
+    await start('/dev-login');
+    release.restore();
+
+    expect(rootRoutes()).toEqual(['welcome']);
+    expect(opened).toEqual(['welcome']);
+    expect(fields()).toEqual([]);
+  });
+
+  it('is closed to someone on the profile setup in a release build', async () => {
+    const release = asRelease();
+    signInWith(started);
+    await start('/dev-login');
+    release.restore();
+
+    expect(store.getRouteInfo().pathname).toBe('/profile-setup');
+    expect(opened).toEqual(['setup']);
+    expect(fields()).toEqual([]);
+  });
+
+  it('is closed to a finished account in a release build', async () => {
+    const release = asRelease();
+    signInWith(finished);
+    await start('/dev-login');
+    release.restore();
+
+    expect(store.getRouteInfo().pathname).toBe('/');
+    expect(opened).toEqual(['home']);
+    expect(fields()).toEqual([]);
+  });
+
+  it('is closed to a link arriving in a running release build', async () => {
+    const release = asRelease();
+    await start('/');
+    await followLink('gozali://dev-login');
+    release.restore();
+
+    expect(rootRoutes().at(-1)).toBe('welcome');
+    expect(fields()).toEqual([]);
   });
 });
