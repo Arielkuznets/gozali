@@ -45,3 +45,22 @@ test('the egg promises to hatch tonight only once nobody can stop it', async ({ 
   if (joker.error) throw joker.error;
   await expect(page.getByText('It hatches tonight, when today ends 🎉')).toBeVisible();
 });
+
+test('the promise comes with the second feed on a screen already open, and a new member leaves it', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
+  const image = await photo(page, '🏋️');
+
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+  await expect(page.getByText('Two of you feed on the same day (0/2 today)')).toBeVisible();
+
+  await feed(noa, pack.id, image, 'Leg day');
+  await feed(dan, pack.id, image, 'Arms');
+  await expect(page.getByText('Two of you fed today')).toBeVisible();
+  await expect(page.getByText('It hatches tonight, when today ends 🎉')).toBeVisible();
+
+  const joined = await eve.client.rpc('join_pack', { code: pack.inviteCode });
+  if (joined.error) throw joined.error;
+  await expect(page.getByLabel('Eve, not yet today')).toBeVisible();
+  await expect(page.getByText('It hatches tonight, when today ends 🎉')).toBeVisible();
+});

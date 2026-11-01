@@ -39,6 +39,21 @@ describe('whether the egg surely hatches tonight', () => {
   it('is not sure before the server said who has started', () => {
     expect(hatchesTonight(pack, fed, noPasses, undefined)).toBe(false);
   });
+
+  it('counts a feed as started, whatever the earlier answer said', () => {
+    const firstFeeds: MembersToday = {
+      restDaysPerWeek: 0,
+      members: [
+        { userId: 'noa', membership: 'active', hasStarted: false, restDaysUsedThisWeek: 0 },
+        { userId: 'dan', membership: 'active', hasStarted: false, restDaysUsedThisWeek: 0 },
+      ],
+    };
+    expect(hatchesTonight([member('noa'), member('dan')], fed, noPasses, firstFeeds)).toBe(true);
+  });
+
+  it('takes a member who joined after the answer for someone who has not started', () => {
+    expect(hatchesTonight([...pack, member('zoe')], fed, noPasses, known({ hasStarted: false }))).toBe(true);
+  });
 });
 
 describe('the hatch steps', () => {
