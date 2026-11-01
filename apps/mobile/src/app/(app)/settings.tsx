@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { HeaderButton } from '@/components/HeaderButton';
@@ -137,7 +137,7 @@ export default function SettingsScreen() {
 
         <View style={styles.section}>
           <AppText variant="caption">{t('settings.app.widgets')}</AppText>
-          <AppText style={styles.muted}>{t('widgets.howTo')}</AppText>
+          <AppText style={styles.muted}>{t(Platform.OS === 'ios' ? 'widgets.howToIos' : 'widgets.howToAndroid')}</AppText>
         </View>
 
         <View style={styles.section}>

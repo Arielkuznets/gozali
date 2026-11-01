@@ -784,7 +784,8 @@
     "whichPack": "Which pack?",
     "openFirst": "Open Gozali first, then add the widget again.",
     "cancel": "Cancel",
-    "howTo": "Add a widget: long-press the home screen, tap + (iPhone) or Widgets (Android), and pick Gozali."
+    "howToIos": "Add a widget: long-press the home screen, tap Edit or +, and pick Gozali.",
+    "howToAndroid": "Add a widget: long-press the home screen, tap Widgets, and pick Gozali."
   },
   "recap": {
     "title": "Weekly recap",
