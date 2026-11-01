@@ -84,7 +84,7 @@ function SettingsForm({ pack, leavePack }: { pack: Pack; leavePack: ReturnType<t
       // The promise, because mutate's callbacks are dropped once this screen has closed.
       onConfirm: () =>
         void leavePack.mutateAsync(pack.id).then(
-          () => router.replace('/'),
+          () => router.dismissTo('/'),
           (error: unknown) => notify(t(packErrorKey(error))),
         ),
     });

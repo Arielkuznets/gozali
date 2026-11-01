@@ -106,7 +106,7 @@ export default function JoinScreen() {
 
       <View style={styles.actions}>
         {pack?.already_member ? (
-          <Button label={t('join.open')} onPress={() => router.replace(`/pack/${pack.pack_id}`)} />
+          <Button label={t('join.open')} onPress={() => router.dismissTo(`/pack/${pack.pack_id}`)} />
         ) : (
           <Button
             label={t('join.join')}

@@ -50,7 +50,7 @@ export function PackMissingScreen() {
         </AppText>
         <AppText style={[styles.text, styles.muted]}>{t('pack.missingBody')}</AppText>
       </View>
-      <Button label={t('pack.backHome')} onPress={() => router.replace('/')} />
+      <Button label={t('pack.backHome')} onPress={() => router.dismissTo('/')} />
     </Screen>
   );
 }

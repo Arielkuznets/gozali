@@ -92,7 +92,7 @@ export default function InviteScreen() {
           variant="secondary"
           onPress={() => void onCopy()}
         />
-        <Button label={t('invite.done')} variant="secondary" onPress={() => router.replace(`/pack/${id}`)} />
+        <Button label={t('invite.done')} variant="secondary" onPress={() => router.dismissTo(`/pack/${id}`)} />
       </View>
     </Screen>
   );
