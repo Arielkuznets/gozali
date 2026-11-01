@@ -7,7 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 
 import { addDays, packDayOf, wallClock, zonedTimeToUtc } from '../packages/game-engine/src/index.ts';
 import { render } from '../supabase/functions/send-push/messages.ts';
-import { RefusedRequest, sendAll } from '../supabase/functions/send-push/push.ts';
+import { RefusedRequest, runFailed, sendAll } from '../supabase/functions/send-push/push.ts';
 
 const url = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const secretKey = process.env.SUPABASE_SECRET_KEY;
@@ -172,6 +172,26 @@ check(
   'a run out of time puts what is left back instead of sending it',
 );
 await admin.rpc('requeue_notifications', { ids: outOfTime.requeue });
+
+// A run the push service took nothing from answers with an error, which is what reaches the
+// owners. A phone that is gone is an answer from the service, and no phones means nothing to send.
+check(down.attempted === 100 && runFailed(down), 'a run the push service took nothing from failed');
+check(refusedThenDown.attempted === 3 && runFailed(refusedThenDown), 'and so did one it refused and then went down on');
+check(midway.attempted === 200 && !runFailed(midway), 'one it took part of did not');
+const noPhones = await sendAll([{ ...lots[0], tokens: [] }], async () => {
+  throw new Error('nothing to send');
+});
+check(noPhones.attempted === 0 && !runFailed(noPhones), 'and neither did one with no phones to send to');
+const goneTickets = (batch) => batch.map(() => ({ status: 'error', details: { error: 'DeviceNotRegistered' } }));
+const gone = await sendAll(lots.slice(0, 3), async (batch) => goneTickets(batch));
+check(gone.attempted === 3 && gone.deadTokens.length === 3 && !runFailed(gone), 'nor one that only found phones that are gone');
+let goneRequests = 0;
+const goneAlone = await sendAll(lots.slice(0, 3), async (batch) => {
+  goneRequests += 1;
+  if (goneRequests === 1) throw new RefusedRequest('expo push 400');
+  return goneTickets(batch);
+});
+check(goneAlone.attempted === 3 && goneAlone.deadTokens.length === 3 && !runFailed(goneAlone), 'also when they went out one by one after a refusal');
 
 // Owner alerts: someone finishing the profile setup tells the owner, in plain words.
 const owned = await admin.from('app_owners').insert({ user_id: noa });

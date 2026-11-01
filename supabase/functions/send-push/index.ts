@@ -5,7 +5,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 
 import { hasCronSecret } from '../_shared/secret.ts';
 import type { ClaimedRow } from './messages.ts';
-import { EXPO_PUSH_URL, RefusedRequest, sendAll, type PushMessage, type PushTicket } from './push.ts';
+import { EXPO_PUSH_URL, RefusedRequest, runFailed, sendAll, type PushMessage, type PushTicket } from './push.ts';
 
 // A worker's 150 seconds are shared by every request it serves, so a run may have only 75 of them
 // left. A request to Expo that hangs is given up after 20, and no new one starts after 50, which
@@ -46,7 +46,21 @@ Deno.serve(async (request) => {
   const rows = claimed.data as ClaimedRow[];
   const started = Date.now();
   const result = await sendAll(rows, expoSend, () => Date.now() - started > SEND_BUDGET_MS);
-  if (result.requeue.length > 0) await client.rpc('requeue_notifications', { ids: result.requeue });
-  if (result.deadTokens.length > 0) await client.rpc('forget_push_tokens', { dead: result.deadTokens });
-  return Response.json({ claimed: rows.length, sent: result.sent, requeued: result.requeue.length });
+  const requeued = result.requeue.length > 0 ? await client.rpc('requeue_notifications', { ids: result.requeue }) : null;
+  // These rows stay marked as sent with nothing delivered, so the log is what is left of them.
+  if (requeued?.error) console.error('requeue failed', requeued.error.message, result.requeue.join(' '));
+  if (result.deadTokens.length > 0) {
+    const forgotten = await client.rpc('forget_push_tokens', { dead: result.deadTokens });
+    if (forgotten.error) console.error('forgetting dead tokens failed', forgotten.error.message);
+  }
+  const report = {
+    claimed: rows.length,
+    attempted: result.attempted,
+    sent: result.sent,
+    requeued: requeued?.error ? 0 : result.requeue.length,
+  };
+  // Any answer but 200 reaches the owners' daily summary, through collect_service_errors.
+  const failed = Boolean(requeued?.error) || runFailed(result);
+  if (failed) console.error('send-push failed', report);
+  return Response.json(report, { status: failed ? 502 : 200 });
 });

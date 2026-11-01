@@ -23,6 +23,14 @@ const BATCH = 100;
 /** The push service turned a request down for what is in it, not because it is down or busy. */
 export class RefusedRequest extends Error {}
 
+export interface SendResult {
+  /** Messages the service was offered, each counted once. */
+  attempted: number;
+  sent: number;
+  requeue: string[];
+  deadTokens: string[];
+}
+
 export function toMessages(rows: readonly ClaimedRow[]): PushMessage[] {
   return rows.flatMap((row) => {
     const text = render(row);
@@ -48,10 +56,11 @@ export async function sendAll(
   rows: readonly ClaimedRow[],
   send: (batch: PushMessage[]) => Promise<PushTicket[]>,
   outOfTime: () => boolean = () => false,
-): Promise<{ sent: number; requeue: string[]; deadTokens: string[] }> {
+): Promise<SendResult> {
   const messages = toMessages(rows);
   const requeue = new Set<string>();
   const deadTokens: string[] = [];
+  let attempted = 0;
   let sent = 0;
   let down = false;
   const deliver = async (batch: PushMessage[]): Promise<'sent' | 'refused' | 'failed'> => {
@@ -78,6 +87,7 @@ export async function sendAll(
       for (const id of ids) requeue.add(id);
       continue;
     }
+    attempted += batch.length;
     const outcome = await deliver(batch);
     if (outcome === 'sent') continue;
     // Expo turns down a whole request for one bad message (a token of another Expo project is
@@ -88,5 +98,13 @@ export async function sendAll(
       if (!alone || (await deliver(batch.filter((message) => message.data.notificationId === id))) !== 'sent') requeue.add(id);
     }
   }
-  return { sent, requeue: [...requeue], deadTokens };
+  return { attempted, sent, requeue: [...requeue], deadTokens };
+}
+
+/**
+ * Whether the service took none of what it was offered. A token it reports as gone is an answer
+ * from a working service, so a run that found only those didn't fail.
+ */
+export function runFailed(result: SendResult): boolean {
+  return result.sent === 0 && result.attempted > result.deadTokens.length;
 }
