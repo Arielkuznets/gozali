@@ -1,13 +1,13 @@
 // Six pack days closed by the real close-days code against the local stack: hatching, a joker,
 // failed days, a member falling asleep, the notifications they cause, and a second run that
 // changes nothing. Then everyone leaves, and the pack goes with its photo files 30 days later.
-// Then a day the service was down closes without failing, and last an account deleted from the
-// dashboard has its avatar removed. Run with `npx supabase start` up:
-// node scripts/smoke-day-close.mjs
+// Then a day the service was down closes without failing, an account deleted from the dashboard
+// has its avatar removed, and last a cleanup that fails leaves the others to run. Run with
+// `npx supabase start` up: node scripts/smoke-day-close.mjs
 import { createClient } from '@supabase/supabase-js';
 
 import { addDays, closesAt, packDayOf, zonedTimeToUtc } from '../packages/game-engine/src/index.ts';
-import { cleanupAvatars, closeDueDays, dropEmptyPacks } from '../supabase/functions/close-days/close.ts';
+import { cleanupAvatars, closeDueDays, dropEmptyPacks, runCleanups } from '../supabase/functions/close-days/close.ts';
 
 const url = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY;
@@ -209,6 +209,45 @@ await cleanupAvatars(
 );
 const left = await admin.storage.from('avatars').list(leaver.id);
 check(removed.includes(avatar) && left.data?.length === 0, "a deleted account's avatar is removed");
+
+// A cleanup that fails comes back in the result and the others still run: a server without
+// orphan_avatars still drops a pack nobody has been in for 30 days.
+const failingAt = (broken) => {
+  const called = [];
+  const rpc = (fn, args) => {
+    called.push(fn);
+    return fn === broken ? Promise.resolve({ data: null, error: { code: 'PGRST202' } }) : admin.rpc(fn, args);
+  };
+  return { rpc, called };
+};
+const remover = (bucket) => async (paths) => {
+  const { error } = await admin.storage.from(bucket).remove(paths);
+  if (error) throw error;
+};
+const owner = await signedInUser('Owner');
+const { data: quietId } = await owner.client.rpc('create_pack', {
+  pack_name: 'Quiet runs',
+  habit: 'running',
+  rest_days: 0,
+  species: 'kit',
+  time_zone: tz,
+});
+await owner.client.rpc('leave_pack', { target: quietId });
+await admin.from('pack_members').update({ left_at: monthAgo }).eq('pack_id', quietId);
+const noAvatars = await runCleanups(failingAt('orphan_avatars'), remover, new Date());
+check(noAvatars.failed.map((row) => row.step).join() === 'avatars', 'a failed cleanup is named in the result');
+const quiet = await admin.from('packs').select('id').eq('id', quietId);
+check(quiet.data.length === 0 && noAvatars.droppedPacks >= 1, 'the cleanup after it still drops the empty pack');
+const noPhotos = failingAt('expired_photos');
+const afterPhotos = await runCleanups(noPhotos, remover, new Date());
+check(
+  afterPhotos.failed.map((row) => row.step).join() === 'photos' &&
+    ['orphan_avatars', 'drop_empty_packs'].every((fn) => noPhotos.called.includes(fn)),
+  'a failure in the first cleanup stops neither of the others',
+);
+const lastStep = await runCleanups(failingAt('drop_empty_packs'), remover, new Date());
+check(lastStep.failed.map((row) => row.step).join() === 'packs', 'and a failure in the last one is reported too');
+await admin.auth.admin.deleteUser(owner.id);
 
 console.log('all good');
 process.exit(0);

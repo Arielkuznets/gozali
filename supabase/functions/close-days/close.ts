@@ -168,3 +168,28 @@ export async function dropEmptyPacks(
   if (paths.length > 0) await removeFiles(paths);
   return await call<number>(client, 'drop_empty_packs', { at_time: now.toISOString() });
 }
+
+/**
+ * The cleanups of a run. They have nothing to do with each other, so one that fails doesn't stop
+ * the next: its error comes back in `failed` for the run to report.
+ */
+export async function runCleanups(
+  client: RpcClient,
+  remover: (bucket: string) => (paths: string[]) => Promise<void>,
+  now: Date,
+): Promise<{ photos: number; droppedPacks: number; failed: Array<{ step: string; error: string }> }> {
+  const failed: Array<{ step: string; error: string }> = [];
+  const attempt = async (step: string, cleanup: () => Promise<number>) => {
+    try {
+      return await cleanup();
+    } catch (error) {
+      failed.push({ step, error: error instanceof Error ? error.message : String(error) });
+      return 0;
+    }
+  };
+  const removeFiles = remover('feed-photos');
+  const photos = await attempt('photos', () => cleanupPhotos(client, removeFiles, now));
+  const avatars = await attempt('avatars', () => cleanupAvatars(client, remover('avatars'), now));
+  const droppedPacks = await attempt('packs', () => dropEmptyPacks(client, removeFiles, now));
+  return { photos: photos + avatars, droppedPacks, failed };
+}
