@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Stack } from 'expo-router';
+import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { ExpoRoot } from 'expo-router/build/ExpoRoot';
 import { store } from 'expo-router/build/global-state/router-store';
 import { getMockContext } from 'expo-router/build/testing-library/mock-config';
@@ -13,9 +13,22 @@ import DevLoginRoute from '@/app/dev-login';
 import InviteLinkScreen from '@/app/i/[code]';
 import { takePendingInvite } from '@/features/packs/invites';
 import { isProfileComplete, useProfile, type Profile } from '@/features/profile/useProfile';
+import { useNotificationRoutes } from '@/lib/notifications';
 
 // The real router and the real link routes, under guards like the root layout's. A link reaches
 // the router the way it does on a phone: through the listener on expo-linking.
+type Tap = { notification: { request: { content: { data: { url: string } } } } };
+const mockTapListeners = new Set<(response: Tap) => void>();
+jest.mock('expo-notifications', () => ({
+  setNotificationHandler: () => undefined,
+  getLastNotificationResponseAsync: async () => null,
+  clearLastNotificationResponseAsync: async () => undefined,
+  addNotificationResponseReceivedListener: (listener: (response: Tap) => void) => {
+    mockTapListeners.add(listener);
+    return { remove: () => mockTapListeners.delete(listener) };
+  },
+}));
+jest.mock('@/lib/push', () => ({}));
 let mockLinkListener: ((event: { url: string }) => void) | null = null;
 jest.mock('expo-linking', () => ({
   ...jest.requireActual('expo-linking'),
@@ -80,10 +93,30 @@ function Opens({ name }: { name: string }) {
   return <Text>{name}</Text>;
 }
 
+let appLayouts = 0;
+
+function AppLayout() {
+  useNotificationRoutes();
+  useEffect(() => {
+    appLayouts += 1;
+    return () => {
+      appLayouts -= 1;
+    };
+  }, []);
+  return <Stack screenOptions={{ headerShown: false }} />;
+}
+
+function Join() {
+  const { code } = useLocalSearchParams<{ code: string }>();
+  return <Opens name={`join ${code}`} />;
+}
+
 const routes = {
   _layout: { default: RootLayout },
-  '(app)/_layout': { default: () => <Stack screenOptions={{ headerShown: false }} /> },
+  '(app)/_layout': { default: AppLayout, unstable_settings: { initialRouteName: 'index' } },
   '(app)/index': { default: () => <Opens name="home" /> },
+  '(app)/join': { default: Join },
+  '(app)/pack/[id]/index': { default: () => <Opens name="pack" /> },
   'profile-setup': { default: () => <Opens name="setup" /> },
   welcome: { default: () => <Opens name="welcome" /> },
   'dev-login': { default: DevLoginRoute },
@@ -122,10 +155,30 @@ async function followLink(url: string) {
 /** The screens of the root stack, which the router keeps under a route of its own. */
 const rootStack = () => store.state?.routes[0]?.state?.routes ?? [];
 const rootRoutes = () => rootStack().map((route) => route.name);
+const appStack = () => rootStack()[0]?.state?.routes.map((route) => route.name) ?? [];
 
 function signInWith(profile: Profile) {
   mockSession = { user: { id: USER } };
   client.setQueryData(['profile', USER], profile);
+}
+
+async function openPack() {
+  signInWith(finished);
+  await start('/');
+  await act(async () => router.push('/pack/p1'));
+  await settle();
+}
+
+async function goBack() {
+  await act(async () => router.back());
+  await settle();
+}
+
+async function tapNotification(url: string) {
+  await act(async () => {
+    for (const listener of mockTapListeners) listener({ notification: { request: { content: { data: { url } } } } });
+  });
+  await settle();
 }
 
 beforeEach(() => {
@@ -191,6 +244,85 @@ describe('an invite link', () => {
     await settle();
 
     expect(rootRoutes()).toEqual(['profile-setup']);
+  });
+});
+
+describe('an invite link reaching the app while it is running', () => {
+  it('opens the join screen over the open screen, in the one copy of the app', async () => {
+    await openPack();
+
+    await followLink(`gozali://i/${CODE}`);
+
+    expect(rootRoutes()).toEqual(['(app)']);
+    expect(appLayouts).toBe(1);
+    expect(appStack()).toEqual(['index', 'pack/[id]/index', 'join']);
+    expect(opened).toEqual(['home', 'pack', `join ${CODE}`]);
+    await expect(takePendingInvite()).resolves.toBeNull();
+  });
+
+  it('goes back to the open screen when the join screen closes, and then to the home screen', async () => {
+    await openPack();
+    await followLink(`gozali://i/${CODE}`);
+
+    await goBack();
+    expect(store.getRouteInfo().pathname).toBe('/pack/p1');
+    await goBack();
+    expect(store.getRouteInfo().pathname).toBe('/');
+    expect(router.canGoBack()).toBe(false);
+  });
+
+  it('leaves one listener for notifications, so a tap opens its screen once', async () => {
+    await openPack();
+    await followLink(`gozali://i/${CODE}`);
+    expect(mockTapListeners.size).toBe(1);
+
+    await tapNotification('/pack/p9');
+
+    expect(appStack()).toEqual(['index', 'pack/[id]/index', 'join', 'pack/[id]/index']);
+  });
+
+  it('tapped twice leaves one join screen', async () => {
+    await openPack();
+
+    await followLink(`gozali://i/${CODE}`);
+    await followLink(`gozali://i/${CODE}`);
+
+    expect(appStack()).toEqual(['index', 'pack/[id]/index', 'join']);
+  });
+
+  it('brings its code to the join screen that is open', async () => {
+    await openPack();
+    await followLink(`gozali://i/${CODE}`);
+
+    await followLink('gozali://i/EFGH6789');
+
+    expect(appStack()).toEqual(['index', 'pack/[id]/index', 'join']);
+    expect(opened.at(-1)).toBe('join EFGH6789');
+    await expect(takePendingInvite()).resolves.toBeNull();
+  });
+
+  it('with no real code in it leaves the open screen as it was', async () => {
+    await openPack();
+
+    await followLink('gozali://i/nope');
+
+    expect(rootRoutes()).toEqual(['(app)']);
+    expect(appStack()).toEqual(['index', 'pack/[id]/index']);
+    expect(opened).toEqual(['home', 'pack']);
+  });
+});
+
+describe('an invite link opening the app', () => {
+  it('builds one copy of the app, so a notification tap opens its screen once', async () => {
+    signInWith(finished);
+    await start(`/i/${CODE}`);
+
+    expect(rootRoutes()).toEqual(['(app)']);
+    expect(appLayouts).toBe(1);
+    expect(mockTapListeners.size).toBe(1);
+
+    await tapNotification('/pack/p9');
+    expect(appStack()).toEqual(['index', 'pack/[id]/index']);
   });
 });
 

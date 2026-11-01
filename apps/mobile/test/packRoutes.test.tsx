@@ -293,6 +293,22 @@ describe('Done on the invite screen', () => {
   });
 });
 
+describe('a new code reaching the join screen that is open', () => {
+  const codeField = () => app.root.findByType(TextInput);
+
+  it('replaces the code on it', async () => {
+    await start('/');
+    await open('/join?code=ABCD2345');
+    expect(codeField().props.value).toBe('ABCD2345');
+
+    await act(async () => router.navigate('/join?code=EFGH6789'));
+    await settle();
+
+    expect(appStack()).toEqual(['index', 'join']);
+    expect(codeField().props.value).toBe('EFGH6789');
+  });
+});
+
 describe('Open pack on the join screen', () => {
   it('goes back to the pack when it is open underneath', async () => {
     await start('/pack/p1');

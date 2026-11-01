@@ -1,8 +1,8 @@
-import { Redirect, useLocalSearchParams } from 'expo-router';
+import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 
 import { LoadingScreen } from '@/components/ScreenStates';
-import { savePendingInvite } from '@/features/packs/invites';
+import { savePendingInvite, takePendingInvite } from '@/features/packs/invites';
 import { useHomeRoute } from '@/features/profile/useProfile';
 import { useLeaveFor } from '@/lib/navigation';
 
@@ -14,6 +14,9 @@ export default function InviteLinkScreen() {
   const { code } = useLocalSearchParams<{ code: string }>();
   const home = useHomeRoute();
   const [saved, setSaved] = useState(false);
+  const ready = saved && home === '/';
+  // With the app running this route opens over it; a link that starts the app has nothing under it.
+  const overApp = ready && router.canGoBack();
 
   useEffect(() => {
     void savePendingInvite(code).then(() => setSaved(true));
@@ -21,7 +24,17 @@ export default function InviteLinkScreen() {
 
   useLeaveFor(saved && home !== '/' ? home : null);
 
-  // The home screen reads the saved code as it opens, so it opens anew.
-  if (saved && home === '/') return <Redirect href="/" />;
+  // Back to the app that is open, because a Redirect would build a second copy of it. Its home
+  // screen opened long ago and won't read the code, so the code is taken here.
+  useEffect(() => {
+    if (!overApp) return;
+    void takePendingInvite().then((pending) => {
+      router.back();
+      if (pending) router.navigate(`/join?code=${pending}`);
+    });
+  }, [overApp]);
+
+  // The home screen reads the saved code as it opens.
+  if (ready && !overApp) return <Redirect href="/" />;
   return <LoadingScreen />;
 }
