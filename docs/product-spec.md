@@ -159,7 +159,7 @@ Every stage change gets an animation and a celebratory notification to the whole
 - Blinking, yawning and breathing when idle.
 - Follows your finger with its eyes when you touch the screen.
 - Petting: reacts with an animation and a line.
-- Sleeps at night (22:00–07:00 by the device clock) with a nightcap.
+- Sleeps at night (22:00–07:00 in the phone's time zone) with a nightcap. The hour comes from the server's clock as far as the phone knows it; an iOS widget doesn't know it and reads the phone's clock.
 - Reacts to being fed: an eating animation with the photo that was taken.
 
 ## 5. Game rules

@@ -1,8 +1,10 @@
 import { renderCritter } from '@gozali/critter-art';
 import { FlexWidget, SvgWidget, TextWidget } from 'react-native-android-widget';
 
+import { isNight } from '@/features/critter/art';
 import type { WidgetSnapshot } from '@/features/widgets/data';
 import i18n from '@/i18n';
+import { serverNow } from '@/lib/serverClock';
 
 // Android home screen widgets (spec section 9): the critter, health, "3/5" and whether you fed.
 // No photos or member names, since the home screen is visible to others.
@@ -26,13 +28,8 @@ function healthColor(health: number): `#${string}` {
   return (HEALTH.find(([min]) => health >= min)?.[1] ?? '#D9735F') as `#${string}`;
 }
 
-function isNight(): boolean {
-  const hour = new Date().getHours();
-  return hour >= 22 || hour < 7;
-}
-
 function critterSvg(pack: Pack): string {
-  return renderCritter(isNight() ? pack.nightArt : pack.art);
+  return renderCritter(isNight(serverNow()) ? pack.nightArt : pack.art);
 }
 
 function link(pack: Pack): string {

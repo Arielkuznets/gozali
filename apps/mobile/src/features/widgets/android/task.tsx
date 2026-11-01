@@ -3,6 +3,7 @@ import { requestWidgetUpdate, type WidgetTaskHandlerProps } from 'react-native-a
 
 import { AllPacksWidget, PackWideWidget, PackWidget } from '@/features/widgets/android/widgets';
 import { fetchSnapshot, loadSnapshot, saveSnapshot, widgetToken, type WidgetSnapshot } from '@/features/widgets/data';
+import { clockRestored } from '@/lib/serverClock';
 
 export const ANDROID_WIDGETS = ['PackSmall', 'PackMedium', 'AllPacks'] as const;
 type WidgetName = (typeof ANDROID_WIDGETS)[number];
@@ -32,10 +33,16 @@ export async function renderFor(name: string, widgetId: number, snapshot: Widget
   }
 }
 
+/** An age below zero says the clock was set back since, so it says nothing about the snapshot. */
+function isFresh({ savedAt = 0 }: WidgetSnapshot): boolean {
+  const age = Date.now() - savedAt;
+  return age >= 0 && age < FRESH_MS;
+}
+
 /** The latest snapshot: the saved one if fresh, otherwise fetched with the device's token. */
 async function currentSnapshot(): Promise<WidgetSnapshot | null> {
   const saved = await loadSnapshot();
-  if (saved && Date.now() - Date.parse(saved.fetchedAt) < FRESH_MS) return saved;
+  if (saved && isFresh(saved)) return saved;
   const token = await widgetToken(false);
   const fresh = token ? await fetchSnapshot(token) : null;
   if (fresh) await saveSnapshot(fresh);
@@ -49,6 +56,8 @@ export async function widgetTaskHandler({ widgetInfo, widgetAction, renderWidget
     return;
   }
   if (widgetAction === 'WIDGET_CLICK') return;
+  // Android can start this without the app, before the last offset is back: the critter sleeps by it.
+  await clockRestored;
   renderWidget(await renderFor(widgetInfo.widgetName, widgetInfo.widgetId, await currentSnapshot()));
 }
 

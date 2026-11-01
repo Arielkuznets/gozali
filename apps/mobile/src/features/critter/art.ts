@@ -12,7 +12,7 @@ export function localDay(now: Date): string {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
 
-/** Night on the device clock (22:00-07:00), when the critter sleeps (spec section 4). */
+/** Night in the phone's time zone (22:00-07:00), when the critter sleeps (spec section 4). */
 export function isNight(now: Date): boolean {
   return isNightHour(now.getHours());
 }

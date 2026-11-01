@@ -8,6 +8,11 @@ import { storedSession, supabase } from '@/lib/supabase';
 export type WidgetSnapshot = {
   timezone: string;
   fetchedAt: string;
+  /**
+   * When this phone got it, by its own clock: the only clock its age can be read from, as fetchedAt
+   * is the server's. A copy from before this was noted has none.
+   */
+  savedAt?: number;
   packs: (WidgetPack & { imageUrl: string; nightImageUrl: string })[];
 };
 
@@ -54,7 +59,7 @@ export async function fetchSnapshot(token: string): Promise<WidgetSnapshot | nul
       await AsyncStorage.removeItem(TOKEN_KEY);
       return null;
     }
-    return response.ok ? ((await response.json()) as WidgetSnapshot) : null;
+    return response.ok ? { ...((await response.json()) as WidgetSnapshot), savedAt: Date.now() } : null;
   } catch {
     return null;
   }

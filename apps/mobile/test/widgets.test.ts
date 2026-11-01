@@ -64,7 +64,7 @@ describe('refreshing the widgets', () => {
 
     expect(mockRpc).toHaveBeenCalledWith('create_widget_token');
     expect(await AsyncStorage.getItem('gozali.widget-token')).toBe('new-token');
-    expect(JSON.parse((await AsyncStorage.getItem('gozali.widget-snapshot'))!)).toEqual(snapshot);
+    expect(JSON.parse((await AsyncStorage.getItem('gozali.widget-snapshot'))!)).toMatchObject(snapshot);
   });
 
   it('keeps the token when the server is out of reach', async () => {
@@ -143,7 +143,7 @@ describe('whose token it is', () => {
     await refreshWidgets();
 
     expect(mockRpc).not.toHaveBeenCalled();
-    expect(JSON.parse((await AsyncStorage.getItem('gozali.widget-snapshot'))!)).toEqual(snapshot);
+    expect(JSON.parse((await AsyncStorage.getItem('gozali.widget-snapshot'))!)).toMatchObject(snapshot);
   });
 
   it("replaces another account's token and shows the new account's state", async () => {
@@ -155,7 +155,7 @@ describe('whose token it is', () => {
     expect(mockFetch.mock.calls.map(([, init]) => init.headers['x-widget-token'])).toEqual(['new-token']);
     expect(await AsyncStorage.getItem('gozali.widget-token')).toBe('new-token');
     expect(await AsyncStorage.getItem('gozali.widget-token-owner')).toBe('noa');
-    expect(JSON.parse((await AsyncStorage.getItem('gozali.widget-snapshot'))!)).toEqual(snapshot);
+    expect(JSON.parse((await AsyncStorage.getItem('gozali.widget-snapshot'))!)).toMatchObject(snapshot);
   });
 
   it('replaces a token from before owners were kept', async () => {
