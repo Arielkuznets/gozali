@@ -141,13 +141,13 @@ export async function deleteAccount({ revokeApple }: { revokeApple: boolean }): 
   });
   if (error) throw error;
   // The server already removed the tokens with the account; this clears what the device keeps.
+  await forgetTokens();
   await forgetAccountOnDevice();
-  await forgetQueuedFeeds();
   await supabase.auth.signOut({ scope: 'local' });
 }
 
 export async function signOut(): Promise<void> {
-  await forgetAccountOnDevice();
+  await forgetTokens();
   const auth = requireSupabase().auth;
   // This phone only, like the tokens forgotten above: other phones keep their session, so they
   // don't sit signed out while their pushes and widgets still come.
@@ -163,21 +163,22 @@ export async function signOut(): Promise<void> {
       throw error;
     }
   }
-  await forgetQueuedFeeds();
+  await forgetAccountOnDevice();
+}
+
+/** What the server keeps for this phone: it goes first, while there is a session to ask with. */
+async function forgetTokens(): Promise<void> {
+  await unregisterPushToken().catch(() => undefined);
+  await clearWidgets().catch(() => undefined);
 }
 
 /**
- * Feeds still waiting to go out: without the session they can't, and their photos are the
- * account's. Only once it is signed out, so a failed sign-out keeps them.
+ * What the phone keeps for the signed-in account, so the next one doesn't open its packs: feeds
+ * still waiting to go out (without the session they can't, and their photos are the account's),
+ * the focus timer and the notifications. Only once it is signed out, so a failed sign-out keeps them.
  */
-async function forgetQueuedFeeds(): Promise<void> {
-  await clearQueue().catch(() => undefined);
-}
-
-/** What the phone keeps for the signed-in account, so the next one doesn't open its packs. */
 async function forgetAccountOnDevice(): Promise<void> {
-  await unregisterPushToken().catch(() => undefined);
-  await clearWidgets().catch(() => undefined);
+  await clearQueue().catch(() => undefined);
   await clearFocusSession().catch(() => undefined);
   await clearNotifications().catch(() => undefined);
 }
