@@ -6,7 +6,7 @@ import { Platform } from 'react-native';
 import { feedErrorCode, isFinalRejection, isNetworkFailure, sendFeed, type OutgoingFeed } from '@/features/feeds/send';
 import { isBlockedText } from '@/lib/errors';
 
-// Feeds taken without a connection wait here and go out when it returns (spec section 6).
+// Feeds that can't go out yet wait here until the app is open with a connection (spec section 6).
 // The photo is copied into the app's documents so the system can't clear it meanwhile.
 const STORAGE_KEY = 'gozali.feed-queue';
 
