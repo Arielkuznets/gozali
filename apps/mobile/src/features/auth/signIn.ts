@@ -129,6 +129,15 @@ async function appleCodeForRevocation(): Promise<string | undefined> {
 }
 
 /**
+ * Whether the server no longer knows the account. A deletion's answer can be lost after the account
+ * went, and from then on the function refuses it as nobody signed in.
+ */
+async function accountIsGone(): Promise<boolean> {
+  const { error } = await requireSupabase().auth.getUser();
+  return error?.code === 'user_not_found';
+}
+
+/**
  * Deletes the account and its data on the server (spec section 11), then forgets it here. With
  * `revokeApple` (app_config.apple_revocation), iPhone users who signed in with Apple confirm
  * with Apple first.
@@ -140,7 +149,7 @@ export async function deleteAccount({ revokeApple }: { revokeApple: boolean }): 
     method: 'POST',
     body: appleAuthorizationCode ? { appleAuthorizationCode } : {},
   });
-  if (error) throw error;
+  if (error && !(await accountIsGone())) throw error;
   // The server already removed the tokens with the account; this clears what the device keeps.
   await forgetTokens();
   await forgetAccountOnDevice();

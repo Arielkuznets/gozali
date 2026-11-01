@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { createUser, removeUsers, signIn, type TestUser } from './support';
+import { admin, createUser, removeUsers, signIn, type TestUser } from './support';
 
 let noa: TestUser;
 
@@ -112,6 +112,74 @@ test('deleting the account shows it is under way, and goes out once', async ({ p
 
   await expect(page.getByRole('button', { name: 'Continue with Apple' })).toBeVisible();
   expect(calls).toBe(1);
+});
+
+test('a deletion whose answer never reached the phone finishes there', async ({ page }) => {
+  const alerts: string[] = [];
+  page.on('dialog', (dialog) => {
+    if (dialog.type() === 'alert') alerts.push(dialog.message());
+    void dialog.accept();
+  });
+  // The account goes on the server, and the connection drops before the answer comes back.
+  await page.route('**/functions/v1/delete-account', async (route) => {
+    await admin.auth.admin.deleteUser(noa.id);
+    await route.abort('connectionreset');
+  });
+  await page.addInitScript(() => window.localStorage.setItem('gozali.onboarded', '1'));
+  await signIn(page, noa);
+  await page.goto('/settings');
+
+  await page.getByRole('button', { name: 'Delete account' }).click();
+
+  await expect(page.getByRole('button', { name: 'Continue with Apple' })).toBeVisible();
+  expect(alerts).toEqual([]);
+});
+
+test('a deletion whose answer was lost with the connection finishes on the next try', async ({ page }) => {
+  const alerts: string[] = [];
+  page.on('dialog', (dialog) => {
+    if (dialog.type() === 'alert') alerts.push(dialog.message());
+    void dialog.accept();
+  });
+  let connected = false;
+  await page.route('**/functions/v1/delete-account', async (route) => {
+    // From the second try on the function turns the token down, as it does for a deleted account.
+    if (connected) return await route.fulfill({ status: 401, body: 'not signed in' });
+    await admin.auth.admin.deleteUser(noa.id);
+    await route.abort('connectionreset');
+  });
+  await page.route('**/auth/v1/**', (route) => (connected ? route.continue() : route.abort('internetdisconnected')));
+  await page.addInitScript(() => window.localStorage.setItem('gozali.onboarded', '1'));
+  await signIn(page, noa);
+  await page.goto('/settings');
+  const remove = page.getByRole('button', { name: 'Delete account' });
+
+  await remove.click();
+  await expect.poll(() => alerts).toEqual(["The account wasn't deleted. Please try again."]);
+  await expect(remove).toBeEnabled();
+
+  connected = true;
+  await remove.click();
+
+  await expect(page.getByRole('button', { name: 'Continue with Apple' })).toBeVisible();
+  expect(alerts).toHaveLength(1);
+});
+
+test('a deletion that failed says so while the account is still there', async ({ page }) => {
+  const alerts: string[] = [];
+  page.on('dialog', (dialog) => {
+    if (dialog.type() === 'alert') alerts.push(dialog.message());
+    void dialog.accept();
+  });
+  await page.route('**/functions/v1/delete-account', (route) => route.fulfill({ status: 500, json: { error: 'photo removal failed' } }));
+  await signIn(page, noa);
+  await page.goto('/settings');
+  const remove = page.getByRole('button', { name: 'Delete account' });
+
+  await remove.click();
+
+  await expect.poll(() => alerts).toEqual(["The account wasn't deleted. Please try again."]);
+  await expect(remove).toBeEnabled();
 });
 
 test('the rules can be read again from the settings', async ({ page }) => {
