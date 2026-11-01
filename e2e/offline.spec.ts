@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { createPack, createUser, removeUsers, signIn, type TestUser } from './support';
+import { createPack, createUser, feed, photo, removeUsers, signIn, type TestUser } from './support';
 
 /** Signs in once; later loads keep whatever the page has stored since, as a phone does. */
 async function signInOnce(page: import('@playwright/test').Page, user: TestUser) {
@@ -79,6 +79,33 @@ test('opening the app without a connection shows the packs it last had', async (
   await page.waitForTimeout(12_000);
   await page.reload();
   await expect(page.getByText('Gym squad')).toBeVisible();
+});
+
+test('opening the app without a connection still says who fed today', async ({ page }) => {
+  const dan = await createUser('Dan');
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
+  const image = await photo(page, '🏋️');
+  await feed(noa, pack.id, image, 'Noa fed');
+  await feed(dan, pack.id, image, 'Dan fed');
+  await signIn(page, noa);
+  await page.goto('/');
+  await expect(page.getByText('2/2 fed today')).toBeVisible();
+  await page.getByText('Gym squad').click();
+  await expect(page.getByText('Dan fed')).toBeVisible();
+  await page.getByRole('button', { name: 'Back', exact: true }).first().click();
+  await expect(page.getByText('Your packs')).toBeVisible();
+  await page.waitForTimeout(1500);
+
+  await goOffline(page);
+  await page.reload();
+  await expect(page.getByText('2/2 fed today')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Feed Gym squad' })).toBeHidden();
+
+  await page.getByText('Gym squad').click();
+  await expect(page.getByText('Two of you fed today')).toBeVisible();
+  await expect(page.getByText('Your part is done for today ✓')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Feed', exact: true })).toBeHidden();
+  await removeUsers(dan);
 });
 
 test("another account on the phone never gets the last one's packs", async ({ page }) => {

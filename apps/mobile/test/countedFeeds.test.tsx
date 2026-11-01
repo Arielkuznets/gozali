@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider, type UseQueryResult } from '@tanstack/react-query';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
-import { useCountedFeeds } from '@/features/feeds/api';
+import { fedToday, useCountedFeeds } from '@/features/feeds/api';
 
 const mockRpc = jest.fn();
 const mockFrom = jest.fn();
@@ -85,5 +85,19 @@ describe('who fed', () => {
 
     expect((await counted()).error).toBe(refused);
     expect(mockFrom).not.toHaveBeenCalled();
+  });
+});
+
+describe('fedToday', () => {
+  const pack = { id: 'pack', timezone: 'Asia/Jerusalem' };
+  const lateAtNight = new Date('2026-11-01T20:00:00Z');
+
+  it("says who fed on the pack's day", () => {
+    expect(fedToday([dan], pack, lateAtNight)).toEqual(new Set(['dan']));
+  });
+
+  it("says nobody on a new day, so a copy kept on the phone can't speak for today", () => {
+    const nextMorning = new Date('2026-11-02T08:00:00Z');
+    expect(fedToday([dan], pack, nextMorning)).toEqual(new Set());
   });
 });

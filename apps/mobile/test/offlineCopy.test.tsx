@@ -129,6 +129,34 @@ describe('the copy kept on the phone', () => {
     expect(restored?.clientState.queries.map((query) => query.state.data)).toEqual([PACKS]);
   });
 
+  it('keeps who fed, for the counts and the Feed buttons of a start without a connection', async () => {
+    const queryClient = appWithCopy(afterRestart());
+    const counted = [{ pack_id: 'pack', user_id: 'dan', day: '2026-11-01' }];
+    queryClient.setQueryData(['packs'], PACKS);
+    queryClient.setQueryData(['feeds', 'counted'], counted);
+    await settle(SAVE_MS);
+
+    const restored = await afterRestart().persister.restoreClient();
+
+    expect(restored?.clientState.queries.map((query) => [query.queryKey, query.state.data])).toEqual([
+      [['packs'], PACKS],
+      [['feeds', 'counted'], counted],
+    ]);
+  });
+
+  it('keeps nothing else of the feeds', async () => {
+    const queryClient = appWithCopy(afterRestart());
+    queryClient.setQueryData(['packs'], PACKS);
+    queryClient.setQueryData(['feeds', 'pack', 'pack', 30], [{ photoUrl: 'signed-link' }]);
+    queryClient.setQueryData(['feeds', 'events', 'pack', 30], []);
+    queryClient.setQueryData(['feeds', 'pending', 'pack'], []);
+    await settle(SAVE_MS);
+
+    const restored = await afterRestart().persister.restoreClient();
+
+    expect(restored?.clientState.queries.map((query) => query.queryKey)).toEqual([['packs']]);
+  });
+
   it('goes when another account finds it', async () => {
     const queryClient = appWithCopy(afterRestart());
     queryClient.setQueryData(['packs'], PACKS);
