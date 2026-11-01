@@ -59,6 +59,8 @@ export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
   dehydrateOptions: {
     // A refetch that fails (offline) keeps its data, and so does the copy.
     shouldDehydrateQuery: (query) => query.state.data !== undefined && KEPT.has(String(query.queryKey[0])),
+    // A mutation comes back without its function: it can never run, and its scope would wait for it.
+    shouldDehydrateMutation: () => false,
   },
 };
 

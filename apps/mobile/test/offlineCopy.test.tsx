@@ -1,14 +1,24 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { QueryClient } from '@tanstack/react-query';
-import { persistQueryClientSubscribe } from '@tanstack/react-query-persist-client';
+import { PersistQueryClientProvider, persistQueryClientSubscribe } from '@tanstack/react-query-persist-client';
+import { act, create } from 'react-test-renderer';
+
+import { useUpdateProfile, type ProfileSettings } from '@/features/profile/useProfile';
+import { persistOptions } from '@/lib/queryCache';
 
 type QueryCache = typeof import('@/lib/queryCache');
 
 // Who is signed in on this phone, as the stored session says.
 let mockSignedIn: string | null;
+const mockUpdate = jest.fn();
 jest.mock('@/lib/supabase', () => ({
   storedSession: async () => (mockSignedIn ? { user: { id: mockSignedIn } } : null),
+  requireSupabase: () => ({
+    from: () => ({ update: (settings: unknown) => ({ eq: () => mockUpdate(settings) }) }),
+  }),
 }));
+jest.mock('@/features/auth/AuthProvider', () => ({ useAuth: () => ({ session: { user: { id: 'noa' } }, loading: false }) }));
+jest.mock('@/lib/push', () => ({}));
 
 const COPY = 'gozali.query-cache';
 const PACKS = [{ name: 'Gym squad' }];
@@ -62,6 +72,7 @@ async function signOut(queryClient: QueryClient, { forgetKeptQueries }: QueryCac
 beforeEach(async () => {
   await AsyncStorage.clear();
   mockSignedIn = 'noa';
+  mockUpdate.mockReset().mockResolvedValue({ error: null });
 });
 
 describe('the copy kept on the phone', () => {
@@ -135,5 +146,50 @@ describe('the copy kept on the phone', () => {
     await settle(SAVE_MS);
 
     expect(await AsyncStorage.getItem(COPY)).toBeNull();
+  });
+});
+
+describe('a settings change waiting its turn when the app closes', () => {
+  let change: (settings: ProfileSettings) => void;
+
+  function Settings() {
+    change = useUpdateProfile().mutate;
+    return null;
+  }
+
+  /** A start of the app; no garbage collection, whose timers would outlive the test. */
+  async function startApp() {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { gcTime: Infinity }, mutations: { gcTime: Infinity } },
+    });
+    return act(async () => {
+      const app = create(
+        <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
+          <Settings />
+        </PersistQueryClientProvider>,
+      );
+      await settle();
+      return app;
+    });
+  }
+
+  it("doesn't hold up the changes after the next start", async () => {
+    // Slow connection: the first save never answers, and the second waits behind it.
+    mockUpdate.mockReturnValueOnce(new Promise(() => undefined));
+    const app = await startApp();
+    await act(async () => {
+      change({ locale: 'en' });
+      change({ timezone: 'Asia/Jerusalem' });
+      await settle(SAVE_MS);
+    });
+    await act(async () => app.unmount());
+
+    await startApp();
+    await act(async () => {
+      change({ reminder_time: '20:00' });
+      await settle(50);
+    });
+
+    expect(mockUpdate).toHaveBeenLastCalledWith({ reminder_time: '20:00' });
   });
 });
