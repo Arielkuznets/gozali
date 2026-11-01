@@ -186,6 +186,68 @@ test('a recap photo can be reported and its poster blocked', async ({ page }) =>
   await expect(page.getByLabel('Photo from Dan')).toBeHidden();
 });
 
+/** Gives the member a profile photo the way the app does. */
+async function setAvatar(member: TestUser, picture: Buffer): Promise<void> {
+  const path = `${member.id}/me.jpg`;
+  const upload = await member.client.storage.from('avatars').upload(path, picture, { contentType: 'image/jpeg' });
+  if (upload.error) throw upload.error;
+  const saved = await member.client.from('profiles').update({ avatar_path: path }).eq('id', member.id);
+  if (saved.error) throw saved.error;
+}
+
+test('blocking a member takes their profile photo off the screen', async ({ page }) => {
+  const picture = await photo(page, '🙂');
+  await setAvatar(dan, picture);
+  await setAvatar(maya, picture);
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' }, [dan, maya]);
+
+  const dialogs = answerDialogs(page);
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+  const dansPhoto = page.locator(`img[src*="/avatars/${dan.id}/"]`);
+  const mayasPhoto = page.locator(`img[src*="/avatars/${maya.id}/"]`);
+  await expect(dansPhoto).toHaveCount(1);
+  await expect(mayasPhoto).toHaveCount(1);
+
+  await page.getByRole('button', { name: 'Maya, not yet today' }).click({ delay: 900 });
+  await page.getByRole('menuitem', { name: 'Block Maya' }).click();
+  await expect.poll(() => dialogs.at(-1)).toContain('Blocked.');
+  await expect(mayasPhoto).toHaveCount(0);
+  await expect(dansPhoto).toHaveCount(1);
+
+  // Links asked for afterwards leave out the blocked member and still reach everyone else.
+  await page.reload();
+  await expect(dansPhoto).toHaveCount(1);
+  await expect(mayasPhoto).toHaveCount(0);
+});
+
+test('unblocking brings the profile photo back', async ({ page }) => {
+  await setAvatar(maya, await photo(page, '🙂'));
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' }, [maya]);
+  const blocked = await noa.client.from('blocks').insert({ blocker_id: noa.id, blocked_id: maya.id });
+  if (blocked.error) throw blocked.error;
+
+  // All in one visit, so the links signed during the block are still in memory.
+  await signIn(page, noa);
+  await page.goto('/');
+  const links = page.waitForResponse((response) => response.url().includes('/object/sign/avatars'));
+  await page.getByText('Gym squad').click();
+  await links;
+  const mayasPhoto = page.locator(`img[src*="/avatars/${maya.id}/"]`);
+  await expect(page.getByRole('button', { name: 'Maya, not yet today' })).toBeVisible();
+  await expect(mayasPhoto).toHaveCount(0);
+
+  await page.goBack();
+  await page.getByRole('button', { name: 'Me' }).click();
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Unblock' }).click();
+  await expect(page.getByText("You haven't blocked anyone.")).toBeVisible();
+  await page.goBack();
+  await page.goBack();
+  await page.getByText('Gym squad').click();
+  await expect(mayasPhoto).toHaveCount(1);
+});
+
 test('the profile photo menu adds and removes a photo', async ({ page }) => {
   const picture = await photo(page, '🙂');
   answerDialogs(page);

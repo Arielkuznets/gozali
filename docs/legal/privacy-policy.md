@@ -2,7 +2,7 @@
 
 > Draft for the pilot. It describes what the app does today and must be reviewed before the public launch. Published at gozali.app/privacy.
 
-Last updated: September 27, 2026
+Last updated: November 1, 2026
 
 Gozali is an app where a small group of friends (a "pack") raises a shared pet by doing a habit every day and proving it with a photo. This policy explains what we collect, why, who can see it, and how to delete it. Questions: hello@gozali.app.
 
@@ -24,7 +24,7 @@ We do **not** collect your location or contacts, we don't use advertising or tra
 - Pack members see who fed, rested, used a joker, was paused or missed on each day, because that is how the pack works together. Notifications never say who missed.
 - Widgets on your home screen and lock screen show only the pet and numbers, never photos or names.
 - A weekly recap you share as a story contains the pet, the pack's numbers and **only your own** photos.
-- You don't see the photos and reactions of people you block, and they can't nudge you. If you share a pack with them, they can still see what you post there; you can leave the pack at any time.
+- You don't see the photos, profile photo and reactions of people you block, and they can't nudge you. If you share a pack with them, they can still see what you post there; you can leave the pack at any time.
 
 ## How long we keep it
 

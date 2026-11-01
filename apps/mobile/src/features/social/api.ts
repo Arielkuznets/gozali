@@ -48,6 +48,7 @@ export type MyStats = {
 };
 
 const socialKey = ['social'] as const;
+const blocksKey = ['blocks'] as const;
 const EVENT_PAGE = 30;
 
 export function usePackEvents(packId: string, limit = EVENT_PAGE) {
@@ -263,8 +264,24 @@ export function useBlock() {
         .upsert({ blocker_id: blockerId, blocked_id: blockedId }, { ignoreDuplicates: true });
       if (error) throw error;
     },
-    // Not returned: the answer to the person who blocked shouldn't wait for the refetch.
-    onSettled: () => void queryClient.invalidateQueries({ queryKey: feedsKey }),
+    // Not returned: the answer to the person who blocked shouldn't wait for the refetches.
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: feedsKey });
+      void queryClient.invalidateQueries({ queryKey: blocksKey });
+    },
+  });
+}
+
+/** Who this account blocked, for the screens that still list those people. */
+export function useBlockedIds(userId: string | undefined) {
+  return useQuery({
+    queryKey: [...blocksKey, userId, 'ids'],
+    enabled: userId !== undefined,
+    queryFn: async (): Promise<Set<string>> => {
+      const { data, error } = await requireSupabase().from('blocks').select('blocked_id').eq('blocker_id', userId ?? '');
+      if (error) throw error;
+      return new Set(data.map((row) => row.blocked_id));
+    },
   });
 }
 

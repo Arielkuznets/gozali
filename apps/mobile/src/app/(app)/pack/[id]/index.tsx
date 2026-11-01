@@ -30,7 +30,7 @@ import { countedToday, currentMembers, usePack, type Pack, type PackCritter, typ
 import { FOCUS_CATEGORIES, PACK_SIZE_MAX, categoryInfo } from '@/features/packs/constants';
 import { usePackRealtime } from '@/features/packs/realtime';
 import { NameMeCard } from '@/features/social/NameMeCard';
-import { socialErrorKey, useNudge, usePackEvents, useReact, type ReactionKey } from '@/features/social/api';
+import { socialErrorKey, useBlockedIds, useNudge, usePackEvents, useReact, type ReactionKey } from '@/features/social/api';
 import { useModeration } from '@/features/social/moderation';
 import { confirm, notify } from '@/lib/confirm';
 import { formatDay } from '@/lib/dates';
@@ -57,6 +57,7 @@ export default function PackScreen() {
   const dayStatus = useDayStatus(id);
   const events = usePackEvents(id, feedLimit);
   const avatars = useAvatarUrls(pack?.pack_members.map((member) => member.profiles?.avatar_path) ?? []);
+  const blocked = useBlockedIds(session?.user.id);
   const react = useReact();
   const nudge = useNudge(id);
   const { block, photoMenu } = useModeration();
@@ -88,6 +89,13 @@ export default function PackScreen() {
   // While older photos remain unloaded, older events wait too, so the merged list has no gap.
   const oldestPhoto = feed.data?.at(-1)?.created_at;
   const shownEvents = (events.data ?? []).filter((event) => !morePhotos || !oldestPhoto || event.created_at >= oldestPhoto);
+
+  // No pictures until the list of blocked people is in, so a blocked face never flashes by. A link
+  // signed before the block stays good for its hour, so the server's refusal alone comes too late.
+  const avatarOf = (member: PackMember) =>
+    member.profiles?.avatar_path && blocked.data && !blocked.data.has(member.user_id)
+      ? avatars.data?.get(member.profiles.avatar_path)
+      : undefined;
 
   const refresh = async () => {
     setRefreshing(true);
@@ -179,7 +187,7 @@ export default function PackScreen() {
             id: member.user_id,
             name: member.profiles?.display_name ?? null,
             state: memberState(member, fed, today),
-            avatarUrl: member.profiles?.avatar_path ? avatars.data?.get(member.profiles.avatar_path) : undefined,
+            avatarUrl: avatarOf(member),
             nudgeable:
               member.user_id !== userId &&
               !fed.has(member.user_id) &&

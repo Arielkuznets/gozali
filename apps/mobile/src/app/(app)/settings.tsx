@@ -202,6 +202,8 @@ function useBlocked() {
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['blocks'] });
       void queryClient.invalidateQueries({ queryKey: ['feeds'] });
+      // Links signed during the block left this person out.
+      void queryClient.invalidateQueries({ queryKey: ['avatars'] });
     },
   });
   return { ...query, unblock: (id: string) => remove.mutate(id) };
