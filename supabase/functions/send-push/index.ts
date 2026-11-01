@@ -58,6 +58,7 @@ Deno.serve(async (request) => {
     attempted: result.attempted,
     sent: result.sent,
     requeued: requeued?.error ? 0 : result.requeue.length,
+    ticketErrors: result.ticketErrors,
   };
   // Any answer but 200 reaches the owners' daily summary, through collect_service_errors.
   const failed = Boolean(requeued?.error) || runFailed(result);

@@ -193,6 +193,19 @@ const goneAlone = await sendAll(lots.slice(0, 3), async (batch) => {
 });
 check(goneAlone.attempted === 3 && goneAlone.deadTokens.length === 3 && !runFailed(goneAlone), 'also when they went out one by one after a refusal');
 
+// An error on a ticket, other than a phone that is gone, is a message that won't arrive. Those are
+// counted by Expo's code, and they reach the owners even when the rest of the run went out.
+const ticketCodes = ['InvalidCredentials', 'InvalidCredentials', 'MessageRateExceeded', 'DeviceNotRegistered', undefined];
+const ticketed = await sendAll(lots.slice(0, 6), async (batch) =>
+  batch.map((_, index) => (index < ticketCodes.length ? { status: 'error', details: { error: ticketCodes[index] } } : { status: 'ok' })),
+);
+check(
+  ticketed.sent === 1 && ticketed.deadTokens.length === 1 && JSON.stringify(ticketed.ticketErrors) === '{"InvalidCredentials":2,"MessageRateExceeded":1,"unknown":1}',
+  'errors on tickets are counted by their code',
+);
+check(runFailed(ticketed), 'and a run with any of them failed, even with the rest out');
+check(JSON.stringify(gone.ticketErrors) === '{}' && JSON.stringify(midway.ticketErrors) === '{}', 'phones that are gone and refused requests are not among them');
+
 // Owner alerts: someone finishing the profile setup tells the owner, in plain words.
 const owned = await admin.from('app_owners').insert({ user_id: noa });
 if (owned.error) throw owned.error;

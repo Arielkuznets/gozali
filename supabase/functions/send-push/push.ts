@@ -29,6 +29,8 @@ export interface SendResult {
   sent: number;
   requeue: string[];
   deadTokens: string[];
+  /** Messages Expo answered with an error, by its code, leaving out tokens that are gone. */
+  ticketErrors: Record<string, number>;
 }
 
 export function toMessages(rows: readonly ClaimedRow[]): PushMessage[] {
@@ -60,6 +62,7 @@ export async function sendAll(
   const messages = toMessages(rows);
   const requeue = new Set<string>();
   const deadTokens: string[] = [];
+  const ticketErrors: Record<string, number> = {};
   let attempted = 0;
   let sent = 0;
   let down = false;
@@ -71,6 +74,10 @@ export async function sendAll(
         if (!message) return;
         if (ticket.status === 'ok') sent += 1;
         else if (ticket.details?.error === 'DeviceNotRegistered') deadTokens.push(message.to);
+        else {
+          const code = ticket.details?.error ?? 'unknown';
+          ticketErrors[code] = (ticketErrors[code] ?? 0) + 1;
+        }
       });
       return 'sent';
     } catch (error) {
@@ -98,13 +105,15 @@ export async function sendAll(
       if (!alone || (await deliver(batch.filter((message) => message.data.notificationId === id))) !== 'sent') requeue.add(id);
     }
   }
-  return { attempted, sent, requeue: [...requeue], deadTokens };
+  return { attempted, sent, requeue: [...requeue], deadTokens, ticketErrors };
 }
 
 /**
- * Whether the service took none of what it was offered. A token it reports as gone is an answer
- * from a working service, so a run that found only those didn't fail.
+ * Whether the service answered a message with an error or took none of what it was offered. A
+ * token it reports as gone is an answer from a working service, so a run that found only those
+ * didn't fail.
  */
 export function runFailed(result: SendResult): boolean {
+  if (Object.keys(result.ticketErrors).length > 0) return true;
   return result.sent === 0 && result.attempted > result.deadTokens.length;
 }
