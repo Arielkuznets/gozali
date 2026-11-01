@@ -84,6 +84,108 @@ test('the menu of a photo stays on the screen beside a long name', async ({ page
   await expect(page.getByRole('menuitem')).toHaveText(['Report photo', 'Block Bartholomew Montgomery-Smithso']);
 });
 
+test('a photo on the whole screen has the same menu', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' }, [dan]);
+  await feed(dan, pack.id, await photo(page, '🏋️'), 'Leg day');
+  const { data: posted } = await admin.from('feeds').select('id').eq('pack_id', pack.id).single();
+
+  const dialogs = answerDialogs(page);
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+  await page.getByRole('img', { name: 'Leg day' }).click();
+  const viewer = page.getByRole('dialog');
+
+  await viewer.getByRole('button', { name: 'More' }).click();
+  await expect(page.getByRole('menuitem')).toHaveText(['Report photo', 'Block Dan']);
+  await page.getByRole('menuitem', { name: 'Report photo' }).click();
+  await expect.poll(() => dialogs.at(-1)).toContain('We will look at it');
+  const { data: reports } = await admin.from('reports').select('feed_id, reporter_id').eq('reporter_id', noa.id);
+  expect(reports).toEqual([{ feed_id: posted!.id, reporter_id: noa.id }]);
+
+  // A report leaves the photo open; once its poster is blocked it is out of sight.
+  await viewer.getByRole('button', { name: 'More' }).click();
+  await page.getByRole('menuitem', { name: 'Block Dan' }).click();
+  await expect.poll(() => dialogs.at(-1)).toContain('Blocked.');
+  await expect(page.getByRole('button', { name: 'Close photo' })).toBeHidden();
+  await expect(page.getByText('Leg day')).toBeHidden();
+  const { data: blocks } = await admin.from('blocks').select('blocked_id').eq('blocker_id', noa.id);
+  expect(blocks).toEqual([{ blocked_id: dan.id }]);
+});
+
+test('the buttons of a photo on the whole screen stay beside a long name', async ({ page }) => {
+  await dan.client.from('profiles').update({ display_name: 'Bartholomew Montgomery-Smithso' }).eq('id', dan.id);
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' }, [dan]);
+  await feed(dan, pack.id, await photo(page, '🏋️'), 'Leg day');
+
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+  await page.getByRole('img', { name: 'Leg day' }).click();
+  const viewer = page.getByRole('dialog');
+  await expect(viewer.getByRole('button', { name: 'More' })).toBeVisible();
+  await layOutTextLikeAPhone(page);
+
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 844 });
+    await expect(viewer.getByRole('button', { name: 'More' })).toBeInViewport({ ratio: 1 });
+    await expect(viewer.getByRole('button', { name: 'Close photo' })).toBeInViewport({ ratio: 1 });
+  }
+});
+
+test('your own photo on the whole screen has no menu', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' });
+  await feed(noa, pack.id, await photo(page, '🏋️'), 'Leg day');
+
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+  await page.getByRole('img', { name: 'Leg day' }).click();
+  await expect(page.getByRole('button', { name: 'Close photo' })).toBeVisible();
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'More' })).toHaveCount(0);
+});
+
+test('a recap photo can be reported and its poster blocked', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' }, [dan]);
+  await feed(dan, pack.id, await photo(page, '🏋️'), 'Leg day');
+  const { data: posted } = await admin.from('feeds').select('id').eq('pack_id', pack.id).single();
+  const { error } = await admin.from('weekly_recaps').insert({
+    pack_id: pack.id,
+    week_start: '2026-10-18',
+    feed_ids: [posted!.id],
+    stats: {
+      weekStart: '2026-10-18',
+      weekEnd: '2026-10-24',
+      days: 7,
+      successDays: 6,
+      healthStart: 70,
+      healthEnd: 85,
+      coins: 9,
+      topMembers: [dan.id],
+      topFeeds: 6,
+      achievements: [],
+      critter: { species: 'axo', stage: 'kid', status: 'active', health: 85, marks: [], outfit: {}, name: 'Pico', streak: 7 },
+    },
+  });
+  if (error) throw error;
+
+  const dialogs = answerDialogs(page);
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}/recap`);
+  await page.getByLabel('Photo from Dan').click();
+
+  const viewer = page.getByRole('dialog');
+  await viewer.getByRole('button', { name: 'More' }).click();
+  await expect(page.getByRole('menuitem')).toHaveText(['Report photo', 'Block Dan']);
+  await page.getByRole('menuitem', { name: 'Report photo' }).click();
+  await expect.poll(() => dialogs.at(-1)).toContain('We will look at it');
+  const { data: reports } = await admin.from('reports').select('feed_id, reporter_id').eq('reporter_id', noa.id);
+  expect(reports).toEqual([{ feed_id: posted!.id, reporter_id: noa.id }]);
+
+  await viewer.getByRole('button', { name: 'More' }).click();
+  await page.getByRole('menuitem', { name: 'Block Dan' }).click();
+  await expect.poll(() => dialogs.at(-1)).toContain('Blocked.');
+  await expect(page.getByRole('button', { name: 'Close photo' })).toBeHidden();
+  await expect(page.getByLabel('Photo from Dan')).toBeHidden();
+});
+
 test('the profile photo menu adds and removes a photo', async ({ page }) => {
   const picture = await photo(page, '🙂');
   answerDialogs(page);

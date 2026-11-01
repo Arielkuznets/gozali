@@ -30,15 +30,8 @@ import { countedToday, currentMembers, usePack, type Pack, type PackCritter, typ
 import { FOCUS_CATEGORIES, PACK_SIZE_MAX, categoryInfo } from '@/features/packs/constants';
 import { usePackRealtime } from '@/features/packs/realtime';
 import { NameMeCard } from '@/features/social/NameMeCard';
-import {
-  socialErrorKey,
-  useBlock,
-  useNudge,
-  usePackEvents,
-  useReact,
-  useReport,
-  type ReactionKey,
-} from '@/features/social/api';
+import { socialErrorKey, useNudge, usePackEvents, useReact, type ReactionKey } from '@/features/social/api';
+import { useModeration } from '@/features/social/moderation';
 import { confirm, notify } from '@/lib/confirm';
 import { formatDay } from '@/lib/dates';
 import { haptics } from '@/lib/haptics';
@@ -66,8 +59,7 @@ export default function PackScreen() {
   const avatars = useAvatarUrls(pack?.pack_members.map((member) => member.profiles?.avatar_path) ?? []);
   const react = useReact();
   const nudge = useNudge(id);
-  const report = useReport();
-  const blockMember = useBlock();
+  const { block, photoMenu } = useModeration();
   usePackRealtime(id);
   const moment = useMilestone(pack?.id, pack?.critters, dataUpdatedAt);
 
@@ -101,22 +93,6 @@ export default function PackScreen() {
     setRefreshing(true);
     await queryClient.invalidateQueries();
     setRefreshing(false);
-  };
-
-  const block = (memberId: string, name: string) => {
-    if (!userId) return;
-    confirm({
-      title: t('social.blockTitle', { name }),
-      message: t('social.blockBody'),
-      confirm: t('social.block', { name }),
-      cancel: t('social.cancel'),
-      destructive: true,
-      onConfirm: () =>
-        blockMember.mutate(
-          { blockerId: userId, blockedId: memberId },
-          { onSuccess: () => notify(t('social.blockedLeave')), onError: fail },
-        ),
-    });
   };
 
   const onMemberMenu = (member: { id: string; name: string | null; nudgeable?: boolean }) => {
@@ -154,31 +130,8 @@ export default function PackScreen() {
     react.mutate({ feedId: item.id, emoji }, { onError: fail });
   };
 
-  const onReport = (item: FeedItem) => {
-    if (!userId) return;
-    confirm({
-      title: t('social.reportTitle'),
-      message: t('social.reportBody'),
-      confirm: t('social.report'),
-      cancel: t('social.cancel'),
-      destructive: true,
-      onConfirm: () =>
-        report.mutate(
-          { feedId: item.id, reporterId: userId, reason: null },
-          { onSuccess: () => notify(t('social.reported')), onError: fail },
-        ),
-    });
-  };
-
   const onMore = (item: FeedItem) => {
-    const name = names.get(item.user_id) ?? '…';
-    setMenu({
-      title: name,
-      actions: [
-        { label: t('social.report'), onPress: () => onReport(item) },
-        { label: t('social.block', { name }), destructive: true, onPress: () => block(item.user_id, name) },
-      ],
-    });
+    setMenu(photoMenu({ id: item.id, userId: item.user_id, name: names.get(item.user_id) ?? '…' }));
   };
 
   return (

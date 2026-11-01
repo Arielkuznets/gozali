@@ -59,7 +59,7 @@ export function FeedList({ feeds, events, names, critterName, emoji, now, userId
             onReact={onReact}
             onMore={onMore}
             onOpen={(feed) =>
-              setOpen({ id: feed.id, url: feed.photoUrl, caption: feed.caption, name: nameOf(feed.user_id) })
+              setOpen({ id: feed.id, userId: feed.user_id, url: feed.photoUrl, caption: feed.caption, name: nameOf(feed.user_id) })
             }
           />
         ),

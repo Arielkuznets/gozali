@@ -263,7 +263,8 @@ export function useBlock() {
         .upsert({ blocker_id: blockerId, blocked_id: blockedId }, { ignoreDuplicates: true });
       if (error) throw error;
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: feedsKey }),
+    // Not returned: the answer to the person who blocked shouldn't wait for the refetch.
+    onSettled: () => void queryClient.invalidateQueries({ queryKey: feedsKey }),
   });
 }
 

@@ -1,17 +1,27 @@
 import { Image } from 'expo-image';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ActionMenu, type Menu } from '@/components/ActionMenu';
 import { AppText } from '@/components/AppText';
+import { useAuth } from '@/features/auth/AuthProvider';
+import { useModeration } from '@/features/social/moderation';
 import { spacing } from '@/theme/tokens';
 
-export type ViewedPhoto = { id: string; url: string | null; caption: string | null; name: string };
+export type ViewedPhoto = { id: string; userId: string; url: string | null; caption: string | null; name: string };
 
-/** A feed photo on the whole screen. Pinch to zoom where the platform's scroll view can. */
+/**
+ * A feed photo on the whole screen, with the same menu as its card: a photo from a recap has no
+ * other. Pinch to zoom where the platform's scroll view can.
+ */
 export function PhotoViewer({ photo, onClose }: { photo: ViewedPhoto | null; onClose: () => void }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const { session } = useAuth();
+  const { photoMenu } = useModeration(onClose);
+  const [menu, setMenu] = useState<Menu | null>(null);
   return (
     <Modal visible={photo !== null} animationType="fade" onRequestClose={onClose} statusBarTranslucent>
       <View style={styles.backdrop}>
@@ -38,9 +48,20 @@ export function PhotoViewer({ photo, onClose }: { photo: ViewedPhoto | null; onC
           <AppText style={[styles.light, styles.name]} numberOfLines={1}>
             {photo?.name}
           </AppText>
-          <Pressable accessibilityRole="button" accessibilityLabel={t('feed.closePhoto')} onPress={onClose} hitSlop={12}>
-            <AppText style={[styles.light, styles.close]}>✕</AppText>
-          </Pressable>
+          <View style={styles.buttons}>
+            {photo && photo.userId !== session?.user.id && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('social.more')}
+                onPress={() => setMenu(photoMenu(photo))}
+                hitSlop={12}>
+                <AppText style={[styles.light, styles.close]}>⋯</AppText>
+              </Pressable>
+            )}
+            <Pressable accessibilityRole="button" accessibilityLabel={t('feed.closePhoto')} onPress={onClose} hitSlop={12}>
+              <AppText style={[styles.light, styles.close]}>✕</AppText>
+            </Pressable>
+          </View>
         </View>
         {photo?.caption && (
           <View style={[styles.bottom, { paddingBottom: insets.bottom + spacing.md }]}>
@@ -48,6 +69,8 @@ export function PhotoViewer({ photo, onClose }: { photo: ViewedPhoto | null; onC
           </View>
         )}
       </View>
+      {/* Inside this Modal: iOS never shows a modal opened beside one that is already up. */}
+      <ActionMenu menu={menu} cancel={t('social.cancel')} onClose={() => setMenu(null)} />
     </Modal>
   );
 }
@@ -69,6 +92,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.35)',
   },
   name: { flexShrink: 1 },
+  buttons: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
   bottom: {
     position: 'absolute',
     left: 0,
