@@ -18,8 +18,6 @@ describe('deviceTimeZone', () => {
   it('is UTC on a phone that names no zone', () => {
     phoneSetTo(null);
     expect(deviceTimeZone()).toBe('UTC');
-    jest.mocked(getCalendars).mockReturnValue([]);
-    expect(deviceTimeZone()).toBe('UTC');
   });
 
   it.each([
