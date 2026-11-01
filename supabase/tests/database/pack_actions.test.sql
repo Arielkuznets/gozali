@@ -1,7 +1,7 @@
 -- Pack actions: create, preview, join, leave, settings and removing members.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(21);
+select plan(24);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a1', 'admin@test.local'),
@@ -66,6 +66,19 @@ select is(
   (select extract(dow from pending_from)::int from public.packs),
   0,
   'the pending change starts on a Sunday'
+);
+select throws_ok(
+  $$ select public.update_pack((select id from created), 'No rest', null, 'sunday') $$,
+  '22023', 'bad_settings', 'the rest days must be given'
+);
+select throws_ok(
+  $$ select public.update_pack((select id from created), 'No start', 2::smallint, null) $$,
+  '22023', 'bad_settings', 'and the week start'
+);
+select is(
+  (select name || ': ' || pending_rest_days_per_week || ', ' || pending_week_start from public.packs),
+  'Gym gang: 2, sunday',
+  'and a refused save changes nothing'
 );
 
 -- The admin leaves; the longest-standing member takes over.
