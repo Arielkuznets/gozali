@@ -1,7 +1,7 @@
 -- The weekly recap, created when the last day of a pack's week closes.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(9);
+select plan(12);
 
 -- Only this test's pack, whatever else the local database holds.
 delete from public.weekly_recaps;
@@ -80,6 +80,55 @@ select is(
 select is(
   (select count(*) from public.notifications where type = 'weekly_recap'), 2::bigint,
   'both members hear the recap is ready'
+);
+
+-- A recap lists what no earlier recap of the pack listed. A day closes the next morning, so the
+-- achievements of a week's last day carry a time after the week has ended.
+insert into public.packs (id, name, category, rest_days_per_week, week_start, timezone, invite_code)
+values
+  ('10000000-0000-0000-0000-000000000016', 'Walkers', 'reading', 0, 'sunday', 'Asia/Jerusalem', 'WALK2345'),
+  ('10000000-0000-0000-0000-000000000026', 'Hikers', 'reading', 0, 'sunday', 'Asia/Jerusalem', 'HKRS2345');
+insert into public.critters (pack_id, species, status, stage, health, streak, name)
+values
+  ('10000000-0000-0000-0000-000000000016', 'hoot', 'active', 'kid', 81, 5, 'Fern'),
+  ('10000000-0000-0000-0000-000000000026', 'hoot', 'active', 'kid', 81, 5, 'Sage');
+
+insert into public.achievements (pack_id, key, unlocked_at) values
+  ('10000000-0000-0000-0000-000000000016', 'hatched', '2026-09-08 04:05+03'),
+  ('10000000-0000-0000-0000-000000000016', 'streak_7', '2026-09-13 04:06+03');
+insert into public.day_results (pack_id, day, result, applied, health_before, health_after, coins)
+values ('10000000-0000-0000-0000-000000000016', '2026-09-12', 'success', true, 76, 81, 3);
+select is(
+  (select stats -> 'achievements' from public.weekly_recaps where pack_id = '10000000-0000-0000-0000-000000000016'),
+  '["hatched", "streak_7"]'::jsonb,
+  'a pack''s first recap lists all it has unlocked, the close of the last day included'
+);
+
+insert into public.achievements (pack_id, key, unlocked_at)
+values ('10000000-0000-0000-0000-000000000016', 'full_house', '2026-09-15 04:05+03');
+insert into public.day_results (pack_id, day, result, applied, health_before, health_after, coins)
+values ('10000000-0000-0000-0000-000000000016', '2026-09-19', 'success', true, 76, 81, 3);
+select is(
+  (select stats -> 'achievements' from public.weekly_recaps
+   where pack_id = '10000000-0000-0000-0000-000000000016' and week_start = '2026-09-13'),
+  '["full_house"]'::jsonb,
+  'the next week lists only its own'
+);
+
+-- A recap already stored without an achievement unlocked in the same close: it goes in the next one.
+insert into public.weekly_recaps (pack_id, week_start, stats, created_at)
+values ('10000000-0000-0000-0000-000000000026', '2026-09-06', '{"achievements": ["hatched"]}', '2026-09-13 04:06+03');
+insert into public.achievements (pack_id, key, unlocked_at) values
+  ('10000000-0000-0000-0000-000000000026', 'hatched', '2026-09-08 04:05+03'),
+  ('10000000-0000-0000-0000-000000000026', 'streak_7', '2026-09-13 04:06+03'),
+  ('10000000-0000-0000-0000-000000000026', 'full_house', '2026-09-20 04:06+03');
+insert into public.day_results (pack_id, day, result, applied, health_before, health_after, coins)
+values ('10000000-0000-0000-0000-000000000026', '2026-09-19', 'success', true, 76, 81, 3);
+select is(
+  (select stats -> 'achievements' from public.weekly_recaps
+   where pack_id = '10000000-0000-0000-0000-000000000026' and week_start = '2026-09-13'),
+  '["streak_7", "full_house"]'::jsonb,
+  'an achievement a stored recap left out is listed by the next one, not lost'
 );
 
 select * from finish();
