@@ -11,14 +11,14 @@ export function goBack(fallback: Href = '/'): void {
 }
 
 /**
- * Leaves a route that opens over whatever is on screen for `href`, once it is known. A screen
- * already open underneath is gone back to, with what was typed there; a Redirect would open a
- * second copy over it.
+ * Leaves a route that opens over whatever is on screen, once `href` is known. A screen already
+ * open underneath is gone back to, with what was typed there, and only with nothing there does
+ * `href` open: a Redirect would open a second copy over it.
  */
 export function useLeaveFor(href: Href | null): void {
   useFocusEffect(
     useCallback(() => {
-      if (href) router.dismissTo(href);
+      if (href) goBack(href);
     }, [href]),
   );
 }

@@ -355,6 +355,15 @@ describe('a sign-in link', () => {
     expect(rootRoutes()).toEqual(['(app)']);
     expect(opened).toEqual(['home']);
   });
+
+  it('reaching a pack goes back to the pack, with no home screen over it', async () => {
+    await openPack();
+
+    await followLink('gozali://auth/callback?code=one-time');
+
+    expect(appStack()).toEqual(['index', 'pack/[id]/index']);
+    expect(opened).toEqual(['home', 'pack']);
+  });
 });
 
 describe('a link to a screen the app does not have', () => {
@@ -408,6 +417,15 @@ describe('a link to a screen the app does not have', () => {
 
     expect(rootRoutes()).toEqual(['(app)']);
     expect(opened).toEqual(['home']);
+  });
+
+  it('reaching a pack goes back to the pack, with no home screen over it', async () => {
+    await openPack();
+
+    await followLink('gozali://nothing-here');
+
+    expect(appStack()).toEqual(['index', 'pack/[id]/index']);
+    expect(opened).toEqual(['home', 'pack']);
   });
 
   it('includes an invite link with no code in it', async () => {
