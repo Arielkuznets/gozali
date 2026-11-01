@@ -38,6 +38,19 @@ test('signing out without a connection signs out, without saying it failed', asy
   expect(alerts).toEqual([]);
 });
 
+test("the copy of the account's data stays gone after signing out", async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.setItem('gozali.onboarded', '1'));
+  await signIn(page, noa);
+  await page.goto('/me');
+
+  await page.getByRole('button', { name: 'Sign out' }).click();
+  await expect(page.getByRole('button', { name: 'Continue with Apple' })).toBeVisible();
+
+  // Past the second a save can be held back.
+  await page.waitForTimeout(2000);
+  expect(await page.evaluate(() => window.localStorage.getItem('gozali.query-cache'))).toBeNull();
+});
+
 test('a phone that signed out offline has the server forget its push token once it is back', async ({ context, page }) => {
   const { token, rowsOnServer } = await registerToken(noa);
   await page.addInitScript(() => window.localStorage.setItem('gozali.onboarded', '1'));

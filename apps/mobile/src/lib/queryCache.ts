@@ -14,7 +14,25 @@ const KEPT = new Set(['profile', 'packs']);
 export const KEEP_MS = 7 * 24 * 60 * 60 * 1000;
 
 const OWNER_KEY = 'gozali.query-cache-owner';
-const stored = createAsyncStoragePersister({ storage: AsyncStorage, key: 'gozali.query-cache' });
+
+/**
+ * Where the copy is written. The persister can hold a save back for a second, so the owner is
+ * settled here, at the write, and with nobody signed in by then there is nothing to keep.
+ */
+const ownedStorage = {
+  getItem: (key: string) => AsyncStorage.getItem(key),
+  setItem: async (key: string, value: string) => {
+    const owner = (await storedSession())?.user.id;
+    if (!owner) return AsyncStorage.removeItem(key);
+    await AsyncStorage.multiSet([
+      [key, value],
+      [OWNER_KEY, owner],
+    ]);
+  },
+  removeItem: (key: string) => AsyncStorage.removeItem(key),
+};
+
+const stored = createAsyncStoragePersister({ storage: ownedStorage, key: 'gozali.query-cache' });
 
 /**
  * The copy belongs to the account signed in on this phone when it was written. It comes back
@@ -22,12 +40,7 @@ const stored = createAsyncStoragePersister({ storage: AsyncStorage, key: 'gozali
  * the app was closed) can't hand one account's packs to the next.
  */
 export const persister: Persister = {
-  persistClient: async (client) => {
-    const owner = (await storedSession())?.user.id;
-    if (!owner) return stored.removeClient();
-    await AsyncStorage.setItem(OWNER_KEY, owner);
-    return stored.persistClient(client);
-  },
+  ...stored,
   restoreClient: async () => {
     const [owner, session] = await Promise.all([AsyncStorage.getItem(OWNER_KEY), storedSession()]);
     if (!session || owner !== session.user.id) {
@@ -36,7 +49,6 @@ export const persister: Persister = {
     }
     return stored.restoreClient();
   },
-  removeClient: () => stored.removeClient(),
 };
 
 export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
