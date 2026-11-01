@@ -10,17 +10,28 @@ import { isBlockedText } from '@/lib/errors';
 // The photo is copied into the app's documents so the system can't clear it meanwhile.
 const STORAGE_KEY = 'gozali.feed-queue';
 
+/** A list that can't be read rejects: taken for empty, the next write would forget it. */
 async function read(): Promise<OutgoingFeed[]> {
+  const raw = await AsyncStorage.getItem(STORAGE_KEY);
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
     return raw ? (JSON.parse(raw) as OutgoingFeed[]) : [];
   } catch {
+    // Nothing can ever read this value.
     return [];
   }
 }
 
-async function write(queue: OutgoingFeed[]): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(queue));
+let lastChange: Promise<unknown> = Promise.resolve();
+
+/** Changes to the list run one at a time, so none of them writes over what another just wrote. */
+function inTurn<T>(change: () => Promise<T>): Promise<T> {
+  const turn = lastChange.then(change);
+  lastChange = turn.catch(() => undefined);
+  return turn;
+}
+
+function update(change: (queue: OutgoingFeed[]) => OutgoingFeed[]): Promise<void> {
+  return inTurn(async () => AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(change(await read()))));
 }
 
 function queueDirectory(): Directory {
@@ -38,14 +49,20 @@ export async function isOnline(): Promise<boolean> {
 export async function enqueue(feed: OutgoingFeed): Promise<boolean> {
   if (Platform.OS === 'web') return false;
   const kept = new File(queueDirectory(), `${feed.id}.jpg`);
-  await new File(feed.photoUri).copy(kept);
-  await write([...(await read()), { ...feed, photoUri: kept.uri }]);
+  try {
+    await new File(feed.photoUri).copy(kept);
+    await update((queue) => [...queue, { ...feed, photoUri: kept.uri }]);
+  } catch (error) {
+    // Most likely a full phone, where the next try needs the room.
+    if (kept.exists) kept.delete();
+    throw error;
+  }
   return true;
 }
 
 /** Forgets what waits, photos included: they belong to an account that is leaving this phone. */
 export async function clearQueue(): Promise<void> {
-  await AsyncStorage.removeItem(STORAGE_KEY);
+  await inTurn(() => AsyncStorage.removeItem(STORAGE_KEY));
   if (Platform.OS === 'web') return;
   const directory = new Directory(Paths.document, 'feed-queue');
   if (directory.exists) directory.delete();
@@ -80,7 +97,7 @@ async function sendOrReplace(feed: OutgoingFeed): Promise<boolean> {
     const next = replacement(feed, error);
     if (!next) return true;
     // Kept as the replacement, so a later run doesn't meet the same refusal again.
-    await write((await read()).map((item) => (item.id === feed.id ? next : item)));
+    await update((queue) => queue.map((item) => (item.id === feed.id ? next : item)));
     return sendOrReplace(next);
   }
 }
@@ -100,9 +117,11 @@ export function flushQueue(): Promise<number> {
         const photo = new File(queueDirectory(), `${feed.id}.jpg`);
         if (photo.exists && !(await sendOrReplace({ ...feed, photoUri: photo.uri }))) break;
         sent += 1;
-        await write((await read()).filter((item) => item.id !== feed.id));
+        await update((queue) => queue.filter((item) => item.id !== feed.id));
         if (photo.exists) photo.delete();
       }
+    } catch {
+      // The phone's storage failed. Nothing is lost, and the next run tries again.
     } finally {
       flushing = null;
     }
