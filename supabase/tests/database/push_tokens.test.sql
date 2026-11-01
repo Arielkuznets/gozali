@@ -1,7 +1,7 @@
 -- A member's push tokens come from register_push_token only, at most ten of them.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(14);
+select plan(21);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000d7', 'noa@test.local'),
@@ -113,6 +113,39 @@ select is(
   (select count(*) from public.push_tokens where token = 'ExponentPushToken[other-account]'),
   0::bigint,
   'a signed-in phone can forget a token too, whoever''s row it is'
+);
+
+-- What Expo itself takes for a token: its two bracket forms and a UUID. Anything else would only
+-- come back refused, on every try.
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000d9');
+select throws_ok(
+  $$ select public.register_push_token('x', 'ios') $$,
+  '22023', 'invalid_token', 'text that can''t be a token is refused'
+);
+select throws_ok(
+  $$ select public.register_push_token('my phone', 'android') $$,
+  '22023', 'invalid_token', 'and so is free text'
+);
+select throws_ok(
+  $$ select public.register_push_token('ExponentPushToken[no-end', 'ios') $$,
+  '22023', 'invalid_token', 'and half a token'
+);
+select throws_ok(
+  $$ select public.register_push_token('a1b2c3d4-e5f6-7890-abcd', 'ios') $$,
+  '22023', 'invalid_token', 'and part of a UUID'
+);
+select lives_ok(
+  $$ select public.register_push_token('ExponentPushToken[abc123]', 'ios') $$,
+  'the usual form is taken'
+);
+select lives_ok(
+  $$ select public.register_push_token('ExpoPushToken[abc123]', 'android') $$,
+  'and the shorter form'
+);
+select lives_ok(
+  $$ select public.register_push_token('A1B2C3D4-E5F6-7890-ABCD-EF1234567890', 'ios') $$,
+  'and the UUID form'
 );
 
 select * from finish();

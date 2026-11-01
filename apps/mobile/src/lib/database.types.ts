@@ -475,6 +475,7 @@ export type Database = {
       };
       notifications: {
         Row: {
+          attempts: number;
           created_at: string;
           day: string | null;
           id: string;
@@ -487,6 +488,7 @@ export type Database = {
           user_id: string;
         };
         Insert: {
+          attempts?: number;
           created_at?: string;
           day?: string | null;
           id?: string;
@@ -499,6 +501,7 @@ export type Database = {
           user_id: string;
         };
         Update: {
+          attempts?: number;
           created_at?: string;
           day?: string | null;
           id?: string;

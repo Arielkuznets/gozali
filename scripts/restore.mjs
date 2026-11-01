@@ -52,7 +52,12 @@ const columns = new Map(
 
 for (const table of order) {
   const rows = backup.tables[table] ?? [];
-  const { cols, identity } = columns.get(table);
+  const { cols: allCols, identity } = columns.get(table);
+  // A column newer than the backup isn't in its rows: left out here, it takes its default.
+  const cols = allCols
+    .split(', ')
+    .filter((col) => col.replaceAll('"', '') in (rows[0] ?? {}))
+    .join(', ');
   const own = table.startsWith('public.');
   // New accounts get a profile from a trigger; the backup's profiles replace them.
   if (table === 'public.profiles') run('delete from public.profiles');
