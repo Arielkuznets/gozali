@@ -50,7 +50,7 @@ export default function PackScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session } = useAuth();
-  const { data: pack, isPending, isError, refetch } = usePack(id);
+  const { data: pack, dataUpdatedAt, isPending, isError, refetch } = usePack(id);
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const [feedLimit, setFeedLimit] = useState(FEED_PAGE);
@@ -69,7 +69,7 @@ export default function PackScreen() {
   const report = useReport();
   const blockMember = useBlock();
   usePackRealtime(id);
-  const moment = useMilestone(pack?.id, pack?.critters);
+  const moment = useMilestone(pack?.id, pack?.critters, dataUpdatedAt);
 
   if (isPending) return <LoadingScreen />;
   if (!pack && isError) return <LoadFailedScreen onRetry={() => void refetch()} />;

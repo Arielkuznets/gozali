@@ -34,14 +34,23 @@ async function saveSeen(packId: string, seen: Seen): Promise<void> {
   await AsyncStorage.setItem(key(packId), JSON.stringify(seen)).catch(() => undefined);
 }
 
-/** The milestone waiting on this phone for the pack's critter, and a way to mark it seen. */
-export function useMilestone(packId: string | undefined, critter: Seen | null | undefined) {
+/**
+ * The milestone waiting on this phone for the pack's critter, and a way to mark it seen.
+ *
+ * Only what the server answered since the screen opened counts (`fetchedAt` is when the pack was
+ * fetched). The copy kept on the phone is saved up to a second late, so it can be behind what this
+ * phone already celebrated, and comparing stages can't tell that from a critter that really went
+ * back.
+ */
+export function useMilestone(packId: string | undefined, critter: Seen | null | undefined, fetchedAt: number) {
   const [milestone, setMilestone] = useState<Milestone | null>(null);
+  const [openedAt] = useState(() => Date.now());
   const status = critter?.status;
   const stage = critter?.stage;
+  const answered = fetchedAt >= openedAt;
 
   useEffect(() => {
-    if (!packId || !status || !stage) return;
+    if (!packId || !status || !stage || !answered) return;
     let current = true;
     void loadSeen(packId).then((seen) => {
       if (!current) return;
@@ -52,7 +61,7 @@ export function useMilestone(packId: string | undefined, critter: Seen | null | 
     return () => {
       current = false;
     };
-  }, [packId, status, stage]);
+  }, [packId, status, stage, answered]);
 
   const dismiss = () => {
     setMilestone(null);
