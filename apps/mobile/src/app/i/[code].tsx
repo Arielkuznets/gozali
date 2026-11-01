@@ -1,8 +1,10 @@
 import { Redirect, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 
-import { useAuth } from '@/features/auth/AuthProvider';
+import { LoadingScreen } from '@/components/ScreenStates';
 import { savePendingInvite } from '@/features/packs/invites';
+import { useHomeRoute } from '@/features/profile/useProfile';
+import { useLeaveFor } from '@/lib/navigation';
 
 /**
  * gozali.app/i/CODE and gozali://i/CODE. Signed in, the join screen opens with the code;
@@ -10,13 +12,16 @@ import { savePendingInvite } from '@/features/packs/invites';
  */
 export default function InviteLinkScreen() {
   const { code } = useLocalSearchParams<{ code: string }>();
-  const { session } = useAuth();
+  const home = useHomeRoute();
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     void savePendingInvite(code).then(() => setSaved(true));
   }, [code]);
 
-  if (!saved) return null;
-  return <Redirect href={session ? '/' : '/welcome'} />;
+  useLeaveFor(saved && home !== '/' ? home : null);
+
+  // The home screen reads the saved code as it opens, so it opens anew.
+  if (saved && home === '/') return <Redirect href="/" />;
+  return <LoadingScreen />;
 }

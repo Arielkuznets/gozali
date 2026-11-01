@@ -62,6 +62,18 @@ export function isProfileComplete(profile: Profile | undefined): boolean {
   return Boolean(profile?.display_name && profile.terms_accepted_at);
 }
 
+/**
+ * The screen the root layout's guards let this person open, or null until the profile is known.
+ * A route outside the guards leaves for this one: going to a guarded screen does nothing at all.
+ */
+export function useHomeRoute(): '/' | '/profile-setup' | '/welcome' | null {
+  const { session } = useAuth();
+  const { data: profile } = useProfile();
+  if (!session) return '/welcome';
+  if (!profile) return null;
+  return isProfileComplete(profile) ? '/' : '/profile-setup';
+}
+
 /** Saves the name and confirmation, plus the device time zone that reminders are scheduled in. */
 export function useCompleteProfile() {
   const queryClient = useQueryClient();

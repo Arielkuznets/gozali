@@ -1,6 +1,6 @@
-import { expect, test, type Locator } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
-import { createSignedUpUser, removeUsers, signIn } from './support';
+import { createPack, createSignedUpUser, createUser, removeUsers, signIn, type TestUser } from './support';
 
 /** Scrolls to `text` and checks that `button` doesn't cover it. */
 async function expectClearOf(text: Locator, button: Locator) {
@@ -77,4 +77,85 @@ test('finishing the profile setup opens the home screen', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Create a pack' })).toBeVisible();
   await expect(page.getByText('Camera needed')).toBeHidden();
   await removeUsers(maya);
+});
+
+/** A link opening in the running app: the web build hears of it through the browser history. */
+async function openLink(page: Page, path: string) {
+  await page.evaluate((target) => {
+    window.history.pushState({}, '', target);
+    window.dispatchEvent(new PopStateEvent('popstate', { state: {} }));
+  }, path);
+}
+
+test.describe('someone on the profile setup', () => {
+  let owner: TestUser;
+  let maya: TestUser;
+  let inviteCode: string;
+
+  test.beforeEach(async () => {
+    owner = await createUser('Owner');
+    maya = await createSignedUpUser('Maya');
+    ({ inviteCode } = await createPack(owner, { name: 'Gym squad', habit: 'gym', species: 'kit' }));
+  });
+
+  test.afterEach(async () => {
+    await removeUsers(owner, maya);
+  });
+
+  test('opening an invite link stays on the setup, and the join screen opens after it', async ({ page }) => {
+    await signIn(page, maya);
+    await page.goto(`/i/${inviteCode}`);
+    await expect(page.getByText('About you')).toBeVisible();
+
+    await page.getByPlaceholder('What do your friends call you?').fill('Maya');
+    await page.getByRole('checkbox').click();
+    await page.getByRole('button', { name: 'Continue' }).click();
+
+    await expect(page.getByLabel('Invite code')).toHaveValue(inviteCode);
+    await expect(page.getByText('Gym squad')).toBeVisible();
+  });
+
+  test('an invite link arriving while the setup is open stays on it, and the join screen opens after it', async ({ page }) => {
+    await signIn(page, maya);
+    await page.goto('/');
+    await expect(page.getByText('About you')).toBeVisible();
+
+    await openLink(page, `/i/${inviteCode}`);
+
+    await expect(page.getByText('About you')).toBeVisible();
+    await page.getByPlaceholder('What do your friends call you?').fill('Maya');
+    await page.getByRole('checkbox').click();
+    await page.getByRole('button', { name: 'Continue' }).click();
+    await expect(page.getByLabel('Invite code')).toHaveValue(inviteCode);
+  });
+
+  test('a sign-in link goes back to the setup', async ({ page }) => {
+    await signIn(page, maya);
+    await page.goto('/auth/callback');
+    await expect(page.getByText('About you')).toBeVisible();
+  });
+});
+
+test('an invite link for a finished account opens the join screen with the code', async ({ page }) => {
+  const owner = await createUser('Owner');
+  const noa = await createUser('Noa');
+  const { inviteCode } = await createPack(owner, { name: 'Gym squad', habit: 'gym', species: 'kit' });
+  await signIn(page, noa);
+  await page.goto(`/i/${inviteCode}`);
+  await expect(page.getByLabel('Invite code')).toHaveValue(inviteCode);
+  await removeUsers(owner, noa);
+});
+
+test('a sign-in link for nobody signed in shows the sign-in screen', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('gozali.onboarded', '1'));
+  await page.goto('/auth/callback');
+  await expect(page.getByRole('button', { name: 'Continue with Apple' })).toBeVisible();
+});
+
+test('a sign-in link for a finished account opens the home screen', async ({ page }) => {
+  const noa = await createUser('Noa');
+  await signIn(page, noa);
+  await page.goto('/auth/callback');
+  await expect(page.getByRole('button', { name: 'Create a pack' })).toBeVisible();
+  await removeUsers(noa);
 });
