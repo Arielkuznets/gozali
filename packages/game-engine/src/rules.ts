@@ -66,8 +66,10 @@ export function hatchIsCertain(members: readonly MemberDay[], restDaysPerWeek: n
 export function closeDay(input: DayInput): DayResult {
   const rows = input.members.map((member) => {
     const outcome = memberOutcome(member, input.restDaysPerWeek);
-    // On an outage day a miss counts like a pause: not counted, and no step toward sleeping.
-    return { member, outcome: input.outage && outcome === 'missed' ? ('paused' as const) : outcome };
+    // On an outage day a miss or an automatic rest counts like a pause: not counted, no step toward
+    // sleeping and no rest day used. A declared rest was the member's own choice, so it stays.
+    const excused = outcome === 'missed' || (outcome === 'rest' && !member.restDeclaredToday);
+    return { member, outcome: input.outage && excused ? ('paused' as const) : outcome };
   });
   const counted = rows.filter((row) => COUNTED_OUTCOMES.has(row.outcome)).length;
   const feeders = rows.filter((row) => row.outcome === 'fed').map((row) => row.member);

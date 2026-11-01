@@ -153,7 +153,7 @@ check(files.data.length === 0, 'and its photo files with it');
 const { data: calmId } = await noa.client.rpc('create_pack', {
   pack_name: 'Calm runs',
   habit: 'running',
-  rest_days: 0,
+  rest_days: 1,
   species: 'mochi',
   time_zone: tz,
 });
@@ -185,6 +185,14 @@ const calmRun = await closeDueDays(admin, new Date(closesAt(downDay, tz).getTime
 check(
   calmRun.closed.map((c) => c.result.type).join() === 'success,neutral',
   'a day the service was down closes neutral, not failed',
+);
+// Nobody fed the next day either, and the rest day the outage didn't spend covers both of them.
+const nextRun = await closeDueDays(admin, new Date(closesAt(addDays(downDay, 1), tz).getTime() + 60_000), [calmId]);
+check(
+  calmRun.closed[1].result.outcomes.every((row) => row.outcome === 'paused') &&
+    nextRun.closed[0].result.outcomes.every((row) => row.outcome === 'rest') &&
+    nextRun.closed[0].result.type === 'neutral',
+  'the outage spends no automatic rest, so the next day is a rest and not a miss',
 );
 await admin.from('outages').delete().eq('note', `smoke ${run}`);
 await admin.from('packs').delete().eq('id', calmId);

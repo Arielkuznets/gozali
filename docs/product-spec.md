@@ -184,7 +184,7 @@ Every day ends at 03:00 in the pack's time zone and closes after a one-hour grac
 
 Coins aren't earned while the critter is an egg or away.
 
-**A day the service was down** can't fail: when the server was out for an hour or more of a pack's day, nobody could be sure to feed, so a miss that day counts like a pause (no health lost, no step toward sleeping), and the feeds that got through still count. Outages are found by the day close itself (a gap of more than an hour between its runs) or added by hand.
+**A day the service was down** can't fail: when the server was out for an hour or more of a pack's day, nobody could be sure to feed, so a miss or an automatic rest that day counts like a pause (no health lost, no step toward sleeping, no rest day used), and the feeds that got through still count. A rest someone declared stays a rest. Outages are found by the day close itself (a gap of more than an hour between its runs) or added by hand.
 
 **Allowed misses:** 0 in a pack of 2–4 counted members, and 1 in a pack of 5–8. Every miss always costs 8 health, even on a successful day.
 
