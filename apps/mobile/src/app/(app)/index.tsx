@@ -79,7 +79,8 @@ export default function HomeScreen() {
           ))}
         </ScrollView>
       ) : (
-        <View style={styles.center}>
+        // An iPad shows the app in a window that can be shorter than any phone.
+        <ScrollView contentContainerStyle={styles.empty}>
           <Critter
             art={{ species: 'mochi', color: critterColors.mochi, stage: 'egg', look: 'egg' }}
             size={140}
@@ -89,7 +90,7 @@ export default function HomeScreen() {
             {t('home.emptyTitle')}
           </AppText>
           <AppText style={[styles.centerText, styles.muted]}>{t('home.emptyBody')}</AppText>
-        </View>
+        </ScrollView>
       )}
 
       <View style={styles.actions}>
@@ -117,6 +118,7 @@ const styles = StyleSheet.create({
   },
   list: { gap: spacing.sm, paddingBottom: spacing.md },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
+  empty: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md, paddingVertical: spacing.md },
   centerText: { textAlign: 'center' },
   muted: { color: colors.inkMuted, maxWidth: 300 },
   actions: { gap: spacing.sm, paddingTop: spacing.sm },

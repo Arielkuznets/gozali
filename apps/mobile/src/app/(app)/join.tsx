@@ -2,7 +2,7 @@ import * as Clipboard from 'expo-clipboard';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
@@ -45,7 +45,8 @@ export default function JoinScreen() {
 
   return (
     <Screen>
-      <View style={styles.body}>
+      {/* Scrolls when the keyboard or a short window leaves too little room for the pack. */}
+      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         <AppText variant="heading">{t('join.title')}</AppText>
         <View style={styles.codeRow}>
           <View style={styles.codeField}>
@@ -101,7 +102,7 @@ export default function JoinScreen() {
             </View>
           </View>
         )}
-      </View>
+      </ScrollView>
 
       <View style={styles.actions}>
         {pack?.already_member ? (
@@ -121,7 +122,7 @@ export default function JoinScreen() {
 }
 
 const styles = StyleSheet.create({
-  body: { flex: 1, justifyContent: 'center', gap: spacing.lg },
+  body: { flexGrow: 1, justifyContent: 'center', gap: spacing.lg, paddingVertical: spacing.md },
   codeRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm },
   codeField: { flex: 1 },
   preview: {

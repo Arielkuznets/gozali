@@ -90,6 +90,30 @@ test.describe('in a window shorter than a phone', () => {
     await page.mouse.click(300, 10);
     await expect(page.getByRole('menuitem')).toHaveCount(0);
   });
+
+  test('the join screen scrolls to the whole pack, clear of the buttons below', async ({ page }) => {
+    await page.goto(`/join?code=${pack.inviteCode}`);
+    await expect(page.getByText('Join a pack')).toBeInViewport({ ratio: 1 });
+    await expectClearOf(page.getByText("You're already in this pack."), page.getByRole('button', { name: 'Open pack' }));
+  });
+});
+
+test('in a window shorter than a phone the empty home keeps its text clear of the buttons', async ({ page }) => {
+  const noa = await createUser('Noa');
+  await signIn(page, noa);
+  await page.setViewportSize({ width: 600, height: 300 });
+  await page.goto('/');
+  await expectClearOf(page.getByText('or join a pack with a code', { exact: false }), page.getByRole('button', { name: 'Create a pack' }));
+  await removeUsers(noa);
+});
+
+test('in a window shorter than a phone the update screen keeps its text clear of the button', async ({ page }) => {
+  await page.route('**/rest/v1/app_config*', (route) =>
+    route.fulfill({ json: { min_version: '99.0.0', ios_url: 'https://example.test/app', android_url: null, apple_revocation: false } }),
+  );
+  await page.setViewportSize({ width: 600, height: 300 });
+  await page.goto('/');
+  await expectClearOf(page.getByText('right where you left them', { exact: false }), page.getByRole('button', { name: 'Update' }));
 });
 
 test('the Google button shows once the project turns Google sign-in on', async ({ page }) => {
