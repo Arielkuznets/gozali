@@ -102,8 +102,6 @@ export async function refreshReactions(queryClient: QueryClient, feedId: string)
 export function usePackFeed(packId: string, limit = FEED_PAGE) {
   return useQuery({
     queryKey: [...packFeedsKey, packId, limit],
-    // Links last an hour; refetch well before they run out.
-    staleTime: (PHOTO_LINK_SECONDS / 2) * 1000,
     queryFn: async (): Promise<FeedItem[]> => {
       const supabase = requireSupabase();
       const { data, error } = await supabase
