@@ -106,6 +106,10 @@ async function tapApple(waitMs: number) {
   });
 }
 
+// For fake timers: the tap and the clock moving on are separate steps.
+const tap = () => act(async () => void appleButton().props.onPress());
+const wait = (ms: number) => act(async () => void jest.advanceTimersByTime(ms));
+
 const shown = () => JSON.stringify(tree.toJSON());
 const browserButtons = () => tree.root.findAll((node) => node.props.label === 'Continue with Apple in the browser');
 /** What reached the developer through report_sign_in_problem. */
@@ -195,9 +199,47 @@ describe("Apple's sign-in page as a fallback", () => {
   });
 });
 
+describe('a report of a sign-in that did not finish', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it.each([
+    ['a sheet that never opened', 50],
+    ['a sheet someone closed', 12_000],
+  ])('gives the time since the tap for %s', async (_sheet, ms) => {
+    mockSignInAsync.mockImplementation(rejectAfter(ms, cancelled));
+    await tap();
+    await wait(ms);
+    expect(reports()).toHaveLength(1);
+    expect(reports()[0]).toContain(`apple ERR_REQUEST_CANCELED after ${ms} ms: The user canceled`);
+  });
+
+  it('gives the time for any other error too', async () => {
+    mockSignInAsync.mockImplementation(rejectAfter(300, failed));
+    await tap();
+    await wait(300);
+    expect(reports()[0]).toContain('apple ERR_REQUEST_UNKNOWN after 300 ms: ');
+  });
+
+  it('gives the time when nothing answered, and again if the answer comes later', async () => {
+    let close = (_error: unknown) => {};
+    mockSignInAsync.mockImplementation(() => new Promise((_resolve, reject) => (close = reject)));
+    await tap();
+    await wait(30_000);
+    expect(reports()).toHaveLength(1);
+    expect(reports()[0]).toContain('apple no code after 15000 ms: ');
+
+    await act(async () => close(cancelled));
+    expect(reports()[1]).toContain('apple ERR_REQUEST_CANCELED after 30000 ms: ');
+  });
+});
+
 describe('a request Apple leaves unanswered', () => {
-  const tap = () => act(async () => void appleButton().props.onPress());
-  const wait = (ms: number) => act(async () => void jest.advanceTimersByTime(ms));
   const dimmed = () => shown().includes('"pointerEvents":"none"');
 
   /** A request whose answer the test gives by hand. */

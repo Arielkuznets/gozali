@@ -54,16 +54,18 @@ export function errorCode(error: unknown): string | null {
 /**
  * Tells the developer why a sign-in didn't finish, cancellations included: Apple's own failures can
  * look like the user closing the sheet, and a failure before anyone is signed in leaves no other
- * trace (App Review once couldn't sign in on an iPad and the server saw nothing). Never throws.
+ * trace (App Review once couldn't sign in on an iPad and the server saw nothing). The same code
+ * comes back for a sheet that never opened and one that was closed, so `elapsedMs`, the time since
+ * the tap, is what tells them apart. Never throws.
  */
-export function reportSignInProblem(provider: string, error: unknown): void {
+export function reportSignInProblem(provider: string, error: unknown, elapsedMs: number): void {
   if (!supabase) return;
   const message = error instanceof Error ? error.message : String(error);
   const { systemName, osVersion } = Platform.constants as { systemName?: string; osVersion?: string };
   const system = `${systemName ?? Platform.OS} ${osVersion ?? Platform.Version}`;
   void supabase
     .rpc('report_sign_in_problem', {
-      problem: `${provider} ${errorCode(error) ?? 'no code'}: ${message} (${system})`,
+      problem: `${provider} ${errorCode(error) ?? 'no code'} after ${elapsedMs} ms: ${message} (${system})`,
       device: Platform.OS,
       app_version: appVersion(),
     })

@@ -71,7 +71,7 @@ export default function WelcomeScreen() {
     const noAnswer =
       provider === 'apple' && Platform.OS === 'ios'
         ? setTimeout(() => {
-            reportSignInProblem(provider, new Error(`No answer yet, app ${AppState.currentState}`));
+            reportSignInProblem(provider, new Error(`No answer yet, app ${AppState.currentState}`), Date.now() - started);
             setAppleFailed(true);
             setTrouble('cancelled');
             release();
@@ -83,9 +83,10 @@ export default function WelcomeScreen() {
       if (tap !== latestTap.current) return;
       // In development the log says what went wrong; the server hears about it either way.
       if (__DEV__) console.warn('Sign-in failed', error);
-      reportSignInProblem(provider, error);
+      const elapsedMs = Date.now() - started;
+      reportSignInProblem(provider, error, elapsedMs);
       if (provider === 'apple') setAppleFailed(true);
-      const kind = signInTrouble(error, Date.now() - started);
+      const kind = signInTrouble(error, elapsedMs);
       setTrouble(kind);
       const code = errorCode(error);
       const detail = code ? t('errors.code', { code }) : undefined;
