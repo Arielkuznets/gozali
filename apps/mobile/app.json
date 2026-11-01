@@ -117,7 +117,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Gozali uses the camera for the photo that feeds your pack's pet. Photos are taken in the app and seen only by your pack.",
+          "cameraPermission": "Gozali uses the camera for the photo that feeds your pack's pet, and for your profile picture if you want one.",
           "microphonePermission": false,
           "recordAudioAndroid": false
         }
