@@ -19,14 +19,18 @@ function setOffset(next: number): void {
   listeners.forEach((listener) => listener());
 }
 
-// The last offset is kept, so a start without a connection still stamps photos by the server's clock.
-if (Platform.OS !== 'web') {
-  void AsyncStorage.getItem(OFFSET_KEY)
-    .then((saved) => {
-      if (saved !== null && offsetMs === 0) setOffset(Number(saved) || 0);
-    })
-    .catch(() => undefined);
-}
+/**
+ * Settles once the last run's offset is back. It is kept so a start without a connection still
+ * stamps photos by the server's clock and judges the session by it.
+ */
+export const clockRestored: Promise<void> =
+  Platform.OS === 'web'
+    ? Promise.resolve()
+    : AsyncStorage.getItem(OFFSET_KEY)
+        .then((saved) => {
+          if (saved !== null && offsetMs === 0) setOffset(Number(saved) || 0);
+        })
+        .catch(() => undefined);
 
 /** Learns the server's time from a response's Date header, sent and received at the given times. */
 export function noteServerDate(dateHeader: string | null, sentAt: number, receivedAt: number): void {
@@ -41,6 +45,11 @@ export function noteServerDate(dateHeader: string | null, sentAt: number, receiv
 /** Now, by the server's clock as far as this phone knows it. */
 export function serverNow(): Date {
   return new Date(Date.now() + offsetMs);
+}
+
+/** A time in seconds on the server's clock, as the phone's clock will show that moment. */
+export function onPhoneClock(serverSeconds: number): number {
+  return serverSeconds - Math.round(offsetMs / 1000);
 }
 
 /** Calls back whenever the known offset changes; returns the way to stop. */

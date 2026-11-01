@@ -5,7 +5,7 @@ import { createClient, type Session, type SupabaseClient } from '@supabase/supab
 import { AppState, Platform } from 'react-native';
 
 import type { Database } from '@/lib/database.types';
-import { clockedFetch } from '@/lib/serverClock';
+import { clockRestored, clockedFetch, onPhoneClock } from '@/lib/serverClock';
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const publishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -15,12 +15,37 @@ type Client = SupabaseClient<Database>;
 /** Where supabase-js keeps the session: its default key, named so the app can read it (AuthProvider). */
 export const AUTH_STORAGE_KEY = url ? `sb-${new URL(url).hostname.split('.')[0]}-auth-token` : '';
 
+/**
+ * AsyncStorage, with a session's expires_at read as the phone's clock will show that moment. The
+ * time is the server's and auth-js holds it against Date.now: a phone behind would keep a token the
+ * server has expired, and one ahead would refresh on nearly every request and take a refused
+ * refresh for a dead session. Only reads change, because auth-js stores what the server sent, not
+ * what it read. updateUser is the exception, so the app stays away from it.
+ */
+const authStorage = {
+  getItem: async (key: string): Promise<string | null> => {
+    const stored = await AsyncStorage.getItem(key);
+    if (key !== AUTH_STORAGE_KEY || !stored) return stored;
+    await clockRestored;
+    try {
+      const session = JSON.parse(stored) as Partial<Session> | null;
+      if (typeof session?.expires_at !== 'number') return stored;
+      return JSON.stringify({ ...session, expires_at: onPhoneClock(session.expires_at) });
+    } catch {
+      // Damaged: auth-js takes that for no session.
+      return stored;
+    }
+  },
+  setItem: (key: string, value: string) => AsyncStorage.setItem(key, value),
+  removeItem: (key: string) => AsyncStorage.removeItem(key),
+};
+
 /** Null until .env points at a Supabase project, so the app still opens before the backend exists. */
 export const supabase: Client | null =
   url && publishableKey
     ? createClient<Database>(url, publishableKey, {
         auth: {
-          storage: AsyncStorage,
+          storage: authStorage,
           storageKey: AUTH_STORAGE_KEY,
           autoRefreshToken: true,
           persistSession: true,

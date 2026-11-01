@@ -3,11 +3,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
 import { forgetKeptQueries } from '@/lib/queryCache';
+import { clockRestored, serverNow } from '@/lib/serverClock';
 import { storedSession, supabase } from '@/lib/supabase';
 
 /** Whether a stored session's access token has expired, or is about to, so it needs a refresh. */
 function hasExpired(session: Session): boolean {
-  return (session.expires_at ?? 0) * 1000 < Date.now() + 90_000;
+  return (session.expires_at ?? 0) * 1000 < serverNow().getTime() + 90_000;
 }
 
 type AuthState = { session: Session | null; loading: boolean };
@@ -25,7 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // is still signed in: the stored session says who they are, so the app opens on their packs and
     // the camera can queue a feed, while the refresh carries on.
     let answered = false;
-    void storedSession().then((stored) => {
+    void Promise.all([storedSession(), clockRestored]).then(([stored]) => {
       if (!answered && stored && hasExpired(stored)) setState({ session: stored, loading: false });
     });
     void supabase.auth.getSession().then(async ({ data, error }) => {
