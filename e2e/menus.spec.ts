@@ -263,6 +263,82 @@ test('unblocking brings the profile photo back', async ({ page }) => {
   await expect(mayasPhoto).toHaveCount(1);
 });
 
+test('a member you block stays fed on every screen', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' }, [dan, maya]);
+  const image = await photo(page, '🏋️');
+  await feed(noa, pack.id, image, 'Arms');
+  await feed(dan, pack.id, image, 'Leg day');
+
+  const dialogs = answerDialogs(page);
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+  const dansCircle = page.getByRole('button', { name: 'Dan, fed today' });
+  // Home stays in the page under the pack screen, with a count of its own.
+  const fedCount = page.getByText('2/3 fed today').last();
+  await expect(dansCircle).toBeVisible();
+  await expect(fedCount).toBeVisible();
+  await expect(page.getByText('Leg day')).toBeVisible();
+
+  await dansCircle.click();
+  await expect(page.getByRole('menuitem')).toHaveText(['Report Dan', 'Block Dan']);
+  await page.getByRole('menuitem', { name: 'Block Dan' }).click();
+  await expect.poll(() => dialogs.at(-1)).toContain('Blocked.');
+  await expect(page.getByText('Leg day')).toBeHidden();
+
+  // What goes is the photo: the day still counts Dan, as the day close will.
+  await page.reload();
+  await expect(dansCircle).toBeVisible();
+  await expect(fedCount).toBeVisible();
+  await expect(page.getByText('Two of you fed today')).toBeVisible();
+  await expect(page.getByText('Leg day')).toBeHidden();
+
+  await page.goto('/');
+  await expect(fedCount).toBeVisible();
+  await page.goto(`/pack/${pack.id}/critter`);
+  await expect(page.getByLabel('Dan: 1 fed, 0 rest or joker, 0 paused or asleep, 0 missed')).toBeVisible();
+});
+
+test('a photo hidden by reports still counts for the day', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' }, [dan]);
+  await feed(dan, pack.id, await photo(page, '🏋️'), 'Leg day');
+  const hidden = await admin.from('feeds').update({ hidden_at: new Date().toISOString() }).eq('pack_id', pack.id);
+  if (hidden.error) throw hidden.error;
+
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+  await expect(page.getByRole('button', { name: 'Dan, fed today' })).toBeVisible();
+  await expect(page.getByText('1/2 fed today').last()).toBeVisible();
+  await expect(page.getByText('Leg day')).toBeHidden();
+
+  // Its author isn't asked to feed again today.
+  await signIn(page, dan);
+  await page.goto(`/pack/${pack.id}`);
+  await expect(page.getByText('Your part is done for today ✓')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Post another photo' })).toBeVisible();
+  await page.goto('/');
+  await expect(page.getByLabel('Fed today')).toBeVisible();
+});
+
+test('a nudge refused because they fed brings the circle up to date', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' }, [dan]);
+  const image = await photo(page, '🏋️');
+  const blocked = await noa.client.from('blocks').insert({ blocker_id: noa.id, blocked_id: dan.id });
+  if (blocked.error) throw blocked.error;
+
+  const dialogs = answerDialogs(page);
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+  const waiting = page.getByRole('button', { name: 'Dan, not yet today' });
+  await expect(waiting).toBeVisible();
+
+  // Realtime keeps to the same policy as the table, so this feed doesn't reach the open screen.
+  await feed(dan, pack.id, image, 'Leg day');
+  await waiting.click();
+  await expect.poll(() => dialogs.at(-1)).toBe('They already fed today.');
+  await expect(page.getByRole('button', { name: 'Dan, fed today' })).toBeVisible();
+  await expect(page.getByText('1/2 fed today').last()).toBeVisible();
+});
+
 test('the profile photo menu adds and removes a photo', async ({ page }) => {
   const picture = await photo(page, '🙂');
   answerDialogs(page);

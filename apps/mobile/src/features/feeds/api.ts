@@ -33,19 +33,28 @@ export type FeedItem = {
 type CountedFeed = { pack_id: string; user_id: string; day: string };
 
 export const feedsKey = ['feeds'] as const;
+export const countedFeedsKey = [...feedsKey, 'counted'] as const;
 const PHOTO_LINK_SECONDS = 60 * 60;
 export const FEED_PAGE = 30;
 
 /**
  * Counted feeds of the last few days in all of the user's packs. Each pack has its own time
- * zone, so "today" is decided per pack by `fedToday`.
+ * zone, so "today" is decided per pack by `fedToday`. They come from `counted_feeds`, not the
+ * table: a feed still counts when the user blocked its poster or reports hid its photo.
  */
 export function useCountedFeeds() {
   return useQuery({
-    queryKey: [...feedsKey, 'counted'],
+    queryKey: countedFeedsKey,
     queryFn: async (): Promise<CountedFeed[]> => {
+      const supabase = requireSupabase();
+      const counted = await supabase.rpc('counted_feeds');
+      if (counted.error?.code !== 'PGRST202') {
+        if (counted.error) throw counted.error;
+        return counted.data;
+      }
+      // A server without the function yet.
       const since = addDays(serverNow().toISOString().slice(0, 10), -2);
-      const { data, error } = await requireSupabase()
+      const { data, error } = await supabase
         .from('feeds')
         .select('pack_id, user_id, day')
         .eq('is_extra', false)

@@ -1,7 +1,7 @@
 import type { AchievementKey } from '@gozali/game-engine';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { feedsKey, packFeedsKey, refreshReactions, type FeedItem } from '@/features/feeds/api';
+import { countedFeedsKey, feedsKey, packFeedsKey, refreshReactions, type FeedItem } from '@/features/feeds/api';
 import { packsKey } from '@/features/packs/api';
 import { shiftMonth } from '@/lib/dates';
 import { isBlockedText } from '@/lib/errors';
@@ -95,10 +95,15 @@ export function useReact() {
 }
 
 export function useNudge(packId: string) {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (member: string) => {
       const { error } = await requireSupabase().rpc('nudge', { target: packId, member });
       if (error) throw error;
+    },
+    // A refusal can mean the screen is behind: Realtime says nothing of someone the user blocked.
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: countedFeedsKey });
     },
   });
 }

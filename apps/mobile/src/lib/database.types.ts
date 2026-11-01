@@ -1117,6 +1117,14 @@ export type Database = {
       };
       clean_up_old_rows: { Args: { at_time?: string }; Returns: undefined };
       collect_service_errors: { Args: Record<PropertyKey, never>; Returns: number };
+      counted_feeds: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          day: string;
+          pack_id: string;
+          user_id: string;
+        }[];
+      };
       counted_on: { Args: { member: string; pack_date: string; target: string }; Returns: boolean };
       create_pack: {
         Args: {
