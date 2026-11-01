@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import { admin, createPack, createUser, feed, photo, removeUsers, signIn, type TestUser } from './support';
 
@@ -13,6 +13,23 @@ test.beforeEach(async () => {
 test.afterEach(async () => {
   await removeUsers(noa, dan);
 });
+
+type CameraPage = { cameraAsked: number };
+
+/** Stands in for the browser's own question: it stays up, or it is answered no at once. */
+async function askCamera(page: Page, answer: 'stays up' | 'no') {
+  await page.addInitScript((answer) => {
+    const asked = window as unknown as CameraPage;
+    asked.cameraAsked = 0;
+    navigator.mediaDevices.getUserMedia = () => {
+      asked.cameraAsked += 1;
+      if (answer === 'no') return Promise.reject(new DOMException('Permission denied', 'NotAllowedError'));
+      return new Promise(() => undefined);
+    };
+  }, answer);
+}
+
+const cameraAsked = (page: Page) => page.evaluate(() => (window as unknown as CameraPage).cameraAsked);
 
 test('feeding: camera, caption, send, and the photo shows in the pack', async ({ context, page }) => {
   await context.grantPermissions(['camera']);
@@ -83,4 +100,53 @@ test("a camera link for a pack you're not in doesn't open the camera", async ({ 
   await expect(page.getByRole('button', { name: 'Take photo' })).toBeHidden();
   await page.getByRole('button', { name: 'Back to your packs' }).click();
   await expect(page.getByRole('button', { name: 'Join with a code' })).toBeVisible();
+});
+
+test.describe('the first tap on Feed, before the camera was ever allowed', () => {
+  test('goes straight to the question, and yes opens the camera', async ({ page }) => {
+    // This browser answers yes by itself, and only once it is asked.
+    const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' });
+    await signIn(page, noa);
+    await page.goto(`/pack/${pack.id}`);
+    await page.getByRole('button', { name: 'Feed', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Take photo' })).toBeVisible();
+  });
+
+  test('puts nothing of ours before the question', async ({ page }) => {
+    await askCamera(page, 'stays up');
+    const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' });
+    await signIn(page, noa);
+    await page.goto(`/pack/${pack.id}`);
+    await page.getByRole('button', { name: 'Feed', exact: true }).click();
+
+    await expect.poll(() => cameraAsked(page)).toBe(1);
+    await expect(page.getByText('Camera needed')).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Allow camera' })).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Close', exact: true })).toBeHidden();
+  });
+
+  test('leaves Open settings and Close after a no', async ({ page }) => {
+    await askCamera(page, 'no');
+    const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' });
+    await signIn(page, noa);
+    await page.goto(`/pack/${pack.id}`);
+    await page.getByRole('button', { name: 'Feed', exact: true }).click();
+
+    await expect(page.getByText('Camera needed')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Open settings' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Allow camera' })).toBeHidden();
+    expect(await cameraAsked(page)).toBe(1);
+    await page.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/pack/${pack.id}$`));
+  });
+
+  test("doesn't ask for a pack you're not in", async ({ page }) => {
+    await askCamera(page, 'stays up');
+    const pack = await createPack(dan, { name: 'Night owls', habit: 'reading', species: 'mochi' });
+    await signIn(page, noa);
+    await page.goto(`/pack/${pack.id}/feed`);
+
+    await expect(page.getByText("This pack isn't here")).toBeVisible();
+    expect(await cameraAsked(page)).toBe(0);
+  });
 });

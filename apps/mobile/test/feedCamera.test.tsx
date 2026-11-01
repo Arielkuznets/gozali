@@ -1,0 +1,188 @@
+import { Linking } from 'react-native';
+import { act, create, type ReactTestRenderer } from 'react-test-renderer';
+
+import '@/i18n';
+import FeedScreen from '@/app/(app)/pack/[id]/feed';
+
+// The real permission hook, over what the system answers.
+const mockGet = jest.fn();
+const mockRequest = jest.fn();
+jest.mock('expo-camera', () => ({
+  CameraView: 'CameraView',
+  useCameraPermissions: jest.requireActual('expo-modules-core').createPermissionHook({
+    getMethod: () => mockGet(),
+    requestMethod: () => mockRequest(),
+  }),
+}));
+jest.mock('expo-image', () => ({ Image: 'Image' }));
+const mockBack = jest.fn();
+jest.mock('expo-router', () => ({
+  useLocalSearchParams: () => ({ id: 'pack-1' }),
+  router: { canGoBack: () => true, back: () => mockBack(), replace: jest.fn() },
+  useFocusEffect: jest.fn(),
+}));
+jest.mock('@/features/auth/AuthProvider', () => ({ useAuth: () => ({ session: { user: { id: 'noa' } } }) }));
+jest.mock('@/features/feeds/EatingMoment', () => ({ EatingMoment: () => null }));
+jest.mock('@/features/feeds/api', () => ({ useSendFeed: () => ({ mutateAsync: jest.fn() }) }));
+jest.mock('@/features/feeds/send', () => ({ compressPhoto: jest.fn(), isFinalRejection: () => false }));
+jest.mock('@/features/focus/session', () => ({ clearFocusSession: jest.fn() }));
+let mockPack: { data: unknown; isLoading: boolean; refetch: () => void };
+jest.mock('@/features/packs/api', () => ({ usePack: () => mockPack }));
+
+const answer = (status: string, canAskAgain: boolean) => ({
+  status,
+  canAskAgain,
+  granted: status === 'granted',
+  expires: 'never',
+});
+const notAsked = answer('undetermined', true);
+const allowed = answer('granted', true);
+const refused = answer('denied', false);
+/** Android asks a second time, so a first no leaves the question open. */
+const refusedOnce = answer('denied', true);
+
+const PACK = { name: 'Gym squad', category: 'gym', critters: { name: 'Mochi' } };
+const CAMERA_NEEDED = 'Camera needed';
+
+let screen: ReactTestRenderer;
+let settleAlert: (permission: unknown) => void;
+
+async function open() {
+  await act(async () => {
+    screen = create(<FeedScreen />);
+  });
+}
+
+async function answerAlert(permission: unknown) {
+  await act(async () => settleAlert(permission));
+}
+
+const shown = () => JSON.stringify(screen.toJSON());
+const buttons = () =>
+  screen.root
+    .findAll((node) => node.props.accessibilityRole === 'button' && typeof node.type === 'string')
+    .map((node) => node.props.accessibilityLabel ?? JSON.stringify(node.props.children));
+const hasCamera = () => screen.root.findAll((node) => node.type === 'CameraView').length === 1;
+
+beforeEach(() => {
+  mockGet.mockReset();
+  mockRequest.mockReset();
+  mockBack.mockReset();
+  mockPack = { data: PACK, isLoading: false, refetch: jest.fn() };
+  settleAlert = () => {
+    throw new Error('The system alert never came up');
+  };
+  mockRequest.mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        settleAlert = resolve;
+      }),
+  );
+});
+
+afterEach(async () => {
+  await act(async () => screen.unmount());
+});
+
+describe('the first opening, when the system can still ask', () => {
+  beforeEach(() => {
+    mockGet.mockResolvedValue(notAsked);
+  });
+
+  it('goes straight to the system alert, with no screen of ours before it', async () => {
+    await open();
+
+    expect(mockRequest).toHaveBeenCalledTimes(1);
+    expect(shown()).not.toContain(CAMERA_NEEDED);
+    expect(shown()).not.toContain('Allow camera');
+    expect(buttons()).toEqual([]);
+  });
+
+  it('opens the camera on yes', async () => {
+    await open();
+    await answerAlert(allowed);
+
+    expect(hasCamera()).toBe(true);
+    expect(mockRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves Open settings and Close on no', async () => {
+    await open();
+    await answerAlert(refused);
+
+    expect(shown()).toContain(CAMERA_NEEDED);
+    expect(shown()).toContain('Open settings');
+    expect(shown()).toContain('Close');
+    expect(shown()).not.toContain('Allow camera');
+    expect(mockRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks once, even where the system could ask again', async () => {
+    await open();
+    await answerAlert(refusedOnce);
+
+    expect(shown()).toContain('Open settings');
+    expect(shown()).not.toContain('Allow camera');
+    expect(mockRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not wait for an answer that left the question open', async () => {
+    await open();
+    await answerAlert(notAsked);
+
+    expect(shown()).toContain('Open settings');
+    expect(mockRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it('waits while it is not known whether the pack is there', async () => {
+    mockPack = { data: undefined, isLoading: true, refetch: jest.fn() };
+    await open();
+    expect(mockRequest).not.toHaveBeenCalled();
+
+    mockPack = { data: PACK, isLoading: false, refetch: jest.fn() };
+    await act(async () => screen.update(<FeedScreen />));
+    expect(mockRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it('still asks offline, where the pack never loads and the camera works', async () => {
+    mockPack = { data: undefined, isLoading: false, refetch: jest.fn() };
+    await open();
+
+    expect(mockRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not ask for a pack that is gone', async () => {
+    mockPack = { data: null, isLoading: false, refetch: jest.fn() };
+    await open();
+
+    expect(mockRequest).not.toHaveBeenCalled();
+    expect(shown()).toContain("This pack isn't here");
+  });
+});
+
+describe('an opening after the system has its answer', () => {
+  it('goes straight to the camera when allowed', async () => {
+    mockGet.mockResolvedValue(allowed);
+    await open();
+
+    expect(hasCamera()).toBe(true);
+    expect(mockRequest).not.toHaveBeenCalled();
+  });
+
+  it('offers only Open settings and Close when refused for good', async () => {
+    mockGet.mockResolvedValue(refused);
+    const settings = jest.spyOn(Linking, 'openSettings').mockResolvedValue();
+    await open();
+
+    expect(mockRequest).not.toHaveBeenCalled();
+    expect(shown()).toContain(CAMERA_NEEDED);
+    expect(shown()).not.toContain('Allow camera');
+
+    const press = (label: string) =>
+      act(async () => screen.root.findAll((node) => node.props.label === label)[0]?.props.onPress());
+    await press('Open settings');
+    expect(settings).toHaveBeenCalledTimes(1);
+    await press('Close');
+    expect(mockBack).toHaveBeenCalledTimes(1);
+  });
+});

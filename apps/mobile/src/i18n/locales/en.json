@@ -516,7 +516,6 @@
     "captureFailed": "The photo wasn't taken. Please try again.",
     "permissionTitle": "Camera needed",
     "permissionBody": "Feeding takes a live photo in the app. Photos are seen only by your pack.",
-    "allowCamera": "Allow camera",
     "openSettings": "Open settings"
   },
   "focus": {

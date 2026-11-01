@@ -49,8 +49,12 @@ export default function FeedScreen() {
   const extra = params.extra === '1';
   const focusMinutes = params.focus && /^[0-9]{1,3}$/.test(params.focus) ? Number(params.focus) : null;
   const { session } = useAuth();
-  const { data: pack, refetch: refetchPack } = usePack(packId);
+  const { data: pack, isLoading: packLoading, refetch: refetchPack } = usePack(packId);
   const [permission, requestPermission] = useCameraPermissions();
+  // A no stays on screen until the next opening, also where the system could still ask: Android
+  // asks a second time, and a browser's prompt can be dismissed.
+  const [answered, setAnswered] = useState(false);
+  const toAsk = permission !== null && !permission.granted && permission.canAskAgain && !answered;
   const camera = useRef<CameraView>(null);
   const [facing, setFacing] = useState<CameraType>('back');
   const [ready, setReady] = useState(false);
@@ -61,6 +65,14 @@ export default function FeedScreen() {
   const [busy, setBusy] = useState(false);
   const sending = useRef(false);
   const send = useSendFeed();
+
+  // The tap on Feed gives the system alert its context and the purpose string its reason, so no
+  // screen of ours comes first. A link to a pack that is gone has no use for the camera; offline
+  // the pack never loads, and the camera still works.
+  const askNow = toAsk && pack !== null && !packLoading;
+  useEffect(() => {
+    if (askNow) void requestPermission().finally(() => setAnswered(true));
+  }, [askNow, requestPermission]);
 
   // After a successful feed, the critter eats for a moment and the screen closes by itself.
   useEffect(() => {
@@ -150,7 +162,7 @@ export default function FeedScreen() {
   // still works so the feed can wait in the queue.
   if (pack === null) return <PackMissingScreen />;
 
-  if (!permission) {
+  if (!permission || toAsk) {
     return (
       <SafeAreaView style={styles.dark}>
         <ActivityIndicator color={colors.onDark} />
@@ -167,11 +179,7 @@ export default function FeedScreen() {
           </AppText>
           <AppText style={[styles.centerText, styles.muted]}>{t('feed.permissionBody')}</AppText>
         </View>
-        {permission.canAskAgain ? (
-          <Button label={t('feed.allowCamera')} onPress={() => void requestPermission()} />
-        ) : (
-          <Button label={t('feed.openSettings')} onPress={() => void Linking.openSettings()} />
-        )}
+        <Button label={t('feed.openSettings')} onPress={() => void Linking.openSettings()} />
         <Button label={t('feed.close')} variant="secondary" onPress={() => goBack(`/pack/${packId}`)} />
       </SafeAreaView>
     );
