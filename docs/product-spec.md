@@ -409,7 +409,7 @@ The app includes content that users upload (photos), so it must meet Apple's and
 - **Account deletion inside the app**, including all photos and data, also photos in weekly recaps.
 - **Sign in with Apple** next to Google, to meet Apple's requirement for a privacy-preserving sign-in option.
 - **Filtering:** captions are filtered for offensive words before they are posted.
-- **Reporting content:** every photo has a Report option. Every report sends an email to the developer and is handled within 24 hours: hiding the item, and if needed removing the user.
+- **Reporting content:** every photo has a Report option, and so does every member, for their name or profile photo. Every report sends an email to the developer and is handled within 24 hours: hiding the item, and if needed removing the user.
 - **Blocking:** a user can block another user. The blocked user's photos, profile photo and reactions are hidden for them, and the blocked user can't nudge them; if they are in the same pack, leaving is offered too. In addition, anyone can leave a pack at any moment, and an admin can remove a member, who then can't come back with the invite code. If a link reached the wrong people, the admin replaces the code and the old one stops working.
 - **Terms of use** that forbid offensive content, and a way to get in touch (an email address).
 - **Minimum age 13**, with a declaration at sign-up.
@@ -446,7 +446,7 @@ Nineteen tables in Postgres (Supabase). All access is protected with Row Level S
 | nudges | pack\_id, from\_user, to\_user, day |
 | name\_suggestions | id, pack\_id, user\_id, name, created\_at |
 | weekly\_recaps | pack\_id, week\_start, stats (jsonb), feed\_ids, created\_at |
-| reports | id, feed\_id, reporter\_id, reason, created\_at, handled\_at |
+| reports | id, feed\_id or member\_id (a photo, or a member for their name or profile photo), reporter\_id, reason, created\_at, handled\_at |
 | blocks | blocker\_id, blocked\_id, created\_at |
 | pack\_events | id, pack\_id, kind (joined / hatched / evolved / ran\_away / returned / achievement / joker / dressed / named), actor\_id, payload (jsonb), created\_at. The system lines in the feed, written by triggers (decision D14) |
 | notifications | id, user\_id, pack\_id, type, payload (jsonb), status (pending / sent / dropped), send\_after, created\_at, sent\_at |

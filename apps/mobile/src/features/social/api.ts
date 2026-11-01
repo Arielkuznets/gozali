@@ -255,6 +255,18 @@ export function useReport() {
   });
 }
 
+/** A report on the member themselves, for their name or profile photo. */
+export function useReportMember() {
+  return useMutation({
+    mutationFn: async ({ memberId, reporterId }: { memberId: string; reporterId: string }) => {
+      const { error } = await requireSupabase()
+        .from('reports')
+        .upsert({ member_id: memberId, reporter_id: reporterId }, { onConflict: 'member_id,reporter_id', ignoreDuplicates: true });
+      if (error) throw error;
+    },
+  });
+}
+
 export function useBlock() {
   const queryClient = useQueryClient();
   return useMutation({

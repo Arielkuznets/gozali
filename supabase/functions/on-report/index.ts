@@ -4,17 +4,9 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 import { hasCronSecret } from '../_shared/secret.ts';
-const PHOTO_LINK_SECONDS = 7 * 24 * 60 * 60;
+import { reportEmail, reportedPicture, type Details } from './email.ts';
 
-type Details = {
-  reportId: string;
-  reason: string | null;
-  reportedAt: string;
-  reporter: { id: string; name: string | null };
-  author: { id: string; name: string | null };
-  feed: { id: string; caption: string | null; photoPath: string | null; hidden: boolean; postedAt: string; packId: string };
-  reports: number;
-};
+const PHOTO_LINK_SECONDS = 7 * 24 * 60 * 60;
 
 function escape(text: string): string {
   return text.replace(/[&<>"']/g, (char) => `&#${char.charCodeAt(0)};`);
@@ -32,23 +24,14 @@ Deno.serve(async (request) => {
   if (error || !data) return Response.json({ error: error?.message ?? 'not found' }, { status: 404 });
   const details = data as Details;
 
+  const picture = reportedPicture(details);
   let photo = '';
-  if (details.feed.photoPath) {
-    const signed = await admin.storage.from('feed-photos').createSignedUrl(details.feed.photoPath, PHOTO_LINK_SECONDS);
+  if (picture) {
+    const signed = await admin.storage.from(picture.bucket).createSignedUrl(picture.path, PHOTO_LINK_SECONDS);
     photo = signed.data?.signedUrl ?? '';
   }
 
-  const lines = [
-    `Report ${details.reportId} (${details.reports} on this item${details.feed.hidden ? ', now hidden' : ''})`,
-    `Reason: ${details.reason ?? '(none given)'}`,
-    `Reported by: ${details.reporter.name ?? '?'} (${details.reporter.id})`,
-    `Posted by: ${details.author.name ?? '?'} (${details.author.id}) at ${details.feed.postedAt}`,
-    `Caption: ${details.feed.caption ?? '(none)'}`,
-    `Photo (link valid 7 days): ${photo || '(no photo)'}`,
-    '',
-    `Hide: update public.feeds set hidden_at = now() where id = '${details.feed.id}';`,
-    `Remove the member: delete their account from the Auth dashboard (${details.author.id}).`,
-  ];
+  const { subject, lines } = reportEmail(details, photo);
 
   const apiKey = Deno.env.get('RESEND_API_KEY');
   const to = Deno.env.get('REPORT_EMAIL');
@@ -62,7 +45,7 @@ Deno.serve(async (request) => {
     body: JSON.stringify({
       from: Deno.env.get('REPORT_EMAIL_FROM') ?? 'Gozali <onboarding@resend.dev>',
       to: [to],
-      subject: `Gozali report: ${details.feed.caption ?? 'a photo'} (${details.reports})`,
+      subject,
       text: lines.join('\n'),
       html: `<pre style="font-family:system-ui">${escape(lines.join('\n'))}</pre>${photo ? `<img src="${photo}" width="360">` : ''}`,
     }),

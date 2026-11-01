@@ -2,7 +2,7 @@
 
 > Draft for the pilot. It must be reviewed before the public launch. Published at gozali.app/terms.
 
-Last updated: September 27, 2026
+Last updated: November 1, 2026
 
 By using Gozali you agree to these terms. If you don't agree, please don't use the app. Contact: hello@gozali.app.
 
@@ -25,7 +25,7 @@ Captions and names are checked for offensive words, and some text will be refuse
 
 ## Reports and removal
 
-Every photo can be reported from its menu. We review reports **within 24 hours**. We may hide content, and we may remove members or delete accounts that break these terms. Several reports on the same photo hide it until it is reviewed. You can also block any member, and any member can leave a pack at any time; a pack admin can remove members.
+Every photo can be reported from its menu, and every member from theirs, for their name or profile photo. We review reports **within 24 hours**. We may hide content, and we may remove members or delete accounts that break these terms. Several reports on the same photo hide it until it is reviewed. You can also block any member, and any member can leave a pack at any time; a pack admin can remove members.
 
 ## The game
 

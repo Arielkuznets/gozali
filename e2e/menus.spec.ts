@@ -53,11 +53,26 @@ test('members nudge, report and block from the pack screen', async ({ page }) =>
 
   // A long press on a member opens their whole menu, even when a tap would nudge.
   await page.getByRole('button', { name: 'Maya, not yet today' }).click({ delay: 900 });
-  await expect(page.getByRole('menuitem')).toHaveText(['Nudge', 'Block Maya']);
+  await expect(page.getByRole('menuitem')).toHaveText(['Nudge', 'Report Maya', 'Block Maya']);
   await page.getByRole('menuitem', { name: 'Block Maya' }).click();
   await expect.poll(() => dialogs.at(-1)).toContain('Blocked.');
   const { data: blocks } = await admin.from('blocks').select('blocked_id').eq('blocker_id', noa.id);
   expect(blocks).toEqual([{ blocked_id: maya.id }]);
+});
+
+test('a member reported from their menu reaches the developer', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' }, [dan]);
+
+  const dialogs = answerDialogs(page);
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+
+  await page.getByRole('button', { name: 'Dan, not yet today' }).click({ delay: 900 });
+  await page.getByRole('menuitem', { name: 'Report Dan' }).click();
+  await expect.poll(() => dialogs.at(-1)).toContain('We will look at it');
+  expect(dialogs.at(-2)).toContain('Report Dan?');
+  const { data: reports } = await admin.from('reports').select('feed_id, member_id, reporter_id').eq('reporter_id', noa.id);
+  expect(reports).toEqual([{ feed_id: null, member_id: dan.id, reporter_id: noa.id }]);
 });
 
 test('the menu of a photo stays on the screen beside a long name', async ({ page }) => {

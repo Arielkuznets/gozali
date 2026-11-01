@@ -60,7 +60,7 @@ export default function PackScreen() {
   const blocked = useBlockedIds(session?.user.id);
   const react = useReact();
   const nudge = useNudge(id);
-  const { block, photoMenu } = useModeration();
+  const { memberActions, photoMenu } = useModeration();
   usePackRealtime(id);
   const moment = useMilestone(pack?.id, pack?.critters, dataUpdatedAt);
 
@@ -110,7 +110,7 @@ export default function PackScreen() {
       title: t('pack.memberMenu', { name }),
       actions: [
         ...(member.nudgeable ? [{ label: t('social.nudge'), onPress: () => onNudge(member) }] : []),
-        { label: t('social.block', { name }), destructive: true, onPress: () => block(member.id, name) },
+        ...memberActions(member.id, name),
       ],
     });
   };

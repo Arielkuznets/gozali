@@ -1,7 +1,7 @@
--- Word filtering, reports that hide an item, and the helpers of account deletion.
+-- Word filtering, reports on photos and on members, and the helpers of account deletion.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(20);
+select plan(31);
 
 select ok(public.is_clean('Leg day, done'), 'ordinary captions pass');
 select ok(not public.is_clean('what the fuuuck'), 'repeated letters don''t get around the filter');
@@ -12,7 +12,8 @@ insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a7', 'noa@test.local'),
   ('00000000-0000-0000-0000-0000000000b7', 'dan@test.local'),
   ('00000000-0000-0000-0000-0000000000c7', 'maya@test.local'),
-  ('00000000-0000-0000-0000-0000000000d7', 'eli@test.local');
+  ('00000000-0000-0000-0000-0000000000d7', 'eli@test.local'),
+  ('00000000-0000-0000-0000-0000000000e7', 'eve@test.local');
 
 create function pg_temp.act_as(member uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', member, 'role', 'authenticated')::text, true);
@@ -53,6 +54,12 @@ create temp table feed as select id from public.feeds;
 grant select on feed to authenticated;
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000b7');
 insert into public.reports (feed_id, reporter_id, reason) values ((select id from feed), '00000000-0000-0000-0000-0000000000b7', 'Not a workout');
+select lives_ok(
+  $$ insert into public.reports (feed_id, reporter_id) values ((select id from feed), '00000000-0000-0000-0000-0000000000b7')
+     on conflict (feed_id, reporter_id) do nothing $$,
+  'reporting the same photo again changes nothing'
+);
+select is((select count(*) from public.reports), 1::bigint, 'it stays one report');
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000c7');
 insert into public.reports (feed_id, reporter_id) values ((select id from feed), '00000000-0000-0000-0000-0000000000c7');
 select is((select count(*) from public.feeds), 1::bigint, 'two reports leave the item up');
@@ -75,6 +82,54 @@ select is(
    from public.report_details((select r.id from public.reports r where r.reason = 'Not a workout')) d),
   '00000000-0000-0000-0000-0000000000a7 3 true',
   'the developer''s alert has the author, the report count and the state'
+);
+
+-- A member can be reported too, for their name or profile photo.
+update public.profiles set avatar_path = '00000000-0000-0000-0000-0000000000a7/me.jpg' where id = '00000000-0000-0000-0000-0000000000a7';
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000b7');
+select lives_ok(
+  $$ insert into public.reports (member_id, reporter_id) values ('00000000-0000-0000-0000-0000000000a7', '00000000-0000-0000-0000-0000000000b7')
+     on conflict (member_id, reporter_id) do nothing $$,
+  'a member reports someone in their pack'
+);
+select lives_ok(
+  $$ insert into public.reports (member_id, reporter_id) values ('00000000-0000-0000-0000-0000000000a7', '00000000-0000-0000-0000-0000000000b7')
+     on conflict (member_id, reporter_id) do nothing $$,
+  'and again, which changes nothing'
+);
+select is(
+  (select count(*) from public.reports where member_id = '00000000-0000-0000-0000-0000000000a7'), 1::bigint,
+  'one report per person per member'
+);
+select throws_ok(
+  $$ insert into public.reports (member_id, reporter_id) values ('00000000-0000-0000-0000-0000000000b7', '00000000-0000-0000-0000-0000000000b7') $$,
+  '23514', null, 'nobody reports themselves'
+);
+select throws_ok(
+  $$ insert into public.reports (feed_id, member_id, reporter_id)
+     values ((select id from feed), '00000000-0000-0000-0000-0000000000c7', '00000000-0000-0000-0000-0000000000b7') $$,
+  '23514', null, 'a report is about a photo or a member, not both'
+);
+select throws_ok(
+  $$ insert into public.reports (reporter_id) values ('00000000-0000-0000-0000-0000000000b7') $$,
+  '42501', null, 'and it is about something'
+);
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000e7');
+select throws_ok(
+  $$ insert into public.reports (member_id, reporter_id) values ('00000000-0000-0000-0000-0000000000a7', '00000000-0000-0000-0000-0000000000e7') $$,
+  '42501', null, 'someone outside the pack can''t report its members'
+);
+reset role;
+select is(
+  (select (d -> 'author' ->> 'id') || ' ' || (d -> 'author' ->> 'avatarPath') || ' ' || (d ->> 'reports') || ' ' || jsonb_typeof(d -> 'feed')
+   from public.report_details((select r.id from public.reports r where r.member_id is not null)) d),
+  '00000000-0000-0000-0000-0000000000a7 00000000-0000-0000-0000-0000000000a7/me.jpg 1 null',
+  'the developer''s alert names the member and their photo, with no feed'
+);
+select is(
+  (select d ->> 'reports' from public.report_details((select r.id from public.reports r where r.reason = 'Not a workout')) d),
+  '3', 'a report on the member doesn''t count toward those on their photo'
 );
 select is(
   (select count(*) from public.account_photo_paths('00000000-0000-0000-0000-0000000000a7')), 2::bigint,

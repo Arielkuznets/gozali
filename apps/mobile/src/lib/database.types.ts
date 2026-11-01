@@ -910,25 +910,28 @@ export type Database = {
       reports: {
         Row: {
           created_at: string;
-          feed_id: string;
+          feed_id: string | null;
           handled_at: string | null;
           id: string;
+          member_id: string | null;
           reason: string | null;
           reporter_id: string;
         };
         Insert: {
           created_at?: string;
-          feed_id: string;
+          feed_id?: string | null;
           handled_at?: string | null;
           id?: string;
+          member_id?: string | null;
           reason?: string | null;
           reporter_id: string;
         };
         Update: {
           created_at?: string;
-          feed_id?: string;
+          feed_id?: string | null;
           handled_at?: string | null;
           id?: string;
+          member_id?: string | null;
           reason?: string | null;
           reporter_id?: string;
         };
@@ -938,6 +941,13 @@ export type Database = {
             columns: ['feed_id'];
             isOneToOne: false;
             referencedRelation: 'feeds';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'reports_member_id_fkey';
+            columns: ['member_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
             referencedColumns: ['id'];
           },
           {

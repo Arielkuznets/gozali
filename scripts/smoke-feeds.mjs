@@ -1,7 +1,10 @@
 // Feeding end to end against the local stack, with the same calls as the app: Noa uploads a
-// photo and feeds, Dan sees it live and can open the photo, Eve (not in the pack) can't.
-// Run with `npx supabase start` up: node scripts/smoke-feeds.mjs
+// photo and feeds, Dan sees it live and can open the photo, Eve (not in the pack) can't. Dan then
+// reports the photo and Noa, and the developer's alert about each goes through on-report.
+// Run with `npx supabase start` and `npx supabase functions serve` up: node scripts/smoke-feeds.mjs
 import { createClient } from '@supabase/supabase-js';
+
+import { reportEmail, reportedPicture } from '../supabase/functions/on-report/email.ts';
 
 const url = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY;
@@ -102,8 +105,52 @@ check(eveLink.error !== null, 'Eve, who is not in the pack, gets no link');
 const eveFeeds = await eve.client.from('feeds').select('id').eq('pack_id', packId);
 check(eveFeeds.data?.length === 0, 'and sees no feeds');
 
+const avatar = `${noa.id}/${run}.jpg`;
+await noa.client.storage.from('avatars').upload(avatar, photo, { contentType: 'image/jpeg' });
+await noa.client.from('profiles').update({ avatar_path: avatar }).eq('id', noa.id);
+
+const reportPhoto = (client, reporter) =>
+  client
+    .from('reports')
+    .upsert({ feed_id: fed.data, reporter_id: reporter, reason: null }, { onConflict: 'feed_id,reporter_id', ignoreDuplicates: true });
+const reportMember = (client, reporter) =>
+  client
+    .from('reports')
+    .upsert({ member_id: noa.id, reporter_id: reporter }, { onConflict: 'member_id,reporter_id', ignoreDuplicates: true });
+
+check(!(await reportPhoto(dan.client, dan.id)).error, 'Dan reports the photo');
+check(!(await reportPhoto(dan.client, dan.id)).error, 'and doing it again is no error');
+check(!(await reportMember(dan.client, dan.id)).error, 'Dan reports Noa, for a name or a profile photo');
+check(!(await reportMember(dan.client, dan.id)).error, 'and doing it again is no error');
+check((await reportMember(eve.client, eve.id)).error !== null, "Eve, who is not in the pack, can't report Noa");
+const { data: reports } = await dan.client.from('reports').select('id, feed_id, member_id');
+check(reports?.length === 2, 'Dan has one report on each');
+
+// The same call the report trigger makes through pg_net where the Vault holds the function's address.
+for (const report of reports) {
+  const response = await fetch(`${url}/functions/v1/on-report`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-cron-secret': process.env.CRON_SECRET ?? 'local-cron-secret' },
+    body: JSON.stringify({ reportId: report.id }),
+  });
+  check(response.ok, `on-report takes the report on ${report.feed_id ? 'the photo' : 'the member'}`);
+}
+
+const details = async (report) => (await admin.rpc('report_details', { report: report.id })).data;
+const onPhoto = await details(reports.find((report) => report.feed_id));
+const photoEmail = reportEmail(onPhoto, 'https://link');
+check(reportedPicture(onPhoto)?.path === path, 'the alert on the photo links the photo');
+check(photoEmail.subject === 'Gozali report: Two chapters (1)', 'and is headed by its caption');
+check(photoEmail.lines.includes('Caption: Two chapters'), 'and quotes it');
+const onMember = await details(reports.find((report) => report.member_id));
+const memberEmail = reportEmail(onMember, 'https://link');
+check(reportedPicture(onMember)?.bucket === 'avatars' && reportedPicture(onMember)?.path === avatar, 'the alert on Noa links the profile photo');
+check(memberEmail.subject === 'Gozali report: Noa (1)', 'and is headed by the name');
+check(memberEmail.lines.includes(`Member: Noa (${noa.id})`), 'and says who it is');
+
 await dan.client.removeChannel(channel);
 await admin.storage.from('feed-photos').remove([path, second]);
+await admin.storage.from('avatars').remove([avatar]);
 for (const user of [noa, dan, eve]) await admin.auth.admin.deleteUser(user.id);
 console.log('all good');
 process.exit(0);

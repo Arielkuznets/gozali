@@ -19,7 +19,7 @@ type Props = {
   members: Member[];
   color: string;
   onNudge?: (member: Member) => void;
-  /** A long press opens the member's menu (nudge, block). */
+  /** A long press opens the member's menu (nudge, report, block). */
   onMenu?: (member: Member) => void;
 };
 

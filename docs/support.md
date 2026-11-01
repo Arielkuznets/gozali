@@ -9,5 +9,6 @@ Questions, problems or ideas: write to **hello@gozali.app** and we will answer w
 - **The camera doesn't open.** Gozali needs the camera to feed the pet. Allow it in your phone's Settings, under Gozali.
 - **Notifications don't arrive.** Allow them in your phone's Settings, under Gozali, and check the reminder time in the app's Settings.
 - **Reporting a photo:** tap ⋯ on the photo and choose Report photo. We look at every report within 24 hours.
+- **Reporting someone:** for a name or a profile photo, press and hold them in the members row of the pack and choose Report. We look at every report within 24 hours.
 - **Blocking someone:** press and hold them in the members row of the pack, or tap ⋯ on one of their photos. You can unblock people in the app's Settings.
 - **Deleting your account:** in the app, Settings → Delete account. Your account and your data are deleted right away.
