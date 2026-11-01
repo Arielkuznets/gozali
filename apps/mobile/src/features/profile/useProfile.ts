@@ -5,6 +5,7 @@ import { AppState } from 'react-native';
 
 import { useAuth } from '@/features/auth/AuthProvider';
 import { deviceTimeZone } from '@/lib/dates';
+import { askForNotificationsOnce } from '@/lib/notifications';
 import { registerPushToken, unregisterPushToken } from '@/lib/push';
 import { sendPendingCrash } from '@/lib/reportError';
 import { requireSupabase } from '@/lib/supabase';
@@ -172,6 +173,7 @@ export function useAccountSync() {
     if (!userId) return;
     void registerPushToken();
     void sendPendingCrash();
+    void askForNotificationsOnce();
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active') void registerPushToken();
     });

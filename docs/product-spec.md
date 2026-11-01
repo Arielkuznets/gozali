@@ -314,6 +314,7 @@ Few notifications, and only ones that change behavior; each type can be turned o
 - Reminders and Last one are not sent to someone who isn't counted today (paused, asleep) or who activated a joker or declared a rest. A nudge does reach a sleeping member, since waking them is what it's for, but not someone paused, on a joker or resting.
 - No notifications between 23:00 and 07:00 in the user's time, with no exceptions. A notification created in those hours that is still relevant in the morning (Weekly recap, Evolution, Pet state, Still in?) is sent at 07:00; the rest are dropped.
 - The texts are written in the creature's voice, according to its personality.
+- The app asks for the notification permission by itself once per install, as the first home screen opens: right after the profile setup for a new account, and right after signing in for an account that skips the setup (a new phone, a reinstall). After that only the notice in settings and starting a focus timer ask.
 
 **Alerts for the people who run Gozali:** the owners listed in `app_owners` (added by hand, never through the app) get two more pushes: "🐣 Noa joined Gozali, user number 12" when someone finishes the profile setup, and at 21:00 on their clock a summary of the day ("👋 2 new (41 in all) · 🍽️ 18 people fed 7 packs", plus reports, app errors, calls to the functions that failed, failed scheduled jobs, hours the service was down and packs whose day close is late, when there were any). They don't count toward the daily limit and the limit doesn't drop them; a sign-up at night waits for 07:00.
 
@@ -325,7 +326,7 @@ Fourteen screens in version 1, plus widgets for the home screen and the lock scr
 | --- | --- |
 | Welcome | Creature animation, the Sign in with Apple button, and the Google button once Google sign-in is turned on in the project |
 | Onboarding | Four cards where the creatures explain the rules: feed with a photo, responsible together, the creature never dies, and coins from good days dress it up. Can be skipped |
-| Profile setup | Display name, profile photo (optional), age 13+ declaration and accepting the terms, notification permission request with an explanation, and a quiet Sign out for the wrong account or terms the person doesn't accept |
+| Profile setup | Display name, profile photo (optional), age 13+ declaration and accepting the terms, an explanation of the notification permission request that follows it (section 8), and a quiet Sign out for the wrong account or terms the person doesn't accept |
 | Home | The list of packs: for each pack the creature in its state, a health bar, how many members fed today (3/5) **and a direct Feed button**. A create pack button and join with a code |
 | Join pack | The pack name, the habit, the creature and the members, and a join button. Join with a code (on the home screen) takes a pasted or typed code |
 | Pack | The animated creature in the center, health bar, coins, streak, a countdown to the end of the day, a row of member circles (colored = fed, dashed = rest or joker, 💤 = asleep or paused, gray = not yet, including someone who hasn't started), a big Feed button with "Not today" next to it (rest or joker) and in packs of sitting habits (Study, Reading, Meditation, Language, Music practice) also Focus, and the feed below |

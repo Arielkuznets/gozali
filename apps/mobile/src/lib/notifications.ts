@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { router, usePathname, type Href } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -5,6 +6,9 @@ import { AppState, Platform } from 'react-native';
 
 import { FOCUS_CHANNEL } from '@/lib/channels';
 import { registerPushToken } from '@/lib/push';
+
+/** Set once this install has had the one prompt the app opens by itself. */
+const ASKED_KEY = 'gozali.notifications-asked';
 
 if (Platform.OS !== 'web') {
   // Show notifications while the app is open too.
@@ -34,6 +38,17 @@ export async function allowNotifications(): Promise<boolean> {
   // The server needs this phone's token before it can send anything.
   if (granted) void registerPushToken();
   return granted;
+}
+
+/**
+ * The prompt the app opens by itself as the first home screen opens: a new account comes there
+ * from the profile setup, and an account on a new phone comes straight from signing in. The key
+ * makes it once per install, since Android lets the app ask again after a no.
+ */
+export async function askForNotificationsOnce(): Promise<void> {
+  if (await AsyncStorage.getItem(ASKED_KEY)) return;
+  await AsyncStorage.setItem(ASKED_KEY, '1');
+  await allowNotifications();
 }
 
 export type NotificationPermission = 'granted' | 'ask' | 'blocked';

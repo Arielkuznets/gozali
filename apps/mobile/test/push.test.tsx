@@ -12,6 +12,7 @@ jest.mock('expo-constants', () => ({
   default: { expoConfig: { extra: { eas: { projectId: 'project' } } } },
 }));
 jest.mock('expo-notifications', () => ({
+  setNotificationHandler: () => undefined,
   getPermissionsAsync: async () => ({ granted: true }),
   getExpoPushTokenAsync: async () => ({ data: 'ExponentPushToken[phone]' }),
 }));

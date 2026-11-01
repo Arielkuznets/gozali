@@ -13,7 +13,6 @@ import { suggestedName } from '@/features/profile/suggestedName';
 import { NAME_MAX_LENGTH, useCompleteProfile, useProfile } from '@/features/profile/useProfile';
 import { notify } from '@/lib/confirm';
 import { isBlockedText } from '@/lib/errors';
-import { allowNotifications } from '@/lib/notifications';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 export default function ProfileSetupScreen() {
@@ -32,8 +31,6 @@ export default function ProfileSetupScreen() {
 
   const onContinue = () => {
     completeProfile.mutate(trimmed, {
-      // The system asks once; the line above the button says why.
-      onSuccess: () => void allowNotifications(),
       onError: (error) => notify(isBlockedText(error) ? t('errors.textNotAllowed') : t('errors.saveFailed')),
     });
   };
@@ -82,6 +79,7 @@ export default function ProfileSetupScreen() {
         </Pressable>
         <LegalLinks />
       </ScrollView>
+      {/* The system asks as the home screen opens, right after this one (useAccountSync). */}
       <AppText variant="caption" style={styles.notice}>
         {t('profileSetup.notifications')}
       </AppText>
