@@ -5,7 +5,8 @@ import { Platform } from 'react-native';
 // a phone set hours off would otherwise show the wrong countdown and "fed today". The offset comes
 // from the Date header of the app's own requests. The header is cut to the second, so the estimate
 // wobbles from answer to answer: under a minute off is left alone, as noise, and so is a move of
-// under a minute. An answer that took long to come back can't say when it was sent, so it isn't
+// under a minute. An answer that took long to come back can't say when it was sent, and neither
+// can one that came back before it left, because the clock was set back meanwhile, so those aren't
 // used. The web build (tests, store screenshots) keeps the browser's clock, which those set on
 // purpose.
 const IGNORED_MS = 60_000;
@@ -36,7 +37,7 @@ export const clockRestored: Promise<void> =
 
 /** Learns the server's time from a response's Date header, sent and received at the given times. */
 export function noteServerDate(dateHeader: string | null, sentAt: number, receivedAt: number): void {
-  if (Platform.OS === 'web' || receivedAt - sentAt > SLOW_ANSWER_MS) return;
+  if (Platform.OS === 'web' || Math.abs(receivedAt - sentAt) > SLOW_ANSWER_MS) return;
   const server = dateHeader ? Date.parse(dateHeader) : NaN;
   if (Number.isNaN(server)) return;
   const offset = server - (sentAt + receivedAt) / 2;

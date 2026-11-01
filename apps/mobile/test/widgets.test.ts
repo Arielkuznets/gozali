@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { widgetToken } from '@/features/widgets/data';
 import { clearWidgets, refreshWidgets, resumeWidgets } from '@/features/widgets/sync';
+import { noteServerDate, serverNow } from '@/lib/serverClock';
 
 // What the widgets on the home screen read.
 const mockAppGroup = new Map<string, string | undefined>();
@@ -31,10 +32,11 @@ const saveToken = (token: string, owner: string) =>
   ]);
 
 const snapshot = { timezone: 'Asia/Jerusalem', fetchedAt: '2026-10-29T08:00:00Z', packs: [] };
-type Answer = { status: number; ok: boolean; json: () => Promise<unknown>; text: () => Promise<string> };
-const answer = (status: number, body: string): Answer => ({
+type Answer = { status: number; ok: boolean; headers: Headers; json: () => Promise<unknown>; text: () => Promise<string> };
+const answer = (status: number, body: string, headers?: Record<string, string>): Answer => ({
   status,
   ok: status === 200,
+  headers: new Headers(headers),
   json: async () => JSON.parse(body),
   text: async () => body,
 });
@@ -110,6 +112,20 @@ describe('refreshing the widgets', () => {
 
     expect(mockRpc).not.toHaveBeenCalled();
     expect(AsyncStorage.multiRemove).not.toHaveBeenCalled();
+  });
+});
+
+describe("a refresh and the server's clock", () => {
+  afterEach(() => noteServerDate(new Date().toUTCString(), Date.now(), Date.now()));
+
+  it('shows that the clock moved, even with nothing on screen old enough to be read again', async () => {
+    const threeHours = 3 * 60 * 60_000;
+    await saveToken('new-token', 'noa');
+    mockFetch.mockResolvedValueOnce(answer(200, JSON.stringify(snapshot), { date: new Date(Date.now() + threeHours).toUTCString() }));
+
+    await refreshWidgets();
+
+    expect(Math.abs(serverNow().getTime() - Date.now() - threeHours)).toBeLessThan(2000);
   });
 });
 

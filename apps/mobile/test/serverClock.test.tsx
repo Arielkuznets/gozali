@@ -1,5 +1,7 @@
-import { act, create } from 'react-test-renderer';
+import { focusManager, QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
+import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
+import { useRefetchWhenClockMoves } from '@/lib/appFocus';
 import { noteServerDate, onServerClockChange, serverNow } from '@/lib/serverClock';
 import { useNow } from '@/lib/useNow';
 
@@ -69,6 +71,12 @@ describe("the server's clock", () => {
     expect(seen!.toISOString()).toBe('2026-10-29T12:00:00.000Z');
   });
 
+  it("ignores an answer that came back to a clock set back meanwhile, which can't say when it was sent", () => {
+    jest.useFakeTimers({ now: at('2026-10-29T09:00:00Z') });
+    noteServerDate('Thu, 29 Oct 2026 09:00:00 GMT', at('2026-10-29T12:00:00Z'), at('2026-10-29T09:00:00Z'));
+    expect(serverNow().toISOString()).toBe('2026-10-29T09:00:00.000Z');
+  });
+
   describe('a phone that hears many answers', () => {
     /** Answers from a server this far ahead of the phone, a little apart, each cut to the second. */
     function hearAnswers(serverAhead: number, count: number) {
@@ -120,5 +128,120 @@ describe("the server's clock", () => {
       create(<Timer />);
     });
     expect(seen!.toISOString()).toBe('2026-10-29T09:00:00.000Z');
+  });
+
+  describe("what was read before the phone's clock moved", () => {
+    const HOUR = 60 * 60_000;
+    const machineNow = Date.now.bind(Date);
+    let phoneAhead = 0;
+    let app: ReactTestRenderer | undefined;
+
+    const settle = () => act(() => new Promise<void>((resolve) => setTimeout(resolve, 20)));
+    const hearServer = () => noteServerDate(new Date(machineNow()).toUTCString(), Date.now(), Date.now());
+
+    function Reader({ read }: { read: () => Promise<string> }) {
+      useQuery({ queryKey: ['read'], queryFn: read });
+      return null;
+    }
+
+    /** The root of the app, always there, and a screen with one read when it is given one. */
+    function Root({ read }: { read?: () => Promise<string> }) {
+      useRefetchWhenClockMoves();
+      return read ? <Reader read={read} /> : null;
+    }
+
+    function App({ client, read }: { client: QueryClient; read?: () => Promise<string> }) {
+      return (
+        <QueryClientProvider client={client}>
+          <Root read={read} />
+        </QueryClientProvider>
+      );
+    }
+
+    async function open(client: QueryClient, read: () => Promise<string>) {
+      await act(async () => {
+        app = create(<App client={client} read={read} />);
+      });
+      await settle();
+    }
+
+    const newClient = () => new QueryClient({ defaultOptions: { queries: { gcTime: Infinity } } });
+
+    beforeEach(() => {
+      jest.spyOn(Date, 'now').mockImplementation(() => machineNow() + phoneAhead);
+    });
+
+    afterEach(async () => {
+      await act(async () => app?.unmount());
+      app = undefined;
+      phoneAhead = 0;
+      jest.restoreAllMocks();
+    });
+
+    it('looks fresh after the clock is set right, and is read again once an answer shows that', async () => {
+      const read = jest.fn(async () => 'from the server');
+      phoneAhead = 3 * HOUR;
+      hearServer();
+      await open(newClient(), read);
+      expect(read).toHaveBeenCalledTimes(1);
+
+      phoneAhead = 0;
+      await act(async () => {
+        focusManager.setFocused(false);
+        focusManager.setFocused(true);
+      });
+      await settle();
+      expect(read).toHaveBeenCalledTimes(1);
+
+      await act(async () => hearServer());
+      await settle();
+      expect(read).toHaveBeenCalledTimes(2);
+    });
+
+    it('is read again when a screen next asks for it, if no screen shows it now', async () => {
+      const read = jest.fn(async () => 'from the server');
+      const client = newClient();
+      phoneAhead = 3 * HOUR;
+      hearServer();
+      await open(client, read);
+
+      await act(async () => app?.update(<App client={client} />));
+      phoneAhead = 0;
+      await act(async () => hearServer());
+      await settle();
+      expect(read).toHaveBeenCalledTimes(1);
+
+      await act(async () => app?.update(<App client={client} read={read} />));
+      await settle();
+      expect(read).toHaveBeenCalledTimes(2);
+    });
+
+    it('stays as it is over answers that show no move', async () => {
+      const read = jest.fn(async () => 'from the server');
+      phoneAhead = 3 * HOUR;
+      hearServer();
+      await open(newClient(), read);
+
+      for (let answer = 0; answer < 5; answer += 1) {
+        await act(async () => hearServer());
+        await settle();
+      }
+      expect(read).toHaveBeenCalledTimes(1);
+    });
+
+    it("doesn't go round when the read that follows is itself an answer", async () => {
+      const read = jest.fn(async () => {
+        hearServer();
+        return 'from the server';
+      });
+      phoneAhead = 3 * HOUR;
+      await open(newClient(), read);
+      await settle();
+      expect(read.mock.calls.length).toBeLessThanOrEqual(2);
+      const reads = read.mock.calls.length;
+
+      await settle();
+      expect(read).toHaveBeenCalledTimes(reads);
+    });
   });
 });

@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { WidgetPack } from '../../../../../supabase/functions/widget-state/state.ts';
+import { clockedFetch } from '@/lib/serverClock';
 import { storedSession, supabase } from '@/lib/supabase';
 
 /** What the widget-state endpoint returns; the widgets show exactly this. */
@@ -48,7 +49,7 @@ export async function widgetToken(create: boolean): Promise<string | null> {
  */
 export async function fetchSnapshot(token: string): Promise<WidgetSnapshot | null> {
   try {
-    const response = await fetch(WIDGET_ENDPOINT, { headers: { 'x-widget-token': token } });
+    const response = await clockedFetch(WIDGET_ENDPOINT, { headers: { 'x-widget-token': token } });
     if (response.status === 401 && (await response.text()) === 'unknown token') {
       await AsyncStorage.removeItem(TOKEN_KEY);
       return null;

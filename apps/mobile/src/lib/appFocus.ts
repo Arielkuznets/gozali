@@ -1,5 +1,8 @@
-import { focusManager } from '@tanstack/react-query';
+import { focusManager, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { AppState, Platform } from 'react-native';
+
+import { onServerClockChange } from '@/lib/serverClock';
 
 /**
  * TanStack Query hears about focus from the browser window; a phone has no window, so without
@@ -16,4 +19,15 @@ export function refetchWhenAppReturns(): void {
     const subscription = AppState.addEventListener('change', (state) => setFocused(state === 'active'));
     return () => subscription.remove();
   });
+}
+
+/**
+ * A query's age is read from the phone's clock, so what was fetched before that clock was set back
+ * looks fresh for as long as the jump, and nothing asks for it again. The offset to the server's
+ * clock moves when the phone's did, and then everything is read again. The widget refresh brings
+ * that news on a return to the app, when nothing else may go out.
+ */
+export function useRefetchWhenClockMoves(): void {
+  const queryClient = useQueryClient();
+  useEffect(() => onServerClockChange(() => void queryClient.invalidateQueries()), [queryClient]);
 }
