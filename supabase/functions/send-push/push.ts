@@ -38,11 +38,11 @@ export function toMessages(rows: readonly ClaimedRow[]): PushMessage[] {
 }
 
 /**
- * Sends every message. A batch the service refuses is sent again one notification at a time,
- * and the notifications it still refuses go back in the queue, like a batch it fails to take
- * while down; tokens Expo reports as no longer registered are returned so they can be forgotten.
- * Once `outOfTime` says so, what is left isn't sent but goes back in the queue: the claimed rows
- * already count as sent, and a run cut off by the function's time limit would lose them.
+ * Sends every message. A batch the service refuses is sent again one notification at a time, and
+ * the notifications it still refuses go back in the queue; tokens Expo reports as no longer
+ * registered are returned so they can be forgotten. After a request that fails, or once `outOfTime`
+ * says so, what is left isn't sent but goes back in the queue: the claimed rows already count as
+ * sent, and a run cut off by the function's time limit would lose them.
  */
 export async function sendAll(
   rows: readonly ClaimedRow[],
@@ -53,6 +53,7 @@ export async function sendAll(
   const requeue = new Set<string>();
   const deadTokens: string[] = [];
   let sent = 0;
+  let down = false;
   const deliver = async (batch: PushMessage[]): Promise<'sent' | 'refused' | 'failed'> => {
     try {
       const tickets = await send(batch);
@@ -64,13 +65,16 @@ export async function sendAll(
       });
       return 'sent';
     } catch (error) {
-      return error instanceof RefusedRequest ? 'refused' : 'failed';
+      if (error instanceof RefusedRequest) return 'refused';
+      down = true;
+      return 'failed';
     }
   };
+  const stopped = () => down || outOfTime();
   for (let start = 0; start < messages.length; start += BATCH) {
     const batch = messages.slice(start, start + BATCH);
     const ids = new Set(batch.map((message) => message.data.notificationId));
-    if (outOfTime()) {
+    if (stopped()) {
       for (const id of ids) requeue.add(id);
       continue;
     }
@@ -80,7 +84,7 @@ export async function sendAll(
     // enough), and the same batch would fail again on every run, holding up everyone in it. A
     // service that is down or busy gets no more requests: the run has to requeue before it ends.
     for (const id of ids) {
-      const alone = outcome === 'refused' && ids.size > 1 && !outOfTime();
+      const alone = outcome === 'refused' && ids.size > 1 && !stopped();
       if (!alone || (await deliver(batch.filter((message) => message.data.notificationId === id))) !== 'sent') requeue.add(id);
     }
   }

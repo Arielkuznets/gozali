@@ -105,6 +105,40 @@ check(evolution.length === 2 && evolution.every((row) => row.status === 'pending
 // Sending each one again would only take time from a run that has to put them back before it ends.
 check(attempts === 1, 'a push service that is down is asked once, not once per notification');
 
+// A run that lasts through batch after batch of timeouts is cut off by the function's time limit
+// before it can put anything back, so the first request that fails ends the sending.
+const lots = Array.from({ length: 250 }, (_, n) => ({
+  id: `row-${n}`,
+  type: 'friend_fed',
+  payload: {},
+  names: [],
+  critter_name: 'Pixel',
+  tokens: [`ExponentPushToken[${n}]`],
+}));
+let downAttempts = 0;
+const down = await sendAll(lots, async () => {
+  downAttempts += 1;
+  throw new Error('push service down');
+});
+check(downAttempts === 1 && down.requeue.length === lots.length, 'three batches to a service that is down: asked once, and every row goes back');
+let midwayAttempts = 0;
+const midway = await sendAll(lots, async (batch) => {
+  midwayAttempts += 1;
+  if (midwayAttempts === 2) throw new Error('push service down');
+  return batch.map(() => ({ status: 'ok' }));
+});
+check(
+  midwayAttempts === 2 && midway.sent === 100 && midway.requeue.join() === lots.slice(100).map((row) => row.id).join(),
+  'a service that goes down midway keeps what it took, and the rest goes back unsent',
+);
+let aloneAttempts = 0;
+const refusedThenDown = await sendAll(lots.slice(0, 3), async () => {
+  aloneAttempts += 1;
+  if (aloneAttempts === 1) throw new RefusedRequest('expo push 400');
+  throw new Error('push service down');
+});
+check(aloneAttempts === 2 && refusedThenDown.requeue.length === 3, 'and so does one that goes down while a refused batch goes out one by one');
+
 // A token from another Expo project makes the push service turn down the whole request. The
 // notification with it waits alone; the others in its batch still go out.
 await admin.from('notifications').insert({ user_id: dan, pack_id: pack.id, type: 'evolution', payload: { event: 'evolved', to: 'teen' } });
