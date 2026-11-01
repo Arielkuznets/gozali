@@ -22,8 +22,9 @@ jest.mock('@/lib/push', () => ({}));
 
 const COPY = 'gozali.query-cache';
 const PACKS = [{ name: 'Gym squad' }];
-/** Longer than the persister holds a save back after the one before it. */
-const SAVE_MS = 1200;
+/** Well past the second the persister holds a save back after the one before it. */
+const SAVE_MS = 1500;
+jest.setTimeout(15_000);
 
 const settle = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 
