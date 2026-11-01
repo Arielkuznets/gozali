@@ -22,7 +22,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { critterArt } from '@/features/critter/art';
 import { EatingMoment } from '@/features/feeds/EatingMoment';
 import { useSendFeed } from '@/features/feeds/api';
-import { compressPhoto, isFinalRejection } from '@/features/feeds/send';
+import { compressPhoto, feedErrorKey, isFinalRejection } from '@/features/feeds/send';
 import { clearFocusSession } from '@/features/focus/session';
 import { usePack } from '@/features/packs/api';
 import { categoryInfo } from '@/features/packs/constants';
@@ -124,7 +124,7 @@ export default function FeedScreen() {
       // Removed from the pack while the camera was open, the upload is refused before the server
       // could say why. With the pack gone the screen says so, instead of "try again".
       if (isFinalRejection(error) && !isBlockedText(error) && (await refetchPack()).data === null) return;
-      notify(isBlockedText(error) ? t('errors.textNotAllowed') : t('feed.failed'));
+      notify(t(feedErrorKey(error)));
     } finally {
       sending.current = false;
       setBusy(false);

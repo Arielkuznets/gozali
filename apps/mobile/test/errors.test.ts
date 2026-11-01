@@ -1,4 +1,4 @@
-import { feedErrorCode, isFinalRejection, isNetworkFailure } from '@/features/feeds/send';
+import { feedErrorCode, feedErrorKey, isFinalRejection, isNetworkFailure } from '@/features/feeds/send';
 import { isBlockedText } from '@/lib/errors';
 
 describe('feed errors', () => {
@@ -57,5 +57,12 @@ describe('feed errors', () => {
   it('recognizes text the word filter refused', () => {
     expect(isBlockedText({ message: 'text_not_allowed' })).toBe(true);
     expect(isBlockedText(null)).toBe(false);
+  });
+
+  it('says why a feed was turned down when the reason is not worth retrying', () => {
+    expect(feedErrorKey({ code: '22023', message: 'text_not_allowed' })).toBe('errors.textNotAllowed');
+    expect(feedErrorKey({ code: 'P0001', message: 'too_many_posts' })).toBe('feed.tooManyPosts');
+    expect(feedErrorKey({ code: 'P0001', message: 'photo_missing' })).toBe('feed.failed');
+    expect(feedErrorKey(new Error('boom'))).toBe('feed.failed');
   });
 });

@@ -257,7 +257,7 @@ A user feeds the creature with a photo taken inside the app right now; this is t
 
 - **No uploads from the gallery.** Only a live photo.
 - The timestamp is set on the server at the moment of upload.
-- One feed per day per user per pack counts. The rule is enforced in the database, so a double tap on send can't create two counted feeds. More photos can be posted to the feed ("Post extra"), without affecting health.
+- One feed per day per user per pack counts. The rule is enforced in the database, so a double tap on send can't create two counted feeds. More photos can be posted to the feed ("Post extra"), up to five a day per pack, without affecting health.
 - A user in several packs feeds each pack separately.
 - Photos are compressed on the device before upload (maximum width 1080px, JPEG at quality 0.7).
 - The caption is filtered for offensive words before it is posted (a store requirement, section 11).

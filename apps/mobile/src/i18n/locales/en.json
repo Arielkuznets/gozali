@@ -513,6 +513,7 @@
     "dropped_one": "A saved feed couldn't go out and was removed. Take a new photo if you still need to feed today.",
     "dropped_other": "{{count}} saved feeds couldn't go out and were removed. Take a new photo if you still need to feed today.",
     "failed": "The feed didn't go through. Please try again.",
+    "tooManyPosts": "That's all the photos for today. You can post up to 5 extras a day.",
     "captureFailed": "The photo wasn't taken. Please try again.",
     "permissionTitle": "Camera needed",
     "permissionBody": "Feeding takes a live photo in the app. Photos are seen only by your pack.",

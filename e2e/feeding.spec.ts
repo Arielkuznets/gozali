@@ -89,6 +89,33 @@ test('a member removed while the camera is open is told the pack is gone', async
   expect(alerts).toEqual([]);
 });
 
+test('a photo past the five extras of the day says that was the last one', async ({ context, page }) => {
+  await context.grantPermissions(['camera']);
+  const pack = await createPack(noa, { name: 'Study buddies', habit: 'study', species: 'mochi' });
+  const image = await photo(page, '📚');
+  await feed(noa, pack.id, image, 'The counted one');
+  for (let extra = 1; extra <= 5; extra++) await feed(noa, pack.id, image, `Extra ${extra}`, true);
+  const alerts: string[] = [];
+  page.on('dialog', (dialog) => {
+    alerts.push(dialog.message());
+    void dialog.dismiss();
+  });
+
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+  await page.getByRole('button', { name: 'Post another photo' }).click();
+  await page.waitForFunction(() => {
+    const video = document.querySelector('video');
+    return video !== null && video.readyState >= 2 && video.videoWidth > 0;
+  });
+  await page.getByRole('button', { name: 'Take photo' }).click();
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect.poll(() => alerts).toEqual(["That's all the photos for today. You can post up to 5 extras a day."]);
+  const { data: feeds } = await noa.client.from('feeds').select('id').eq('pack_id', pack.id);
+  expect(feeds).toHaveLength(6);
+});
+
 test("a camera link for a pack you're not in doesn't open the camera", async ({ context, page }) => {
   await context.grantPermissions(['camera']);
   const pack = await createPack(dan, { name: 'Night owls', habit: 'reading', species: 'mochi' });

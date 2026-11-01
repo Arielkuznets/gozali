@@ -2,7 +2,7 @@ import { File } from 'expo-file-system';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { Platform } from 'react-native';
 
-import { errorMessage } from '@/lib/errors';
+import { errorMessage, isBlockedText } from '@/lib/errors';
 import { requireSupabase } from '@/lib/supabase';
 
 export const PHOTO_BUCKET = 'feed-photos';
@@ -103,4 +103,11 @@ export function feedErrorCode(error: unknown): 'already_fed' | 'not_a_member' | 
   if (message.includes('already_fed')) return 'already_fed';
   if (message.includes('not_a_member')) return 'not_a_member';
   return 'other';
+}
+
+/** Maps a feed that didn't go out to a translation key: only some of them are worth a retry. */
+export function feedErrorKey(error: unknown) {
+  if (isBlockedText(error)) return 'errors.textNotAllowed' as const;
+  if (errorMessage(error).includes('too_many_posts')) return 'feed.tooManyPosts' as const;
+  return 'feed.failed' as const;
 }

@@ -121,10 +121,10 @@ export async function photo(page: Page, emoji: string): Promise<Buffer> {
 }
 
 /** Posts a feed for `member` the way the app does: upload, then submit_feed. */
-export async function feed(member: TestUser, packId: string, image: Buffer, caption: string): Promise<void> {
+export async function feed(member: TestUser, packId: string, image: Buffer, caption: string, extra = false): Promise<void> {
   const path = `${packId}/${member.id}/${Date.now()}.jpg`;
   const upload = await member.client.storage.from('feed-photos').upload(path, image, { contentType: 'image/jpeg' });
   if (upload.error) throw upload.error;
-  const submitted = await member.client.rpc('submit_feed', { target: packId, photo: path, note: caption });
+  const submitted = await member.client.rpc('submit_feed', { target: packId, photo: path, note: caption, extra });
   if (submitted.error) throw submitted.error;
 }
