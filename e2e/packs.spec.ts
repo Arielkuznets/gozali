@@ -127,6 +127,27 @@ test("a member who isn't the admin is told the settings are the admin's", async 
   await expect(page.getByRole('radio', { name: 'Monday' })).toBeDisabled();
 });
 
+test('leaving a pack ends on the home screen', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
+  page.on('dialog', (dialog) => void dialog.accept());
+  await signIn(page, dan);
+  await page.goto(`/pack/${pack.id}`);
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await expect(page.getByRole('button', { name: 'Leave pack' })).toBeVisible();
+  // The list of packs answers after the pack itself, as it can over a real connection.
+  await page.route(/\/rest\/v1\/packs\?.*order=/, async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await route.continue();
+  });
+  await page.getByRole('button', { name: 'Leave pack' }).click();
+
+  await expect(page).toHaveURL('/');
+  await expect(page.getByRole('button', { name: 'Create a pack' })).toBeVisible();
+  await expect(page.getByText("This pack isn't here")).toBeHidden();
+  const { data: packs } = await dan.client.from('packs').select('id');
+  expect(packs).toEqual([]);
+});
+
 test('a member who dozed off is told how to come back', async ({ page }) => {
   const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
   await admin.from('critters').update({ status: 'active', stage: 'baby', xp: 2, health: 70 }).eq('pack_id', pack.id);

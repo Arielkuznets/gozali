@@ -30,14 +30,16 @@ import { colors, radii, spacing } from '@/theme/tokens';
 export default function PackSettingsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: pack, isPending, isError, refetch } = usePack(id);
+  // Up here because leaving takes the pack, and so the form, away before it is done.
+  const leavePack = useLeavePack();
 
   if (isPending) return <LoadingScreen />;
   if (!pack && isError) return <LoadFailedScreen onRetry={() => void refetch()} />;
-  if (!pack) return <PackMissingScreen />;
-  return <SettingsForm pack={pack} />;
+  if (!pack) return leavePack.isPending || leavePack.isSuccess ? <LoadingScreen /> : <PackMissingScreen />;
+  return <SettingsForm pack={pack} leavePack={leavePack} />;
 }
 
-function SettingsForm({ pack }: { pack: Pack }) {
+function SettingsForm({ pack, leavePack }: { pack: Pack; leavePack: ReturnType<typeof useLeavePack> }) {
   const { t } = useTranslation();
   const { session } = useAuth();
   const userId = session?.user.id;
@@ -55,7 +57,6 @@ function SettingsForm({ pack }: { pack: Pack }) {
 
   const updatePack = useUpdatePack(pack.id);
   const removeMember = useRemoveMember(pack.id);
-  const leavePack = useLeavePack();
 
   const onSave = () => {
     updatePack.mutate(
@@ -80,11 +81,12 @@ function SettingsForm({ pack }: { pack: Pack }) {
       confirm: t('settings.confirm'),
       cancel: t('settings.cancel'),
       destructive: true,
+      // The promise, because mutate's callbacks are dropped once this screen has closed.
       onConfirm: () =>
-        leavePack.mutate(pack.id, {
-          onSuccess: () => router.replace('/'),
-          onError: (error) => notify(t(packErrorKey(error))),
-        }),
+        void leavePack.mutateAsync(pack.id).then(
+          () => router.replace('/'),
+          (error: unknown) => notify(t(packErrorKey(error))),
+        ),
     });
   };
 
