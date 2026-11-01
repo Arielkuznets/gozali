@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Alert } from 'react-native';
+import { Alert, AppState, Platform } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import '@/i18n';
@@ -32,9 +32,10 @@ const mockConfig = () => ({
 });
 const mockSignInWithOAuth = jest.fn();
 const mockSignInWithIdToken = jest.fn();
+const mockRpc = jest.fn();
 jest.mock('@/lib/supabase', () => ({
   supabase: {
-    rpc: () => Promise.resolve({ error: null }),
+    rpc: (...args: unknown[]) => mockRpc(...args),
     from: () => ({ select: () => ({ maybeSingle: () => Promise.resolve({ data: mockConfig(), error: null }) }) }),
   },
   requireSupabase: () => ({
@@ -49,6 +50,7 @@ jest.mock('@/lib/supabase', () => ({
 const cancelled = Object.assign(new Error('The user canceled the authorization attempt'), { code: 'ERR_REQUEST_CANCELED' });
 const failed = Object.assign(new Error('The authorization attempt failed for an unknown reason'), { code: 'ERR_REQUEST_UNKNOWN' });
 const rejectAfter = (ms: number, error: unknown) => () => new Promise((_resolve, reject) => setTimeout(() => reject(error), ms));
+const unanswered = () => new Promise(() => undefined);
 
 const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
 let tree: ReactTestRenderer;
@@ -59,6 +61,7 @@ beforeEach(async () => {
   globalThis.fetch = jest.fn(async () => ({ ok: false })) as unknown as typeof fetch;
   alert.mockClear();
   mockSignInAsync.mockReset();
+  mockRpc.mockReset().mockResolvedValue({ error: null });
   mockSignInWithIdToken.mockReset().mockResolvedValue({ error: null });
   suggestName(null);
   mockOpenAuthSession.mockReset().mockResolvedValue({ type: 'cancel' });
@@ -76,19 +79,37 @@ beforeEach(async () => {
 afterEach(() => {
   act(() => tree.unmount());
   client.clear();
+  mockAppleWebSignIn = false;
 });
+
+/** Opens the welcome screen again, with the server's switch as given. */
+async function reopen(appleWebSignIn: boolean) {
+  act(() => tree.unmount());
+  client.clear();
+  mockAppleWebSignIn = appleWebSignIn;
+  await act(async () => {
+    tree = create(
+      <QueryClientProvider client={client}>
+        <WelcomeScreen />
+      </QueryClientProvider>,
+    );
+  });
+}
+
+const appleButton = () => tree.root.find((node) => (node.type as unknown) === 'AppleAuthenticationButton');
 
 /** Taps Continue with Apple and waits for Apple's answer. */
 async function tapApple(waitMs: number) {
-  const button = tree.root.find((node) => (node.type as unknown) === 'AppleAuthenticationButton');
   await act(async () => {
-    button.props.onPress();
+    appleButton().props.onPress();
     await new Promise((resolve) => setTimeout(resolve, waitMs));
   });
 }
 
 const shown = () => JSON.stringify(tree.toJSON());
 const browserButtons = () => tree.root.findAll((node) => node.props.label === 'Continue with Apple in the browser');
+/** What reached the developer through report_sign_in_problem. */
+const reports = (): string[] => mockRpc.mock.calls.map(([, args]) => args.problem);
 
 describe('signing in with Apple', () => {
   it('says so when Apple cancels before any sheet could show', async () => {
@@ -149,24 +170,6 @@ describe('the name Apple sends only the first time', () => {
 });
 
 describe("Apple's sign-in page as a fallback", () => {
-  afterEach(() => {
-    mockAppleWebSignIn = false;
-  });
-
-  /** Opens the welcome screen again, with the server's switch as given. */
-  async function reopen(appleWebSignIn: boolean) {
-    act(() => tree.unmount());
-    client.clear();
-    mockAppleWebSignIn = appleWebSignIn;
-    await act(async () => {
-      tree = create(
-        <QueryClientProvider client={client}>
-          <WelcomeScreen />
-        </QueryClientProvider>,
-      );
-    });
-  }
-
   it("is offered once Apple's sheet failed, while the server allows it", async () => {
     await reopen(true);
     expect(browserButtons()).toHaveLength(0);
@@ -189,5 +192,158 @@ describe("Apple's sign-in page as a fallback", () => {
     mockSignInAsync.mockImplementation(rejectAfter(50, failed));
     await tapApple(100);
     expect(browserButtons()).toHaveLength(0);
+  });
+});
+
+describe('a request Apple leaves unanswered', () => {
+  const tap = () => act(async () => void appleButton().props.onPress());
+  const wait = (ms: number) => act(async () => void jest.advanceTimersByTime(ms));
+  const dimmed = () => shown().includes('"pointerEvents":"none"');
+
+  /** A request whose answer the test gives by hand. */
+  function answeredByHand() {
+    const request = { answer: (_credential: unknown) => {}, fail: (_error: unknown) => {} };
+    mockSignInAsync.mockImplementationOnce(
+      () =>
+        new Promise((resolve, reject) => {
+          request.answer = resolve;
+          request.fail = reject;
+        }),
+    );
+    return request;
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    AppState.currentState = 'active';
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('gives the button back after 15 s, with one report and no alert', async () => {
+    mockSignInAsync.mockImplementation(unanswered);
+    await tap();
+    await wait(14_999);
+    expect(dimmed()).toBe(true);
+    expect(reports()).toEqual([]);
+
+    await wait(1);
+    expect(dimmed()).toBe(false);
+    expect(shown()).toContain("Sign-in didn't finish. Tap Continue with Apple to try again.");
+    expect(alert).not.toHaveBeenCalled();
+    expect(reports()).toHaveLength(1);
+
+    await wait(60 * 60_000);
+    expect(reports()).toHaveLength(1);
+  });
+
+  it('says what state the app was in', async () => {
+    mockSignInAsync.mockImplementation(unanswered);
+    AppState.currentState = 'inactive';
+    await tap();
+    await wait(15_000);
+    expect(reports()[0]).toContain('app inactive');
+  });
+
+  it('lets a new tap ask again, with a wait of its own', async () => {
+    mockSignInAsync.mockImplementation(unanswered);
+    await tap();
+    await wait(15_000);
+    await tap();
+    expect(mockSignInAsync).toHaveBeenCalledTimes(2);
+    expect(dimmed()).toBe(true);
+    expect(shown()).not.toContain("Sign-in didn't finish");
+
+    await wait(14_999);
+    expect(dimmed()).toBe(true);
+    await wait(1);
+    expect(dimmed()).toBe(false);
+    expect(reports()).toHaveLength(2);
+  });
+
+  it('opens the way to the browser page, which has no wait of its own', async () => {
+    await reopen(true);
+    mockSignInAsync.mockImplementation(unanswered);
+    mockOpenAuthSession.mockImplementation(unanswered);
+    await tap();
+    await wait(15_000);
+
+    const [button] = browserButtons();
+    await act(async () => void button.props.onPress());
+    expect(mockOpenAuthSession).toHaveBeenCalledTimes(1);
+
+    await wait(60 * 60_000);
+    expect(reports()).toHaveLength(1);
+    expect(browserButtons()[0].props.loading).toBe(true);
+  });
+
+  it('still signs in when the answer comes late', async () => {
+    const request = answeredByHand();
+    await tap();
+    await wait(20_000);
+    await act(async () => request.answer({ identityToken: 'token', fullName: null }));
+    expect(mockSignInWithIdToken).toHaveBeenCalledWith({ provider: 'apple', token: 'token' });
+    expect(alert).not.toHaveBeenCalled();
+  });
+
+  it('takes a late close of the sheet like any other, and reports it too', async () => {
+    const request = answeredByHand();
+    await tap();
+    await wait(20_000);
+    await act(async () => request.fail(cancelled));
+    expect(shown()).toContain("Sign-in didn't finish. Tap Continue with Apple to try again.");
+    expect(alert).not.toHaveBeenCalled();
+    expect(reports()).toHaveLength(2);
+    expect(dimmed()).toBe(false);
+  });
+
+  it("keeps an older tap's late failure away from a newer tap", async () => {
+    const first = answeredByHand();
+    mockSignInAsync.mockImplementation(unanswered);
+    await tap();
+    await wait(15_000);
+    await tap();
+    await act(async () => first.fail(failed));
+
+    expect(dimmed()).toBe(true);
+    expect(alert).not.toHaveBeenCalled();
+    expect(reports()).toHaveLength(1);
+    await tap();
+    expect(mockSignInAsync).toHaveBeenCalledTimes(2);
+
+    await wait(15_000);
+    expect(dimmed()).toBe(false);
+    expect(reports()).toHaveLength(2);
+  });
+
+  it('stops waiting once a sign-in answers', async () => {
+    mockSignInAsync.mockResolvedValue({ identityToken: 'token', fullName: null });
+    await tap();
+    await wait(60_000);
+    expect(reports()).toEqual([]);
+    expect(dimmed()).toBe(false);
+  });
+
+  it('stops waiting once a failure answers, and reports only that', async () => {
+    mockSignInAsync.mockRejectedValue(failed);
+    await tap();
+    await wait(60_000);
+    expect(reports()).toHaveLength(1);
+    expect(reports()[0]).toContain('ERR_REQUEST_UNKNOWN');
+  });
+
+  it('has no wait on Android, where Apple signs in through a browser that can be closed', async () => {
+    const os = jest.replaceProperty(Platform, 'OS', 'android');
+    await reopen(false);
+    mockOpenAuthSession.mockImplementation(unanswered);
+    const [button] = tree.root.findAll((node) => node.props.label === 'Continue with Apple');
+    await act(async () => void button.props.onPress());
+    await wait(60 * 60_000);
+    os.restore();
+    expect(mockOpenAuthSession).toHaveBeenCalledTimes(1);
+    expect(reports()).toEqual([]);
+    expect(shown()).not.toContain("Sign-in didn't finish");
   });
 });

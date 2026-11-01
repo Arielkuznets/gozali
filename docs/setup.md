@@ -196,4 +196,4 @@ On iPhones and iPads the app signs in with Apple's own sheet. Where that sheet f
    npx supabase db query --linked "update public.app_config set apple_web_sign_in = true"
    ```
 
-   The button shows only after Apple's sheet failed or was closed, under Continue with Apple.
+   The button shows only after Apple's sheet failed, was closed or gave no answer for 15 seconds, under Continue with Apple.

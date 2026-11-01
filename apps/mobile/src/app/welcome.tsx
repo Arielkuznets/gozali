@@ -4,7 +4,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { AppState, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
@@ -20,6 +20,9 @@ import { NotConfiguredError } from '@/lib/supabase';
 import { critterColors, radii, spacing } from '@/theme/tokens';
 
 type Provider = 'apple' | 'apple-web' | 'google';
+
+/** Long enough for Apple's sheet to be up, and in front of the button, if it is ever coming. */
+const NO_ANSWER_MS = 15_000;
 
 const SIGN_IN: Record<Provider, () => Promise<void>> = {
   apple: signInWithApple,
@@ -42,6 +45,8 @@ export default function WelcomeScreen() {
 
   // A second tap while Apple's sheet is on its way would start a second request over the first.
   const pending = useRef(false);
+  // Apple can still answer a tap the screen stopped waiting for, and that answer isn't a newer tap's.
+  const latestTap = useRef(0);
   const [trouble, setTrouble] = useState<SignInTrouble | null>(null);
   // Apple's sign-in page, for a device where Apple's own sheet lets people down. It works once the
   // Apple provider is set up for the web, so the server turns it on (app_config.apple_web_sign_in).
@@ -51,12 +56,31 @@ export default function WelcomeScreen() {
   const run = async (provider: Provider) => {
     if (pending.current) return;
     pending.current = true;
+    const tap = ++latestTap.current;
+    const release = () => {
+      if (tap !== latestTap.current) return;
+      pending.current = false;
+      setBusy(null);
+    };
     setBusy(provider);
     setTrouble(null);
     const started = Date.now();
+    // Apple's sheet has no time limit and can stay silent for good, so the wait has to end here. It
+    // cancels nothing, because someone may be on the sheet: their answer still signs in, and no
+    // alert lands on top of them. A browser has its own way out, so only the sheet needs this.
+    const noAnswer =
+      provider === 'apple' && Platform.OS === 'ios'
+        ? setTimeout(() => {
+            reportSignInProblem(provider, new Error(`No answer yet, app ${AppState.currentState}`));
+            setAppleFailed(true);
+            setTrouble('cancelled');
+            release();
+          }, NO_ANSWER_MS)
+        : undefined;
     try {
       await SIGN_IN[provider]();
     } catch (error) {
+      if (tap !== latestTap.current) return;
       // In development the log says what went wrong; the server hears about it either way.
       if (__DEV__) console.warn('Sign-in failed', error);
       reportSignInProblem(provider, error);
@@ -70,8 +94,8 @@ export default function WelcomeScreen() {
         notify(error instanceof NotConfiguredError ? t('errors.notConfigured') : t('errors.signInFailed'), detail);
       }
     } finally {
-      pending.current = false;
-      setBusy(null);
+      clearTimeout(noAnswer);
+      release();
     }
   };
 
