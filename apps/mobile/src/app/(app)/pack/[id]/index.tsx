@@ -26,7 +26,7 @@ import { useCritterText } from '@/features/critter/useCritterText';
 import { useDayStatus, useMembersToday, useTodayPasses, type TodayPasses } from '@/features/days/api';
 import { FeedList } from '@/features/feeds/FeedList';
 import { FEED_PAGE, fedToday, useCountedFeeds, usePackFeed, usePendingFeeds, type FeedItem } from '@/features/feeds/api';
-import { countedToday, currentMembers, usePack, type Pack, type PackCritter, type PackMember } from '@/features/packs/api';
+import { countedToday, currentMembers, restDaysOn, usePack, type Pack, type PackCritter, type PackMember } from '@/features/packs/api';
 import { FOCUS_CATEGORIES, PACK_SIZE_MAX, categoryInfo } from '@/features/packs/constants';
 import { usePackRealtime } from '@/features/packs/realtime';
 import { NameMeCard } from '@/features/social/NameMeCard';
@@ -163,7 +163,7 @@ export default function PackScreen() {
           {pack.name}
         </AppText>
         <AppText variant="caption" style={styles.centerText}>
-          {categoryInfo(pack.category).emoji} {habit} · {t('packs.restDays', { count: pack.rest_days_per_week })}
+          {categoryInfo(pack.category).emoji} {habit} · {t('packs.restDays', { count: restDaysOn(pack, packDayOf(now, pack.timezone)) })}
         </AppText>
 
         {pack.critters && (

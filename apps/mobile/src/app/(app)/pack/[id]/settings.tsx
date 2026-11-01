@@ -1,3 +1,4 @@
+import { packDayOf } from '@gozali/game-engine';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -25,6 +26,7 @@ import { PACK_NAME_MAX, REST_DAYS_MAX, type WeekStart } from '@/features/packs/c
 import { confirm, notify } from '@/lib/confirm';
 import { formatDay } from '@/lib/dates';
 import { goBack } from '@/lib/navigation';
+import { useNow } from '@/lib/useNow';
 import { colors, radii, spacing } from '@/theme/tokens';
 
 export default function PackSettingsScreen() {
@@ -43,6 +45,7 @@ function SettingsForm({ pack, leavePack }: { pack: Pack; leavePack: ReturnType<t
   const { t } = useTranslation();
   const { session } = useAuth();
   const userId = session?.user.id;
+  const now = useNow(60_000);
   const members = currentMembers(pack);
   const admin = members.find((member) => member.role === 'admin');
   const isAdmin = admin !== undefined && admin.user_id === userId;
@@ -139,7 +142,8 @@ function SettingsForm({ pack, leavePack }: { pack: Pack; leavePack: ReturnType<t
           ))}
         </View>
 
-        {pack.pending_from && (
+        {/* Only a day close clears a change, so a pack that closes no days keeps it past its date. */}
+        {pack.pending_from && pack.pending_from > packDayOf(now, pack.timezone) && (
           <AppText variant="caption">{t('settings.pending', { date: formatDay(pack.pending_from) })}</AppText>
         )}
 

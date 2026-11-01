@@ -1,3 +1,4 @@
+import { addDays, packDayOf } from '@gozali/game-engine';
 import { expect, test } from '@playwright/test';
 
 import { admin, createPack, createUser, removeUsers, signIn, type TestUser } from './support';
@@ -156,4 +157,47 @@ test('a member who dozed off is told how to come back', async ({ page }) => {
   await page.goto(`/pack/${pack.id}`);
   await expect(page.getByText("One photo and you're back.", { exact: false })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Noa, asleep' })).toBeVisible();
+});
+
+test.describe('new rest days in a pack of one', () => {
+  // With nobody to close a day against, the change stays pending past its date.
+  const today = () => packDayOf(new Date(), 'Asia/Jerusalem');
+  const waiting = /^New rest days and week start apply from /;
+
+  /** A pack of one with three rest days saved, and the date they start on moved to `from`. */
+  async function restDaysFrom(from: string) {
+    const pack = await createPack(noa, { name: 'Alone', habit: 'gym', species: 'kit' });
+    const saved = await noa.client.rpc('update_pack', { target: pack.id, pack_name: 'Alone', rest_days: 3, starts_on: 'sunday' });
+    if (saved.error) throw saved.error;
+    const moved = await admin.from('packs').update({ pending_from: from }).eq('id', pack.id);
+    if (moved.error) throw moved.error;
+    return pack;
+  }
+
+  test('say when they start, and the old ones count until then', async ({ page }) => {
+    const pack = await restDaysFrom(addDays(today(), 3));
+    await signIn(page, noa);
+
+    await page.goto(`/pack/${pack.id}/settings`);
+    await expect(page.getByText(waiting)).toBeVisible();
+    await page.goto(`/pack/${pack.id}`);
+    await expect(page.getByText('1 rest day a week')).toBeVisible();
+    await page.goto(`/pack/${pack.id}/not-today`);
+    await expect(page.getByText('1 left this week')).toBeVisible();
+  });
+
+  for (const [when, daysAgo] of [['today', 0], ['a week ago', 7]] as const) {
+    test(`that started ${when} read the same on every screen`, async ({ page }) => {
+      const pack = await restDaysFrom(addDays(today(), -daysAgo));
+      await signIn(page, noa);
+
+      await page.goto(`/pack/${pack.id}/settings`);
+      await expect(page.getByRole('radio', { name: '3 rest days a week' })).toBeVisible();
+      await expect(page.getByText(waiting)).toBeHidden();
+      await page.goto(`/pack/${pack.id}`);
+      await expect(page.getByText('3 rest days a week')).toBeVisible();
+      await page.goto(`/pack/${pack.id}/not-today`);
+      await expect(page.getByText('3 left this week')).toBeVisible();
+    });
+  }
 });

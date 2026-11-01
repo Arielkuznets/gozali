@@ -235,6 +235,41 @@ describe('leaving a pack', () => {
   });
 });
 
+describe('new settings waiting for their date', () => {
+  const WAITING = 'New rest days and week start apply from Sun, Nov 8.';
+
+  beforeEach(() => {
+    mockPacks = [{ ...packNamed('p1'), pending_rest_days_per_week: 3, pending_week_start: 'monday', pending_from: '2026-11-08' }];
+  });
+
+  it('are announced while the date is ahead', async () => {
+    jest.setSystemTime(new Date('2026-11-05T10:00:00Z'));
+    await start('/pack/p1/settings');
+
+    expect(shows(WAITING)).toBe(true);
+  });
+
+  it('stop being announced on that day, by the pack clock, on a screen left open', async () => {
+    // 02:59 in the pack's zone, which is still the day before.
+    jest.setSystemTime(new Date('2026-11-08T00:59:00Z'));
+    await start('/pack/p1/settings');
+    expect(shows(WAITING)).toBe(true);
+
+    await act(async () => {
+      jest.advanceTimersByTime(2 * 60_000);
+    });
+
+    expect(shows(WAITING)).toBe(false);
+  });
+
+  it('are not announced once the date has gone', async () => {
+    jest.setSystemTime(new Date('2026-11-20T10:00:00Z'));
+    await start('/pack/p1/settings');
+
+    expect(shows(WAITING)).toBe(false);
+  });
+});
+
 describe('a pack that is gone', () => {
   it('goes back to the home screen, with nothing left to go back to', async () => {
     await start('/pack/p1');

@@ -77,6 +77,15 @@ export function countedToday(pack: Pack, paused: ReadonlySet<string>): PackMembe
   return currentMembers(pack).filter((member) => member.status === 'active' && !paused.has(member.user_id));
 }
 
+/**
+ * The rest days a week in force on a pack day. New ones count from their first day, as the server
+ * has them (pack_week_on), though they stay pending until a day close takes them over.
+ */
+export function restDaysOn(pack: Pick<Pack, 'rest_days_per_week' | 'pending_rest_days_per_week' | 'pending_from'>, day: string): number {
+  const started = pack.pending_from !== null && pack.pending_from <= day;
+  return started ? (pack.pending_rest_days_per_week ?? pack.rest_days_per_week) : pack.rest_days_per_week;
+}
+
 export function useMyPacks() {
   return useQuery({
     queryKey: packsKey,
