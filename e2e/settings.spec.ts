@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { admin, createUser, removeUsers, signIn, type TestUser } from './support';
+import { admin, createUser, layOutTextLikeAPhone, removeUsers, signIn, type TestUser } from './support';
 
 let noa: TestUser;
 
@@ -180,6 +180,26 @@ test('a deletion that failed says so while the account is still there', async ({
 
   await expect.poll(() => alerts).toEqual(["The account wasn't deleted. Please try again."]);
   await expect(remove).toBeEnabled();
+});
+
+test('a long name leaves the way to the settings on the screen', async ({ page }) => {
+  await noa.client.from('profiles').update({ display_name: 'Bartholomew Montgomery-Smithso' }).eq('id', noa.id);
+  await signIn(page, noa);
+  await page.goto('/me');
+  const name = page.getByText('Bartholomew Montgomery-Smithso');
+  await expect(name).toBeVisible();
+  await layOutTextLikeAPhone(page);
+
+  const settings = page.getByRole('button', { name: 'Settings' });
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 700 });
+    await expect(settings).toBeInViewport({ ratio: 1 });
+    const nameBox = (await name.boundingBox())!;
+    expect(nameBox.x + nameBox.width).toBeLessThanOrEqual((await settings.boundingBox())!.x);
+  }
+
+  await settings.click();
+  await expect(page.getByRole('button', { name: 'Delete account' })).toBeVisible();
 });
 
 test('the rules can be read again from the settings', async ({ page }) => {

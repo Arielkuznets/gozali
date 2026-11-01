@@ -40,7 +40,9 @@ export default function MeScreen() {
     <Screen>
       <View style={styles.header}>
         <HeaderButton icon="‹" label={t('me.back')} onPress={() => goBack('/')} />
-        <AppText variant="heading">{profile.data?.display_name ?? t('me.title')}</AppText>
+        <AppText variant="heading" numberOfLines={1} style={styles.name}>
+          {profile.data?.display_name ?? t('me.title')}
+        </AppText>
         <HeaderButton label={t('settings.app.open')} onPress={() => router.push('/settings')} />
       </View>
 
@@ -114,7 +116,9 @@ export default function MeScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.md },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.md },
+  // Text in a row keeps its full width unless told otherwise, and Settings is the way to Delete account.
+  name: { flexShrink: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   body: { gap: spacing.md, paddingBottom: spacing.lg },
   centerText: { textAlign: 'center' },

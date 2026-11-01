@@ -67,6 +67,15 @@ export async function signIn(page: Page, user: TestUser): Promise<void> {
   }, user.session);
 }
 
+/**
+ * Lays text out the way a phone does. React Native's layout engine shrinks text in a row only when
+ * told to, and a browser always does, so here a row that runs off a phone's screen looks fine.
+ * Inside :where() the rule weighs nothing, so a flexShrink in the app's own styles still counts.
+ */
+export async function layOutTextLikeAPhone(page: Page): Promise<void> {
+  await page.addStyleTag({ content: ':where(div[dir=auto]){flex-shrink:0;max-width:100%}' });
+}
+
 type NewPack = { name: string; habit: Database['public']['Enums']['habit_category']; species: Database['public']['Enums']['critter_species'] };
 
 /** A pack made by `owner`, with the others joined. Returns its id and invite code. */
