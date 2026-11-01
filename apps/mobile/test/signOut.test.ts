@@ -1,4 +1,5 @@
 import { signOut } from '@/features/auth/signIn';
+import { suggestName, suggestedName } from '@/features/profile/suggestedName';
 
 // Taking back what the phone keeps for the account is a no-op here; the tests look at when it happens.
 jest.mock('@/lib/push', () => ({ unregisterPushToken: async () => undefined }));
@@ -24,6 +25,7 @@ beforeEach(() => {
   for (const clear of keptUntilSignedOut) clear.mockClear();
   mockSignOut.mockReset();
   mockGetSession.mockReset();
+  suggestName('Noa Levi');
 });
 
 describe('signing out', () => {
@@ -34,6 +36,12 @@ describe('signing out', () => {
       expect(clear).toHaveBeenCalledTimes(1);
       expect(clear.mock.invocationCallOrder[0]).toBeGreaterThan(mockSignOut.mock.invocationCallOrder[0]);
     }
+  });
+
+  it('forgets the name the sign-in provider gave, so the next person on the phone is not offered it', async () => {
+    mockSignOut.mockResolvedValue({ error: null });
+    await signOut();
+    expect(suggestedName()).toBeNull();
   });
 
   it('is done offline once the session is gone from the phone', async () => {
@@ -48,6 +56,7 @@ describe('signing out', () => {
     mockGetSession.mockResolvedValue({ data: { session: { access_token: 'still here' } }, error: null });
     await expect(signOut()).rejects.toBe(offline);
     for (const clear of keptUntilSignedOut) expect(clear).not.toHaveBeenCalled();
+    expect(suggestedName()).toBe('Noa Levi');
   });
 
   it("didn't work when an expired session couldn't be refreshed and so stays stored", async () => {

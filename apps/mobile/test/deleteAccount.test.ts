@@ -1,4 +1,5 @@
 import { deleteAccount } from '@/features/auth/signIn';
+import { suggestName, suggestedName } from '@/features/profile/suggestedName';
 
 // What the phone keeps for the account is forgotten afterwards; here that is all a no-op.
 jest.mock('@/lib/push', () => ({ unregisterPushToken: async () => undefined }));
@@ -55,6 +56,12 @@ describe('deleting an account that signed in with Apple, with revocation on', ()
     await deleteAccount({ revokeApple: true });
     expect(mockInvoke).toHaveBeenCalledWith('delete-account', expect.objectContaining({ body: {} }));
   });
+});
+
+it('forgets the name the sign-in provider gave', async () => {
+  suggestName('Noa Levi');
+  await deleteAccount({ revokeApple: false });
+  expect(suggestedName()).toBeNull();
 });
 
 describe('a deletion that gets no good answer from the server', () => {

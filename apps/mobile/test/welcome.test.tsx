@@ -6,6 +6,7 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import '@/i18n';
 import WelcomeScreen from '@/app/welcome';
 import { ONBOARDED_KEY } from '@/features/profile/onboarding';
+import { suggestName, suggestedName } from '@/features/profile/suggestedName';
 
 // The pet's drawing needs Reanimated, which doesn't run here.
 jest.mock('@/features/critter/Critter', () => ({ Critter: () => null }));
@@ -30,6 +31,7 @@ const mockConfig = () => ({
   apple_web_sign_in: mockAppleWebSignIn,
 });
 const mockSignInWithOAuth = jest.fn();
+const mockSignInWithIdToken = jest.fn();
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     rpc: () => Promise.resolve({ error: null }),
@@ -37,7 +39,7 @@ jest.mock('@/lib/supabase', () => ({
   },
   requireSupabase: () => ({
     auth: {
-      signInWithIdToken: () => Promise.resolve({ error: null }),
+      signInWithIdToken: (...args: unknown[]) => mockSignInWithIdToken(...args),
       signInWithOAuth: (...args: unknown[]) => mockSignInWithOAuth(...args),
     },
   }),
@@ -57,6 +59,8 @@ beforeEach(async () => {
   globalThis.fetch = jest.fn(async () => ({ ok: false })) as unknown as typeof fetch;
   alert.mockClear();
   mockSignInAsync.mockReset();
+  mockSignInWithIdToken.mockReset().mockResolvedValue({ error: null });
+  suggestName(null);
   mockOpenAuthSession.mockReset().mockResolvedValue({ type: 'cancel' });
   mockSignInWithOAuth.mockReset().mockResolvedValue({ data: { url: 'https://auth.test/authorize?provider=apple' }, error: null });
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -105,6 +109,42 @@ describe('signing in with Apple', () => {
     await tapApple(100);
     expect(alert).toHaveBeenCalledWith("Sign-in didn't work. Please try again.", 'Code: ERR_REQUEST_UNKNOWN');
     expect(shown()).not.toContain("Sign-in didn't finish");
+  });
+});
+
+describe('the name Apple sends only the first time', () => {
+  const withName = (givenName: string | null, familyName: string | null) => ({ identityToken: 'token', fullName: { givenName, familyName } });
+
+  it('is kept for the setup', async () => {
+    mockSignInAsync.mockResolvedValue(withName('Noa', 'Levi'));
+    await tapApple(10);
+    expect(suggestedName()).toBe('Noa Levi');
+  });
+
+  it('survives a first try the server failed, for the second try that comes without it', async () => {
+    mockSignInAsync.mockResolvedValueOnce(withName('Noa', 'Levi')).mockResolvedValueOnce(withName(null, null));
+    mockSignInWithIdToken.mockResolvedValueOnce({ error: new TypeError('Network request failed') });
+
+    await tapApple(10);
+    expect(alert).toHaveBeenCalledTimes(1);
+    await tapApple(10);
+
+    expect(mockSignInWithIdToken).toHaveBeenCalledTimes(2);
+    expect(suggestedName()).toBe('Noa Levi');
+  });
+
+  it('is not replaced by a name of nothing but spaces', async () => {
+    mockSignInAsync.mockResolvedValueOnce(withName('Noa', null)).mockResolvedValueOnce(withName(' ', ' '));
+    await tapApple(10);
+    await tapApple(10);
+    expect(suggestedName()).toBe('Noa');
+  });
+
+  it('gives way to the name of a later first sign-in', async () => {
+    mockSignInAsync.mockResolvedValueOnce(withName('Noa', 'Levi')).mockResolvedValueOnce(withName('Dan', null));
+    await tapApple(10);
+    await tapApple(10);
+    expect(suggestedName()).toBe('Dan');
   });
 });
 

@@ -64,7 +64,9 @@ async function signInWithAppleNative(): Promise<void> {
     ],
   });
   if (!credential.identityToken) throw new Error('Apple returned no identity token');
-  suggestName([credential.fullName?.givenName, credential.fullName?.familyName].filter(Boolean).join(' '));
+  // Apple sends the name only the first time, so the try after a failed one comes without it.
+  const name = [credential.fullName?.givenName, credential.fullName?.familyName].filter(Boolean).join(' ');
+  if (name.trim()) suggestName(name);
   const { error } = await requireSupabase().auth.signInWithIdToken({
     provider: 'apple',
     token: credential.identityToken,
@@ -185,9 +187,11 @@ async function forgetTokens(): Promise<void> {
 /**
  * What the phone keeps for the signed-in account, so the next one doesn't open its packs: feeds
  * still waiting to go out (without the session they can't, and their photos are the account's),
- * the focus timer and the notifications. Only once it is signed out, so a failed sign-out keeps them.
+ * the focus timer, the notifications and the name from the sign-in provider. Only once it is signed
+ * out, so a failed sign-out keeps them.
  */
 async function forgetAccountOnDevice(): Promise<void> {
+  suggestName(null);
   await clearQueue().catch(() => undefined);
   await clearFocusSession().catch(() => undefined);
   await clearNotifications().catch(() => undefined);
