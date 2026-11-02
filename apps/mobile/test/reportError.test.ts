@@ -86,3 +86,40 @@ describe('a sign-in report', () => {
     expect(problem).not.toContain('Failing row');
   });
 });
+
+describe('a sign-in with no answer from Apple yet', () => {
+  /** The module as a new start of the app finds it. */
+  function newRun() {
+    type Reports = typeof import('@/lib/reportError');
+    let reports: Reports | undefined;
+    jest.isolateModules(() => {
+      reports = jest.requireActual<Reports>('@/lib/reportError');
+    });
+    return reports!;
+  }
+
+  const problems = () => sent('report_sign_in_problem').map(({ problem }) => problem);
+
+  it('is reported every time with the app active', () => {
+    const { reportSignInWait } = newRun();
+    reportSignInWait('apple', 'active', 15_000);
+    reportSignInWait('apple', 'active', 15_000);
+    expect(problems()).toHaveLength(2);
+    expect(problems()[0]).toContain('apple no code after 15000 ms: No answer yet, app active (');
+  });
+
+  it('is reported once a run in any other state, with the state in it', () => {
+    const { reportSignInWait } = newRun();
+    reportSignInWait('apple', 'inactive', 15_000);
+    reportSignInWait('apple', 'inactive', 15_000);
+    reportSignInWait('apple', 'background', 15_000);
+    expect(problems()).toHaveLength(1);
+    expect(problems()[0]).toContain('apple no code after 15000 ms: No answer yet, app inactive (');
+  });
+
+  it('is reported again in the next run', () => {
+    newRun().reportSignInWait('apple', 'inactive', 15_000);
+    newRun().reportSignInWait('apple', 'inactive', 15_000);
+    expect(problems()).toHaveLength(2);
+  });
+});

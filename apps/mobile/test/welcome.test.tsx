@@ -46,8 +46,11 @@ jest.mock('@/lib/supabase', () => ({
   }),
   NotConfiguredError: class extends Error {},
 }));
+// The real reports, a new copy for each test: a test is a run of the app, and a run keeps count.
+let mockRun: typeof import('@/lib/reportError');
+jest.mock('@/lib/reportError', () => new Proxy({}, { get: (_module, name) => Reflect.get(mockRun, name) }));
 
-const cancelled = Object.assign(new Error('The user canceled the authorization attempt'), { code: 'ERR_REQUEST_CANCELED' });
+const cancelled =Object.assign(new Error('The user canceled the authorization attempt'), { code: 'ERR_REQUEST_CANCELED' });
 const failed = Object.assign(new Error('The authorization attempt failed for an unknown reason'), { code: 'ERR_REQUEST_UNKNOWN' });
 const rejectAfter = (ms: number, error: unknown) => () => new Promise((_resolve, reject) => setTimeout(() => reject(error), ms));
 const unanswered = () => new Promise(() => undefined);
@@ -57,6 +60,9 @@ let tree: ReactTestRenderer;
 let client: QueryClient;
 
 beforeEach(async () => {
+  jest.isolateModules(() => {
+    mockRun = jest.requireActual<typeof import('@/lib/reportError')>('@/lib/reportError');
+  });
   await AsyncStorage.setItem(ONBOARDED_KEY, '1');
   globalThis.fetch = jest.fn(async () => ({ ok: false })) as unknown as typeof fetch;
   alert.mockClear();
@@ -289,6 +295,48 @@ describe('a request Apple leaves unanswered', () => {
     expect(reports()[0]).toContain('app inactive');
   });
 
+  it('reports a wait with the app not active once a run, and every answer to it', async () => {
+    mockSignInAsync.mockImplementation(rejectAfter(20_000, cancelled));
+    AppState.currentState = 'inactive';
+    for (let tries = 0; tries < 3; tries += 1) {
+      await tap();
+      await wait(20_000);
+    }
+    expect(reports()).toEqual([
+      expect.stringContaining('apple no code after 15000 ms: No answer yet, app inactive'),
+      expect.stringContaining('apple ERR_REQUEST_CANCELED after 20000 ms: '),
+      expect.stringContaining('apple ERR_REQUEST_CANCELED after 20000 ms: '),
+      expect.stringContaining('apple ERR_REQUEST_CANCELED after 20000 ms: '),
+    ]);
+  });
+
+  it('counts a run of the app, not an opening of this screen', async () => {
+    mockSignInAsync.mockImplementation(unanswered);
+    AppState.currentState = 'background';
+    await tap();
+    await wait(15_000);
+    await reopen(false);
+    await tap();
+    await wait(15_000);
+    expect(reports()).toEqual([expect.stringContaining('No answer yet, app background')]);
+  });
+
+  it('still reports a silence with the app active after a wait that was not', async () => {
+    mockSignInAsync.mockImplementation(unanswered);
+    AppState.currentState = 'inactive';
+    await tap();
+    await wait(15_000);
+    await tap();
+    await wait(15_000);
+    AppState.currentState = 'active';
+    await tap();
+    await wait(15_000);
+    expect(reports()).toEqual([
+      expect.stringContaining('No answer yet, app inactive'),
+      expect.stringContaining('No answer yet, app active'),
+    ]);
+  });
+
   it('lets a new tap ask again, with a wait of its own', async () => {
     mockSignInAsync.mockImplementation(unanswered);
     await tap();
@@ -392,7 +440,7 @@ describe('a request Apple leaves unanswered', () => {
     expect(dimmed()).toBe(false);
   });
 
-  it("keeps an older tap's late failure away from a newer tap", async () => {
+  it("keeps an older tap's late failure away from a newer tap, and reports how it ended", async () => {
     const first = answeredByHand();
     mockSignInAsync.mockImplementation(unanswered);
     await tap();
@@ -402,13 +450,14 @@ describe('a request Apple leaves unanswered', () => {
 
     expect(dimmed()).toBe(true);
     expect(alert).not.toHaveBeenCalled();
-    expect(reports()).toHaveLength(1);
+    expect(reports()).toHaveLength(2);
+    expect(reports()[1]).toContain('apple ERR_REQUEST_UNKNOWN after 15000 ms: ');
     await tap();
     expect(mockSignInAsync).toHaveBeenCalledTimes(2);
 
     await wait(15_000);
     expect(dimmed()).toBe(false);
-    expect(reports()).toHaveLength(2);
+    expect(reports()).toHaveLength(3);
   });
 
   it('stops waiting once a sign-in answers', async () => {

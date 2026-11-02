@@ -85,6 +85,23 @@ export function reportSignInProblem(provider: string, error: unknown, elapsedMs:
     );
 }
 
+let coveredWaitReported = false;
+
+/**
+ * Tells the developer a sign-in has had no answer from Apple for `elapsedMs`, and the state the app
+ * was in. Active means nothing is over the app, so Apple has gone silent, and every one is reported.
+ * Any other state most likely means someone is on the sheet, and their answer gets a report of its
+ * own. One row per run of the app shows what the sheet does to the app on that device: more would
+ * push real answers out of the hourly cap on sign-in reports. Never throws.
+ */
+export function reportSignInWait(provider: string, appState: string, elapsedMs: number): void {
+  if (appState !== 'active') {
+    if (coveredWaitReported) return;
+    coveredWaitReported = true;
+  }
+  reportSignInProblem(provider, new Error(`No answer yet, app ${appState}`), elapsedMs);
+}
+
 /**
  * Catches JavaScript errors nothing else handled. A fatal one closes the app before a request
  * could finish, so it is kept on the phone and sent on the next start.

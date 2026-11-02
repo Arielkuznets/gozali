@@ -22,7 +22,7 @@ import {
 import { Critter } from '@/features/critter/Critter';
 import { ONBOARDED_KEY } from '@/features/profile/onboarding';
 import { notify } from '@/lib/confirm';
-import { errorCode, reportSignInProblem } from '@/lib/reportError';
+import { errorCode, reportSignInProblem, reportSignInWait } from '@/lib/reportError';
 import { NotConfiguredError } from '@/lib/supabase';
 import { critterColors, radii, spacing } from '@/theme/tokens';
 
@@ -75,7 +75,7 @@ export default function WelcomeScreen() {
     const noAnswer =
       provider === 'apple' && Platform.OS === 'ios'
         ? setTimeout(() => {
-            reportSignInProblem(provider, new Error(`No answer yet, app ${AppState.currentState}`), Date.now() - started);
+            reportSignInWait(provider, AppState.currentState, Date.now() - started);
             setAppleFailed(true);
             setTrouble('cancelled');
             release();
@@ -93,11 +93,12 @@ export default function WelcomeScreen() {
     try {
       await SIGN_IN[provider](answered);
     } catch (error) {
-      if (tap !== latestTap.current) return;
-      // In development the log says what went wrong; the server hears about it either way.
+      // In development the log says what went wrong; the server hears about it either way, for a tap
+      // the screen stopped waiting for too, as nothing else tells how that request ended.
       if (__DEV__) console.warn('Sign-in failed', error);
       const elapsedMs = Date.now() - started;
       reportSignInProblem(provider, error, elapsedMs);
+      if (tap !== latestTap.current) return;
       if (provider === 'apple') setAppleFailed(true);
       const kind = signInTrouble(error, elapsedMs);
       setTrouble(kind);
