@@ -65,6 +65,42 @@ test('feeding: camera, caption, send, and the photo shows in the pack', async ({
   await expect(page.getByRole('button', { name: 'Close photo' })).toBeHidden();
 });
 
+test('a focus session left at the camera keeps its minutes for the photo', async ({ context, page }) => {
+  await context.grantPermissions(['camera']);
+  const pack = await createPack(noa, { name: 'Study buddies', habit: 'study', species: 'mochi' });
+  // A timer with no limit, 25 minutes in.
+  await page.addInitScript(
+    (session) => window.localStorage.setItem('gozali.focus', JSON.stringify(session)),
+    { packId: pack.id, minutes: null, startedAt: Date.now() - 25 * 60_000, pausedAt: null, pausedMs: 0, notificationId: null },
+  );
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+  const focus = page.getByRole('button', { name: 'Focus', exact: true });
+  const done = page.getByRole('button', { name: 'Done, take the photo' });
+
+  await focus.click();
+  await done.click();
+  await expect(page.getByText('25 min')).toBeVisible();
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
+
+  await focus.click();
+  await expect(page.getByText('Paused')).toBeVisible();
+  await done.click();
+  await page.waitForFunction(() => {
+    const video = document.querySelector('video');
+    return video !== null && video.readyState >= 2 && video.videoWidth > 0;
+  });
+  await page.getByRole('button', { name: 'Take photo' }).click();
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect(page).toHaveURL(new RegExp(`/pack/${pack.id}$`));
+  const { data: feeds } = await noa.client.from('feeds').select('focus_minutes').eq('user_id', noa.id);
+  expect(feeds).toEqual([{ focus_minutes: 25 }]);
+
+  await focus.click();
+  await expect(page.getByRole('button', { name: 'No time limit' })).toBeVisible();
+});
+
 test('a member removed while the camera is open is told the pack is gone', async ({ context, page }) => {
   await context.grantPermissions(['camera']);
   const pack = await createPack(noa, { name: 'Study buddies', habit: 'study', species: 'mochi' }, [dan]);
