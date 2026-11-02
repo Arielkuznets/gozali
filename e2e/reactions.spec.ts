@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { createPack, createUser, feed, photo, removeUsers, signIn, type TestUser } from './support';
+import { createPack, createUser, feed, listening, photo, removeUsers, signIn, watchSocket, type TestUser } from './support';
 
 let noa: TestUser;
 let dan: TestUser;
@@ -15,6 +15,7 @@ test.afterEach(async () => {
 });
 
 test('reactions show at once, and a friend\'s arrives without a reload', async ({ page }) => {
+  const socket = await watchSocket(page);
   const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
   await feed(dan, pack.id, await photo(page, '🏋️'), 'Leg day');
   const { data: posted } = await dan.client.from('feeds').select('id').eq('pack_id', pack.id).single();
@@ -31,6 +32,7 @@ test('reactions show at once, and a friend\'s arrives without a reload', async (
   // Dan reacts from his phone; Noa's screen follows through realtime.
   const clap = page.getByRole('button', { name: 'React with 👏' });
   await expect(clap).not.toContainText('1');
+  await listening(socket, pack.id);
   const reacted = await dan.client.rpc('react', { target_feed: posted!.id, emoji: 'clap' });
   expect(reacted.error).toBeNull();
   await expect(clap).toContainText('1', { timeout: 15_000 });

@@ -1,5 +1,5 @@
 // Test data for the end-to-end tests, made through the local Supabase API like the smoke scripts.
-import type { Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js';
 
 import type { Database } from '../apps/mobile/src/lib/database.types';
@@ -76,6 +76,31 @@ export async function signIn(page: Page, user: TestUser): Promise<void> {
   await page.addInitScript((session) => {
     window.localStorage.setItem('sb-127-auth-token', JSON.stringify(session));
   }, user.session);
+}
+
+export type RealtimeSocket = { away: boolean; subscribed: string[] };
+
+/** Carries Realtime's frames to the page, until `away` is set, and notes the channels that start listening. */
+export async function watchSocket(page: Page): Promise<RealtimeSocket> {
+  const socket: RealtimeSocket = { away: false, subscribed: [] };
+  await page.routeWebSocket(/realtime\/v1\/websocket/, (ws) => {
+    const server = ws.connectToServer();
+    ws.onMessage((message) => server.send(message));
+    server.onMessage((message) => {
+      if (String(message).includes('Subscribed to PostgreSQL')) socket.subscribed.push(String(message));
+      if (!socket.away) ws.send(message);
+    });
+  });
+  return socket;
+}
+
+/**
+ * Waits for a screen's channel to be listening: `mine` on the home screen, a pack's id on its own
+ * screen. Realtime replays nothing, so a change made while it still joins never reaches the screen,
+ * and the data usually shows before the channel is ready.
+ */
+export async function listening(socket: RealtimeSocket, channel: string): Promise<void> {
+  await expect.poll(() => socket.subscribed.some((frame) => frame.includes(`packs-live:${channel}:`)), { timeout: 30_000 }).toBe(true);
 }
 
 /**

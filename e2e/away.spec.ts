@@ -3,7 +3,7 @@
 // their way to the page; the socket itself stays up, because closing it isn't what a phone does.
 import { expect, test, type Page } from '@playwright/test';
 
-import { admin, createPack, createUser, feed, photo, removeUsers, signIn, type TestUser } from './support';
+import { admin, createPack, createUser, feed, listening, photo, removeUsers, signIn, watchSocket, type TestUser } from './support';
 
 let noa: TestUser;
 let dan: TestUser;
@@ -17,25 +17,6 @@ test.afterEach(async () => {
   await removeUsers(noa, dan);
 });
 
-/** Carries the socket's frames to the page, until `away` is set. */
-async function watchSocket(page: Page) {
-  const socket = { away: false, subscriptions: 0 };
-  await page.routeWebSocket(/realtime\/v1\/websocket/, (ws) => {
-    const server = ws.connectToServer();
-    ws.onMessage((message) => server.send(message));
-    server.onMessage((message) => {
-      if (String(message).includes('Subscribed to PostgreSQL')) socket.subscriptions += 1;
-      if (!socket.away) ws.send(message);
-    });
-  });
-  return socket;
-}
-
-/** Waits for the app to be listening, so a later silence isn't down to a channel still joining. */
-async function listening(socket: { subscriptions: number }) {
-  await expect.poll(() => socket.subscriptions, { timeout: 30_000 }).toBeGreaterThan(0);
-}
-
 /** What TanStack Query hears when the app comes back; on a phone lib/appFocus.ts says the same. */
 const comeBack = (page: Page) => page.evaluate(() => window.dispatchEvent(new Event('visibilitychange')));
 
@@ -48,7 +29,7 @@ test("a friend's photo from while the app was away shows on coming back to the p
   await page.goto(`/pack/${pack.id}`);
   await expect(page.getByText('noa first')).toBeVisible();
   await expect(page.getByText('1/2 fed today').last()).toBeVisible();
-  await listening(socket);
+  await listening(socket, pack.id);
 
   socket.away = true;
   await feed(dan, pack.id, image, 'dan while away');
@@ -71,7 +52,7 @@ test("a friend's photo from while the app was away shows on opening the pack aga
   await expect(page.getByText('noa first')).toBeVisible();
   await page.getByRole('button', { name: 'Back', exact: true }).first().click();
   await expect(page.getByText('Your packs')).toBeVisible();
-  await listening(socket);
+  await listening(socket, 'mine');
 
   socket.away = true;
   await feed(dan, pack.id, image, 'dan while away');
@@ -113,7 +94,7 @@ test("a reaction to a friend's new photo doesn't keep that photo from the pack",
   await expect(page.getByText('noa first')).toBeVisible();
   await page.getByRole('button', { name: 'Back', exact: true }).first().click();
   await expect(page.getByText('Your packs')).toBeVisible();
-  await listening(socket);
+  await listening(socket, 'mine');
 
   // The cached page of the pack is flagged stale by Dan's photo, then written to by his reaction.
   await feed(dan, pack.id, image, 'dan new');
@@ -135,7 +116,7 @@ test('a reaction tapped while the pack reloads on coming back leaves the new pho
   await signIn(page, noa);
   await page.goto(`/pack/${pack.id}`);
   await expect(page.getByText('noa first')).toBeVisible();
-  await listening(socket);
+  await listening(socket, pack.id);
 
   socket.away = true;
   await feed(dan, pack.id, image, 'dan while away');

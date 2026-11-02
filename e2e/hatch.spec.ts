@@ -2,7 +2,7 @@ import { addDays, packDayOf } from '@gozali/game-engine';
 import { expect, test } from '@playwright/test';
 
 import { closeOneDay } from '../supabase/functions/close-days/close.ts';
-import { admin, createPack, createUser, feed, photo, removeUsers, signIn, type TestUser } from './support';
+import { admin, createPack, createUser, feed, listening, photo, removeUsers, signIn, watchSocket, type TestUser } from './support';
 
 let noa: TestUser;
 let dan: TestUser;
@@ -36,6 +36,7 @@ test.afterEach(async () => {
 });
 
 test('the egg promises to hatch tonight only once nobody can stop it', async ({ page }) => {
+  const socket = await watchSocket(page);
   const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan, eve]);
   // Eve has fed before and the pack has no rest days, so today she would miss without a feed or a joker.
   // Everyone joined before that feed: a member counts from feeds for the day they joined or later.
@@ -60,6 +61,7 @@ test('the egg promises to hatch tonight only once nobody can stop it', async ({ 
   await expect(page.getByText('Two of you fed today')).toBeVisible();
   await expect(page.getByText('It hatches tonight if nobody misses today')).toBeVisible();
   await expect(page.getByText('It hatches tonight, when today ends 🎉')).toBeHidden();
+  await listening(socket, pack.id);
 
   // Eve can take her joker back until the day ends, and she has no rest days, so it proves nothing.
   const joker = await eve.client.rpc('use_day_pass', { target: pack.id, pass: 'joker' });
@@ -74,12 +76,14 @@ test('the egg promises to hatch tonight only once nobody can stop it', async ({ 
 });
 
 test('the promise comes with the second feed on a screen already open, and a new member leaves it', async ({ page }) => {
+  const socket = await watchSocket(page);
   const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
   const image = await photo(page, '🏋️');
 
   await signIn(page, noa);
   await page.goto(`/pack/${pack.id}`);
   await expect(page.getByText('Two of you feed on the same day (0/2 today)')).toBeVisible();
+  await listening(socket, pack.id);
 
   await feed(noa, pack.id, image, 'Leg day');
   await feed(dan, pack.id, image, 'Arms');
@@ -110,6 +114,7 @@ test('the promise waits for the close of the day before, and then comes by itsel
 });
 
 test('an egg about to hatch keeps its steps until the close of the day that ended', async ({ page }) => {
+  const socket = await watchSocket(page);
   const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
   const ended = await dayJustEnded(pack.id);
   const fed = await admin.from('feeds').insert([
@@ -124,6 +129,7 @@ test('an egg about to hatch keeps its steps until the close of the day that ende
   await expect(page.getByText('(0/2 today)')).toBeHidden();
   await expect(page.getByText('Two of you fed on the same day')).toBeVisible();
   await expect(page.getByText('It hatches very soon 🎉')).toBeVisible();
+  await listening(socket, pack.id);
 
   await closeOneDay(admin, pack.id, ended);
   await expect(page.getByRole('heading', { name: 'Kit hatched!' })).toBeVisible();
