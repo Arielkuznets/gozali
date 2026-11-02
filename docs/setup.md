@@ -193,6 +193,8 @@ Apple asks apps with Sign in with Apple to revoke the user's tokens when they de
    npx supabase db query --linked "update public.app_config set apple_revocation = true"
    ```
 
+   Closing Apple's sheet keeps the account. If the sheet fails, or gives no answer for 15 seconds with the app active, the deletion goes on without the code, so that token stays unrevoked. Before turning this on, try it on an iPhone: stay on the sheet past 15 seconds, then close it. The account must still be there.
+
 ## 7. Dependency warnings
 
 `npm audit --omit=dev` lists about 20 warnings, checked on 2026-09-28:

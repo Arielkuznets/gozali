@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import { clearQueue, forgetFeedsOfOthers } from '@/features/feeds/queue';
 import { clearFocusSession } from '@/features/focus/session';
@@ -86,6 +86,9 @@ export function isCancellation(error: unknown): boolean {
 /** Less than this between the tap and a cancellation is quicker than anyone can close Apple's sheet. */
 const SHEET_CLOSE_MS = 1000;
 
+/** Long enough for Apple's sheet to be up, and in front of the app, if it is ever coming. */
+export const NO_ANSWER_MS = 15_000;
+
 export type SignInTrouble = 'cancelled' | 'not-opened' | 'failed';
 
 /**
@@ -113,7 +116,9 @@ export async function verifyDevCode(email: string, token: string): Promise<void>
  * A fresh Apple authorization code, so the server can revoke Sign in with Apple as the account
  * goes (Apple asks for this). Only on iPhones, for people who signed in with Apple. Closing
  * Apple's sheet cancels the deletion; any other trouble, a sheet that never opened included, lets
- * it go on without the code.
+ * it go on without the code. Apple can also stay silent for good, so the wait ends, but only with
+ * the app active: otherwise someone may be on the sheet, about to close it, and a deletion can't be
+ * taken back.
  */
 async function appleCodeForRevocation(): Promise<string | undefined> {
   if (Platform.OS !== 'ios') return undefined;
@@ -121,12 +126,18 @@ async function appleCodeForRevocation(): Promise<string | undefined> {
   const providers = (data.user?.app_metadata.providers as string[] | undefined) ?? [];
   if (!providers.includes('apple')) return undefined;
   const started = Date.now();
+  let timer: ReturnType<typeof setInterval> | undefined;
+  const silence = new Promise<null>((resolve) => {
+    timer = setInterval(() => AppState.currentState === 'active' && resolve(null), NO_ANSWER_MS);
+  });
   try {
-    const credential = await AppleAuthentication.signInAsync({ requestedScopes: [] });
-    return credential.authorizationCode ?? undefined;
+    const credential = await Promise.race([AppleAuthentication.signInAsync({ requestedScopes: [] }), silence]);
+    return credential?.authorizationCode ?? undefined;
   } catch (error) {
     if (signInTrouble(error, Date.now() - started) === 'cancelled') throw error;
     return undefined;
+  } finally {
+    clearInterval(timer);
   }
 }
 

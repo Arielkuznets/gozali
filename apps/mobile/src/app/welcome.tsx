@@ -11,7 +11,14 @@ import { Button } from '@/components/Button';
 import { LegalLinks } from '@/components/LegalLinks';
 import { Screen } from '@/components/Screen';
 import { useAppConfig } from '@/features/app/appConfig';
-import { isGoogleEnabled, signInTrouble, signInWithApple, signInWithBrowser, type SignInTrouble } from '@/features/auth/signIn';
+import {
+  NO_ANSWER_MS,
+  isGoogleEnabled,
+  signInTrouble,
+  signInWithApple,
+  signInWithBrowser,
+  type SignInTrouble,
+} from '@/features/auth/signIn';
 import { Critter } from '@/features/critter/Critter';
 import { ONBOARDED_KEY } from '@/features/profile/onboarding';
 import { notify } from '@/lib/confirm';
@@ -20,9 +27,6 @@ import { NotConfiguredError } from '@/lib/supabase';
 import { critterColors, radii, spacing } from '@/theme/tokens';
 
 type Provider = 'apple' | 'apple-web' | 'google';
-
-/** Long enough for Apple's sheet to be up, and in front of the button, if it is ever coming. */
-const NO_ANSWER_MS = 15_000;
 
 const SIGN_IN: Record<Provider, () => Promise<void>> = {
   apple: signInWithApple,

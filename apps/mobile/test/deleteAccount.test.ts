@@ -1,3 +1,5 @@
+import { AppState } from 'react-native';
+
 import { deleteAccount } from '@/features/auth/signIn';
 import { suggestName, suggestedName } from '@/features/profile/suggestedName';
 
@@ -55,6 +57,100 @@ describe('deleting an account that signed in with Apple, with revocation on', ()
     mockSignInAsync.mockImplementation(rejectAfter(50, cancelled));
     await deleteAccount({ revokeApple: true });
     expect(mockInvoke).toHaveBeenCalledWith('delete-account', expect.objectContaining({ body: {} }));
+  });
+});
+
+describe('deleting while Apple gives no answer, with revocation on', () => {
+  const wait = (ms: number) => jest.advanceTimersByTimeAsync(ms);
+
+  /** A request whose answer the test gives by hand. */
+  function answeredByHand() {
+    const request = { answer: (_credential: unknown) => {}, fail: (_error: unknown) => {} };
+    mockSignInAsync.mockImplementation(
+      () =>
+        new Promise((resolve, reject) => {
+          request.answer = resolve;
+          request.fail = reject;
+        }),
+    );
+    return request;
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    AppState.currentState = 'active';
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('goes on without the code after 15 s when nothing covers the app', async () => {
+    answeredByHand();
+    const removal = deleteAccount({ revokeApple: true });
+    await wait(14_999);
+    expect(mockInvoke).not.toHaveBeenCalled();
+
+    await wait(1);
+    await removal;
+    expect(mockInvoke).toHaveBeenCalledWith('delete-account', expect.objectContaining({ body: {} }));
+  });
+
+  it('takes no notice of an answer that comes after it went on', async () => {
+    const request = answeredByHand();
+    const removal = deleteAccount({ revokeApple: true });
+    await wait(15_000);
+    await removal;
+
+    request.fail(cancelled);
+    await wait(60_000);
+    expect(mockInvoke).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves a sheet someone is on alone: closing it still stops the deletion", async () => {
+    const request = answeredByHand();
+    AppState.currentState = 'inactive';
+    const removal = deleteAccount({ revokeApple: true });
+    const failed = expect(removal).rejects.toBe(cancelled);
+    await wait(5 * 60_000);
+    expect(mockInvoke).not.toHaveBeenCalled();
+
+    request.fail(cancelled);
+    await failed;
+    expect(mockInvoke).not.toHaveBeenCalled();
+  });
+
+  it("uses Apple's code however long someone took on the sheet", async () => {
+    const request = answeredByHand();
+    AppState.currentState = 'inactive';
+    const removal = deleteAccount({ revokeApple: true });
+    await wait(40_000);
+
+    request.answer({ authorizationCode: 'fresh-code' });
+    await removal;
+    expect(mockInvoke).toHaveBeenCalledWith('delete-account', expect.objectContaining({ body: { appleAuthorizationCode: 'fresh-code' } }));
+  });
+
+  it('goes on once the app is back with nothing over it and Apple still silent', async () => {
+    answeredByHand();
+    AppState.currentState = 'inactive';
+    const removal = deleteAccount({ revokeApple: true });
+    await wait(20_000);
+    expect(mockInvoke).not.toHaveBeenCalled();
+
+    AppState.currentState = 'active';
+    await wait(15_000);
+    await removal;
+    expect(mockInvoke).toHaveBeenCalledWith('delete-account', expect.objectContaining({ body: {} }));
+  });
+
+  it('leaves no timer behind once Apple answered', async () => {
+    const request = answeredByHand();
+    const removal = deleteAccount({ revokeApple: true });
+    await wait(1000);
+    request.answer({ authorizationCode: 'fresh-code' });
+    await removal;
+    expect(jest.getTimerCount()).toBe(0);
   });
 });
 
