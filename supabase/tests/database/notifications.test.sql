@@ -101,9 +101,10 @@ select is((select status::text from public.notifications), 'sent', 'and is marke
 
 -- Quiet hours at 23:30: evolution waits for 07:00, friend fed is dropped.
 delete from public.notifications;
-insert into public.notifications (user_id, pack_id, type, send_after) values
-  ('00000000-0000-0000-0000-0000000000a5', '10000000-0000-0000-0000-000000000005', 'evolution', timestamptz '2000-01-01'),
-  ('00000000-0000-0000-0000-0000000000a5', '10000000-0000-0000-0000-000000000005', 'friend_fed', timestamptz '2000-01-01');
+insert into public.notifications (user_id, pack_id, type, payload, send_after) values
+  ('00000000-0000-0000-0000-0000000000a5', '10000000-0000-0000-0000-000000000005', 'evolution', '{}', timestamptz '2000-01-01'),
+  ('00000000-0000-0000-0000-0000000000a5', '10000000-0000-0000-0000-000000000005', 'friend_fed',
+   jsonb_build_object('feeders', jsonb_build_array('00000000-0000-0000-0000-0000000000b5')), timestamptz '2000-01-01');
 select is(
   (select count(*) from public.claim_notifications(((select day from today)::timestamp + interval '23 hours 30 minutes') at time zone 'Asia/Jerusalem')),
   0::bigint,
