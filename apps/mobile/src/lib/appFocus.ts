@@ -9,6 +9,10 @@ import { onServerClockChange } from '@/lib/serverClock';
  * this, data went stale while the app sat in the background: who fed, and photo links that
  * expire after an hour. Coming back to the app now counts as focus, and stale queries refetch.
  *
+ * Only from the background: iOS goes inactive and active again for Control Center, Notification
+ * Center and system sheets, and on the way out when the side button locks the phone, and the app
+ * never left. The first active of a start is no return either, unless the app wasn't in sight.
+ *
  * The network side (onlineManager) stays off on purpose: it would pause requests while
  * offline instead of failing them, and the offline screen and the feed queue rely on failures.
  * A connection that comes back reloads the screen through useFeedQueue instead.
@@ -16,7 +20,10 @@ import { onServerClockChange } from '@/lib/serverClock';
 export function refetchWhenAppReturns(): void {
   if (Platform.OS === 'web') return;
   focusManager.setEventListener((setFocused) => {
-    const subscription = AppState.addEventListener('change', (state) => setFocused(state === 'active'));
+    if (AppState.currentState !== 'background') setFocused(true);
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'inactive') setFocused(state === 'active');
+    });
     return () => subscription.remove();
   });
 }
