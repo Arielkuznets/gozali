@@ -57,8 +57,8 @@ export default function FeedScreen() {
   // asks a second time, and a browser's prompt can be dismissed.
   const [answered, setAnswered] = useState(false);
   const toAsk = permission !== null && !permission.granted && permission.canAskAgain && !answered;
-  // A screen opened over this one (a tapped notification, a link) leaves it mounted. Only iOS can
-  // stop a camera that stays mounted, so the camera goes with the focus.
+  // A screen opened over this one (a tapped notification, a link) leaves it mounted. Expo asks to
+  // unmount the camera then, or it runs on under that screen; its active prop is iOS only.
   const focused = useIsFocused();
   const camera = useRef<CameraView>(null);
   const [facing, setFacing] = useState<CameraType>('back');
