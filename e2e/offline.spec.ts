@@ -165,3 +165,38 @@ test('offline with an expired sign-in, the app still opens on the packs', async 
   await expect(page.getByText('Gym squad')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Continue with Apple' })).toBeHidden();
 });
+
+/** Refuses every call to the server, as a restricted project does. */
+async function restrictProject(page: import('@playwright/test').Page) {
+  const body = JSON.stringify({ message: 'Service for this project is restricted' });
+  for (const path of ['rest', 'auth', 'storage', 'functions']) {
+    await page.route(`**/${path}/v1/**`, (route) => route.fulfill({ status: 402, contentType: 'application/json', body }));
+  }
+}
+
+test('a restricted project keeps an expired sign-in on the packs', async ({ page }) => {
+  await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' });
+  await signInOnce(page, noa);
+  await page.goto('/');
+  await expect(page.getByText('Gym squad')).toBeVisible();
+  await page.waitForTimeout(1500);
+
+  // An hour later the access token has expired, and every call comes back refused, the refresh too.
+  await page.evaluate(() => {
+    const stored = JSON.parse(window.localStorage.getItem('sb-127-auth-token')!);
+    stored.expires_at = Math.floor(Date.now() / 1000) - 3600;
+    window.localStorage.setItem('sb-127-auth-token', JSON.stringify(stored));
+  });
+  await restrictProject(page);
+  let refreshes = 0;
+  page.on('request', (request) => {
+    if (request.method() === 'POST' && request.url().includes('grant_type=refresh_token')) refreshes += 1;
+  });
+  await page.reload();
+
+  // The refusal says nothing about the token, so the refresh goes on trying and the session stays.
+  await expect.poll(() => refreshes).toBeGreaterThan(1);
+  await expect(page.getByText('Gym squad')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Continue with Apple' })).toBeHidden();
+  expect(await keptCopy(page)).toContain('Gym squad');
+});

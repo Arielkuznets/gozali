@@ -40,17 +40,21 @@ const authStorage = {
   removeItem: (key: string) => AsyncStorage.removeItem(key),
 };
 
+/** Refusals that say nothing about the refresh token: project restricted, rate limit, project paused. */
+const NOT_ABOUT_THE_TOKEN = new Set([402, 429, 540]);
+
 /**
  * The fetch behind every request. auth-js takes any refused refresh for a dead refresh token, and
- * with the access token run out it removes the session. A rate limit says nothing about the token,
- * so there it hears what a lost connection says: it tries again, and the session stays until a
+ * with the access token run out it removes the session. On a refusal that says nothing about the
+ * token it hears what a lost connection says instead: it tries again, and the session stays until a
  * refresh gets through. A token still good needs none of this, because auth-js keeps that session.
  */
 const appFetch: typeof fetch = async (input, init) => {
   const response = await clockedFetch(input, init);
-  if (response.status !== 429 || !String(input).includes('/auth/v1/token?grant_type=refresh_token')) return response;
+  if (!NOT_ABOUT_THE_TOKEN.has(response.status)) return response;
+  if (!String(input).includes('/auth/v1/token?grant_type=refresh_token')) return response;
   const session = await storedSession();
-  if (session && (session.expires_at ?? 0) * 1000 <= serverNow().getTime()) throw new TypeError('Too many refreshes');
+  if (session && (session.expires_at ?? 0) * 1000 <= serverNow().getTime()) throw new TypeError('Refresh not served');
   return response;
 };
 
