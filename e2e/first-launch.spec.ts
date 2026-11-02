@@ -93,8 +93,15 @@ test.describe('in a window shorter than a phone', () => {
 
   test('the join screen scrolls to the whole pack, clear of the buttons below', async ({ page }) => {
     await page.goto(`/join?code=${pack.inviteCode}`);
-    await expect(page.getByText('Join a pack')).toBeInViewport({ ratio: 1 });
     await expectClearOf(page.getByText("You're already in this pack."), page.getByRole('button', { name: 'Open pack' }));
+    await page.getByText('Join a pack').scrollIntoViewIfNeeded();
+    await expect(page.getByText('Join a pack')).toBeInViewport({ ratio: 1 });
+  });
+
+  test('the join screen brings the answer to a code into view', async ({ page }) => {
+    await page.goto('/join');
+    await page.getByLabel('Invite code').fill('AAAAAAAA');
+    await expect(page.getByText('No pack has this code.')).toBeInViewport({ ratio: 1 });
   });
 });
 

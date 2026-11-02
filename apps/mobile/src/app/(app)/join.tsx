@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -33,6 +33,7 @@ function JoinForm({ linkCode }: { linkCode: string }) {
   const joinPack = useJoinPack();
   const navigation = useNavigation();
   const queryClient = useQueryClient();
+  const body = useRef<ScrollView>(null);
 
   const onPaste = async () => {
     setCode(inviteCodeFrom(await Clipboard.getStringAsync()));
@@ -68,8 +69,13 @@ function JoinForm({ linkCode }: { linkCode: string }) {
 
   return (
     <Screen>
-      {/* Scrolls when the keyboard or a short window leaves too little room for the pack. */}
-      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+      {/* Scrolls when the keyboard or a short window leaves too little room for the pack. What a code
+          brings comes last, and has to show without a scroll: a code no pack has only dims the button. */}
+      <ScrollView
+        ref={body}
+        contentContainerStyle={styles.body}
+        keyboardShouldPersistTaps="handled"
+        onContentSizeChange={() => body.current?.scrollToEnd()}>
         <AppText variant="heading">{t('join.title')}</AppText>
         <View style={styles.codeRow}>
           <View style={styles.codeField}>
