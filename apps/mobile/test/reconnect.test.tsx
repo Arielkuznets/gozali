@@ -352,6 +352,17 @@ describe('the hourly refresh', () => {
     expect(packReads()).toBe(1);
   });
 
+  it('reloads nothing for what went out before the sign-in', async () => {
+    await requireSupabase().from('packs').select('id');
+    await storeSession(nowSeconds() + 3600);
+    await openApp();
+    expect(packReads()).toBe(2);
+
+    await refreshRuns(59 * MINUTE);
+    expect(tokenCalls()).toBe(1);
+    expect(packReads()).toBe(2);
+  });
+
   it('adds nothing to a read that was already waiting for it', async () => {
     await storeSession(nowSeconds() - 3600);
     await openApp();
