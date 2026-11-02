@@ -104,6 +104,9 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   };
   try {
     log(backUp());
+    // What the owners' daily summary reads, so a backup that stops shows there. Not note_heartbeat:
+    // it takes a gap of over an hour for an outage, and backups are a day apart.
+    query(`insert into public.heartbeats (job, at) values ('backup', now()) on conflict (job) do update set at = excluded.at`);
   } catch (error) {
     log(`FAILED ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;

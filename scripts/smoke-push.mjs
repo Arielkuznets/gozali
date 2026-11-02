@@ -232,6 +232,13 @@ const files = render({ type: 'daily_summary', payload: { newUsers: 0, users: 41,
 check(files.body.endsWith('· 📦 500 MB of files (free plan: 1 GB)'), 'and when the stored files reach half of the plan');
 const fewFiles = render({ type: 'daily_summary', payload: { newUsers: 0, users: 41, feeders: 0, packs: 0, fileMB: 499 } });
 check(!fewFiles.body.includes('MB'), 'and says nothing about them below that');
+const noBackup = render({ type: 'daily_summary', payload: { newUsers: 0, users: 41, feeders: 0, packs: 0, backupDays: null } });
+check(noBackup.body.endsWith('· 💾 no backup yet'), 'and when no backup has reported');
+const oldBackup = render({ type: 'daily_summary', payload: { newUsers: 0, users: 41, feeders: 0, packs: 0, backupDays: 2 } });
+check(oldBackup.body.endsWith('· 💾 last backup 2 days ago'), 'and when a night was missed');
+const freshBackup = render({ type: 'daily_summary', payload: { newUsers: 0, users: 41, feeders: 0, packs: 0, backupDays: 1 } });
+check(!freshBackup.body.includes('💾'), 'but not after a good night');
+check(!fewFiles.body.includes('💾'), 'nor on a summary queued before backups reported');
 
 await admin.from('packs').delete().eq('id', pack.id);
 for (const id of [noa, dan, maya, lior]) await admin.auth.admin.deleteUser(id);

@@ -47,7 +47,13 @@ test('a backup keeps every row of a table longer than one page', async () => {
   // The statistics a live table has by the time the night's backup runs.
   run('npx supabase db query --local "analyze public.day_results"');
 
+  const heartbeat = async () => (await admin.from('heartbeats').select('at').eq('job', 'backup').maybeSingle()).data?.at;
+  const lastBeat = await heartbeat();
+
   run(`node scripts/backup.mjs --local --out "${out}"`);
+
+  // What the owners' daily summary reads to say how old the newest backup is.
+  expect(await heartbeat()).not.toBe(lastBeat);
 
   const file = readdirSync(out).find((name) => name.endsWith('.json'))!;
   const backup = JSON.parse(readFileSync(join(out, file), 'utf8')) as { tables: Record<string, { pack_id: string; day: string }[]> };

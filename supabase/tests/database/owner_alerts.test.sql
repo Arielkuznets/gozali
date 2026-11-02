@@ -1,7 +1,7 @@
 -- Owner alerts: a push when someone finishes signing up, and the day's summary at 21:00.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(24);
+select plan(27);
 
 delete from public.notifications;
 
@@ -69,7 +69,7 @@ select is(public.queue_daily_summaries(pg_temp.at_local('20:50')), 0, 'no summar
 select is(public.queue_daily_summaries(pg_temp.at_local('21:05')), 1, 'the summary is queued after 21:00');
 select is(public.queue_daily_summaries(pg_temp.at_local('21:15')), 0, 'once a day');
 select is(
-  (select payload - 'failedJobs' - 'serverErrors' - 'packsBehind' - 'fileMB' from public.notifications where type = 'daily_summary'),
+  (select payload - 'failedJobs' - 'serverErrors' - 'packsBehind' - 'fileMB' - 'backupDays' from public.notifications where type = 'daily_summary'),
   jsonb_build_object(
     'newUsers', (select count(*) from public.profiles p where p.terms_accepted_at >= pg_temp.at_local('00:00') and p.terms_accepted_at < pg_temp.at_local('00:00') + interval '1 day'),
     'users', (select count(*) from public.profiles p where p.terms_accepted_at is not null),
@@ -78,7 +78,7 @@ select is(
   'with the day''s numbers'
 );
 select ok(
-  (select payload ?& array['failedJobs', 'serverErrors', 'packsBehind', 'fileMB'] from public.notifications where type = 'daily_summary'),
+  (select payload ?& array['failedJobs', 'serverErrors', 'packsBehind', 'fileMB', 'backupDays'] from public.notifications where type = 'daily_summary'),
   'and the server''s health'
 );
 select ok(
@@ -118,6 +118,25 @@ select is(
   'the summary says how much the stored files weigh'
 );
 update today set day = day - 2;
+
+-- How old the newest backup is, in whole days: a run from the night before is about 23.5 hours old
+-- at 21:05, and one night missed adds a day. With none on record the key is there and null.
+create function pg_temp.backup_days() returns jsonb language plpgsql as $$
+declare
+  days jsonb;
+begin
+  delete from public.notifications where type = 'daily_summary';
+  perform public.queue_daily_summaries(pg_temp.at_local('21:05'));
+  select payload -> 'backupDays' into days from public.notifications where type = 'daily_summary';
+  return days;
+end;
+$$;
+delete from public.heartbeats where job = 'backup';
+select is(pg_temp.backup_days(), 'null'::jsonb, 'the summary says when no backup has reported');
+insert into public.heartbeats (job, at) values ('backup', pg_temp.at_local('21:05') - interval '23 hours 30 minutes');
+select is(pg_temp.backup_days(), '1'::jsonb, 'last night''s backup is a day old');
+update public.heartbeats set at = pg_temp.at_local('21:05') - interval '47 hours 30 minutes' where job = 'backup';
+select is(pg_temp.backup_days(), '2'::jsonb, 'and a missed night makes it two');
 
 -- Calls from the database to the functions that failed are kept for the summary.
 insert into net._http_response (id, status_code, content, created)

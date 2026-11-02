@@ -175,5 +175,9 @@ function summaryLine(payload: Record<string, unknown>): string {
   // Half of the free plan's 1 GB, early on purpose: it also stands in for the plan's 5 GB of egress,
   // which nothing can read and which grows with the files, up to the 8 members of a pack.
   if (count('fileMB') >= 500) parts.push(`📦 ${count('fileMB')} MB of files (free plan: 1 GB)`);
+  // A normal night's backup is a day old here. count() reads null as 0, and null is a project with no
+  // backup on record, so it is asked for by name. A row with no key at all says nothing.
+  if (payload.backupDays === null) parts.push('💾 no backup yet');
+  else if (count('backupDays') >= 2) parts.push(`💾 last backup ${count('backupDays')} days ago`);
   return parts.join(' · ');
 }
