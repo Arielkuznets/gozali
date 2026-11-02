@@ -69,6 +69,7 @@ const requests: string[] = [];
 const tokenCalls = () => requests.filter((path) => path === '/auth/v1/token').length;
 const savedFeeds: string[] = [];
 let refreshRefusal: number | null = null;
+let connected = true;
 
 function answer(status: number, body: unknown) {
   const headers = { 'content-type': 'application/json', date: new Date(machineNow()).toUTCString() };
@@ -143,6 +144,11 @@ const withQueryClient = (screen: ReactNode) => (
 beforeAll(() => {
   jest.spyOn(Date, 'now').mockImplementation(() => machineNow() + phoneAhead);
   globalThis.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    if (!connected) {
+      // The half a minute auth-js spends on retries passes at once here, so it gives up on the first.
+      phoneAhead += 30_000;
+      throw new TypeError('Network request failed');
+    }
     const url = new URL(String(input));
     requests.push(url.pathname);
     return server(url, new Headers(init?.headers).get('authorization')?.replace('Bearer ', '') ?? null);
@@ -157,6 +163,7 @@ afterAll(async () => {
 beforeEach(async () => {
   phoneAhead = 0;
   refreshRefusal = null;
+  connected = true;
   hearFromServer();
   await AsyncStorage.clear();
   tokenExpiry.clear();
@@ -295,6 +302,50 @@ describe('a session on a phone with the right clock', () => {
     await storeSession(serverSeconds() - 120);
     await requireSupabase().auth.getSession();
     expect(tokenCalls()).toBe(1);
+  });
+});
+
+describe('a refresh that failed with no connection', () => {
+  async function refreshFailsOnADeadToken() {
+    await storeSession(serverSeconds() - 120);
+    connected = false;
+    await requireSupabase().auth.getSession();
+    connected = true;
+  }
+
+  it('is remembered in a field private to auth-js, which the app clears when the clock moved', async () => {
+    await refreshFailsOnADeadToken();
+    expect(requireSupabase().auth['lastRefreshFailure']).toEqual(expect.objectContaining({ expiresAt: expect.any(Number) }));
+  });
+
+  it("holds the next refresh back for auth-js's minute on a clock that stayed put", async () => {
+    await refreshFailsOnADeadToken();
+    await requireSupabase().auth.getSession();
+    expect(tokenCalls()).toBe(0);
+  });
+
+  describe('before the clock was set back', () => {
+    it('goes out again on a phone that knew its offset, once an answer shows the move', async () => {
+      phoneAhead = 3 * HOUR;
+      hearFromServer();
+      await refreshFailsOnADeadToken();
+
+      phoneAhead = 0;
+      await requireSupabase().from('profiles').select('id');
+      const { status } = await requireSupabase().from('profiles').select('id');
+      expect(status).toBe(200);
+      expect(tokenCalls()).toBe(1);
+    });
+
+    it('goes out again on a phone whose offset never moved, where no answer shows anything', async () => {
+      phoneAhead = 3 * HOUR;
+      await refreshFailsOnADeadToken();
+
+      phoneAhead = 0;
+      const { status } = await requireSupabase().from('profiles').select('id');
+      expect(status).toBe(200);
+      expect(tokenCalls()).toBe(1);
+    });
   });
 });
 

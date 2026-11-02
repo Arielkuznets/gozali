@@ -15,6 +15,23 @@ type Client = SupabaseClient<Database>;
 /** Where supabase-js keeps the session: its default key, named so the app can read it (AuthProvider). */
 export const AUTH_STORAGE_KEY = url ? `sb-${new URL(url).hostname.split('.')[0]}-auth-token` : '';
 
+/** How long auth-js holds the next refresh back after one failed. */
+const REFRESH_HELD_MS = 60_000;
+
+/**
+ * auth-js sends no refresh until a moment on the phone's clock after one failed, and reads go out
+ * without a token meanwhile. A clock set back since puts that moment further off than auth-js ever
+ * does, by the size of the jump, so a moment that far off is forgotten. The offset can't be asked:
+ * it never moved for a clock that went ahead and back with no connection. Every refresh starts by
+ * reading the session, so that read does this. The field is private to auth-js: the typecheck and
+ * wrongClock.test.tsx fail if it goes.
+ */
+function forgetFailedRefreshOfAnotherClock(): void {
+  const auth = supabase?.auth;
+  const heldUntil = auth?.['lastRefreshFailure']?.expiresAt ?? 0;
+  if (auth && heldUntil - Date.now() > REFRESH_HELD_MS) auth['lastRefreshFailure'] = null;
+}
+
 /**
  * AsyncStorage, with a session's expires_at read as the phone's clock will show that moment. The
  * time is the server's and auth-js holds it against Date.now: a phone behind would keep a token the
@@ -26,6 +43,7 @@ const authStorage = {
   getItem: async (key: string): Promise<string | null> => {
     const stored = await AsyncStorage.getItem(key);
     if (key !== AUTH_STORAGE_KEY || !stored) return stored;
+    forgetFailedRefreshOfAnotherClock();
     await clockRestored;
     try {
       const session = JSON.parse(stored) as Partial<Session> | null;
