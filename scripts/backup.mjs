@@ -66,6 +66,24 @@ function queryOnce(sql, where) {
 }
 
 const json = (value) => (typeof value === 'string' ? JSON.parse(value) : value);
+const quoted = (name) => `"${name.replaceAll('"', '""')}"`;
+const literal = (value) => `'${String(value).replaceAll("'", "''")}'`;
+
+/** Each table's primary key columns, in the key's order. */
+function primaryKeys() {
+  return new Map(
+    query(
+      `select n.nspname || '.' || c.relname as name,
+              (select json_agg(a.attname order by k.ord)
+               from unnest(i.indkey) with ordinality k(attnum, ord)
+               join pg_attribute a on a.attrelid = i.indrelid and a.attnum = k.attnum) as cols
+       from pg_index i
+       join pg_class c on c.oid = i.indrelid
+       join pg_namespace n on n.oid = c.relnamespace
+       where i.indisprimary and n.nspname in ('public', 'auth')`,
+    ).map((row) => [row.name, json(row.cols)]),
+  );
+}
 
 /** Every table, saved into `out`; returns a line for the log. */
 function backUp() {
@@ -78,19 +96,23 @@ function backUp() {
   if (!tables.includes('public.profiles')) throw new Error('the database listed no tables');
 
   const backup = { takenAt: new Date().toISOString(), source: target.slice(2), tables: {} };
+  const keys = primaryKeys();
   for (const table of tables) {
     const rows = [];
-    // In the order of whole rows, so every page sees the same order. Rows that share a first
-    // column (a pack's day results) have no order by it alone, and pages would repeat some of them
-    // and skip others.
+    const key = keys.get(table);
+    const columns = key?.map(quoted).join(', ');
+    // Each page starts after the key the last one ended on: a range of the index, the same cost
+    // anywhere in the table, and a row deleted behind it moves nothing past it. A table with no key
+    // goes by the order of whole rows, which sorts it for every page, so those have to stay small.
+    let after = '';
     for (let offset = 0; ; offset += PAGE) {
+      const tail = key ? `${after} order by ${columns} limit ${PAGE}` : `order by (r.*) limit ${PAGE} offset ${offset}`;
       const page = json(
-        query(
-          `select coalesce(json_agg(t), '[]'::json) as rows from (select * from ${table} as r order by (r.*) limit ${PAGE} offset ${offset}) t`,
-        )[0].rows,
+        query(`select coalesce(json_agg(t), '[]'::json) as rows from (select * from ${table} as r ${tail}) t`)[0].rows,
       );
       rows.push(...page);
       if (page.length < PAGE) break;
+      if (key) after = `where (${columns}) > (${key.map((col) => literal(page.at(-1)[col])).join(', ')})`;
     }
     backup.tables[table] = rows;
   }

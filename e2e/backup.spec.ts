@@ -10,6 +10,7 @@ import { expect, test } from '@playwright/test';
 import { admin, createPack, createUser, removeUsers, type TestUser } from './support';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
+const stack = 'supabase_db_gozali';
 let noa: TestUser;
 let out: string;
 
@@ -23,14 +24,21 @@ test.afterEach(async () => {
   rmSync(out, { recursive: true, force: true });
 });
 
-function run(command: string) {
-  const result = spawnSync(command, { cwd: root, shell: true, encoding: 'utf8' });
+function run(command: string, env: NodeJS.ProcessEnv = process.env) {
+  const result = spawnSync(command, { cwd: root, shell: true, encoding: 'utf8', env });
   expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
   return result.stdout;
 }
 
+function psql(database: string, sql: string) {
+  const args = ['exec', '-i', stack, 'psql', '-U', 'supabase_admin', '-d', database, '-At', '-v', 'ON_ERROR_STOP=1'];
+  const result = spawnSync('docker', args, { input: sql, encoding: 'utf8' });
+  expect(result.status, result.stderr).toBe(0);
+  return result.stdout.trim();
+}
+
 test('a backup keeps every row of a table longer than one page', async () => {
-  test.setTimeout(180_000);
+  test.setTimeout(300_000);
   const packs = [
     await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }),
     await createPack(noa, { name: 'Morning runs', habit: 'running', species: 'hoot' }),
@@ -50,34 +58,43 @@ test('a backup keeps every row of a table longer than one page', async () => {
   const heartbeat = async () => (await admin.from('heartbeats').select('at').eq('job', 'backup').maybeSingle()).data?.at;
   const lastBeat = await heartbeat();
 
-  run(`node scripts/backup.mjs --local --out "${out}"`);
+  // One of these rows goes while the run reads the second page, from the part it has already read.
+  const gone = { pack_id: packs.map((pack) => pack.id).sort()[0]!, day: days[0]! };
+  const secondPage = join(out, 'second-page.sql');
+  run(`node --require ./e2e/between-pages.cjs scripts/backup.mjs --local --out "${out}"`, {
+    ...process.env,
+    PAGED_TABLE: 'public.day_results',
+    SECOND_PAGE_SQL: secondPage,
+    BETWEEN_PAGES: `delete from public.day_results where pack_id = '${gone.pack_id}' and day = '${gone.day}'`,
+  });
 
   // A run that saved its file leaves a heartbeat.
   expect(await heartbeat()).not.toBe(lastBeat);
 
+  const left = await admin.from('day_results').select('day').eq('pack_id', gone.pack_id).eq('day', gone.day);
+  expect(left.data).toEqual([]);
   const file = readdirSync(out).find((name) => name.endsWith('.json'))!;
   const backup = JSON.parse(readFileSync(join(out, file), 'utf8')) as { tables: Record<string, { pack_id: string; day: string }[]> };
-  const ours = new Set(packs.map((pack) => pack.id));
-  const saved = new Set(
-    backup.tables['public.day_results']!.filter((row) => ours.has(row.pack_id)).map((row) => `${row.pack_id} ${row.day}`),
-  );
-  expect(saved.size).toBe(rows.length);
+  const label = (row: { pack_id: string; day: string }) => `${row.pack_id} ${row.day}`;
+  const saved = backup.tables['public.day_results']!.map(label);
+  expect(saved.length).toBe(new Set(saved).size);
+  const inFile = new Set(saved);
+  const live = rows.map(label).filter((row) => row !== label(gone));
+  expect(live.filter((row) => !inFile.has(row))).toEqual([]);
+
+  // The page is a range of the key's index, not a sort of the whole table. A table this small might
+  // get a sequential scan on its merits, so the plan is asked for without them.
+  const plan = psql('postgres', `set enable_seqscan = off; explain (costs off) ${readFileSync(secondPage, 'utf8')}`);
+  expect(plan).toContain('Index');
+  expect(plan).not.toContain('Sort');
 });
 
 test.describe('a restore', () => {
   type Row = Record<string, unknown>;
-  const stack = 'supabase_db_gozali';
   const newProject = 'gozali_restore_new_project';
   const target = 'gozali_restore_target';
   const allowedTime = 300_000;
   let dan: TestUser;
-
-  function psql(database: string, sql: string) {
-    const args = ['exec', '-i', stack, 'psql', '-U', 'supabase_admin', '-d', database, '-At', '-v', 'ON_ERROR_STOP=1'];
-    const result = spawnSync('docker', args, { input: sql, encoding: 'utf8' });
-    expect(result.status, result.stderr).toBe(0);
-    return result.stdout.trim();
-  }
 
   function copyToNewProject(dump: string) {
     const copy = `pg_dump -U supabase_admin -d postgres ${dump} | psql -U supabase_admin -d ${newProject} -q`;
