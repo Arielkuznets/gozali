@@ -3,7 +3,6 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import { useRefetchWhenClockMoves } from '@/lib/appFocus';
-import { persistOptions } from '@/lib/queryCache';
 import { clockedFetch, noteServerDate, onServerClockChange, serverNow } from '@/lib/serverClock';
 import { useNow } from '@/lib/useNow';
 
@@ -171,11 +170,15 @@ describe("the server's clock", () => {
       await settle();
     }
 
-    /** A start of the app on the copy kept on the phone. */
+    /** A start of the app on the copy kept on the phone, with what the persister holds in memory gone. */
     async function openOnCopy(read: () => Promise<string>) {
+      let cache!: typeof import('@/lib/queryCache');
+      jest.isolateModules(() => {
+        cache = jest.requireActual<typeof import('@/lib/queryCache')>('@/lib/queryCache');
+      });
       await act(async () => {
         app = create(
-          <PersistQueryClientProvider client={newClient()} persistOptions={persistOptions}>
+          <PersistQueryClientProvider client={newClient()} persistOptions={cache.persistOptions}>
             <Root read={read} />
           </PersistQueryClientProvider>,
         );
