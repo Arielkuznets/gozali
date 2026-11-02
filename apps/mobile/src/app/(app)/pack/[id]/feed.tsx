@@ -41,6 +41,7 @@ const CAPTION_MAX = 80;
 // there yet; a few quick retries cover that before the tap counts as failed.
 const CAPTURE_TRIES = 8;
 const CAPTURE_RETRY_MS = 250;
+const CLOSE_AFTER_MS = 1500;
 
 type Shot = { uri: string; width: number; capturedAt: string };
 
@@ -89,12 +90,23 @@ export default function FeedScreen() {
   );
 
   // The tap on Feed gives the system alert its context and the purpose string its reason, so no
-  // screen of ours comes first. A link to a pack that is gone has no use for the camera; offline
-  // a pack the phone doesn't hold never loads, and the camera still works.
+  // screen of ours comes first. A link to a pack that is gone has no use for the camera, so a pack
+  // the phone doesn't hold waits for its read. Offline that read fails after its retries, and the
+  // alert comes then: the camera still works.
   const askNow = toAsk && pack !== null && !packLoading && !paused;
   useEffect(() => {
     if (askNow) void requestPermission().finally(() => setAnswered(true));
   }, [askNow, requestPermission]);
+
+  // Those retries take minutes on a dead connection, on a screen that has no swipe or back on an
+  // iPhone. A good connection never sees the way out.
+  const waitingForPack = toAsk && packLoading;
+  const [closable, setClosable] = useState(false);
+  useEffect(() => {
+    if (!waitingForPack) return;
+    const timer = setTimeout(() => setClosable(true), CLOSE_AFTER_MS);
+    return () => clearTimeout(timer);
+  }, [waitingForPack]);
 
   // On Android the app keeps running through a yes in the phone's settings and nothing tells it, so
   // the refused screen reads the answer again on the way back. An alert brings its own answer.
@@ -199,7 +211,12 @@ export default function FeedScreen() {
   if (!permission || toAsk || paused) {
     return (
       <SafeAreaView style={styles.dark}>
-        <ActivityIndicator color={colors.onDark} />
+        {waitingForPack && closable && (
+          <View style={styles.topBar}>
+            <CloseCamera packId={packId} />
+          </View>
+        )}
+        <ActivityIndicator style={styles.fill} color={colors.onDark} />
       </SafeAreaView>
     );
   }
@@ -254,9 +271,7 @@ export default function FeedScreen() {
   return (
     <SafeAreaView style={styles.dark}>
       <View style={styles.topBar}>
-        <Pressable accessibilityRole="button" accessibilityLabel={t('feed.close')} onPress={() => goBack(`/pack/${packId}`)} hitSlop={12}>
-          <AppText style={styles.light}>✕</AppText>
-        </Pressable>
+        <CloseCamera packId={packId} />
         <AppText style={[styles.light, styles.title]} numberOfLines={1}>
           {title}
         </AppText>
@@ -287,6 +302,15 @@ export default function FeedScreen() {
         </Pressable>
       </View>
     </SafeAreaView>
+  );
+}
+
+function CloseCamera({ packId }: { packId: string }) {
+  const { t } = useTranslation();
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={t('feed.close')} onPress={() => goBack(`/pack/${packId}`)} hitSlop={12}>
+      <AppText style={styles.light}>✕</AppText>
+    </Pressable>
   );
 }
 

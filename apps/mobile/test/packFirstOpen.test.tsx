@@ -448,4 +448,54 @@ describe('the camera on a pack opened from the list', () => {
       expect(shown()).toContain("This pack isn't here");
     });
   });
+
+  describe('when the system can still ask and the pack is not on the phone', () => {
+    const close = () => screen.root.findAll((node) => node.props.accessibilityLabel === 'Close' && node.props.onPress);
+    const advance = (ms: number) =>
+      act(async () => {
+        await jest.advanceTimersByTimeAsync(ms);
+      });
+
+    /** With the retries the app has, on a client that holds nothing. */
+    async function openOnNothing() {
+      await act(async () => {
+        screen = create(
+          <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { gcTime: Infinity } } })}>
+            <FeedScreen />
+          </QueryClientProvider>,
+        );
+      });
+      trees.push(screen);
+    }
+
+    beforeEach(() => {
+      jest.useFakeTimers();
+      mockGet.mockResolvedValue(answerOf('undetermined'));
+      mockRequest.mockImplementation(never);
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('offers a way out through the tries of a read that fails, and asks after them', async () => {
+      mockAnswer = async () => OFFLINE;
+      await openOnNothing();
+      await advance(2000);
+      expect(close()).toHaveLength(1);
+      expect(mockRequest).not.toHaveBeenCalled();
+
+      await advance(6000);
+      expect(mockRequest).toHaveBeenCalledTimes(1);
+      expect(close()).toEqual([]);
+    });
+
+    it('offers a way out on a read that never answers', async () => {
+      await openOnNothing();
+      await advance(2000);
+
+      expect(close()).toHaveLength(1);
+      expect(mockRequest).not.toHaveBeenCalled();
+    });
+  });
 });

@@ -90,6 +90,11 @@ async function comeBackToApp() {
   await act(async () => appStates.forEach((listener) => listener('active')));
 }
 
+const advance = (ms: number) =>
+  act(async () => {
+    await jest.advanceTimersByTimeAsync(ms);
+  });
+
 const shown = () => JSON.stringify(screen.toJSON());
 const buttons = () =>
   screen.root
@@ -127,6 +132,7 @@ beforeEach(() => {
 
 afterEach(async () => {
   await act(async () => screen.unmount());
+  jest.useRealTimers();
 });
 
 describe('the first opening, when the system can still ask', () => {
@@ -187,6 +193,30 @@ describe('the first opening, when the system can still ask', () => {
     mockPack = { data: PACK, isLoading: false, refetch: jest.fn() };
     await act(async () => screen.update(<FeedScreen />));
     expect(mockRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers a way out when the pack takes long, and only then', async () => {
+    jest.useFakeTimers();
+    mockPack = { data: undefined, isLoading: true, refetch: jest.fn() };
+    await open();
+    await advance(1000);
+    expect(buttons()).toEqual([]);
+
+    await advance(1000);
+    expect(buttons()).toEqual(['Close']);
+    expect(mockRequest).not.toHaveBeenCalled();
+
+    await act(async () => screen.root.findAll((node) => node.props.accessibilityLabel === 'Close' && node.props.onPress)[0]?.props.onPress());
+    expect(mockBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps that way out off the system alert', async () => {
+    jest.useFakeTimers();
+    await open();
+    await advance(10_000);
+
+    expect(mockRequest).toHaveBeenCalledTimes(1);
+    expect(buttons()).toEqual([]);
   });
 
   it('still asks offline, where the pack never loads and the camera works', async () => {
