@@ -27,7 +27,7 @@ end;
 $$;
 
 insert into public.notifications (user_id, type, payload, send_after)
-values ('00000000-0000-0000-0000-0000000000e1', 'friend_fed', '{"feeders": []}', timestamptz '2000-01-01');
+values ('00000000-0000-0000-0000-0000000000e1', 'friend_fed', '{"feeders": ["00000000-0000-0000-0000-0000000000e1"]}', timestamptz '2000-01-01');
 
 create temp table runs (try integer, claimed integer, wait_minutes numeric);
 do $$
@@ -63,11 +63,11 @@ select is((select status::text from public.notifications), 'dropped', 'it is dro
 -- Two hundred refused rows are a whole run's worth: what comes after them still goes out.
 delete from public.notifications;
 insert into public.notifications (user_id, type, payload, send_after)
-select '00000000-0000-0000-0000-0000000000e1', 'friend_fed', '{"feeders": []}', timestamptz '2000-01-01' + make_interval(secs => n)
+select '00000000-0000-0000-0000-0000000000e1', 'friend_fed', '{"feeders": ["00000000-0000-0000-0000-0000000000e1"]}', timestamptz '2000-01-01' + make_interval(secs => n)
 from generate_series(1, 200) n;
 select pg_temp.refused_run();
 insert into public.notifications (id, user_id, type, payload, send_after)
-values ('50000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000e1', 'friend_fed', '{"feeders": []}', timestamptz '2000-01-02');
+values ('50000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000e1', 'friend_fed', '{"feeders": ["00000000-0000-0000-0000-0000000000e1"]}', timestamptz '2000-01-02');
 
 create temp table next_run as select c.id from public.claim_notifications((select at from noon)) c;
 select is((select count(*) from next_run), 200::bigint, 'the next run still takes a full 200');
