@@ -51,7 +51,8 @@ What the app collects (see docs/legal/privacy-policy.md). No tracking, no ads, n
 | Email address (from Apple or Google sign-in) | Contact info, linked to the user | Personal info: email, collected | Account |
 | Display name and profile photo | Contact info: name; User content: photos, linked | Personal info: name; Photos, collected, shared with pack members | App functionality |
 | Feed photos and captions | User content: photos, other user content, linked | Photos; other user-generated content, shared with pack members | App functionality |
-| Reactions, nudges, name suggestions | User content: other, linked | Other user-generated content | App functionality |
+| Reactions, nudges, name suggestions, reports and blocks | User content: other, linked | Other user-generated content | App functionality |
+| Focus session lengths, rest days, jokers, pauses and outfit changes | Usage data: product interaction, linked | App activity: other actions | App functionality |
 | User ID | Identifiers: user ID, linked | App info: other IDs | App functionality |
 | Push token and widget token | Identifiers: device ID, linked | Device or other IDs | App functionality |
 | Time zone and reminder settings | Other data, linked | App info: other | App functionality |
