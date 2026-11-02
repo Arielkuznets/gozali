@@ -26,6 +26,7 @@ const AWAY: Seen = { status: 'ran_away', stage: 'kid' };
 const ADULT: Seen = { status: 'active', stage: 'adult' };
 /** Well past the second the persister holds a save back after the one before it. */
 const SAVE_MS = 1500;
+const HOUR = 60 * 60_000;
 jest.setTimeout(15_000);
 
 const settle = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -182,6 +183,9 @@ describe('the app closed right after a celebration', () => {
 
   let shown: Seen | null | undefined;
 
+  // A save still held back would land in the next test.
+  afterEach(() => settle(SAVE_MS));
+
   function PackScreen() {
     const { data: pack, dataUpdatedAt } = usePack(PACK);
     shown = pack?.critters;
@@ -222,13 +226,13 @@ describe('the app closed right after a celebration', () => {
     return () => multiSet.mockImplementation(write);
   }
 
-  it('celebrates the hatching once, and the next stage after it', async () => {
+  /** The hatching celebrated, and the app gone before the save held back gets through. */
+  async function celebrateTheHatchingAndClose() {
     mockAnswer = async () => packWith(EGG);
     const first = await startApp();
     await act(() => settle(SAVE_MS));
     expect(await AsyncStorage.getItem(COPY)).toContain('"status":"egg"');
 
-    // The app is gone before the save held back gets through.
     const allowSaves = blockSaves();
     mockAnswer = async () => packWith(BABY);
     await first.fetchAgain();
@@ -237,6 +241,10 @@ describe('the app closed right after a celebration', () => {
     await act(async () => first.app.unmount());
     await settle(SAVE_MS);
     allowSaves();
+  }
+
+  it('celebrates the hatching once, and the next stage after it', async () => {
+    await celebrateTheHatchingAndClose();
 
     let serverAnswers = () => {};
     mockAnswer = () =>
@@ -257,6 +265,24 @@ describe('the app closed right after a celebration', () => {
     mockAnswer = async () => packWith(KID);
     await second.fetchAgain();
     expect(moment.milestone).toEqual({ kind: 'evolved', to: 'kid' });
+    await act(async () => second.app.unmount());
+  });
+
+  it('takes the copy for no answer when the clock was set back since it was saved', async () => {
+    const machineNow = Date.now.bind(Date);
+    const clock = jest.spyOn(Date, 'now').mockImplementation(() => machineNow() + HOUR);
+    await celebrateTheHatchingAndClose();
+    clock.mockRestore();
+
+    mockAnswer = () => new Promise(() => undefined);
+    const second = await startApp();
+    expect(shown).toEqual(EGG);
+    expect(await remembered()).toEqual(BABY);
+
+    mockAnswer = async () => packWith(BABY);
+    await second.fetchAgain();
+    expect(moment.milestone).toBeNull();
+    expect(await remembered()).toEqual(BABY);
     await act(async () => second.app.unmount());
   });
 });

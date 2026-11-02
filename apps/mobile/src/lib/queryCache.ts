@@ -40,9 +40,20 @@ const ownedStorage = {
 const stored = createAsyncStoragePersister({ storage: ownedStorage, key: 'gozali.query-cache' });
 
 /**
+ * The time a query in the copy comes back with when its own says nothing. Older than any screen,
+ * and not 0: a query that already exists takes the copy's data only from a later time than its own.
+ */
+const LONG_AGO = 1;
+
+/**
  * The copy belongs to the account signed in on this phone when it was written. It comes back
  * only for that account, so a sign-out the app never saw (the server refusing a refresh while
  * the app was closed) can't hand one account's packs to the next.
+ *
+ * Its times are the phone's clock of the run that saved it, and one later than now says that clock
+ * was set back since. No answer of this run may show that, because Android's widget refresh can
+ * learn it first with the app closed. Such a time would read as fresh for the size of the jump, and
+ * as an answer that came after the screen opened, so it comes back as long ago.
  */
 export const persister: Persister = {
   ...stored,
@@ -52,7 +63,12 @@ export const persister: Persister = {
       await stored.removeClient();
       return undefined;
     }
-    return stored.restoreClient();
+    const copy = await stored.restoreClient();
+    const now = Date.now();
+    copy?.clientState.queries.forEach(({ state }) => {
+      if (state.dataUpdatedAt > now) state.dataUpdatedAt = LONG_AGO;
+    });
+    return copy;
   },
 };
 

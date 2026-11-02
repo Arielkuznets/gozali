@@ -38,9 +38,9 @@ async function saveSeen(packId: string, seen: Seen): Promise<void> {
  * The milestone waiting on this phone for the pack's critter, and a way to mark it seen.
  *
  * Only what the server answered since the screen opened counts (`fetchedAt` is when the pack was
- * fetched). The copy kept on the phone is saved up to a second late, so it can be behind what this
- * phone already celebrated, and comparing stages can't tell that from a critter that really went
- * back.
+ * fetched, never later than now in a copy that just came back). The copy kept on the phone is saved
+ * up to a second late, so it can be behind what this phone already celebrated, and comparing stages
+ * can't tell that from a critter that really went back.
  */
 export function useMilestone(packId: string | undefined, critter: Seen | null | undefined, fetchedAt: number) {
   const [milestone, setMilestone] = useState<Milestone | null>(null);
