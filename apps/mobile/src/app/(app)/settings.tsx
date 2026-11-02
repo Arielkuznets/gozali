@@ -127,6 +127,7 @@ export default function SettingsScreen() {
 
         <View style={styles.section}>
           <AppText variant="caption">{t('settings.app.blocked')}</AppText>
+          {blocked.isPending && <ActivityIndicator color={colors.accent} />}
           {!blocked.data && blocked.isError && <LoadFailed onRetry={() => void blocked.refetch()} />}
           {blocked.data?.length === 0 && <AppText style={styles.muted}>{t('settings.app.noBlocked')}</AppText>}
           {blocked.data && blocked.data.length > 0 && (
