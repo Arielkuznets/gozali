@@ -237,6 +237,35 @@ test.describe('a restore', () => {
     expect(psql(target, `select count(*) from pg_trigger where tgenabled = 'D'`)).toBe('0');
   });
 
+  test('a row whose key goes empty with its parent in the database stays, without that key', async () => {
+    const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
+    const [first, second] = saved('public.shop_items', 'true').map((row) => row.item as string);
+    const bought = await admin.from('pack_items').insert([
+      { pack_id: pack.id, item: first!, bought_by: dan.id },
+      { pack_id: pack.id, item: second!, bought_by: noa.id },
+    ]);
+    expect(bought.error).toBeNull();
+    const event = await admin.from('pack_events').insert({ pack_id: pack.id, kind: 'bought', actor_id: noa.id, payload: { item: second } });
+    expect(event.error).toBeNull();
+    const backup = backUp([noa, dan], pack.id);
+    const items = saved('public.pack_items', `pack_id = '${pack.id}'`);
+    const dansItem = items.find((row) => row.bought_by === dan.id)!;
+    // Other keys have no empty value to fall back on: these two rows are skipped.
+    backup.tables['public.pack_items'] = [...items, { ...dansItem, item: 'no_such_item' }, { ...dansItem, pack_id: '00000000-0000-4000-a000-000000000001' }];
+    backup.tables['public.pack_events'] = saved('public.pack_events', `pack_id = '${pack.id}'`);
+    // Dan deleted the account after the backup read these tables, and before it read the profiles.
+    backup.tables['public.profiles'] = backup.tables['public.profiles']!.filter((row) => row.id !== dan.id);
+
+    const printed = restore(backup);
+
+    expect(printed).toContain('public.pack_items: 2, skipped 2');
+    expect(printed).toContain('public.pack_events: 2\n');
+    expect(psql(target, `select bought_by from public.pack_items where item = '${first}'`)).toBe('');
+    expect(psql(target, `select bought_by from public.pack_items where item = '${second}'`)).toBe(noa.id);
+    expect(psql(target, `select actor_id from public.pack_events where kind = 'joined'`)).toBe('');
+    expect(psql(target, `select actor_id from public.pack_events where kind = 'bought'`)).toBe(noa.id);
+  });
+
   test('a pack whose admin the backup missed passes to its longest-standing member', async () => {
     const sam = await createUser('Sam');
     const ana = await createUser('Ana');

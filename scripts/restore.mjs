@@ -7,10 +7,11 @@
 // triggers off so nothing is queued or counted twice. A row the migrations seeded gives way to the
 // backup's, and one the backup doesn't hold stays. A backup reads one table after another while
 // people use the app, so a row can be in it without its parent: that row is skipped, and the run
-// says how many per table, and an admin skipped that way passes the role on. A pack made in that time
-// can be in it without its critter: it stays out, and the run names it. Photo files aren't in
-// backups, so the restored feeds and profiles forget their photo paths. The Vault values (CRON_SECRET,
-// functions_url) and the function secrets are set again by hand (docs/setup.md, section 1).
+// says how many per table, and an admin skipped that way passes the role on. On a key the database
+// empties when the parent goes, the row stays with the key empty. A pack made in that time can be in
+// it without its critter: it stays out, and the run names it. Photo files aren't in backups, so the
+// restored feeds and profiles forget their photo paths. The Vault values (CRON_SECRET, functions_url)
+// and the function secrets are set again by hand (docs/setup.md, section 1).
 import { readFileSync } from 'node:fs';
 
 import { query } from './backup.mjs';
@@ -68,6 +69,17 @@ const edges = run(
    from pg_constraint c join pg_namespace n on n.oid = c.connamespace
    where c.contype = 'f' and n.nspname = 'public'`,
 ).map((edge) => ({ child: qualified(edge.child), parent: qualified(edge.parent) }));
+// The keys the database empties when their parent goes, keeping the row.
+const setNull = new Map(
+  run(
+    `select c.conrelid::regclass::text as child, string_agg(quote_literal(a.attname), ', ') as keys
+     from pg_constraint c
+     join pg_namespace n on n.oid = c.connamespace
+     join pg_attribute a on a.attrelid = c.conrelid and a.attnum = any (c.conkey)
+     where c.contype = 'f' and c.confdeltype = 'n' and n.nspname = 'public'
+     group by 1`,
+  ).map((key) => [qualified(key.child), key.keys]),
+);
 const pending = Object.keys(backup.tables).filter((table) => table.startsWith('public.'));
 const order = ['auth.users', 'auth.identities'];
 while (pending.length > 0) {
@@ -115,6 +127,13 @@ for (const table of order) {
   // A new account's profile looks its time zone up in pg_timezone_names, the slowest step of a
   // restore, for a row the backup's profiles replace anyway.
   const quiet = table === 'auth.users' ? 'public.profiles' : table.startsWith('public.') ? table : '';
+  const insert = (row) => `insert into ${table} (${cols}) ${identity ? 'overriding system value' : ''}
+    select ${cols} from jsonb_populate_record(null::${table}, ${row})
+    on conflict ${onConflict};`;
+  // Without its parent a row skips, unless the database would have kept it with the key empty.
+  const noParent = setNull.has(table)
+    ? `begin ${insert(`backup_row - array[${setNull.get(table)}]`)} exception when foreign_key_violation then null; end;`
+    : 'null;';
   // New accounts get a profile from a trigger; the backup's profiles replace them.
   if (table === 'public.profiles') run('delete from public.profiles');
   for (const part of inCalls(rows)) {
@@ -130,11 +149,9 @@ begin
 ${quiet ? `alter table ${quiet} disable trigger user;` : ''}
 for backup_row in select jsonb_array_elements($gz$${data}$gz$::jsonb) loop
   begin
-    insert into ${table} (${cols}) ${identity ? 'overriding system value' : ''}
-    select ${cols} from jsonb_populate_record(null::${table}, backup_row)
-    on conflict ${onConflict};
+    ${insert('backup_row')}
   exception when foreign_key_violation then
-    null;
+    ${noParent}
   end;
 end loop;
 ${quiet ? `alter table ${quiet} enable trigger user;` : ''}
