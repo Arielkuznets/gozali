@@ -1,3 +1,4 @@
+import type { DayInput, MemberDay } from '@gozali/game-engine';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import '@/i18n';
@@ -17,12 +18,20 @@ const pack = [member('noa'), member('dan'), member('eve')];
 const fed = new Set(['noa', 'dan']);
 const noPasses: TodayPasses = { passes: new Map(), paused: new Set() };
 const known = (eve: Partial<MembersToday['members'][number]>): MembersToday => ({
+  day: '2026-10-29',
   restDaysPerWeek: 0,
+  dayToClose: null,
   members: [
     { userId: 'noa', membership: 'active', hasStarted: true, restDaysUsedThisWeek: 0 },
     { userId: 'dan', membership: 'active', hasStarted: true, restDaysUsedThisWeek: 0 },
     { userId: 'eve', membership: 'active', hasStarted: true, restDaysUsedThisWeek: 0, ...eve },
   ],
+});
+
+const dayBefore = (members: MemberDay[]): DayInput => ({
+  critter: { status: 'egg', health: 70, xp: 0, stage: 'egg', streak: 0, marks: [] },
+  restDaysPerWeek: 0,
+  members,
 });
 
 describe('whether the egg surely hatches tonight', () => {
@@ -52,7 +61,7 @@ describe('whether the egg surely hatches tonight', () => {
 
   it('counts a feed as started, whatever the earlier answer said', () => {
     const firstFeeds: MembersToday = {
-      restDaysPerWeek: 0,
+      ...known({}),
       members: [
         { userId: 'noa', membership: 'active', hasStarted: false, restDaysUsedThisWeek: 0 },
         { userId: 'dan', membership: 'active', hasStarted: false, restDaysUsedThisWeek: 0 },
@@ -63,6 +72,16 @@ describe('whether the egg surely hatches tonight', () => {
 
   it('takes a member who joined after the answer for someone who has not started', () => {
     expect(hatchesTonight([...pack, member('zoe')], fed, noPasses, known({ hasStarted: false }))).toBe(true);
+  });
+
+  it('is not sure while a day before today waits for its close', () => {
+    const certain = known({ hasStarted: false });
+    expect(hatchesTonight(pack, fed, noPasses, { ...certain, dayToClose: dayBefore([]) })).toBe(false);
+  });
+
+  it('goes by today alone on a server that says nothing of the day before', () => {
+    const { day, dayToClose, ...older } = known({ hasStarted: false });
+    expect(hatchesTonight(pack, fed, noPasses, older as MembersToday)).toBe(true);
   });
 });
 

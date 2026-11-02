@@ -5,9 +5,9 @@ import type { PackMember } from '@/features/packs/api';
 
 /**
  * Whether the egg hatches when today ends whatever the others do (hatchIsCertain), from what the
- * pack screen shows now and what only the server knows. Not knowing counts as not certain. The
- * server's answer may be older than the feeds on screen, so a feed today means started, and a
- * member it didn't list joined after it.
+ * pack screen shows now and what only the server knows. Not knowing counts as not certain, and so
+ * does a day before today that hasn't closed. The server's answer may be older than the feeds on
+ * screen, so a feed today means started, and a member it didn't list joined after it.
  */
 export function hatchesTonight(
   members: readonly PackMember[],
@@ -15,7 +15,7 @@ export function hatchesTonight(
   today: TodayPasses,
   known: MembersToday | undefined,
 ): boolean {
-  if (!known) return false;
+  if (!known || known.dayToClose) return false;
   const facts = new Map(known.members.map((member) => [member.userId, member]));
   const days = members.map((member): MemberDay => {
     const fact = facts.get(member.user_id);

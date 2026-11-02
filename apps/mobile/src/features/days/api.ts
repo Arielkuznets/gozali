@@ -1,4 +1,4 @@
-import { packDayOf } from '@gozali/game-engine';
+import { packDayOf, type DayInput } from '@gozali/game-engine';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { usePack, type Pack } from '@/features/packs/api';
@@ -27,8 +27,15 @@ export type TodayPasses = {
 
 /** members_today: what the pack screen doesn't load of today's close. */
 export type MembersToday = {
+  /** The pack day the answer is for. */
+  day: string;
   restDaysPerWeek: number;
   members: { userId: string; membership: 'active' | 'sleeping' | 'left'; hasStarted: boolean; restDaysUsedThisWeek: number }[];
+  /**
+   * The input of the oldest day before today without a result. Only that day's close spends its
+   * automatic rests, so until then a member here can have one rest day less than it says.
+   */
+  dayToClose: DayInput | null;
 };
 
 export const daysKey = ['days'] as const;
@@ -64,6 +71,13 @@ export function useMembersToday(pack: Pick<Pack, 'id' | 'timezone'> | undefined,
       const { data, error } = await requireSupabase().rpc('members_today', { target: pack!.id });
       if (error) throw error;
       return data as MembersToday;
+    },
+    // Nothing announces the close of an egg day, and a phone a little fast asks just before the
+    // server's 03:00, so it asks again until the day before closed and the answer is for today. A
+    // server without dayToClose says neither, and its one answer stands.
+    refetchInterval: (query) => {
+      const answer = query.state.data;
+      return answer && (answer.dayToClose || answer.day < today) ? 15_000 : false;
     },
   });
 }
