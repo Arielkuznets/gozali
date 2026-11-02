@@ -275,6 +275,18 @@ describe('coming back to the app', () => {
     expect(mockRequest).not.toHaveBeenCalled();
   });
 
+  it('opens the camera after a yes there that follows a first no', async () => {
+    mockGet.mockResolvedValue(notAsked);
+    await open();
+    await answerAlert(refusedOnce);
+
+    mockGet.mockResolvedValue(allowed);
+    await comeBackToApp();
+
+    expect(hasCamera()).toBe(true);
+    expect(mockRequest).toHaveBeenCalledTimes(1);
+  });
+
   it('stays on Camera needed after a no, also where the system could ask again', async () => {
     mockGet.mockResolvedValue(notAsked);
     await open();
