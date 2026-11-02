@@ -41,6 +41,7 @@ function JoinForm({ linkCode }: { linkCode: string }) {
   // Back to that pack if it is right underneath, so it isn't open twice. Anything else underneath
   // stays, or the way back through it and a photo on the camera would go.
   const openPack = (packId: string) => {
+    // A second tap, or an answer arriving with another screen in front, moves nothing.
     if (!navigation.isFocused()) return;
     const under = navigation.getState()?.routes.at(-2);
     if (under?.name === 'pack/[id]/index' && (under.params as { id?: string })?.id === packId) router.back();
