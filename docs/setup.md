@@ -143,7 +143,19 @@ Both flags are required. Without `--environment` the CLI bundles `apps/mobile/.e
 
 A change to native code (a new native package, app.json plugins, the widgets) needs a new build instead, and a new `version` in `app.json` first, so updates for the old builds and the new ones stay apart. (A fingerprint of the native code would do this by itself, but it came out different on Windows and on the EAS servers and failed the build.)
 
-A bad update can be taken back by publishing the previous one again (`eas update:republish`, or Expo's dashboard → Updates), and a store release can go out as a phased release in App Store Connect.
+A bad update can be taken back, and how depends on what came before it on the branch:
+
+- **It is the first update since a store build.** Send every phone back to the JavaScript inside its own build:
+
+  ```sh
+  cd apps/mobile
+  eas update:roll-back-to-embedded --channel production --runtime-version 1.0.0 --message "Back to the store build"
+  ```
+
+  The runtime version is the `version` in `app.json` of the builds that got the update. Don't republish here: the update before it on the branch was made for an older build, and a republished update counts as the newest one, so every phone on that runtime version would load it, the new build included. `eas update:rollback` asks which of the two you want (Embedded Update here). Given the bad update's group id it republishes the group before it, so don't use that form here.
+- **An update newer than the store build came before it.** Publish that one again: `eas update:republish --channel production`, or Expo's dashboard → Updates.
+
+A store release can go out as a phased release in App Store Connect.
 
 When a server change would break versions still installed on people's phones, raise the minimum version: older apps show "Time to update" with a button to the store instead of the app. Set the store links once the app is in the stores:
 
