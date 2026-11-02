@@ -222,6 +222,25 @@ describe('leaving a pack', () => {
     expect(shows(MISSING)).toBe(false);
   });
 
+  it('is done on a second try when the server took the first and its answer was lost', async () => {
+    await start('/pack/p1/settings');
+    mockRpc.mockImplementationOnce(async () => {
+      mockPacks = [];
+      return { error: { message: 'TypeError: Network request failed' } };
+    });
+    mockRpc.mockResolvedValueOnce({ error: { message: 'not_a_member' } });
+
+    await press('Leave pack');
+    expect(pathname()).toBe('/pack/p1/settings');
+    expect(mockNotify).toHaveBeenCalledTimes(1);
+
+    await press('Leave pack');
+
+    expect(pathname()).toBe('/');
+    expect(shows('home')).toBe(true);
+    expect(mockNotify).toHaveBeenCalledTimes(1);
+  });
+
   it('leaves nothing to go back to', async () => {
     await start('/pack/p1');
     await open('/pack/p1/settings');

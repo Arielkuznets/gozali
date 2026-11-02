@@ -199,7 +199,8 @@ export function useLeavePack() {
   return useMutation({
     mutationFn: async (packId: string) => {
       const { error } = await requireSupabase().rpc('leave_pack', { target: packId });
-      if (error) throw error;
+      // Already out: an earlier try got through and only its answer was lost.
+      if (error && !error.message.includes('not_a_member')) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: packsKey }),
   });
