@@ -36,6 +36,7 @@ type CountedFeed = { pack_id: string; user_id: string; day: string };
 export const feedsKey = ['feeds'] as const;
 export const countedFeedsKey = [...feedsKey, 'counted'] as const;
 const PHOTO_LINK_SECONDS = 60 * 60;
+const QUEUE_RETRY_MS = 60_000;
 export const FEED_PAGE = 30;
 
 /**
@@ -186,9 +187,12 @@ function queueError(what: string, error: unknown): Error {
 /**
  * Sends queued feeds when the app starts, comes back to the foreground, gets online or gets a new
  * token: online during auth-js's wait after a failed refresh there is no session to send with, and
- * nothing else says when there is one. The member was told a queued feed is safe, so they hear
- * about one that was dropped. Getting online also reloads what is on screen: Realtime replays
- * nothing it missed, and nothing else hears about the network (lib/appFocus.ts).
+ * nothing else says when there is one. And once a minute while the app is open: a try can fail with
+ * the connection up, a run hears nothing that comes in while it goes, and a send that landed by
+ * itself still shows as waiting, and no event follows any of these. The member was told a queued
+ * feed is safe, so they hear about one that was dropped. Getting online also reloads what is on
+ * screen: Realtime replays nothing it missed, and nothing else hears about the network
+ * (lib/appFocus.ts).
  */
 export function useFeedQueue() {
   const queryClient = useQueryClient();
@@ -214,7 +218,11 @@ export function useFeedQueue() {
       offline = !hasConnection(state);
       if (state.isConnected) flush();
     });
+    const retry = setInterval(() => {
+      if (AppState.currentState === 'active') flush();
+    }, QUEUE_RETRY_MS);
     return () => {
+      clearInterval(retry);
       appState.remove();
       network();
     };

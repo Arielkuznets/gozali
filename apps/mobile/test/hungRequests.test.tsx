@@ -1,8 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ComponentType } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
+import '@/i18n';
 import type { OutgoingFeed } from '@/features/feeds/send';
 
 // The real supabase-js and the app's own client, hooks and queue, against a stand-in for a server
@@ -48,7 +50,7 @@ jest.mock('@/lib/push', () => ({ unregisterPushToken: async () => undefined }));
 // Required here, for the environment above to be in place first.
 const { AUTH_STORAGE_KEY, requireSupabase } = jest.requireActual<typeof import('@/lib/supabase')>('@/lib/supabase');
 const { usePack } = jest.requireActual<typeof import('@/features/packs/api')>('@/features/packs/api');
-const { useCountedFeeds, usePackFeed, usePendingFeeds, useSendFeed } = jest.requireActual<typeof import('@/features/feeds/api')>('@/features/feeds/api');
+const { useCountedFeeds, useFeedQueue, usePackFeed, usePendingFeeds, useSendFeed } = jest.requireActual<typeof import('@/features/feeds/api')>('@/features/feeds/api');
 const { enqueue, flushQueue, pendingFeeds } = jest.requireActual<typeof import('@/features/feeds/queue')>('@/features/feeds/queue');
 const { useDayPass } = jest.requireActual<typeof import('@/features/days/api')>('@/features/days/api');
 const { useBuy, useNudge } = jest.requireActual<typeof import('@/features/social/api')>('@/features/social/api');
@@ -485,6 +487,128 @@ describe('a queue run on a dead connection', () => {
     expect(await runFor(1)).toEqual({ handled: 1, dropped: [], stuck: [] });
     expect(await pendingFeeds()).toEqual([]);
     expect(feeds.size).toBe(1);
+  });
+});
+
+describe('a feed waiting with the app left open', () => {
+  const appStates = new Set<(state: AppStateStatus) => void>();
+  let send: ReturnType<typeof useSendFeed>['mutateAsync'];
+
+  function Pack() {
+    useFeedQueue();
+    send = useSendFeed().mutateAsync;
+    usePendingFeeds('pack');
+    return null;
+  }
+
+  const card = () => client.getQueryData<OutgoingFeed[]>(['feeds', 'pending', 'pack']);
+
+  /** Send is tapped, and what the member was told comes back. */
+  async function tapSend(seconds: number) {
+    const told: { outcome?: string } = {};
+    void send(feed('a')).then((outcome) => {
+      told.outcome = outcome;
+    });
+    await advance(seconds * 1000);
+    return told.outcome;
+  }
+
+  beforeEach(() => {
+    AppState.currentState = 'active';
+    appStates.clear();
+    jest.mocked(AppState.addEventListener).mockImplementation((_type, listener) => {
+      appStates.add(listener);
+      return { remove: () => appStates.delete(listener) };
+    });
+  });
+
+  it('goes out within a minute of a try that failed with the connection up', async () => {
+    await open(Pack);
+    noConnection = (url) => url.pathname.startsWith(UPLOAD);
+    expect(await tapSend(1)).toBe('queued');
+    noConnection = () => false;
+    expect(await pendingFeeds()).toHaveLength(1);
+
+    await advance(60_000);
+
+    expect(await pendingFeeds()).toEqual([]);
+    expect(card()).toEqual([]);
+    expect(feeds.size).toBe(1);
+  });
+
+  it('goes out after a run that stopped, though the return to the app during it did nothing', async () => {
+    await enqueue(feed('a'));
+    unanswered = firstOf(UPLOAD);
+    await open(Pack);
+    await advance(10_000);
+    await act(async () => appStates.forEach((listener) => listener('active')));
+    await advance(25_000);
+    expect(requested(UPLOAD)).toBe(1);
+    expect(await pendingFeeds()).toHaveLength(1);
+
+    await advance(30_000);
+
+    expect(await pendingFeeds()).toEqual([]);
+    expect(feeds.size).toBe(1);
+  });
+
+  it('takes the card off when a slow send landed by itself', async () => {
+    await open(Pack);
+    await advance(1_000);
+    lateBy = firstBy(UPLOAD, 45_000);
+    expect(await tapSend(31)).toBe('queued');
+    await advance(16_000);
+    expect(feeds.size).toBe(1);
+    expect(await pendingFeeds()).toHaveLength(1);
+    expect(card()).toHaveLength(1);
+
+    await advance(13_000);
+
+    expect(await pendingFeeds()).toEqual([]);
+    expect(card()).toEqual([]);
+    expect(requested(SUBMIT)).toBe(2);
+    expect(feeds.size).toBe(1);
+  });
+
+  it('adds nothing to a run that is still going', async () => {
+    await enqueue(feed('a'));
+    await enqueue(feed('b'));
+    await enqueue(feed('c'));
+    slowBy = (url) => (url.pathname === SUBMIT ? 25_000 : 0);
+    await open(Pack);
+
+    await advance(80_000);
+
+    expect(requested(SUBMIT)).toBe(3);
+    expect(feeds.size).toBe(3);
+    expect(await pendingFeeds()).toEqual([]);
+  });
+
+  it('leaves it alone while the app is in the background', async () => {
+    await enqueue(feed('a'));
+    noConnection = (url) => url.pathname.startsWith(UPLOAD);
+    await open(Pack);
+    await advance(1_000);
+    const tries = requested(UPLOAD);
+    AppState.currentState = 'background';
+
+    await advance(10 * 60_000);
+
+    expect(requested(UPLOAD)).toBe(tries);
+  });
+
+  it('stops with the screen that keeps it going', async () => {
+    await enqueue(feed('a'));
+    noConnection = (url) => url.pathname.startsWith(UPLOAD);
+    await open(Pack);
+    await advance(1_000);
+    const tries = requested(UPLOAD);
+    await act(async () => app?.unmount());
+    app = undefined;
+
+    await advance(10 * 60_000);
+
+    expect(requested(UPLOAD)).toBe(tries);
   });
 });
 

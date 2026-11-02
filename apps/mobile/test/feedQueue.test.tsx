@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { useEffect, type ComponentType } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
-import { act, create } from 'react-test-renderer';
+import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import '@/i18n';
 import { useFeedQueue, useSendFeed } from '@/features/feeds/api';
@@ -82,11 +82,13 @@ function Queue() {
   return null;
 }
 
+let app: ReactTestRenderer | undefined;
+
 async function openApp(Screen: ComponentType = () => null) {
   // No garbage collection, whose timers would outlive the test.
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
   await act(async () => {
-    create(
+    app = create(
       <QueryClientProvider client={client}>
         <Queue />
         <Screen />
@@ -132,6 +134,11 @@ beforeEach(async () => {
   mockReport.mockReset();
   mockMissing.clear();
   mockLoadPacks.mockReset().mockResolvedValue(['Gym squad']);
+});
+
+afterEach(async () => {
+  await act(async () => app?.unmount());
+  app = undefined;
 });
 
 describe('queued feeds that were dropped', () => {
