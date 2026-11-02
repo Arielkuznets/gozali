@@ -60,7 +60,9 @@ export function PackCard({ pack, now, fed, userId, onPress, onFeed }: Props) {
           </View>
         )}
         <AppText variant="caption">
-          {members.length >= 2 ? t('pack.fedCount', { fed: fedCount, total: awake.length }) : t('pack.eggWaiting')}
+          {members.length >= 2 || (pack.critters && pack.critters.status !== 'egg')
+            ? t('pack.fedCount', { fed: fedCount, total: awake.length })
+            : t('pack.eggWaiting')}
         </AppText>
       </View>
       {iPaused ? (

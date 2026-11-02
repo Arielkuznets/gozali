@@ -329,8 +329,9 @@ function CritterPanel({ pack, critter, memberCount, fedCount, hatchCertain, hatc
   const art = critterArt(critter, { category: pack.category, now, mood, cracking: memberCount >= 2 });
   const text = useCritterText(critter, art);
   const progress = stageProgress(critter.stage);
-  // Days close only once a second member joined.
-  const daysRun = memberCount >= 2;
+  // Days close once a second member has joined, and a friend leaving doesn't stop them. A hatched
+  // pet always had one.
+  const daysRun = memberCount >= 2 || critter.status !== 'egg';
 
   return (
     <View style={styles.critter}>

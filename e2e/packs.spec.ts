@@ -179,6 +179,36 @@ test('a member who dozed off is told how to come back', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Noa, asleep' })).toBeVisible();
 });
 
+test('a friend leaving a hatched pack leaves the day running for the one who stays', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
+  await admin.from('critters').update({ status: 'active', stage: 'baby', xp: 2, health: 70 }).eq('pack_id', pack.id);
+  const left = await dan.client.rpc('leave_pack', { target: pack.id });
+  if (left.error) throw left.error;
+  await signIn(page, noa);
+
+  await page.goto('/');
+  await expect(page.getByText('0/1 fed today')).toBeVisible();
+  await expect(page.getByText('Waiting for a friend to join.')).toBeHidden();
+
+  await page.goto(`/pack/${pack.id}`);
+  await expect(page.getByText(/^Day ends in/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Invite friends' })).toBeVisible();
+});
+
+test('an egg left alone goes back to waiting for a friend', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
+  const left = await dan.client.rpc('leave_pack', { target: pack.id });
+  if (left.error) throw left.error;
+  await signIn(page, noa);
+
+  await page.goto('/');
+  await expect(page.getByText('Waiting for a friend to join.')).toBeVisible();
+
+  await page.goto(`/pack/${pack.id}`);
+  await expect(page.getByRole('button', { name: 'Invite friends' })).toBeVisible();
+  await expect(page.getByText(/^Day ends in/)).toBeHidden();
+});
+
 test.describe('a member on a pause', () => {
   const onPause = "You're on a pause until";
 
