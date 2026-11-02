@@ -26,8 +26,8 @@ Start a pack for a habit you share (the gym, running, walking, yoga, meditation,
 **Keep the streak.** Every good day earns the pack coins, and a longer streak earns more. Spend them on hats, scarves and backgrounds in the outfit shop, and unlock special items with achievements.
 
 Also inside:
-- Home and lock screen widgets that show your critter and who fed today.
-- A focus timer for studying and reading.
+- Home and lock screen widgets that show your critter and how many of you fed today.
+- A focus timer for study, reading, meditation, language and music packs.
 - A weekly recap you can share as a story, with only your own photos.
 - Gentle reminders in your critter's voice, never more than a few a day, and never at night.
 
@@ -62,26 +62,29 @@ Data is encrypted in transit, and users can delete their account inside the app 
 
 ## Notes for Apple's review
 
-To paste into App Store Connect → App Review Information → Notes (with "Sign-in required" left unchecked):
+To paste into App Store Connect → App Review Information → Notes, with the demo pack's code in place of `<invite code>`. The real code stays out of this file, because the repository is public. Notes also holds the answers to Apple's six questions of October 2026, which Apple asked to keep there for later submissions. This text replaces the answer to question 3 (how to reach the main features) and leaves the others. The field takes 4,000 bytes in all.
 
 ```text
-Sign in with Apple works with your own Apple ID; no demo account is needed.
+Gozali needs an account. You get one with Sign in with Apple, which has no user name or password to give here, so please use your own Apple ID: any Apple ID works.
 
-Gozali is made for small groups of friends. A new pack starts as an egg, which hatches at the end of the first day on which two members feed it (a feed is a photo taken in the app). With one account you can create a pack, feed it, use the focus timer, "Not today?" (rest day, joker, pause), the pet profile with the monthly board and achievements, and the settings. To see the egg hatch, a second account joins the pack with its invite code (Invite on the pack screen) and feeds on the same day; it hatches when that day ends.
+A new pack starts as an egg, which hatches at the end of the first day on which two members feed it and nobody misses (a feed is a photo taken in the app). With one account you can create a pack, feed it, use "Not today" (rest day, joker, pause), open the pet's Profile with the monthly board and achievements, and change the settings. The Focus button (focus timer) appears on Study, Reading, Meditation, Language and Music packs.
 
-Photos are taken in the app only (no gallery uploads) and are visible only to the pack. Any photo can be reported from the ⋯ menu on it, in the feed, opened full screen or in a weekly recap. Pressing and holding a member in the members row opens a menu to report them (for a name or a profile photo) or block them. Reports reach the developer by email and are handled within 24 hours.
+To see a hatched pet, a friend's photos, the outfit shop and a weekly recap, tap "Join with a code" on the home screen and enter <invite code>. To hatch your own egg, a second account joins with the pack's code (Invite on the pack screen) and feeds the same day; the day closes around 04:00 in the pack's time zone.
 
-Account deletion: Settings → Delete account.
+Feed photos are taken in the app only (no gallery uploads); the photo library is only for the optional profile photo. Photos are visible only to the pack, unless one is reported. Another member's photo can be reported from its ⋯ menu, in the feed, opened full screen or in a weekly recap. Press and hold a member in the members row to report them (for a name or a profile photo) or block them. Reports reach the developer by email and are handled within 24 hours.
+
+Account deletion: Me → Settings → Delete account.
 ```
 
-When a pack from real use has a hatched pet, add its invite code to those notes so the reviewer can see a live pet:
+The "Sign-in required" box stays unticked, though by Apple's wording it applies: App Store Connect asks for it when an app needs a login, and guideline 2.1(a) asks for demo account details. Its fields only take a user name and a password, and Sign in with Apple has neither to give: the sheet uses the Apple ID on the device, and a demo Apple ID would stop at a code sent to the owner's phone. So the notes open by saying this. App Review has worked that way so far: the last review tried Sign in with Apple and didn't ask for an account. If Apple does ask, the answer is a demo login in the app, which doesn't exist yet.
 
-- Sign in with Apple works with the reviewer's own Apple ID; no demo account is needed.
-- A new pack starts as an egg that hatches once two members feed it on the same day. To see a hatched critter, feeds, the shop and a recap right away, join the demo pack with the invite code in the review notes.
+Before submitting:
 
-Before submitting, the demo pack: one of the packs from TestFlight testing whose pet already hatched, with a few days of feeds (a pack has room for 8, so the reviewer joins as one more member). Put its invite code in App Store Connect → App Review Information → Notes, and tell the pack a reviewer may join. After the review, the admin removes the reviewer's account from Pack settings → Members.
-- Photos are taken in the app only (no gallery uploads), are visible only to the pack, and can be reported from the ⋯ menu on each photo; members can be reported or blocked from the members row. Reports reach the developer by email and are handled within 24 hours.
-- Account deletion: Settings → Delete account.
+- The demo pack has everything the notes promise: a hatched pet, a few days of feeds, a weekly recap, and room for one more (a pack holds 8). Use Demo Friend's pack once it has all that, or a pack from TestFlight testing. If it falls short, take what is missing out of the notes.
+- Post fresh Demo Friend photos within 30 days of submitting. A feed photo is deleted 30 days after it was posted, and the reviewer would find a line in its place.
+- Tell the pack a reviewer may join.
+
+Once the app is approved, the admin removes the reviewer's account from Pack settings → Members. A removed member can't join again, so not before.
 
 ## App Store Connect, the first submission
 
