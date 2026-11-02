@@ -22,7 +22,7 @@ import { TextField } from '@/components/TextField';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { critterArt } from '@/features/critter/art';
 import { EatingMoment } from '@/features/feeds/EatingMoment';
-import { isPausedToday, useDayStatus } from '@/features/days/api';
+import { pauseToday, useDayStatus } from '@/features/days/api';
 import { useSendFeed } from '@/features/feeds/api';
 import { compressPhoto, feedErrorKey, isFinalRejection } from '@/features/feeds/send';
 import { clearFocusSession } from '@/features/focus/session';
@@ -33,6 +33,7 @@ import { isBlockedText } from '@/lib/errors';
 import { haptics } from '@/lib/haptics';
 import { goBack } from '@/lib/navigation';
 import { serverNow } from '@/lib/serverClock';
+import { useNow } from '@/lib/useNow';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 const CAPTION_MAX = 80;
@@ -73,10 +74,11 @@ export default function FeedScreen() {
   const sending = useRef(false);
   const send = useSendFeed();
   const dayStatus = useDayStatus(packId);
+  const now = useNow(60_000);
 
   // A widget or a notification can link here during a pause, when no photo counts. The pack says
   // why. A photo already taken stays: it was taken before the pause reached this screen.
-  const paused = isPausedToday(dayStatus.data) && !shot && !result;
+  const paused = pauseToday(dayStatus.data, pack, session?.user.id, now) !== null && !shot && !result;
   useFocusEffect(
     useCallback(() => {
       if (paused) router.dismissTo(`/pack/${packId}`);

@@ -6,7 +6,7 @@ import { HealthBar } from '@/components/HealthBar';
 import { Critter } from '@/features/critter/Critter';
 import { critterArt } from '@/features/critter/art';
 import { useCritterText } from '@/features/critter/useCritterText';
-import { useTodayPasses } from '@/features/days/api';
+import { keptToday, useTodayPasses } from '@/features/days/api';
 import { feedWaitsToday, usePendingFeeds } from '@/features/feeds/api';
 import { countedToday, currentMembers, type Pack, type PackCritter } from '@/features/packs/api';
 import { categoryInfo } from '@/features/packs/constants';
@@ -27,10 +27,11 @@ export function PackCard({ pack, now, fed, userId, onPress, onFeed }: Props) {
   const members = currentMembers(pack);
   const passes = useTodayPasses(pack, now);
   const pending = usePendingFeeds(pack.id);
-  const awake = countedToday(pack, passes.data?.paused ?? new Set());
+  const { paused } = passes.data ?? keptToday(pack, now);
+  const awake = countedToday(pack, paused);
   const fedCount = awake.filter((member) => fed.has(member.user_id)).length;
   const iFed = userId !== undefined && (fed.has(userId) || feedWaitsToday(pending.data, pack, userId, now));
-  const iPaused = userId !== undefined && passes.data?.paused.has(userId) === true;
+  const iPaused = userId !== undefined && paused.has(userId);
   const category = categoryInfo(pack.category);
   const habit = pack.custom_habit ?? t(`packs.categories.${pack.category}`);
 

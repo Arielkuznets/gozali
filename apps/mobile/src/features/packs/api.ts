@@ -1,9 +1,13 @@
+import { addDays } from '@gozali/game-engine';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
 import type { Category, CritterStage, CritterStatus, Species, WeekStart } from '@/features/packs/constants';
 import { deviceTimeZone } from '@/lib/dates';
 import { isBlockedText } from '@/lib/errors';
+import { serverNow } from '@/lib/serverClock';
 import { requireSupabase } from '@/lib/supabase';
+
+export type PackPause = { starts_on: string; ends_on: string };
 
 export type PackMember = {
   user_id: string;
@@ -11,6 +15,8 @@ export type PackMember = {
   status: 'active' | 'sleeping' | 'left';
   joined_at: string;
   profiles: { display_name: string | null; avatar_path: string | null } | null;
+  /** Their pauses that aren't over. A copy kept by an older build doesn't have this. */
+  pauses?: PackPause[];
 };
 
 export type PackCritter = {
@@ -59,8 +65,12 @@ const PACK_FIELDS = `
   id, name, category, custom_habit, rest_days_per_week, week_start, timezone, invite_code,
   pending_rest_days_per_week, pending_week_start, pending_from,
   critters ( species, name, health, xp, stage, status, streak, coins, marks, outfit ),
-  pack_members ( user_id, role, status, joined_at, profiles ( display_name, avatar_path ) )
+  pack_members ( user_id, role, status, joined_at, profiles ( display_name, avatar_path ), pauses ( starts_on, ends_on ) )
 `;
+
+const PAUSE_END = 'pack_members.pauses.ends_on';
+/** Older pauses cover no day from here on in any time zone, and would add to every read for good. */
+const pausesFrom = () => addDays(serverNow().toISOString().slice(0, 10), -2);
 
 export const packsKey = ['packs'] as const;
 const packKey = (id: string) => ['packs', id] as const;
@@ -104,7 +114,7 @@ export function useMyPacks() {
     queryKey: packsKey,
     queryFn: async (): Promise<Pack[]> => {
       // Row level security returns only the caller's packs.
-      const { data, error } = await requireSupabase().from('packs').select(PACK_FIELDS).order('created_at');
+      const { data, error } = await requireSupabase().from('packs').select(PACK_FIELDS).gte(PAUSE_END, pausesFrom()).order('created_at');
       if (error) throw error;
       return data as unknown as Pack[];
     },
@@ -122,7 +132,7 @@ export function usePack(id: string) {
     // Null once the pack isn't visible (left or removed), so screens can say so instead of
     // keeping the last copy on screen.
     queryFn: async (): Promise<Pack | null> => {
-      const { data, error } = await requireSupabase().from('packs').select(PACK_FIELDS).eq('id', id).maybeSingle();
+      const { data, error } = await requireSupabase().from('packs').select(PACK_FIELDS).gte(PAUSE_END, pausesFrom()).eq('id', id).maybeSingle();
       if (error) throw error;
       return data as unknown as Pack | null;
     },

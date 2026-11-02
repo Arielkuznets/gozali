@@ -21,11 +21,13 @@ jest.mock('@/lib/supabase', () => ({
   requireSupabase: () => ({
     from: () => ({
       select: () => ({
-        eq: () => ({
-          maybeSingle: () => {
-            mockReads += 1;
-            return mockAnswer();
-          },
+        gte: () => ({
+          eq: () => ({
+            maybeSingle: () => {
+              mockReads += 1;
+              return mockAnswer();
+            },
+          }),
         }),
       }),
     }),

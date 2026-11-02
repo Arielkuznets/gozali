@@ -44,13 +44,15 @@ jest.mock('@/lib/supabase', () => ({
   requireSupabase: () => ({
     from: () => ({
       select: () => ({
-        eq: (_column: string, id: string) => ({
-          maybeSingle: async () => (mockOffline ? mockNoConnection : { data: mockPacks.find((pack) => pack.id === id) ?? null, error: null }),
+        gte: () => ({
+          eq: (_column: string, id: string) => ({
+            maybeSingle: async () => (mockOffline ? mockNoConnection : { data: mockPacks.find((pack) => pack.id === id) ?? null, error: null }),
+          }),
+          order: async () => {
+            await mockListAnswered;
+            return mockOffline ? mockNoConnection : { data: mockPacks, error: null };
+          },
         }),
-        order: async () => {
-          await mockListAnswered;
-          return mockOffline ? mockNoConnection : { data: mockPacks, error: null };
-        },
       }),
     }),
     rpc: (name: string, args: unknown) => mockRpc(name, args),

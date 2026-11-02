@@ -5,11 +5,13 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { daysKey, useCancelDayPass, useDayPass, useEndPause, useStartPause } from '@/features/days/api';
 import { feedsKey, packFeedsKey, useSendFeed } from '@/features/feeds/api';
 import type { OutgoingFeed } from '@/features/feeds/send';
+import { packsKey } from '@/features/packs/api';
 import { useBlock, useReact } from '@/features/social/api';
 
 // Saves against reads that keep failing or never answer: what a save tells the member can't wait
 // for them. The read stands in for whatever is mounted under the screen; retries are the defaults.
 const mockRead = jest.fn();
+const mockPackRead = jest.fn();
 const mockSave = jest.fn();
 
 jest.mock('expo-file-system', () => ({ File: class {}, Directory: class {}, Paths: {} }));
@@ -61,6 +63,7 @@ let hooks: {
 function Screen() {
   useQuery({ queryKey: [...feedsKey, 'read'], queryFn: mockRead });
   useQuery({ queryKey: [...daysKey, 'read'], queryFn: mockRead });
+  useQuery({ queryKey: [...packsKey, 'read'], queryFn: mockPackRead });
   const current = {
     send: useSendFeed(),
     rest: useDayPass('pack'),
@@ -89,6 +92,7 @@ async function advance(ms: number) {
 beforeEach(async () => {
   jest.useFakeTimers();
   mockRead.mockReset().mockResolvedValue([]);
+  mockPackRead.mockReset().mockResolvedValue([]);
   mockSave.mockReset().mockResolvedValue({ data: null, error: null });
   mockSendFeed.mockReset().mockResolvedValue('feed');
   mockOnline.mockReset().mockResolvedValue(true);
@@ -182,5 +186,30 @@ describe('a save the server took while the reads never answer', () => {
     await advance(SOON);
     expect(mockRead).toHaveBeenCalled();
     expect(onSuccess).not.toHaveBeenCalled();
+  });
+});
+
+describe('the packs the phone holds', () => {
+  const readsAfter = async (save: () => void) => {
+    mockPackRead.mockClear();
+    await act(async () => save());
+    await advance(SOON);
+    return mockPackRead.mock.calls.length;
+  };
+
+  it('are read again when a pause starts or ends, as they say who is paused with no connection', async () => {
+    expect(await readsAfter(() => hooks.startPause.mutate(7))).toBe(1);
+    expect(await readsAfter(() => hooks.endPause.mutate())).toBe(1);
+  });
+
+  it('hold no save up: a pause is done while that read never answers', async () => {
+    mockPackRead.mockReturnValue(new Promise(() => undefined));
+    const onSuccess = jest.fn();
+    await readsAfter(() => hooks.endPause.mutate(undefined, { onSuccess }));
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+  });
+
+  it('are left alone by a rest day', async () => {
+    expect(await readsAfter(() => hooks.rest.mutate('rest'))).toBe(0);
   });
 });

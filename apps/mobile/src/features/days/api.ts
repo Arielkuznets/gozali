@@ -1,11 +1,13 @@
 import { packDayOf, type DayInput } from '@gozali/game-engine';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { usePack, type Pack } from '@/features/packs/api';
+import { packsKey, usePack, type Pack, type PackMember } from '@/features/packs/api';
 import { readableZone } from '@/lib/dates';
 import { isBlockedText } from '@/lib/errors';
 import { requireSupabase } from '@/lib/supabase';
 import { useNow } from '@/lib/useNow';
+
+export type Pause = { startsOn: string; endsOn: string };
 
 /** my_day_status: what the caller can do today in a pack. */
 export type DayStatus = {
@@ -15,7 +17,7 @@ export type DayStatus = {
   jokerAvailable: boolean;
   passToday: 'joker' | 'rest' | null;
   fedToday: boolean;
-  pause: { startsOn: string; endsOn: string } | null;
+  pause: Pause | null;
   pauseAvailableFrom: string | null;
 };
 
@@ -42,9 +44,27 @@ export type MembersToday = {
 export const daysKey = ['days'] as const;
 export const PAUSE_LENGTHS = [3, 7, 14, 30, 60] as const;
 
-/** Whether the pause in a status covers its day, and isn't one waiting to start. */
-export function isPausedToday(status: DayStatus | undefined): boolean {
-  return Boolean(status?.pause && status.pause.startsOn <= status.day);
+const pauseOn = (member: PackMember, day: string) => member.pauses?.find((pause) => pause.starts_on <= day && day <= pause.ends_on);
+
+/**
+ * The caller's pause that covers today, if any. Today's status is the server's word. A screen just
+ * opened doesn't have it yet, and with no connection it can't: it is neither kept nor good for a new
+ * day. The pack the phone holds says who is paused on any day.
+ */
+export function pauseToday(status: DayStatus | undefined, pack: Pack | null | undefined, userId: string | undefined, now: Date): Pause | null {
+  if (status) return status.pause && status.pause.startsOn <= status.day ? status.pause : null;
+  const member = pack?.pack_members.find((candidate) => candidate.user_id === userId);
+  const pause = pack && member && pauseOn(member, packDayOf(now, readableZone(pack.timezone)));
+  return pause ? { startsOn: pause.starts_on, endsOn: pause.ends_on } : null;
+}
+
+/** What the pack the phone holds says of today, until the server's answer is in. It has no passes. */
+export function keptToday(pack: Pick<Pack, 'pack_members' | 'timezone'>, now: Date): TodayPasses {
+  const today = packDayOf(now, readableZone(pack.timezone));
+  return {
+    passes: new Map(),
+    paused: new Set(pack.pack_members.filter((member) => pauseOn(member, today)).map((member) => member.user_id)),
+  };
 }
 
 /** Keyed by the pack day, so a screen left open past 03:00 asks again instead of showing yesterday. */
@@ -110,7 +130,7 @@ export function useTodayPasses(pack: Pick<Pack, 'id' | 'timezone'> | undefined, 
   });
 }
 
-function useDayAction<T>(action: (packId: string, value: T) => PromiseLike<{ error: unknown }>, packId: string) {
+function useDayAction<T>(action: (packId: string, value: T) => PromiseLike<{ error: unknown }>, packId: string, onPack = false) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (value: T) => {
@@ -122,6 +142,10 @@ function useDayAction<T>(action: (packId: string, value: T) => PromiseLike<{ err
     onSuccess: () => queryClient.invalidateQueries({ queryKey: daysKey }),
     onError: () => {
       void queryClient.invalidateQueries({ queryKey: daysKey });
+    },
+    // A pause is also in the pack, whose copy on the phone says so with no connection.
+    onSettled: () => {
+      if (onPack) void queryClient.invalidateQueries({ queryKey: packsKey });
     },
   });
 }
@@ -138,11 +162,11 @@ export function useCancelDayPass(packId: string) {
 }
 
 export function useStartPause(packId: string) {
-  return useDayAction<number>((target, days) => requireSupabase().rpc('start_pause', { target, days }), packId);
+  return useDayAction<number>((target, days) => requireSupabase().rpc('start_pause', { target, days }), packId, true);
 }
 
 export function useEndPause(packId: string) {
-  return useDayAction<void>((target) => requireSupabase().rpc('end_pause', { target }), packId);
+  return useDayAction<void>((target) => requireSupabase().rpc('end_pause', { target }), packId, true);
 }
 
 /** Maps the server's error codes to translation keys. */

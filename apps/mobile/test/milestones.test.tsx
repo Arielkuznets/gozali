@@ -13,7 +13,7 @@ let mockAnswer: () => Promise<{ data: unknown; error: null }>;
 jest.mock('@/lib/supabase', () => ({
   storedSession: async () => ({ user: { id: 'noa' } }),
   requireSupabase: () => ({
-    from: () => ({ select: () => ({ eq: () => ({ maybeSingle: () => mockAnswer() }) }) }),
+    from: () => ({ select: () => ({ gte: () => ({ eq: () => ({ maybeSingle: () => mockAnswer() }) }) }) }),
   }),
 }));
 

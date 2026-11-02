@@ -23,7 +23,7 @@ import { MilestoneMoment } from '@/features/critter/MilestoneMoment';
 import { useMilestone } from '@/features/critter/milestones';
 import { critterArt, stageProgress } from '@/features/critter/art';
 import { useCritterText } from '@/features/critter/useCritterText';
-import { isPausedToday, useDayStatus, useMembersToday, useTodayPasses, type TodayPasses } from '@/features/days/api';
+import { keptToday, pauseToday, useDayStatus, useMembersToday, useTodayPasses, type TodayPasses } from '@/features/days/api';
 import { FeedList } from '@/features/feeds/FeedList';
 import { FEED_PAGE, feedWaitsToday, fedToday, useCountedFeeds, usePackFeed, usePendingFeeds, type FeedItem } from '@/features/feeds/api';
 import { countedToday, currentMembers, restDaysOn, usePack, type Pack, type PackCritter, type PackMember } from '@/features/packs/api';
@@ -74,15 +74,16 @@ export default function PackScreen() {
   const iFed =
     members.some((member) => member.user_id === session?.user.id && fed.has(member.user_id)) ||
     feedWaitsToday(pending.data, pack, session?.user.id, now);
-  const today: TodayPasses = passes.data ?? { passes: new Map(), paused: new Set() };
+  const today: TodayPasses = passes.data ?? keptToday(pack, now);
   // Counted today: not asleep and not on a pause.
   const awake = countedToday(pack, today.paused);
   const fedCount = awake.filter((member) => fed.has(member.user_id)).length;
   const names = new Map(pack.pack_members.map((member) => [member.user_id, member.profiles?.display_name ?? null]));
   const focusable = FOCUS_CATEGORIES.has(pack.category);
   const pendingCount = pending.data?.length ?? 0;
-  const pausedToday = isPausedToday(dayStatus.data);
   const userId = session?.user.id;
+  const pause = pauseToday(dayStatus.data, pack, userId, now);
+  const pausedToday = pause !== null;
   const critterName = pack.critters?.name ?? (pack.critters ? t(`packs.species.${pack.critters.species}`) : '');
   const admin = members.find((member) => member.role === 'admin');
   const isAdmin = admin?.user_id === userId;
@@ -244,9 +245,9 @@ export default function PackScreen() {
       </ScrollView>
 
       <View style={styles.actions}>
-        {pausedToday && dayStatus.data?.pause && (
+        {pause && (
           <AppText variant="caption" style={styles.centerText}>
-            {t('pack.pausedToday', { date: formatDay(dayStatus.data.pause.endsOn), name: critterName })}
+            {t('pack.pausedToday', { date: formatDay(pause.endsOn), name: critterName })}
           </AppText>
         )}
         {!iFed && !pausedToday && dayStatus.data?.passToday && (

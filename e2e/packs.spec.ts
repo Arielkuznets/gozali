@@ -315,6 +315,28 @@ test.describe('a member on a pause', () => {
     await expect(page.getByRole('button', { name: 'Post another photo' })).toBeHidden();
   });
 
+  test("is told so by the pack alone when today's answers can't be read", async ({ page }) => {
+    const pack = await pausedPack();
+    const today = packDayOf(new Date(), 'Asia/Jerusalem');
+    const older = await admin
+      .from('pauses')
+      .insert({ pack_id: pack.id, user_id: noa.id, starts_on: addDays(today, -90), ends_on: addDays(today, -80) });
+    if (older.error) throw older.error;
+    await page.route(/\/rest\/v1\/(rpc\/my_day_status|pauses)/, (route) => route.abort());
+    await signIn(page, noa);
+    const list = page.waitForResponse((response) => response.url().includes('/rest/v1/packs?'));
+    await page.goto('/');
+
+    await expect(page.getByLabel('On a pause')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Feed Study buddies' })).toBeHidden();
+    const [read] = (await (await list).json()) as { pack_members: { user_id: string; pauses: unknown[] }[] }[];
+    expect(read?.pack_members.find((member) => member.user_id === noa.id)?.pauses).toHaveLength(1);
+
+    await page.goto(`/pack/${pack.id}`);
+    await expect(page.getByText(onPause, { exact: false })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Feed', exact: true })).toBeHidden();
+  });
+
   test('feeds again once the pause is over', async ({ page }) => {
     const pack = await pausedPack();
     const today = packDayOf(new Date(), 'Asia/Jerusalem');

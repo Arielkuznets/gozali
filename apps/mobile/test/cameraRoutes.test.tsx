@@ -19,7 +19,7 @@ jest.mock('expo-linking', () => ({
 jest.mock('expo-camera', () => ({ CameraView: 'CameraView', useCameraPermissions: () => [{ granted: true }] }));
 jest.mock('expo-image', () => ({ Image: 'Image' }));
 jest.mock('@/features/auth/AuthProvider', () => ({ useAuth: () => ({ session: { user: { id: 'noa' } } }) }));
-jest.mock('@/features/days/api', () => ({ isPausedToday: () => false, useDayStatus: () => ({ data: undefined }) }));
+jest.mock('@/features/days/api', () => ({ pauseToday: () => null, useDayStatus: () => ({ data: undefined }) }));
 jest.mock('@/features/feeds/EatingMoment', () => ({ EatingMoment: () => null }));
 jest.mock('@/features/feeds/api', () => ({ useSendFeed: () => ({ mutateAsync: async () => 'sent' }) }));
 jest.mock('@/features/feeds/send', () => ({ compressPhoto: async () => 'file:///compressed.jpg' }));

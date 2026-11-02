@@ -220,7 +220,7 @@ Examples: in a pack of 6 where one missed, the day is successful, health goes up
 - For a planned absence: a vacation, a flight or reserve duty. The pause starts on the day after it is turned on (for an absence today there's the joker).
 - Length: 3 to 60 days. It can end early, but not before 3 days have passed.
 - A new pause is possible only 30 days after the previous one ended.
-- During a pause the member is not counted, and the creature is not hurt by them. A feed wouldn't count either, so the app doesn't offer one: the pack card shows 💤 instead of Feed, the pack screen says until when, and a link to the camera (a widget, a notification) opens the pack.
+- During a pause the member is not counted, and the creature is not hurt by them. A feed wouldn't count either, so the app doesn't offer one: the pack card shows 💤 instead of Feed, the pack screen says until when, and a link to the camera (a widget, a notification) opens the pack. The packs the phone keeps hold each member's pauses that aren't over, so this also holds with no connection.
 - The limit is on minimum length and on frequency, not on a short maximum length: the abuse to prevent is short, frequent pauses instead of a lazy day, not long absences like reserve duty.
 
 **Sleep (inactive member):**
