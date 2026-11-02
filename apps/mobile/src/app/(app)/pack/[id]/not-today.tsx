@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -17,8 +17,15 @@ export default function NotTodayScreen() {
   const status = useDayStatus(id);
   const dayPass = useDayPass(id);
   const cancelPass = useCancelDayPass(id);
+  const navigation = useNavigation();
 
-  const choose = (pass: 'rest' | 'joker') => dayPass.mutate(pass, { onSuccess: () => goBack(`/pack/${id}`) });
+  const choose = (pass: 'rest' | 'joker') =>
+    dayPass.mutate(pass, {
+      onSuccess: () => {
+        // Back closes the top screen, which may be one opened over this sheet while the reads ran.
+        if (navigation.isFocused()) goBack(`/pack/${id}`);
+      },
+    });
 
   if (!status.data) {
     return (

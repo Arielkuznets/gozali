@@ -10,7 +10,11 @@ import { notify } from '@/lib/confirm';
 const mockGoBack = jest.fn();
 const mockRpc = jest.fn();
 
-jest.mock('expo-router', () => ({ router: { replace: jest.fn() }, useLocalSearchParams: () => ({ id: 'pack' }) }));
+jest.mock('expo-router', () => ({
+  router: { replace: jest.fn() },
+  useLocalSearchParams: () => ({ id: 'pack' }),
+  useNavigation: () => ({ isFocused: () => true }),
+}));
 jest.mock('@/lib/navigation', () => ({ goBack: (...args: unknown[]) => mockGoBack(...args) }));
 jest.mock('@/lib/confirm', () => ({ notify: jest.fn() }));
 jest.mock('@/lib/supabase', () => ({ requireSupabase: () => ({ rpc: (...args: unknown[]) => mockRpc(...args) }) }));

@@ -12,6 +12,7 @@ import * as AppLayout from '@/app/(app)/_layout';
 import CreatePackScreen from '@/app/(app)/create-pack';
 import JoinScreen from '@/app/(app)/join';
 import InviteScreen from '@/app/(app)/pack/[id]/invite';
+import NotTodayScreen from '@/app/(app)/pack/[id]/not-today';
 import PackSettingsScreen from '@/app/(app)/pack/[id]/settings';
 import { LoadingScreen, PackMissingScreen } from '@/components/ScreenStates';
 import { packsKey, useMyPacks, usePack, type Pack, type PackPreview } from '@/features/packs/api';
@@ -133,7 +134,7 @@ const routes = {
   '(app)/pack/[id]/index': { default: PackStandIn },
   '(app)/pack/[id]/feed': { default: Camera },
   '(app)/pack/[id]/invite': { default: InviteScreen },
-  '(app)/pack/[id]/not-today': { default: () => <Text>not today</Text> },
+  '(app)/pack/[id]/not-today': { default: NotTodayScreen },
   '(app)/pack/[id]/settings': { default: PackSettingsScreen },
 };
 
@@ -489,6 +490,69 @@ describe('a pack the phone has only on its list', () => {
       expect(client.getQueryData<Pack>(['packs', 'p1'])?.name).toBe('Renamed on another phone');
       expect(nameField().props.value).toBe('Pack p1');
       expect(mockRpc).not.toHaveBeenCalledWith('update_pack', expect.anything());
+    });
+  });
+});
+
+describe('a rest day that takes its time', () => {
+  let answerPass = () => {};
+  let passToday: string | null = null;
+
+  beforeEach(() => {
+    passToday = null;
+    mockRpc.mockImplementation((name: string) => {
+      if (name === 'my_day_status') {
+        return Promise.resolve({
+          data: { day: '2026-11-02', restDaysLeft: 2, jokerAvailable: true, passToday, pause: null, pauseAvailableFrom: null },
+          error: null,
+        });
+      }
+      return new Promise((resolve) => {
+        answerPass = () => {
+          passToday = 'rest';
+          resolve({ error: null });
+        };
+      });
+    });
+  });
+
+  it('closes the sheet once it is answered', async () => {
+    await start('/pack/p1');
+    await open('/pack/p1/not-today');
+    await press('Use');
+
+    await act(async () => answerPass());
+    await settle();
+
+    expect(pathname()).toBe('/pack/p1');
+  });
+
+  describe('with another screen in front when the server answers', () => {
+    it('leaves the person where they went, with the photo on the camera', async () => {
+      await start('/pack/p1');
+      await open('/pack/p1/not-today');
+      await press('Use');
+      await open('/pack/p2/feed');
+
+      await act(async () => answerPass());
+      await settle();
+
+      expect(pathname()).toBe('/pack/p2/feed');
+      expect(shows(CAPTION)).toBe(true);
+    });
+
+    it('shows the rest day on the sheet they come back to', async () => {
+      await start('/pack/p1');
+      await open('/pack/p1/not-today');
+      await press('Use');
+      await open('/pack/p2/feed');
+      await act(async () => answerPass());
+      await settle();
+
+      await goBack();
+
+      expect(pathname()).toBe('/pack/p1/not-today');
+      expect(hasButton('Undo')).toBe(true);
     });
   });
 });
