@@ -119,6 +119,9 @@ type CardProps = {
 
 function PhotoCard({ feed, name, emoji, now, own, onReact, onMore, onOpen }: CardProps) {
   const { t } = useTranslation();
+  // Every refetch brings a new link. A photo that has loaded stays on the link it loaded with, or it
+  // would load from the disk again and fade in over itself. One that hasn't takes the new link.
+  const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
   const totals = new Map(feed.reactions.map((reaction) => [reaction.emoji, reaction]));
   const reactedBy = feed.reactions.filter((reaction) => reaction.emoji !== 'suspicious').flatMap((reaction) => reaction.names);
   return (
@@ -142,7 +145,8 @@ function PhotoCard({ feed, name, emoji, now, own, onReact, onMore, onOpen }: Car
       {feed.photoUrl ? (
         <Pressable accessibilityRole="imagebutton" accessibilityHint={t('feed.openPhoto')} onPress={() => onOpen(feed)}>
           <Image
-            source={{ uri: feed.photoUrl, cacheKey: feed.id }}
+            source={{ uri: loadedUrl ?? feed.photoUrl, cacheKey: feed.id }}
+            onLoad={() => setLoadedUrl((loaded) => loaded ?? feed.photoUrl)}
             style={styles.photo}
             contentFit="cover"
             transition={150}
