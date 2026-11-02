@@ -109,6 +109,16 @@ export function renameMember(queryClient: QueryClient, userId: string, name: str
   );
 }
 
+/**
+ * Brings the phone up to a pack the server has just said the person is in. A null kept from when
+ * they weren't goes first: a pack screen would open on it and say the pack isn't here, and the
+ * list's copy doesn't replace a null.
+ */
+export function refreshJoinedPack(queryClient: QueryClient, id: string): void {
+  void queryClient.resetQueries({ queryKey: packKey(id), predicate: (query) => query.state.data === null });
+  void queryClient.invalidateQueries({ queryKey: packsKey });
+}
+
 export function useMyPacks() {
   return useQuery({
     queryKey: packsKey,
@@ -194,9 +204,7 @@ export function useJoinPack() {
       if (data === null) throw new Error('invite_not_found');
       return data as string;
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: packsKey });
-    },
+    onSuccess: (packId) => refreshJoinedPack(queryClient, packId),
   });
 }
 

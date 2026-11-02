@@ -717,6 +717,23 @@ describe('Open pack on the join screen', () => {
     expect(shows('Open: Pack p1')).toBe(true);
   });
 
+  it("doesn't say the pack isn't here on what the phone kept from before", async () => {
+    await start('/');
+    mockPacks = [];
+    await open('/pack/p1');
+    expect(shows(MISSING)).toBe(true);
+    await goBack();
+    // Back in the pack, by a way that told this phone nothing.
+    mockPacks = [packNamed('p1')];
+    await open('/join?code=ABCD2345');
+    mockPackAnswered = new Promise(() => undefined);
+
+    await press('Open pack');
+
+    expect(pathname()).toBe('/pack/p1');
+    expect(shows(MISSING)).toBe(false);
+  });
+
   it('tapped twice goes back once, to the same copy of the pack', async () => {
     await start('/pack/p1');
     await open('/join?code=ABCD2345');
@@ -738,11 +755,32 @@ describe('Join pack on the join screen', () => {
     mockJoinAnswered = Promise.resolve();
     mockRpc.mockImplementation(async (name: string) => {
       if (name === 'pack_preview') return { data: [{ ...previewOf('p1'), already_member: false }], error: null };
+      if (name === 'leave_pack') mockPacks = [];
       if (name !== 'join_pack') return { error: null };
       await mockJoinAnswered;
       mockPacks = [packNamed('p1')];
       return { data: 'p1', error: null };
     });
+  });
+
+  it("doesn't say the pack isn't here to someone who left it and came back", async () => {
+    await start('/pack/p1/settings');
+    await press('Leave pack');
+    expect(client.getQueryData(['packs', 'p1'])).toBeNull();
+    await open('/join?code=ABCD2345');
+    let answerPack = () => {};
+    mockPackAnswered = new Promise((resolve) => {
+      answerPack = resolve;
+    });
+
+    await press('Join pack');
+
+    expect(pathname()).toBe('/pack/p1');
+    expect(shows(MISSING)).toBe(false);
+
+    await act(async () => answerPack());
+    await settle();
+    expect(shows('Open: Pack p1')).toBe(true);
   });
 
   it('goes back to that pack when it stood missing underneath', async () => {

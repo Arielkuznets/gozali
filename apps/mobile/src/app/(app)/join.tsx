@@ -11,7 +11,7 @@ import { Screen } from '@/components/Screen';
 import { TextField } from '@/components/TextField';
 import { Critter } from '@/features/critter/Critter';
 import { critterArt } from '@/features/critter/art';
-import { packErrorKey, packsKey, useJoinPack, usePackPreview } from '@/features/packs/api';
+import { packErrorKey, refreshJoinedPack, useJoinPack, usePackPreview } from '@/features/packs/api';
 import { INVITE_CODE_LENGTH, categoryInfo, inviteCodeFrom, normalizeInviteCode } from '@/features/packs/constants';
 import { notify } from '@/lib/confirm';
 import { haptics } from '@/lib/haptics';
@@ -48,8 +48,7 @@ function JoinForm({ linkCode }: { linkCode: string }) {
   };
 
   const onOpen = (packId: string) => {
-    // A pack screen underneath stays as it was, and it may say this pack isn't here.
-    void queryClient.invalidateQueries({ queryKey: packsKey });
+    refreshJoinedPack(queryClient, packId);
     openPack(packId);
   };
 
