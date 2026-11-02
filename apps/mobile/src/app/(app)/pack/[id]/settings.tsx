@@ -43,7 +43,7 @@ export default function PackSettingsScreen() {
     }, [left]),
   );
 
-  if (isPending) return <LoadingScreen />;
+  if (isPending) return <LoadingScreen back />;
   if (!pack && isError) return <LoadFailedScreen onRetry={() => void refetch()} />;
   if (!pack) return leavePack.isPending || left ? <LoadingScreen /> : <PackMissingScreen />;
   return <SettingsForm pack={pack} leavePack={leavePack} />;

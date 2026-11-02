@@ -42,6 +42,23 @@ test('a pack that fails to load offers to try again, not "pack missing"', async 
   await expect(page.getByRole('button', { name: 'Feed', exact: true })).toBeVisible();
 });
 
+test('a link to a pack that is not on the list has a way out while it loads and once it failed', async ({ page }) => {
+  const dan = await createUser('Dan');
+  const pack = await createPack(dan, { name: 'Gym squad', habit: 'gym', species: 'kit' });
+  await page.route(`**/rest/v1/packs?*id=eq.${pack.id}*`, (route) => route.abort('internetdisconnected'));
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+  const back = page.getByRole('button', { name: 'Back', exact: true });
+
+  await expect(page.getByRole('progressbar')).toBeVisible();
+  await expect(back).toBeVisible();
+
+  await expect(page.getByText("This didn't load")).toBeVisible({ timeout: 30_000 });
+  await back.click();
+  await expect(page.getByRole('button', { name: 'Create a pack' })).toBeVisible();
+  await removeUsers(dan);
+});
+
 test('a profile that fails to load offers to try again, not the profile setup', async ({ page }) => {
   const profileRequests = '**/rest/v1/profiles?**';
   await page.route(profileRequests, (route) => route.abort('internetdisconnected'));

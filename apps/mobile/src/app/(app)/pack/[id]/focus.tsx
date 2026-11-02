@@ -68,7 +68,7 @@ export default function FocusScreen() {
     }
   });
 
-  if (isPending || !focus.loaded) return <LoadingScreen />;
+  if (isPending || !focus.loaded) return <LoadingScreen back />;
   if (!pack && isError) return <LoadFailedScreen onRetry={() => void refetch()} />;
   if (!pack) return <PackMissingScreen />;
 

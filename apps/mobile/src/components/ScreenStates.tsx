@@ -5,13 +5,29 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
+import { HeaderButton } from '@/components/HeaderButton';
 import { Screen } from '@/components/Screen';
 import { packsKey } from '@/features/packs/api';
+import { goBack } from '@/lib/navigation';
 import { colors, spacing } from '@/theme/tokens';
 
-export function LoadingScreen() {
+/**
+ * A screen of a pack that can't load has none of its own buttons yet, and the swipe and the
+ * hardware key say nothing to someone looking at a spinner.
+ */
+function BackHeader() {
+  const { t } = useTranslation();
+  return (
+    <View style={styles.header}>
+      <HeaderButton icon="‹" label={t('pack.back')} onPress={() => goBack('/')} />
+    </View>
+  );
+}
+
+export function LoadingScreen({ back = false }: { back?: boolean }) {
   return (
     <Screen>
+      {back && <BackHeader />}
       <View style={styles.center}>
         <ActivityIndicator color={colors.accent} />
       </View>
@@ -30,9 +46,11 @@ export function LoadFailed({ onRetry }: { onRetry: () => void }) {
   );
 }
 
+/** For a screen of a pack that wouldn't load. */
 export function LoadFailedScreen({ onRetry }: { onRetry: () => void }) {
   return (
     <Screen>
+      <BackHeader />
       <LoadFailed onRetry={onRetry} />
     </Screen>
   );
@@ -66,6 +84,7 @@ export function PackMissingScreen() {
 }
 
 const styles = StyleSheet.create({
+  header: { flexDirection: 'row', paddingVertical: spacing.md },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
   text: { textAlign: 'center' },
   muted: { color: colors.inkMuted },

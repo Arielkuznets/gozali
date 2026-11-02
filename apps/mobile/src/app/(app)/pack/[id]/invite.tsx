@@ -24,7 +24,7 @@ export default function InviteScreen() {
   const { session } = useAuth();
   const renew = useRenewInviteCode(id);
 
-  if (isPending) return <LoadingScreen />;
+  if (isPending) return <LoadingScreen back />;
   if (!pack && isError) return <LoadFailedScreen onRetry={() => void refetch()} />;
   if (!pack) return <PackMissingScreen />;
 

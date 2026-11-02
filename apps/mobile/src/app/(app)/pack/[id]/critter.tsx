@@ -33,7 +33,7 @@ export default function CritterProfileScreen() {
   const { data: pack, isPending, isError, refetch } = usePack(id);
   usePackRealtime(id);
 
-  if (isPending) return <LoadingScreen />;
+  if (isPending) return <LoadingScreen back />;
   if (!pack && isError) return <LoadFailedScreen onRetry={() => void refetch()} />;
   if (!pack?.critters) return <PackMissingScreen />;
   return <Profile pack={pack} critter={pack.critters} />;

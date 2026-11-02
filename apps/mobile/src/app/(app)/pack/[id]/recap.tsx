@@ -36,7 +36,7 @@ export default function RecapScreen() {
 
   const recap = recaps.data?.find((item) => item.week_start === week) ?? recaps.data?.[0];
 
-  if (isPending) return <LoadingScreen />;
+  if (isPending) return <LoadingScreen back />;
   if (!pack && isError) return <LoadFailedScreen onRetry={() => void refetch()} />;
   if (!pack) return <PackMissingScreen />;
 
