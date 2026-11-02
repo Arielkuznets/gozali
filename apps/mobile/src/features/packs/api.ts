@@ -175,7 +175,11 @@ export function useCreatePack() {
       if (error) throw error;
       return data as string;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: packsKey }),
+    // Not returned here or on a join: the next screen reads the pack itself, and with the pack made
+    // nobody should be held on this one by a stalled list.
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: packsKey });
+    },
   });
 }
 
@@ -190,7 +194,9 @@ export function useJoinPack() {
       if (data === null) throw new Error('invite_not_found');
       return data as string;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: packsKey }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: packsKey });
+    },
   });
 }
 
@@ -222,7 +228,12 @@ export function useUpdatePack(packId: string) {
       });
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: packsKey }),
+    // The form says Saved once the pack comes back with the new values, so the spinner holds for
+    // that read and not for the list.
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: packsKey, exact: true });
+      return queryClient.invalidateQueries({ queryKey: packKey(packId) });
+    },
   });
 }
 
@@ -231,10 +242,16 @@ export function useRenewInviteCode(packId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      const { error } = await requireSupabase().rpc('renew_invite_code', { target: packId });
+      const { data, error } = await requireSupabase().rpc('renew_invite_code', { target: packId });
       if (error) throw error;
+      return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: packsKey }),
+    // The old code stopped working with this answer, so the screen takes the new one from it: a
+    // stalled reload must not leave a dead code up to be shared.
+    onSuccess: (code) => {
+      queryClient.setQueryData<Pack | null>(packKey(packId), (pack) => pack && { ...pack, invite_code: code });
+      void queryClient.invalidateQueries({ queryKey: packsKey });
+    },
   });
 }
 
@@ -245,7 +262,10 @@ export function useRemoveMember(packId: string) {
       const { error } = await requireSupabase().rpc('remove_member', { target: packId, member: userId });
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: packsKey }),
+    // Not returned: the member goes from the list when the reload comes, and nothing waits for that.
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: packsKey });
+    },
   });
 }
 

@@ -39,6 +39,7 @@ jest.mock('@/lib/confirm', () => ({
 
 let mockPacks: Pack[] = [];
 let mockListAnswered: Promise<void> = Promise.resolve();
+let mockPackAnswered: Promise<void> = Promise.resolve();
 let mockOffline = false;
 const mockNoConnection = { data: null, error: new TypeError('Network request failed') };
 const mockRpc = jest.fn();
@@ -48,7 +49,10 @@ jest.mock('@/lib/supabase', () => ({
       select: () => ({
         gte: () => ({
           eq: (_column: string, id: string) => ({
-            maybeSingle: async () => (mockOffline ? mockNoConnection : { data: mockPacks.find((pack) => pack.id === id) ?? null, error: null }),
+            maybeSingle: async () => {
+              await mockPackAnswered;
+              return mockOffline ? mockNoConnection : { data: mockPacks.find((pack) => pack.id === id) ?? null, error: null };
+            },
           }),
           order: async () => {
             await mockListAnswered;
@@ -178,12 +182,18 @@ const pathname = () => store.getRouteInfo().pathname;
 const shows = (text: string) =>
   app.root.findAll((node) => typeof node.type === 'string' && node.props.children === text).length > 0;
 const spinners = () => app.root.findAll((node) => node.type === 'ActivityIndicator');
+const hasButton = (label: string) => app.root.findAll((node) => node.props.label === label).length > 0;
+const asAdmin = (pack: Pack): Pack => ({
+  ...pack,
+  pack_members: pack.pack_members.map((member) => ({ ...member, role: 'admin' })),
+});
 
 beforeEach(() => {
   jest.useFakeTimers();
   process.env.EXPO_ROUTER_IMPORT_MODE = 'sync';
   mockPacks = [packNamed('p1')];
   mockListAnswered = Promise.resolve();
+  mockPackAnswered = Promise.resolve();
   mockOffline = false;
   mockNotify.mockClear();
   mockRpc.mockReset();
@@ -461,10 +471,6 @@ describe('a pack the phone has only on its list', () => {
   });
 
   describe('its settings, opened on what the phone holds', () => {
-    const asAdmin = (pack: Pack): Pack => ({
-      ...pack,
-      pack_members: pack.pack_members.map((member) => ({ ...member, role: 'admin' })),
-    });
     const nameField = () => app.root.findByType(TextInput);
 
     beforeEach(() => {
@@ -526,6 +532,99 @@ describe('Done on the invite screen', () => {
 
     expect(appStack()).toEqual(['index', 'pack/[id]/index']);
     expect(pathname()).toBe('/pack/p2');
+  });
+});
+
+describe('with the list of packs stalled', () => {
+  const stallList = () => {
+    mockListAnswered = new Promise(() => undefined);
+  };
+
+  it('creating a pack goes on to its invite', async () => {
+    await start('/');
+    await open('/create-pack');
+    stallList();
+    await act(async () => app.root.findByType(TextInput).props.onChangeText('Morning runs'));
+    await press('Next');
+    await press('Next');
+    await press('Next');
+
+    await press('Create pack');
+
+    expect(appStack()).toEqual(['index', 'pack/[id]/invite']);
+    expect(shows('ABCD2345')).toBe(true);
+  });
+
+  it('joining a pack goes on to it', async () => {
+    mockPacks = [];
+    mockRpc.mockImplementation(async (name: string) => {
+      if (name === 'pack_preview') return { data: [{ ...previewOf('p1'), already_member: false }], error: null };
+      mockPacks = [packNamed('p1')];
+      return { data: 'p1', error: null };
+    });
+    await start('/');
+    await open('/join?code=ABCD2345');
+    stallList();
+
+    await press('Join pack');
+
+    expect(appStack()).toEqual(['index', 'pack/[id]/index']);
+    expect(shows('Open: Pack p1')).toBe(true);
+  });
+
+  it('saving the settings says so once the pack is back', async () => {
+    mockPacks = [asAdmin(packNamed('p1'))];
+    mockRpc.mockImplementation(async (name: string, args: { pack_name: string }) => {
+      if (name === 'update_pack') mockPacks = [{ ...asAdmin(packNamed('p1')), name: args.pack_name }];
+      return { error: null };
+    });
+    await start('/pack/p1/settings');
+    stallList();
+    await act(async () => app.root.findByType(TextInput).props.onChangeText('Morning runs'));
+
+    await press('Save');
+
+    expect(hasButton('Saved')).toBe(true);
+  });
+});
+
+describe('a new invite code', () => {
+  const FRESH = 'EFGH6789';
+
+  async function getNewCode() {
+    let link = app.root.find((node) => typeof node.type === 'string' && node.props.children === 'Get a new code');
+    while (!link.props.onPress && link.parent) link = link.parent;
+    await act(async () => link.props.onPress());
+    await settle();
+  }
+
+  beforeEach(() => {
+    mockPacks = [asAdmin(packNamed('p1'))];
+    mockRpc.mockImplementation(async (name: string) => {
+      if (name !== 'renew_invite_code') return { error: null };
+      mockPacks = [{ ...asAdmin(packNamed('p1')), invite_code: FRESH }];
+      return { data: FRESH, error: null };
+    });
+  });
+
+  it('takes the place of the old one', async () => {
+    await start('/pack/p1/invite');
+
+    await getNewCode();
+
+    expect(shows(FRESH)).toBe(true);
+    expect(shows('ABCD2345')).toBe(false);
+  });
+
+  it('shows with the server answer, while the reads are stalled', async () => {
+    await start('/pack/p1/invite');
+    mockListAnswered = new Promise(() => undefined);
+    mockPackAnswered = new Promise(() => undefined);
+
+    await getNewCode();
+
+    expect(shows(FRESH)).toBe(true);
+    expect(shows('ABCD2345')).toBe(false);
   });
 });
 

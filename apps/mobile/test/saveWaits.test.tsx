@@ -5,7 +5,15 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { daysKey, useCancelDayPass, useDayPass, useEndPause, useStartPause } from '@/features/days/api';
 import { feedsKey, packFeedsKey, useSendFeed } from '@/features/feeds/api';
 import type { OutgoingFeed } from '@/features/feeds/send';
-import { packsKey } from '@/features/packs/api';
+import {
+  packsKey,
+  useCreatePack,
+  useJoinPack,
+  useLeavePack,
+  useRemoveMember,
+  useRenewInviteCode,
+  useUpdatePack,
+} from '@/features/packs/api';
 import { useBlock, useReact } from '@/features/social/api';
 
 // Saves against reads that keep failing or never answer: what a save tells the member can't wait
@@ -58,12 +66,20 @@ let hooks: {
   endPause: ReturnType<typeof useEndPause>;
   react: ReturnType<typeof useReact>;
   block: ReturnType<typeof useBlock>;
+  create: ReturnType<typeof useCreatePack>;
+  join: ReturnType<typeof useJoinPack>;
+  leave: ReturnType<typeof useLeavePack>;
+  update: ReturnType<typeof useUpdatePack>;
+  renew: ReturnType<typeof useRenewInviteCode>;
+  remove: ReturnType<typeof useRemoveMember>;
 };
 
 function Screen() {
   useQuery({ queryKey: [...feedsKey, 'read'], queryFn: mockRead });
   useQuery({ queryKey: [...daysKey, 'read'], queryFn: mockRead });
   useQuery({ queryKey: [...packsKey, 'read'], queryFn: mockPackRead });
+  useQuery({ queryKey: packsKey, queryFn: mockRead });
+  useQuery({ queryKey: [...packsKey, 'pack'], queryFn: mockRead });
   const current = {
     send: useSendFeed(),
     rest: useDayPass('pack'),
@@ -72,6 +88,12 @@ function Screen() {
     endPause: useEndPause('pack'),
     react: useReact(),
     block: useBlock(),
+    create: useCreatePack(),
+    join: useJoinPack(),
+    leave: useLeavePack(),
+    update: useUpdatePack('pack'),
+    renew: useRenewInviteCode('pack'),
+    remove: useRemoveMember('pack'),
   };
   useEffect(() => {
     hooks = current;
@@ -152,6 +174,7 @@ describe('a save while the reads fail', () => {
 describe('a save the server took while the reads never answer', () => {
   beforeEach(() => {
     mockRead.mockReturnValue(new Promise(() => undefined));
+    mockSave.mockResolvedValue({ data: 'pack', error: null });
   });
 
   it('is done with a reaction, and runs the reload it cancelled again', async () => {
@@ -180,12 +203,34 @@ describe('a save the server took while the reads never answer', () => {
     ['a rest day', (onSuccess: () => void) => hooks.rest.mutate('rest', { onSuccess })],
     ['an undone rest day', (onSuccess: () => void) => hooks.undo.mutate(undefined, { onSuccess })],
     ['the end of a pause', (onSuccess: () => void) => hooks.endPause.mutate(undefined, { onSuccess })],
+    [
+      'new pack settings',
+      (onSuccess: () => void) => hooks.update.mutate({ name: 'Gym', restDays: 1, weekStart: 'sunday' }, { onSuccess }),
+    ],
   ])('holds %s until the screen can show it', async (_name, save) => {
     const onSuccess = jest.fn();
     await act(async () => save(onSuccess));
     await advance(SOON);
     expect(mockRead).toHaveBeenCalled();
     expect(onSuccess).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [
+      'a new pack',
+      (onSuccess: () => void) =>
+        hooks.create.mutate({ name: 'Gym', category: 'gym', customHabit: null, restDays: 1, species: 'kit' }, { onSuccess }),
+    ],
+    ['a join', (onSuccess: () => void) => hooks.join.mutate('ABCD2345', { onSuccess })],
+    ['a leave', (onSuccess: () => void) => hooks.leave.mutate('pack', { onSuccess })],
+    ['a new invite code', (onSuccess: () => void) => hooks.renew.mutate(undefined, { onSuccess })],
+    ['a removed member', (onSuccess: () => void) => hooks.remove.mutate('dan', { onSuccess })],
+  ])('is done with %s, and the reads still run', async (_name, save) => {
+    const onSuccess = jest.fn();
+    await act(async () => save(onSuccess));
+    await advance(SOON);
+    expect(onSuccess).toHaveBeenCalledTimes(1);
+    expect(mockRead).toHaveBeenCalled();
   });
 });
 
