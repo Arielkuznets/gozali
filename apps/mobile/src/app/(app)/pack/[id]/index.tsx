@@ -18,7 +18,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { useAvatarUrls } from '@/features/profile/avatar';
 import { Critter } from '@/features/critter/Critter';
 import { HatchSteps } from '@/features/critter/HatchSteps';
-import { hatchesTonight } from '@/features/critter/hatch';
+import { hatchesAtClose, hatchesTonight } from '@/features/critter/hatch';
 import { MilestoneMoment } from '@/features/critter/MilestoneMoment';
 import { useMilestone } from '@/features/critter/milestones';
 import { critterArt, stageProgress } from '@/features/critter/art';
@@ -173,6 +173,7 @@ export default function PackScreen() {
             memberCount={members.length}
             fedCount={fedCount}
             hatchCertain={hatchesTonight(members, fed, today, membersToday.data)}
+            hatching={hatchesAtClose(membersToday.data)}
             mood={awake.length > 0 ? fedCount / awake.length : 0}
             now={now}
           />
@@ -312,11 +313,12 @@ type PanelProps = {
   memberCount: number;
   fedCount: number;
   hatchCertain: boolean;
+  hatching: boolean;
   mood: number;
   now: Date;
 };
 
-function CritterPanel({ pack, critter, memberCount, fedCount, hatchCertain, mood, now }: PanelProps) {
+function CritterPanel({ pack, critter, memberCount, fedCount, hatchCertain, hatching, mood, now }: PanelProps) {
   const { t } = useTranslation();
   const art = critterArt(critter, { category: pack.category, now, mood, cracking: memberCount >= 2 });
   const text = useCritterText(critter, art);
@@ -337,7 +339,7 @@ function CritterPanel({ pack, critter, memberCount, fedCount, hatchCertain, mood
       {art.look === 'egg' && (
         <>
           <Coins text={t('critter.coins', { count: critter.coins })} accessibilityLabel={t('critter.coinsLabel', { count: critter.coins })} />
-          <HatchSteps friendJoined={daysRun} fedToday={fedCount} certain={hatchCertain} />
+          <HatchSteps friendJoined={daysRun} fedToday={fedCount} certain={hatchCertain} hatching={hatching} />
         </>
       )}
       {memberCount < 2 && (

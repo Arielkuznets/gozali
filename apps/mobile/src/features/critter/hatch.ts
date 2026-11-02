@@ -1,4 +1,4 @@
-import { hatchIsCertain, type MemberDay } from '@gozali/game-engine';
+import { closeDay, hatchIsCertain, type MemberDay } from '@gozali/game-engine';
 
 import type { MembersToday, TodayPasses } from '@/features/days/api';
 import type { PackMember } from '@/features/packs/api';
@@ -32,4 +32,13 @@ export function hatchesTonight(
     };
   });
   return hatchIsCertain(days, known.restDaysPerWeek);
+}
+
+/**
+ * Whether the close of the day that ended hatches the egg, by its own input and rules. Only a feed
+ * can still reach an ended day, in the grace window, and that takes no hatch away.
+ */
+export function hatchesAtClose(known: MembersToday | undefined): boolean {
+  if (!known?.dayToClose) return false;
+  return closeDay(known.dayToClose).events.some((event) => event.type === 'hatched');
 }

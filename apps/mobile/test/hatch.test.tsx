@@ -3,7 +3,7 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import '@/i18n';
 import { HatchSteps } from '@/features/critter/HatchSteps';
-import { hatchesTonight } from '@/features/critter/hatch';
+import { hatchesAtClose, hatchesTonight } from '@/features/critter/hatch';
 import type { MembersToday, TodayPasses } from '@/features/days/api';
 import type { PackMember } from '@/features/packs/api';
 
@@ -85,11 +85,51 @@ describe('whether the egg surely hatches tonight', () => {
   });
 });
 
+describe('whether the day that ended hatches the egg at its close', () => {
+  const memberDay = (userId: string, facts: Partial<MemberDay>): MemberDay => ({
+    userId,
+    membership: 'active',
+    hasStarted: true,
+    paused: false,
+    fedToday: false,
+    jokerToday: false,
+    restDeclaredToday: false,
+    restDaysUsedThisWeek: 0,
+    recentMisses: 0,
+    ...facts,
+  });
+  const ended = (eve: Partial<MemberDay>): MembersToday => ({
+    ...known({}),
+    dayToClose: dayBefore([memberDay('noa', { fedToday: true }), memberDay('dan', { fedToday: true }), memberDay('eve', eve)]),
+  });
+
+  it('is so when two fed and the day succeeds', () => {
+    expect(hatchesAtClose(ended({ fedToday: true }))).toBe(true);
+    expect(hatchesAtClose(ended({ hasStarted: false }))).toBe(true);
+  });
+
+  it('is so on a joker, which nobody can take back once the day ended', () => {
+    expect(hatchesAtClose(ended({ jokerToday: true }))).toBe(true);
+  });
+
+  it('is not so when a miss fails that day, or with fewer than two feeds', () => {
+    expect(hatchesAtClose(ended({}))).toBe(false);
+    expect(hatchesAtClose({ ...known({}), dayToClose: dayBefore([memberDay('noa', { fedToday: true })]) })).toBe(false);
+  });
+
+  it('is not so when nothing waits for a close, or the server says nothing of it', () => {
+    expect(hatchesAtClose(undefined)).toBe(false);
+    expect(hatchesAtClose(known({}))).toBe(false);
+    const { dayToClose, ...older } = known({});
+    expect(hatchesAtClose(older as MembersToday)).toBe(false);
+  });
+});
+
 describe('the hatch steps', () => {
-  const shown = (certain: boolean) => {
+  const shown = (certain: boolean, { fedToday = 2, hatching = false } = {}) => {
     let tree!: ReactTestRenderer;
     act(() => {
-      tree = create(<HatchSteps friendJoined fedToday={2} certain={certain} />);
+      tree = create(<HatchSteps friendJoined fedToday={fedToday} certain={certain} hatching={hatching} />);
     });
     return JSON.stringify(tree.toJSON());
   };
@@ -98,5 +138,16 @@ describe('the hatch steps', () => {
     expect(shown(true)).toContain('It hatches tonight, when today ends 🎉');
     expect(shown(false)).not.toContain('🎉');
     expect(shown(false)).toContain('It hatches tonight if no one else misses today');
+  });
+
+  it('keep the feeds of the day that ended while its close hatches the egg, not the new 0/2', () => {
+    const waiting = shown(false, { fedToday: 0, hatching: true });
+    expect(waiting).toContain('Two of you fed on the same day');
+    expect(waiting).toContain('It hatches very soon 🎉');
+    expect(waiting).not.toContain('0/2');
+  });
+
+  it('start again from the new day when the day that ended hatches nothing', () => {
+    expect(shown(false, { fedToday: 0 })).toContain('0/2');
   });
 });

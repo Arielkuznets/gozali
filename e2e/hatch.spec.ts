@@ -108,3 +108,23 @@ test('the promise waits for the close of the day before, and then comes by itsel
   await closeOneDay(admin, pack.id, ended);
   await expect(page.getByText('It hatches tonight, when today ends 🎉')).toBeVisible({ timeout: 20_000 });
 });
+
+test('an egg about to hatch keeps its steps until the close of the day that ended', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
+  const ended = await dayJustEnded(pack.id);
+  const fed = await admin.from('feeds').insert([
+    { pack_id: pack.id, user_id: noa.id, day: ended },
+    { pack_id: pack.id, user_id: dan.id, day: ended },
+  ]);
+  if (fed.error) throw fed.error;
+
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+  await expect(page.getByText('How the egg hatches')).toBeVisible();
+  await expect(page.getByText('(0/2 today)')).toBeHidden();
+  await expect(page.getByText('Two of you fed on the same day')).toBeVisible();
+  await expect(page.getByText('It hatches very soon 🎉')).toBeVisible();
+
+  await closeOneDay(admin, pack.id, ended);
+  await expect(page.getByRole('heading', { name: 'Kit hatched!' })).toBeVisible();
+});
