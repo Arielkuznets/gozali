@@ -1,4 +1,3 @@
-import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
@@ -8,7 +7,7 @@ import { Button } from '@/components/Button';
 import { LegalLinks } from '@/components/LegalLinks';
 import { Screen } from '@/components/Screen';
 import { SignOutLink } from '@/components/SignOutLink';
-import { signOut } from '@/features/auth/signIn';
+import { useSignOut } from '@/features/auth/useSignOut';
 import { AvatarButton } from '@/features/profile/AvatarButton';
 import { suggestedName } from '@/features/profile/suggestedName';
 import { NAME_MAX_LENGTH, useCompleteProfile, useProfile } from '@/features/profile/useProfile';
@@ -23,8 +22,7 @@ export default function ProfileSetupScreen() {
   const [name, setName] = useState((profile?.display_name ?? suggestedName() ?? '').slice(0, NAME_MAX_LENGTH));
   const [agreed, setAgreed] = useState(false);
   const completeProfile = useCompleteProfile();
-  // With an expired token signing out waits for the refresh to give up; meanwhile a tap would start it again.
-  const leaving = useMutation({ mutationFn: signOut, onError: () => notify(t('errors.signOutFailed')) });
+  const leaving = useSignOut();
 
   const trimmed = name.trim();
   const canContinue = trimmed.length > 0 && agreed;
@@ -38,7 +36,7 @@ export default function ProfileSetupScreen() {
   return (
     <Screen>
       {/* The way out for a wrong Apple ID or terms someone won't accept: plain, and far from Continue. */}
-      <SignOutLink leaving={leaving.isPending} disabled={completeProfile.isPending} onPress={() => leaving.mutate()} />
+      <SignOutLink leaving={leaving.isPending} disabled={completeProfile.isPending} onPress={leaving.start} />
       {/* Scrolls when the keyboard leaves too little room, instead of the lines running into each other. */}
       <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
         <AppText variant="heading">{t('profileSetup.title')}</AppText>

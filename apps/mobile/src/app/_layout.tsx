@@ -2,13 +2,12 @@ import '@/i18n';
 
 import { Rubik_400Regular, Rubik_500Medium, Rubik_700Bold } from '@expo-google-fonts/rubik';
 import { useFonts, VarelaRound_400Regular } from '@expo-google-fonts/varela-round';
-import { QueryClient, useMutation, useQueryClient } from '@tanstack/react-query';
+import { QueryClient, useQueryClient } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import { Platform } from 'react-native';
 
 import { ErrorScreen } from '@/components/ErrorScreen';
@@ -18,12 +17,11 @@ import { SignOutLink } from '@/components/SignOutLink';
 import { UpdateRequired } from '@/components/UpdateRequired';
 import { installedVersion, isOlder, useAppConfig } from '@/features/app/appConfig';
 import { AuthProvider, useAuth } from '@/features/auth/AuthProvider';
-import { signOut } from '@/features/auth/signIn';
+import { useSignOut } from '@/features/auth/useSignOut';
 import { clearShotFiles } from '@/features/feeds/queue';
 import { readInstallReferrer } from '@/features/packs/invites';
 import { isProfileComplete, useProfile, useSignedOutSync } from '@/features/profile/useProfile';
 import { refetchWhenAppReturns, useRefetchWhenClockMoves } from '@/lib/appFocus';
-import { notify } from '@/lib/confirm';
 import { KEEP_MS, persistOptions } from '@/lib/queryCache';
 import { watchForCrashes } from '@/lib/reportError';
 import { colors } from '@/theme/tokens';
@@ -137,12 +135,10 @@ function RootNavigator() {
  * elsewhere, whose profile will never load, until the token runs out.
  */
 function ProfileLoadFailed({ onRetry }: { onRetry: () => void }) {
-  const { t } = useTranslation();
-  // With an expired token signing out waits for the refresh to give up; meanwhile a tap would start it again.
-  const leaving = useMutation({ mutationFn: signOut, onError: () => notify(t('errors.signOutFailed')) });
+  const leaving = useSignOut();
   return (
     <Screen>
-      <SignOutLink leaving={leaving.isPending} onPress={() => leaving.mutate()} />
+      <SignOutLink leaving={leaving.isPending} onPress={leaving.start} />
       <LoadFailed onRetry={onRetry} />
     </Screen>
   );
