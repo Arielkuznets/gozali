@@ -19,7 +19,7 @@ import { NAME_MAX_LENGTH, NOTIFICATION_TYPES, useProfile, useUpdateProfile, type
 import { confirm, notify } from '@/lib/confirm';
 import { isBlockedText } from '@/lib/errors';
 import { useNotificationPermission } from '@/lib/notifications';
-import { requireSupabase } from '@/lib/supabase';
+import { requireSupabase, storedSession } from '@/lib/supabase';
 import { goBack } from '@/lib/navigation';
 import { colors, radii, spacing } from '@/theme/tokens';
 
@@ -38,8 +38,10 @@ export default function SettingsScreen() {
   // Deleting takes a few seconds on the server; meanwhile a second tap would start it again.
   const removal = useMutation({
     mutationFn: () => deleteAccount({ revokeApple: config.data?.apple_revocation === true }),
-    onError: (error) => {
-      if (!isCancellation(error)) notify(t('settings.app.deleteFailed'));
+    // With the session gone the person is on the sign-in screen: there is nothing to try again, and
+    // the account may be gone too, with no way left to ask.
+    onError: async (error) => {
+      if (!isCancellation(error) && (await storedSession())) notify(t('settings.app.deleteFailed'));
     },
   });
 
