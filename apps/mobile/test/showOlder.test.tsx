@@ -156,6 +156,9 @@ jest.mock('@/lib/supabase', () => ({
   }),
 }));
 
+// The first drawing of the screen loads everything it imports.
+jest.setTimeout(30_000);
+
 let client: QueryClient;
 let tree: ReactTestRenderer;
 
