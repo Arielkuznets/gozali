@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { enqueue, flushQueue, pendingFeeds } from '@/features/feeds/queue';
-import type { OutgoingFeed } from '@/features/feeds/send';
+import { sendFeed, type OutgoingFeed } from '@/features/feeds/send';
 
 // Files are just names here, as in the queue test.
 const mockUnreadable = new Set<string>();
@@ -30,6 +30,8 @@ jest.mock('expo-file-system', () => {
   return { File, Directory, Paths: { document: { uri: 'documents' } } };
 });
 jest.mock('expo-image-manipulator', () => ({}));
+const mockSeed = jest.fn();
+jest.mock('expo-image', () => ({ Image: { writeToCacheAsync: (...args: unknown[]) => mockSeed(...args) } }));
 
 // A server that turns down anything sent without a session, the way storage's row level
 // security answers the publishable key.
@@ -64,6 +66,7 @@ beforeEach(async () => {
   mockUpload.mockResolvedValue({ error: { statusCode: '403', message: 'new row violates row-level security policy' } });
   mockRemove.mockResolvedValue({ error: null });
   mockRpc.mockResolvedValue({ data: 'feed-id', error: null });
+  mockSeed.mockResolvedValue(undefined);
 });
 
 describe('sending a queued feed', () => {
@@ -98,5 +101,40 @@ describe('sending a queued feed', () => {
     expect(mockRpc).toHaveBeenCalledTimes(1);
     expect(mockRpc).toHaveBeenCalledWith('submit_feed', expect.objectContaining({ photo: 'pack/noa/b.jpg' }));
     expect((await pendingFeeds()).map((item) => item.id)).toEqual(['a']);
+  });
+});
+
+describe("the sender's own photo", () => {
+  beforeEach(() => {
+    mockGetSession.mockResolvedValue({ data: { session: { access_token: 'token' } }, error: null });
+    mockUpload.mockResolvedValue({ error: null });
+  });
+
+  it('goes into the image cache under the id the feed card asks for', async () => {
+    await expect(sendFeed(feed)).resolves.toBe('feed-id');
+    expect(mockSeed).toHaveBeenCalledTimes(1);
+    expect(mockSeed).toHaveBeenCalledWith('cache/a.jpg', 'feed-id');
+  });
+
+  it('goes in from the kept copy when the feed waited', async () => {
+    await enqueue(feed);
+    await flushQueue();
+    expect(mockSeed).toHaveBeenCalledWith('documents/feed-queue/a.jpg', 'feed-id');
+  });
+
+  it('leaves the send alone when the cache refuses it', async () => {
+    mockSeed.mockRejectedValue(new Error('Writing to the cache is not supported on Web.'));
+    await expect(sendFeed(feed)).resolves.toBe('feed-id');
+  });
+
+  it('never waits for the cache', async () => {
+    mockSeed.mockReturnValue(new Promise(() => undefined));
+    await expect(sendFeed(feed)).resolves.toBe('feed-id');
+  });
+
+  it('stays out of the cache when the server turns the feed down', async () => {
+    mockRpc.mockResolvedValue({ data: null, error: { code: 'P0001', message: 'already_fed' } });
+    await expect(sendFeed(feed)).rejects.toMatchObject({ message: 'already_fed' });
+    expect(mockSeed).not.toHaveBeenCalled();
   });
 });

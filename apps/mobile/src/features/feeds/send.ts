@@ -1,4 +1,5 @@
 import { File } from 'expo-file-system';
+import { Image } from 'expo-image';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { Platform } from 'react-native';
 
@@ -66,6 +67,9 @@ export async function sendFeed(feed: OutgoingFeed): Promise<string> {
     if (isFinalRejection(error)) await supabase.storage.from(PHOTO_BUCKET).remove([path]);
     throw error;
   }
+  // The feed card asks the image cache for this id. With the bytes already there, the sender's own
+  // photo doesn't come back over the network. A failure costs that one download, so nothing waits.
+  void Image.writeToCacheAsync(feed.photoUri, data).catch(() => undefined);
   return data;
 }
 
