@@ -91,10 +91,12 @@ export function useReact() {
       for (const [key, feeds] of context?.before ?? []) queryClient.setQueryData(key, feeds);
     },
     // A reload cancelled above may have been bringing a new photo, so it runs again, totals included.
-    onSettled: (_data, _error, { feedId }, context) =>
-      context?.reloading
+    // Not returned: a failed reaction is told at once, not after reads that may be failing too.
+    onSettled: (_data, _error, { feedId }, context) => {
+      void (context?.reloading
         ? queryClient.invalidateQueries({ queryKey: packFeedsKey })
-        : refreshReactions(queryClient, feedId).catch(() => queryClient.invalidateQueries({ queryKey: feedsKey })),
+        : refreshReactions(queryClient, feedId).catch(() => queryClient.invalidateQueries({ queryKey: feedsKey })));
+    },
   });
 }
 

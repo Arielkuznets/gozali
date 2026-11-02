@@ -116,7 +116,12 @@ function useDayAction<T>(action: (packId: string, value: T) => PromiseLike<{ err
       const { error } = await action(packId, value);
       if (error) throw error;
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: daysKey }),
+    // The spinner ends and the screen closes with the change on show. A refusal changed nothing, and
+    // its message shouldn't wait for reads that may be failing too.
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: daysKey }),
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: daysKey });
+    },
   });
 }
 
