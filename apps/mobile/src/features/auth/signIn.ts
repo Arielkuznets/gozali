@@ -4,13 +4,13 @@ import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { AppState, Platform } from 'react-native';
 
-import { clearQueue, forgetFeedsOfOthers } from '@/features/feeds/queue';
+import { forgetFeedsOf, forgetFeedsOfOthers } from '@/features/feeds/queue';
 import { clearFocusSession } from '@/features/focus/session';
 import { suggestName } from '@/features/profile/suggestedName';
 import { clearWidgets, resumeWidgets } from '@/features/widgets/sync';
 import { clearNotifications } from '@/lib/notifications';
 import { unregisterPushToken } from '@/lib/push';
-import { requireSupabase } from '@/lib/supabase';
+import { requireSupabase, storedSession } from '@/lib/supabase';
 
 /** The deep link the browser returns to after Google or Apple (outside iOS). */
 export const AUTH_CALLBACK_PATH = 'auth/callback';
@@ -157,6 +157,7 @@ async function accountIsGone(): Promise<boolean> {
  */
 export async function deleteAccount({ revokeApple }: { revokeApple: boolean }): Promise<void> {
   const supabase = requireSupabase();
+  const leaving = (await storedSession())?.user.id;
   const appleAuthorizationCode = revokeApple ? await appleCodeForRevocation() : undefined;
   const { error } = await supabase.functions.invoke('delete-account', {
     method: 'POST',
@@ -165,11 +166,12 @@ export async function deleteAccount({ revokeApple }: { revokeApple: boolean }): 
   if (error && !(await accountIsGone())) throw error;
   // The server already removed the tokens with the account; this clears what the device keeps.
   await forgetTokens();
-  await forgetAccountOnDevice();
+  await forgetAccountOnDevice(leaving);
   await supabase.auth.signOut({ scope: 'local' });
 }
 
 export async function signOut(): Promise<void> {
+  const leaving = (await storedSession())?.user.id;
   await forgetTokens();
   const auth = requireSupabase().auth;
   // This phone only, like the tokens forgotten above: other phones keep their session, so they
@@ -186,7 +188,7 @@ export async function signOut(): Promise<void> {
       throw error;
     }
   }
-  await forgetAccountOnDevice();
+  await forgetAccountOnDevice(leaving);
 }
 
 /** What the server keeps for this phone: it goes first, while there is a session to ask with. */
@@ -195,25 +197,38 @@ async function forgetTokens(): Promise<void> {
   await clearWidgets().catch(() => undefined);
 }
 
-/**
- * What the phone keeps for the signed-in account, so the next one doesn't open its packs: feeds
- * still waiting to go out (without the session they can't, and their photos are the account's),
- * the focus timer, the notifications and the name from the sign-in provider. Only once it is signed
- * out, so a failed sign-out keeps them.
- */
-async function forgetAccountOnDevice(): Promise<void> {
-  suggestName(null);
-  await clearQueue().catch(() => undefined);
-  await clearFocusSession().catch(() => undefined);
-  await clearNotifications().catch(() => undefined);
-}
-
+/** The account that last reached the app: the focus timer on this phone is its. */
 const LAST_ACCOUNT_KEY = 'gozali.last-account';
 
 /**
- * A session the server ended leaves the feeds, the focus timer and the notifications here, for the
- * same person to come back to. They go when another account signs in. With no last account on
- * record (a phone from before there was one) what is here is taken to be this account's.
+ * What the phone keeps for the account that is leaving, so the next one doesn't open its packs:
+ * feeds still waiting to go out (without the session they can't, and their photos are the
+ * account's), the focus timer, the notifications and the name from the sign-in provider. Only once
+ * it is signed out, so a failed sign-out keeps them. An account that never reached the app has no
+ * timer: the one here waits for the person who started it.
+ */
+async function forgetAccountOnDevice(userId: string | undefined): Promise<void> {
+  suggestName(null);
+  if (userId) await forgetFeedsOf(userId).catch(() => undefined);
+  const last = await AsyncStorage.getItem(LAST_ACCOUNT_KEY).catch(() => null);
+  if (!last || last === userId) await clearFocusSession().catch(() => undefined);
+  await clearNotifications().catch(() => undefined);
+}
+
+/**
+ * For each sign-in: what is on the phone from another account goes at once, as a tap on it would
+ * open packs that aren't theirs.
+ */
+export async function forgetNotificationsOfOthers(userId: string): Promise<void> {
+  const last = await AsyncStorage.getItem(LAST_ACCOUNT_KEY);
+  if (last && last !== userId) await clearNotifications();
+}
+
+/**
+ * A session the server ended leaves the feeds and the focus timer here, for the same person to come
+ * back to. They go when another account reaches the app, and not sooner: one that signs in may be
+ * the wrong Apple ID, and leave again from the profile setup. With no last account on record (a
+ * phone from before there was one) what is here is taken to be this account's.
  */
 export async function forgetOtherAccounts(userId: string): Promise<void> {
   await forgetFeedsOfOthers(userId).catch(() => undefined);

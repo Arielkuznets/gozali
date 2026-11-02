@@ -28,7 +28,7 @@ jest.mock('expo-notifications', () => ({
   getExpoPushTokenAsync: async () => ({ data: 'ExponentPushToken[phone]' }),
 }));
 jest.mock('@/features/auth/AuthProvider', () => ({ useAuth: () => ({ session: { user: { id: 'noa' } }, loading: false }) }));
-jest.mock('@/features/auth/signIn', () => ({ signOut: async () => undefined }));
+jest.mock('@/features/auth/signIn', () => ({ forgetOtherAccounts: async () => undefined, signOut: async () => undefined }));
 jest.mock('@/features/profile/AvatarButton', () => ({ AvatarButton: () => null }));
 jest.mock('@/lib/reportError', () => ({ sendPendingCrash: async () => undefined }));
 let mockProfile: Partial<Profile>;

@@ -72,12 +72,32 @@ export async function enqueue(feed: OutgoingFeed): Promise<boolean> {
   return true;
 }
 
-/** Forgets what waits, photos included: they belong to an account that is leaving this phone. */
-export async function clearQueue(): Promise<void> {
+/** Forgets all that waits, with the folder of photos and anything a stopped app left in it. */
+async function clearQueue(): Promise<void> {
   await inTurn(() => AsyncStorage.removeItem(STORAGE_KEY));
   if (Platform.OS === 'web') return;
   const directory = new Directory(Paths.document, 'feed-queue');
   if (directory.exists) directory.delete();
+}
+
+/** Takes these feeds off the list and deletes their photos. */
+async function forgetFeeds(which: (feed: QueuedFeed) => boolean): Promise<void> {
+  const going = (await read()).filter(which);
+  if (going.length === 0) return;
+  await update((queue) => queue.filter((feed) => !which(feed)));
+  for (const { id } of going) {
+    const photo = new File(queueDirectory(), `${id}.jpg`);
+    if (photo.exists) photo.delete();
+  }
+}
+
+/**
+ * Forgets what an account leaves waiting, photos included: it is leaving this phone. An account that
+ * only passed through can leave the feeds of the one before it here, and those stay.
+ */
+export async function forgetFeedsOf(userId: string): Promise<void> {
+  const othersWait = (await read()).some((feed) => feed.userId !== userId);
+  await (othersWait ? forgetFeeds((feed) => feed.userId === userId) : clearQueue());
 }
 
 /**
@@ -102,14 +122,8 @@ export function clearShotFiles(): void {
  * Forgets what other accounts left waiting, photos included. A session the server ended leaves its
  * feeds here for the same person to come back to, and nobody else can send them.
  */
-export async function forgetFeedsOfOthers(userId: string): Promise<void> {
-  const others = (await read()).filter((feed) => feed.userId !== userId);
-  if (others.length === 0) return;
-  await update((queue) => queue.filter((feed) => feed.userId === userId));
-  for (const { id } of others) {
-    const photo = new File(queueDirectory(), `${id}.jpg`);
-    if (photo.exists) photo.delete();
-  }
+export function forgetFeedsOfOthers(userId: string): Promise<void> {
+  return forgetFeeds((feed) => feed.userId !== userId);
 }
 
 export async function pendingFeeds(packId?: string): Promise<OutgoingFeed[]> {

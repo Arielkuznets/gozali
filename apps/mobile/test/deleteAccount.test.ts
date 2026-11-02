@@ -7,10 +7,10 @@ import { suggestName, suggestedName } from '@/features/profile/suggestedName';
 jest.mock('@/lib/push', () => ({ unregisterPushToken: async () => undefined }));
 jest.mock('@/features/widgets/sync', () => ({ clearWidgets: async () => undefined }));
 jest.mock('@/lib/notifications', () => ({ clearNotifications: async () => undefined }));
-const mockClearQueue = jest.fn(async () => undefined);
+const mockForgetFeedsOf = jest.fn(async (_userId: string) => undefined);
 const mockClearFocusSession = jest.fn(async () => undefined);
 jest.mock('@/features/focus/session', () => ({ clearFocusSession: () => mockClearFocusSession() }));
-jest.mock('@/features/feeds/queue', () => ({ clearQueue: () => mockClearQueue() }));
+jest.mock('@/features/feeds/queue', () => ({ forgetFeedsOf: (userId: string) => mockForgetFeedsOf(userId) }));
 
 const mockSignInAsync = jest.fn();
 jest.mock('expo-apple-authentication', () => ({ signInAsync: (...args: unknown[]) => mockSignInAsync(...args) }));
@@ -25,6 +25,7 @@ jest.mock('@/lib/supabase', () => ({
     },
     functions: { invoke: (...args: unknown[]) => mockInvoke(...args) },
   }),
+  storedSession: async () => ({ user: { id: 'noa' } }),
 }));
 
 const cancelled = Object.assign(new Error('The user canceled the authorization attempt'), { code: 'ERR_REQUEST_CANCELED' });
@@ -36,7 +37,7 @@ beforeEach(() => {
   mockInvoke.mockReset().mockResolvedValue({ error: null });
   mockGetUser.mockReset().mockResolvedValue({ data: appleUser, error: null });
   mockSignOut.mockReset().mockResolvedValue({ error: null });
-  mockClearQueue.mockClear();
+  mockForgetFeedsOf.mockClear();
   mockClearFocusSession.mockClear();
 });
 
@@ -162,7 +163,7 @@ it('forgets the name the sign-in provider gave', async () => {
 
 describe('a deletion that gets no good answer from the server', () => {
   const noAnswer = new Error('Failed to send a request to the Edge Function');
-  const forgotten = [mockClearQueue, mockClearFocusSession, mockSignOut];
+  const forgotten = [mockForgetFeedsOf, mockClearFocusSession, mockSignOut];
 
   beforeEach(() => {
     mockInvoke.mockResolvedValue({ error: noAnswer });
@@ -175,6 +176,7 @@ describe('a deletion that gets no good answer from the server', () => {
     await expect(deleteAccount({ revokeApple: false })).resolves.toBeUndefined();
 
     for (const forget of forgotten) expect(forget).toHaveBeenCalledTimes(1);
+    expect(mockForgetFeedsOf).toHaveBeenCalledWith('noa');
     expect(mockSignOut).toHaveBeenCalledWith({ scope: 'local' });
   });
 

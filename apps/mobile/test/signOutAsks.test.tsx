@@ -170,6 +170,17 @@ describe.each([
     expect(mockSignOut).toHaveBeenCalledTimes(1);
   });
 
+  it("leaves out another account's feeds, which stay where they are", async () => {
+    await keep({ ...feed('a'), userId: 'dan' });
+    await open(screen());
+
+    await tap();
+    await settle();
+
+    expect(Alert.alert).not.toHaveBeenCalled();
+    expect(mockSignOut).toHaveBeenCalledTimes(1);
+  });
+
   it("still signs out when the list can't be read", async () => {
     await open(screen());
     jest.mocked(AsyncStorage.getItem).mockRejectedValueOnce(new Error('Database or disk is full'));

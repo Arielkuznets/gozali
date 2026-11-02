@@ -2,7 +2,7 @@ import { isAuthRetryableFetchError, type Session } from '@supabase/supabase-js';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
-import { forgetOtherAccounts } from '@/features/auth/signIn';
+import { forgetNotificationsOfOthers } from '@/features/auth/signIn';
 import { clearWidgets } from '@/features/widgets/sync';
 import { forgetKeptQueries } from '@/lib/queryCache';
 import { clockRestored, serverNow } from '@/lib/serverClock';
@@ -55,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // all of them go again, but only after such a read or a failure, as reads waiting for this
       // refresh are fine. A failure alone comes too late for a read still on its way.
       if (event === 'TOKEN_REFRESHED' && (tokenless || hasFailedRead(queryClient))) void queryClient.invalidateQueries();
-      if (session) void forgetOtherAccounts(session.user.id).catch(() => undefined);
+      if (session) void forgetNotificationsOfOthers(session.user.id).catch(() => undefined);
       // An offline start keeps the stored session until a real one (or a sign-out) comes.
       if (event === 'INITIAL_SESSION' && !session) return;
       setState({ session, loading: false });

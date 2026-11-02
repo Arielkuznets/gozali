@@ -52,7 +52,7 @@ jest.mock('@react-native-community/netinfo', () => ({
 }));
 
 // One account stays on this phone here, so nothing of what an account leaves behind comes up.
-jest.mock('@/features/auth/signIn', () => ({ forgetOtherAccounts: async () => undefined }));
+jest.mock('@/features/auth/signIn', () => ({ forgetNotificationsOfOthers: async () => undefined }));
 jest.mock('@/features/widgets/sync', () => ({ clearWidgets: async () => undefined }));
 
 // The app's timers run on a clock the tests move, and all it does between them is promises, so the

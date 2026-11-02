@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState } from 'react-native';
 
-import { clearQueue, enqueue, flushQueue, forgetFeedsOfOthers, pendingFeeds } from '@/features/feeds/queue';
+import { enqueue, flushQueue, forgetFeedsOf, forgetFeedsOfOthers, pendingFeeds } from '@/features/feeds/queue';
 import type { OutgoingFeed } from '@/features/feeds/send';
 
 // The queue keeps photos in the app's documents folder; here files are just names.
@@ -28,7 +28,9 @@ jest.mock('expo-file-system', () => {
       this.uri = parts.map((part) => (typeof part === 'string' ? part : part.uri)).join('/');
     }
     create() {}
-    delete() {}
+    delete() {
+      mockDeleted.push(`${this.uri}/`);
+    }
   }
   return { File, Directory, Paths: { document: { uri: 'documents' } } };
 });
@@ -182,7 +184,7 @@ describe('offline feed queue', () => {
     const write = holdNextWrite();
     const run = flushQueue();
     await write.started;
-    const cleared = clearQueue();
+    const cleared = forgetFeedsOf('noa');
     await new Promise((resolve) => setTimeout(resolve));
     write.finish();
     await Promise.all([run, cleared]);
@@ -397,11 +399,20 @@ describe('offline feed queue', () => {
     expect(mockSendFeed.mock.calls.map(([sent]) => sent.id)).toEqual(['a', 'b']);
   });
 
-  it('forgets everything that waits', async () => {
+  it('forgets everything the account has waiting, with the folder of photos', async () => {
     await enqueue(feed('a'));
     await enqueue({ ...feed('b'), packId: 'other' });
-    await clearQueue();
+    await forgetFeedsOf('noa');
     expect(await pendingFeeds()).toEqual([]);
+    expect(mockDeleted).toEqual(['documents/feed-queue/']);
+  });
+
+  it('leaves what another account has waiting, with its photo', async () => {
+    await enqueue(feed('a'));
+    await enqueue({ ...feed('b'), userId: 'dan' });
+    await forgetFeedsOf('noa');
+    expect(await waiting()).toEqual(['b']);
+    expect(mockDeleted).toEqual(['documents/feed-queue/a.jpg']);
   });
 
   it('lists what waits for one pack', async () => {
@@ -561,7 +572,7 @@ describe('what a run tells its caller', () => {
     await flushQueue();
     AppState.currentState = 'active';
 
-    await clearQueue();
+    await forgetFeedsOf('noa');
     expect((await flushQueue()).dropped).toEqual([]);
   });
 
@@ -655,7 +666,7 @@ describe('what a run tells its caller', () => {
     await enqueue(feed('a'));
     await enqueue(feed('b'));
     mockSendFeed.mockImplementationOnce(async () => {
-      await clearQueue();
+      await forgetFeedsOf('noa');
       mockMissing.add('documents/feed-queue/b.jpg');
       return 'feed-id';
     });

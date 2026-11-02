@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 
 import { useAuth } from '@/features/auth/AuthProvider';
+import { forgetOtherAccounts } from '@/features/auth/signIn';
 import { renameMember } from '@/features/packs/api';
 import { deviceTimeZone } from '@/lib/dates';
 import { askForNotificationsOnce } from '@/lib/notifications';
@@ -154,7 +155,7 @@ export function useUpdateProfile() {
 
 /**
  * Keeps the account in step with the device on each start: the time zone reminders and quiet
- * hours use, and this device's push token.
+ * hours use, this device's push token, and what another account left here.
  */
 export function useAccountSync() {
   const { session } = useAuth();
@@ -176,6 +177,7 @@ export function useAccountSync() {
   // Also on coming back to the app: permission may have been granted in the meantime.
   useEffect(() => {
     if (!userId) return;
+    void forgetOtherAccounts(userId).catch(() => undefined);
     void registerPushToken();
     void sendPendingCrash();
     void askForNotificationsOnce();

@@ -8,7 +8,7 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 process.env.EXPO_PUBLIC_SUPABASE_URL = 'http://gozali.test';
 process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'publishable';
 
-jest.mock('@/features/auth/signIn', () => ({ forgetOtherAccounts: async () => undefined }));
+jest.mock('@/features/auth/signIn', () => ({ forgetNotificationsOfOthers: async () => undefined }));
 jest.mock('@/features/widgets/sync', () => ({ clearWidgets: async () => undefined }));
 
 // Required here, for the environment above to be in place first.

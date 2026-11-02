@@ -65,19 +65,28 @@ jest.mock('expo-notifications', () => ({
   },
 }));
 const mockClearNotifications = jest.fn(async () => undefined);
-jest.mock('@/lib/notifications', () => ({ clearNotifications: () => mockClearNotifications() }));
-jest.mock('@/lib/push', () => ({ unregisterPushToken: async () => undefined }));
+jest.mock('@/lib/notifications', () => ({
+  askForNotificationsOnce: async () => undefined,
+  clearNotifications: () => mockClearNotifications(),
+}));
+jest.mock('@/lib/push', () => ({ registerPushToken: async () => undefined, unregisterPushToken: async () => undefined }));
+jest.mock('@/lib/reportError', () => ({ errorText: String, sendPendingCrash: async () => undefined }));
 
 type Supabase = typeof import('@/lib/supabase');
 
 // Required here, for the environment above to be in place first.
 const { AUTH_STORAGE_KEY, requireSupabase } = jest.requireActual<Supabase>('@/lib/supabase');
-const { AuthProvider } = jest.requireActual<typeof import('@/features/auth/AuthProvider')>('@/features/auth/AuthProvider');
+const { AuthProvider, useAuth } = jest.requireActual<typeof import('@/features/auth/AuthProvider')>('@/features/auth/AuthProvider');
 const { signOut } = jest.requireActual<typeof import('@/features/auth/signIn')>('@/features/auth/signIn');
 const { enqueue, flushQueue, pendingFeeds } = jest.requireActual<typeof import('@/features/feeds/queue')>('@/features/feeds/queue');
+const { isProfileComplete, useAccountSync, useProfile } = jest.requireActual<typeof import('@/features/profile/useProfile')>(
+  '@/features/profile/useProfile',
+);
+const { deviceTimeZone } = jest.requireActual<typeof import('@/lib/dates')>('@/lib/dates');
 const { refreshWidgets, resumeWidgets } = jest.requireActual<typeof import('@/features/widgets/sync')>('@/features/widgets/sync');
 
 const FOCUS_KEY = 'gozali.focus';
+const LAST_ACCOUNT_KEY = 'gozali.last-account';
 const TOKEN_KEY = 'gozali.widget-token';
 const SNAPSHOT_KEY = 'gozali.widget-snapshot';
 
@@ -110,6 +119,8 @@ const requests: string[] = [];
 const requested = (what: string) => requests.filter((request) => request.includes(what));
 /** The feeds that reached the server. */
 const savedFeeds: string[] = [];
+/** Accounts that haven't been through the profile setup. */
+const unfinished = new Set<string>();
 
 function reply(status: number, body?: unknown) {
   const headers = { 'content-type': 'application/json', date: new Date().toUTCString() };
@@ -126,6 +137,15 @@ const widgetState = (id: string) => ({
 function server(url: URL, init: RequestInit | undefined) {
   const bearer = new Headers(init?.headers).get('authorization')?.replace('Bearer ', '') ?? '';
   const caller = bearer.endsWith('-access') ? bearer.replace('-access', '') : null;
+  if (url.pathname === '/rest/v1/profiles') {
+    const done = !unfinished.has(caller ?? '');
+    return reply(200, {
+      id: caller,
+      display_name: done ? caller : null,
+      terms_accepted_at: done ? '2026-10-01T00:00:00Z' : null,
+      timezone: deviceTimeZone(),
+    });
+  }
   requests.push(`${init?.method ?? 'GET'} ${url.pathname} by ${caller}`);
 
   if (url.pathname === '/auth/v1/token') {
@@ -180,6 +200,28 @@ const focusSession = {
 const settle = (ms = 50) => new Promise((resolve) => setTimeout(resolve, ms));
 const waiting = async () => (await pendingFeeds()).map((item) => item.id);
 
+/** Long enough for what the session changed to reach the screens, and for what they start to finish. */
+async function settleScreens() {
+  for (let step = 0; step < 5; step += 1) {
+    await act(async () => {
+      await settle(10);
+    });
+  }
+}
+
+function AppScreens() {
+  useAccountSync();
+  return null;
+}
+
+/** The guards of the root layout: the app's screens are for an account past the profile setup. */
+function Guards() {
+  const { session } = useAuth();
+  const { data: profile } = useProfile();
+  return session && isProfileComplete(profile) ? <AppScreens /> : null;
+}
+
+let client: QueryClient | undefined;
 let app: ReactTestRenderer | undefined;
 
 /** The app open on the account's packs, with widgets, a queued feed and a running focus timer. */
@@ -189,14 +231,18 @@ async function openAppAs(id: string) {
   await refreshWidgets();
   await enqueue(feed('waiting', id));
   await AsyncStorage.setItem(FOCUS_KEY, JSON.stringify(focusSession));
+  client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
   await act(async () => {
     app = create(
-      <QueryClientProvider client={new QueryClient()}>
-        <AuthProvider>{null}</AuthProvider>
+      <QueryClientProvider client={client!}>
+        <AuthProvider>
+          <Guards />
+        </AuthProvider>
       </QueryClientProvider>,
     );
     await settle();
   });
+  await settleScreens();
   requests.length = 0;
   mockRedraw.mockClear();
   mockCancelled.length = 0;
@@ -217,8 +263,26 @@ async function signInAs(id: string) {
     if (error) throw error;
     await settle();
   });
+  await settleScreens();
   // The app's screens for an account opening, which let the widgets refresh.
   resumeWidgets();
+}
+
+async function signOutHere() {
+  await act(async () => {
+    await signOut();
+    await settle();
+  });
+  await settleScreens();
+}
+
+/** The account finishes the profile setup, or the developer sends it back there. */
+async function profileChanges() {
+  await act(async () => {
+    await client?.invalidateQueries();
+    await settle();
+  });
+  await settleScreens();
 }
 
 beforeAll(() => {
@@ -235,12 +299,14 @@ beforeEach(async () => {
   mockDeleted.length = 0;
   savedFeeds.length = 0;
   requests.length = 0;
+  unfinished.clear();
   mockClearNotifications.mockClear();
 });
 
 afterEach(async () => {
   await act(async () => app?.unmount());
   app = undefined;
+  client?.clear();
 });
 
 describe('a session the server ended, with nobody signing out', () => {
@@ -280,7 +346,7 @@ describe('a session the server ended, with nobody signing out', () => {
     expect(mockDeleted).toEqual(['documents/feed-queue/waiting.jpg']);
     expect(await AsyncStorage.getItem(FOCUS_KEY)).toBeNull();
     expect(mockCancelled).toEqual(['end-of-focus']);
-    expect(mockClearNotifications).toHaveBeenCalledTimes(1);
+    expect(mockClearNotifications).toHaveBeenCalled();
     expect((await flushQueue()).handled).toBe(0);
     expect(requested('/storage/v1/object/')).toEqual([]);
   });
@@ -292,6 +358,125 @@ describe('a session the server ended, with nobody signing out', () => {
     expect(requested('create_widget_token')).toEqual(['POST /rest/v1/rpc/create_widget_token by bob']);
     expect(JSON.parse(mockAppGroup.get('snapshot')!).packs.map((pack: { name: string }) => pack.name)).toEqual(["bob's pack"]);
     expect(mockAppGroup.get('token')).toBe('bob-widget-token');
+  });
+});
+
+describe('the wrong account, between a session the server ended and the same person coming back', () => {
+  beforeEach(async () => {
+    await openAppAs('alice');
+    await serverEndsSession('alice');
+    unfinished.add('work-id');
+  });
+
+  it('leaves the feeds and the focus timer alone while it is on the profile setup', async () => {
+    await signInAs('work-id');
+
+    expect(await waiting()).toEqual(['waiting']);
+    expect(mockDeleted).toEqual([]);
+    expect(await AsyncStorage.getItem(FOCUS_KEY)).not.toBeNull();
+    expect(mockCancelled).toEqual([]);
+  });
+
+  it('takes the notifications off the phone: a tap on one would open packs that are not theirs', async () => {
+    await signInAs('work-id');
+
+    expect(mockClearNotifications).toHaveBeenCalled();
+  });
+
+  it('sends nothing of theirs while it is on the profile setup', async () => {
+    await signInAs('work-id');
+
+    expect((await flushQueue()).handled).toBe(0);
+    expect(requested('/storage/v1/object/')).toEqual([]);
+    expect(await waiting()).toEqual(['waiting']);
+  });
+
+  it('hands them back when it signs out on the setup and the right account signs in', async () => {
+    await signInAs('work-id');
+    await signOutHere();
+
+    expect(await waiting()).toEqual(['waiting']);
+    expect(await AsyncStorage.getItem(FOCUS_KEY)).not.toBeNull();
+    expect(mockCancelled).toEqual([]);
+
+    await signInAs('alice');
+
+    expect(await AsyncStorage.getItem(FOCUS_KEY)).not.toBeNull();
+    expect(mockCancelled).toEqual([]);
+    expect((await flushQueue()).handled).toBe(1);
+    expect(savedFeeds).toHaveLength(1);
+  });
+
+  it('forgets them once it finishes the setup and reaches the app', async () => {
+    await signInAs('work-id');
+    unfinished.clear();
+    await profileChanges();
+
+    expect(await waiting()).toEqual([]);
+    expect(mockDeleted).toEqual(['documents/feed-queue/waiting.jpg']);
+    expect(await AsyncStorage.getItem(FOCUS_KEY)).toBeNull();
+    expect(mockCancelled).toEqual(['end-of-focus']);
+  });
+
+  it('takes along what it had waiting itself, and only that', async () => {
+    await signInAs('work-id');
+    await enqueue(feed('its-own', 'work-id'));
+    await signOutHere();
+
+    expect(await waiting()).toEqual(['waiting']);
+    expect(mockDeleted).toEqual(['documents/feed-queue/its-own.jpg']);
+  });
+});
+
+describe('an account sent back to the profile setup, with work of its own waiting', () => {
+  it('forgets all of it on Sign out, as anywhere else', async () => {
+    await openAppAs('alice');
+    unfinished.add('alice');
+    await profileChanges();
+    await signOutHere();
+
+    expect(await waiting()).toEqual([]);
+    expect(await AsyncStorage.getItem(FOCUS_KEY)).toBeNull();
+    expect(mockCancelled).toEqual(['end-of-focus']);
+    expect(mockClearNotifications).toHaveBeenCalled();
+  });
+});
+
+describe('a phone from before there was a last account on record, nobody signed in', () => {
+  beforeEach(async () => {
+    await openAppAs('alice');
+    await serverEndsSession('alice');
+    await AsyncStorage.removeItem(LAST_ACCOUNT_KEY);
+  });
+
+  it('hands it all back to the same person', async () => {
+    await signInAs('alice');
+
+    expect(await AsyncStorage.getItem(FOCUS_KEY)).not.toBeNull();
+    expect(mockClearNotifications).not.toHaveBeenCalled();
+    expect((await flushQueue()).handled).toBe(1);
+  });
+
+  it('keeps the feeds from another account on the profile setup, as they say whose they are', async () => {
+    unfinished.add('work-id');
+    await signInAs('work-id');
+    await signOutHere();
+
+    expect(await waiting()).toEqual(['waiting']);
+    await signInAs('alice');
+    expect((await flushQueue()).handled).toBe(1);
+  });
+
+  it('forgets the feeds when another account reaches the app', async () => {
+    await signInAs('bob');
+
+    expect(await waiting()).toEqual([]);
+  });
+
+  it('notes who reached the app, so the next account is told apart', async () => {
+    await signInAs('bob');
+
+    expect(await AsyncStorage.getItem(LAST_ACCOUNT_KEY)).toBe('bob');
   });
 });
 
@@ -321,12 +506,21 @@ describe('another account finding what a session left behind', () => {
 });
 
 describe('a phone that has no last account on record', () => {
-  it("takes what it holds to be the signed-in account's", async () => {
+  it("takes what it holds to be the signed-in account's, and starts the record", async () => {
     await openAppAs('alice');
 
     expect(await waiting()).toEqual(['waiting']);
     expect(await AsyncStorage.getItem(FOCUS_KEY)).not.toBeNull();
     expect(mockClearNotifications).not.toHaveBeenCalled();
+    expect(await AsyncStorage.getItem(LAST_ACCOUNT_KEY)).toBe('alice');
+  });
+
+  it('leaves no record for an account that stays on the profile setup', async () => {
+    unfinished.add('alice');
+    await openAppAs('alice');
+
+    expect(await AsyncStorage.getItem(LAST_ACCOUNT_KEY)).toBeNull();
+    expect(await waiting()).toEqual(['waiting']);
   });
 });
 

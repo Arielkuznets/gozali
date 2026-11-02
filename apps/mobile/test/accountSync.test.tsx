@@ -6,6 +6,7 @@ import { useAccountSync } from '@/features/profile/useProfile';
 
 jest.mock('expo-localization', () => ({ ...jest.requireActual('expo-localization'), getCalendars: jest.fn() }));
 jest.mock('@/features/auth/AuthProvider', () => ({ useAuth: () => ({ session: { user: { id: 'noa' } }, loading: false }) }));
+jest.mock('@/features/auth/signIn', () => ({ forgetOtherAccounts: async () => undefined }));
 jest.mock('@/lib/notifications', () => ({ askForNotificationsOnce: async () => undefined }));
 jest.mock('@/lib/push', () => ({ registerPushToken: async () => undefined }));
 jest.mock('@/lib/reportError', () => ({ sendPendingCrash: async () => undefined }));
