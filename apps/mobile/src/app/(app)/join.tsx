@@ -1,5 +1,6 @@
+import { useQueryClient } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
@@ -10,7 +11,7 @@ import { Screen } from '@/components/Screen';
 import { TextField } from '@/components/TextField';
 import { Critter } from '@/features/critter/Critter';
 import { critterArt } from '@/features/critter/art';
-import { packErrorKey, useJoinPack, usePackPreview } from '@/features/packs/api';
+import { packErrorKey, packsKey, useJoinPack, usePackPreview } from '@/features/packs/api';
 import { INVITE_CODE_LENGTH, categoryInfo, inviteCodeFrom, normalizeInviteCode } from '@/features/packs/constants';
 import { notify } from '@/lib/confirm';
 import { haptics } from '@/lib/haptics';
@@ -30,16 +31,33 @@ function JoinForm({ linkCode }: { linkCode: string }) {
   const [code, setCode] = useState(normalizeInviteCode(linkCode));
   const preview = usePackPreview(code);
   const joinPack = useJoinPack();
+  const navigation = useNavigation();
+  const queryClient = useQueryClient();
 
   const onPaste = async () => {
     setCode(inviteCodeFrom(await Clipboard.getStringAsync()));
+  };
+
+  // Back to that pack if it is right underneath, so it isn't open twice. Anything else underneath
+  // stays, or the way back through it and a photo on the camera would go.
+  const openPack = (packId: string) => {
+    if (!navigation.isFocused()) return;
+    const under = navigation.getState()?.routes.at(-2);
+    if (under?.name === 'pack/[id]/index' && (under.params as { id?: string })?.id === packId) router.back();
+    else router.replace(`/pack/${packId}`);
+  };
+
+  const onOpen = (packId: string) => {
+    // A pack screen underneath stays as it was, and it may say this pack isn't here.
+    void queryClient.invalidateQueries({ queryKey: packsKey });
+    openPack(packId);
   };
 
   const onJoin = () => {
     joinPack.mutate(code, {
       onSuccess: (packId) => {
         haptics.success();
-        router.replace(`/pack/${packId}`);
+        openPack(packId);
       },
       onError: (error) => notify(t(packErrorKey(error))),
     });
@@ -111,7 +129,7 @@ function JoinForm({ linkCode }: { linkCode: string }) {
 
       <View style={styles.actions}>
         {pack?.already_member ? (
-          <Button label={t('join.open')} onPress={() => router.dismissTo(`/pack/${pack.pack_id}`)} />
+          <Button label={t('join.open')} onPress={() => onOpen(pack.pack_id)} />
         ) : (
           <Button
             label={t('join.join')}

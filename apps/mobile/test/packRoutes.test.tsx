@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Stack, router, type Href } from 'expo-router';
+import { Stack, router, useLocalSearchParams, type Href } from 'expo-router';
 import { ExpoRoot } from 'expo-router/build/ExpoRoot';
 import { store } from 'expo-router/build/global-state/router-store';
 import { getMockContext } from 'expo-router/build/testing-library/mock-config';
@@ -12,7 +12,8 @@ import CreatePackScreen from '@/app/(app)/create-pack';
 import JoinScreen from '@/app/(app)/join';
 import InviteScreen from '@/app/(app)/pack/[id]/invite';
 import PackSettingsScreen from '@/app/(app)/pack/[id]/settings';
-import { packsKey, useMyPacks, type Pack, type PackPreview } from '@/features/packs/api';
+import { LoadingScreen, PackMissingScreen } from '@/components/ScreenStates';
+import { packsKey, useMyPacks, usePack, type Pack, type PackPreview } from '@/features/packs/api';
 
 // The real router and the real pack screens over a stand-in for the server, whose answers the
 // tests can hold back: the order they arrive in decides what a person sees.
@@ -98,6 +99,14 @@ function Home() {
   return <Text>{packs.data?.map((pack) => pack.name).join() || 'home'}</Text>;
 }
 
+/** Stands for the pack screen: the same states, by the same hook. */
+function PackStandIn() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { data: pack, isPending } = usePack(id);
+  if (isPending) return <LoadingScreen />;
+  return pack ? <Text>{`Open: ${pack.name}`}</Text> : <PackMissingScreen />;
+}
+
 /** Stands for the camera: what it holds lives and dies with the screen. */
 function Camera() {
   const [caption] = useState(CAPTION);
@@ -118,7 +127,7 @@ const routes = {
   '(app)/index': { default: Home },
   '(app)/create-pack': { default: CreatePackScreen },
   '(app)/join': { default: JoinScreen },
-  '(app)/pack/[id]/index': { default: () => <Text>pack</Text> },
+  '(app)/pack/[id]/index': { default: PackStandIn },
   '(app)/pack/[id]/feed': { default: Camera },
   '(app)/pack/[id]/invite': { default: InviteScreen },
   '(app)/pack/[id]/settings': { default: PackSettingsScreen },
@@ -162,7 +171,9 @@ async function goBack() {
 }
 
 /** The screens of the app's stack, bottom first. */
-const appStack = () => store.state?.routes[0]?.state?.routes[0]?.state?.routes.map((route) => route.name) ?? [];
+const stackRoutes = () => store.state?.routes[0]?.state?.routes[0]?.state?.routes ?? [];
+const appStack = () => stackRoutes().map((route) => route.name);
+const stackKeys = () => stackRoutes().map((route) => route.key);
 const pathname = () => store.getRouteInfo().pathname;
 const shows = (text: string) =>
   app.root.findAll((node) => typeof node.type === 'string' && node.props.children === text).length > 0;
@@ -562,7 +573,104 @@ describe('Open pack on the join screen', () => {
 
     await press('Open pack');
 
-    expect(appStack()).toEqual(['index', 'pack/[id]/index']);
+    expect(appStack()).toEqual(['index', 'pack/[id]/index', 'pack/[id]/index']);
     expect(pathname()).toBe('/pack/p1');
+  });
+
+  it('keeps the way back through another pack', async () => {
+    mockPacks = [packNamed('p1'), packNamed('p3')];
+    await start('/pack/p1');
+    await open('/pack/p3');
+    await open('/join?code=ABCD2345');
+
+    await press('Open pack');
+    await goBack();
+
+    expect(pathname()).toBe('/pack/p3');
+  });
+
+  it('leaves the photo on the camera underneath', async () => {
+    await start('/pack/p1');
+    await open('/pack/p1/feed');
+    await open('/join?code=ABCD2345');
+
+    await press('Open pack');
+
+    expect(appStack()).toEqual(['index', 'pack/[id]/index', 'pack/[id]/feed', 'pack/[id]/index']);
+    await goBack();
+    expect(pathname()).toBe('/pack/p1/feed');
+    expect(shows(CAPTION)).toBe(true);
+  });
+
+  it('shows the pack that stood missing underneath', async () => {
+    await start('/');
+    mockPacks = [];
+    await open('/pack/p1');
+    expect(shows(MISSING)).toBe(true);
+    // Back in the pack, by a way that told this phone nothing.
+    mockPacks = [packNamed('p1')];
+    await open('/join?code=ABCD2345');
+
+    await press('Open pack');
+
+    expect(appStack()).toEqual(['index', 'pack/[id]/index']);
+    expect(shows(MISSING)).toBe(false);
+    expect(shows('Open: Pack p1')).toBe(true);
+  });
+
+  it('tapped twice goes back once, to the same copy of the pack', async () => {
+    await start('/pack/p1');
+    await open('/join?code=ABCD2345');
+    const underneath = stackKeys().slice(0, -1);
+    const { onPress } = app.root.findAll((node) => node.props.label === 'Open pack')[0]?.props ?? {};
+
+    await act(async () => onPress());
+    await act(async () => onPress());
+    await settle();
+
+    expect(stackKeys()).toEqual(underneath);
+  });
+});
+
+describe('Join pack on the join screen', () => {
+  let mockJoinAnswered: Promise<void>;
+
+  beforeEach(() => {
+    mockJoinAnswered = Promise.resolve();
+    mockRpc.mockImplementation(async (name: string) => {
+      if (name === 'pack_preview') return { data: [{ ...previewOf('p1'), already_member: false }], error: null };
+      if (name !== 'join_pack') return { error: null };
+      await mockJoinAnswered;
+      mockPacks = [packNamed('p1')];
+      return { data: 'p1', error: null };
+    });
+  });
+
+  it('goes back to that pack when it stood missing underneath', async () => {
+    mockPacks = [];
+    await start('/pack/p1');
+    await open('/join?code=ABCD2345');
+
+    await press('Join pack');
+
+    expect(appStack()).toEqual(['index', 'pack/[id]/index']);
+    expect(shows('Open: Pack p1')).toBe(true);
+  });
+
+  it('leaves alone a screen opened over it while the answer was on its way', async () => {
+    await start('/');
+    await open('/join?code=ABCD2345');
+    let answerJoin = () => {};
+    mockJoinAnswered = new Promise((resolve) => {
+      answerJoin = resolve;
+    });
+    await press('Join pack');
+    await open('/pack/p2/feed');
+
+    await act(async () => answerJoin());
+    await settle();
+
+    expect(pathname()).toBe('/pack/p2/feed');
+    expect(shows(CAPTION)).toBe(true);
   });
 });
