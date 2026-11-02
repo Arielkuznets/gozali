@@ -3,6 +3,7 @@ import { Stack, router, type Href } from 'expo-router';
 import { ExpoRoot } from 'expo-router/build/ExpoRoot';
 import { store } from 'expo-router/build/global-state/router-store';
 import { getMockContext } from 'expo-router/build/testing-library/mock-config';
+import { useState } from 'react';
 import { Text, TextInput } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
@@ -60,6 +61,7 @@ jest.mock('@/lib/supabase', () => ({
 }));
 
 const MISSING = "This pack isn't here";
+const CAPTION = 'caption typed over the photo';
 
 const previewOf = (packId: string): PackPreview => ({
   pack_id: packId,
@@ -96,16 +98,28 @@ function Home() {
   return <Text>{packs.data?.map((pack) => pack.name).join() || 'home'}</Text>;
 }
 
+/** Stands for the camera: what it holds lives and dies with the screen. */
+function Camera() {
+  const [caption] = useState(CAPTION);
+  return <Text>{caption}</Text>;
+}
+
 const routes = {
   _layout: { default: () => <Stack screenOptions={{ headerShown: false }} /> },
   '(app)/_layout': {
-    default: () => <Stack screenOptions={{ headerShown: false }} />,
+    default: () => (
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="pack/[id]/feed" options={{ presentation: 'fullScreenModal' }} />
+      </Stack>
+    ),
     unstable_settings: { initialRouteName: 'index' },
   },
   '(app)/index': { default: Home },
   '(app)/create-pack': { default: CreatePackScreen },
   '(app)/join': { default: JoinScreen },
   '(app)/pack/[id]/index': { default: () => <Text>pack</Text> },
+  '(app)/pack/[id]/feed': { default: Camera },
   '(app)/pack/[id]/invite': { default: InviteScreen },
   '(app)/pack/[id]/settings': { default: PackSettingsScreen },
 };
@@ -139,6 +153,11 @@ async function press(label: string) {
 
 async function open(href: Href) {
   await act(async () => router.push(href));
+  await settle();
+}
+
+async function goBack() {
+  await act(async () => router.back());
   await settle();
 }
 
@@ -276,6 +295,53 @@ describe('leaving a pack', () => {
 
     expect(shows(MISSING)).toBe(true);
   });
+
+  describe('with the settings no longer in front when the server answers', () => {
+    let answerLeave = () => {};
+
+    beforeEach(() => {
+      mockPacks = [packNamed('p1'), packNamed('p2')];
+      mockRpc.mockImplementationOnce(async () => {
+        mockPacks = [packNamed('p2')];
+        await new Promise<void>((resolve) => {
+          answerLeave = resolve;
+        });
+        return { error: null };
+      });
+    });
+
+    it('leaves the person where they went, with the photo on the camera', async () => {
+      await start('/pack/p1');
+      await open('/pack/p1/settings');
+      await press('Leave pack');
+      await goBack();
+      await goBack();
+      await open('/pack/p2');
+      await open('/pack/p2/feed');
+
+      await act(async () => answerLeave());
+      await settle();
+
+      expect(pathname()).toBe('/pack/p2/feed');
+      expect(shows(CAPTION)).toBe(true);
+    });
+
+    it('goes home once they come back to the settings', async () => {
+      await start('/pack/p1');
+      await open('/pack/p1/settings');
+      await press('Leave pack');
+      await open('/pack/p1/invite');
+
+      await act(async () => answerLeave());
+      await settle();
+      expect(pathname()).toBe('/pack/p1/invite');
+
+      await goBack();
+
+      expect(pathname()).toBe('/');
+      expect(spinners()).toHaveLength(0);
+    });
+  });
 });
 
 describe('new settings waiting for their date', () => {
@@ -405,8 +471,7 @@ describe('Done on the invite screen', () => {
     expect(appStack()).toEqual(['index', 'pack/[id]/index']);
     expect(pathname()).toBe('/pack/p1');
 
-    await act(async () => router.back());
-    await settle();
+    await goBack();
     expect(pathname()).toBe('/');
     expect(router.canGoBack()).toBe(false);
   });

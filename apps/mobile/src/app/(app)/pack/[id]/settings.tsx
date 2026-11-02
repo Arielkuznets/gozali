@@ -1,6 +1,6 @@
 import { packDayOf } from '@gozali/game-engine';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -34,10 +34,18 @@ export default function PackSettingsScreen() {
   const { data: pack, isPending, isError, refetch } = usePack(id);
   // Up here because leaving takes the pack, and so the form, away before it is done.
   const leavePack = useLeavePack();
+  const left = leavePack.isSuccess;
+
+  // Only from the front: whoever walked away during the wait keeps what they opened since.
+  useFocusEffect(
+    useCallback(() => {
+      if (left) router.dismissTo('/');
+    }, [left]),
+  );
 
   if (isPending) return <LoadingScreen />;
   if (!pack && isError) return <LoadFailedScreen onRetry={() => void refetch()} />;
-  if (!pack) return leavePack.isPending || leavePack.isSuccess ? <LoadingScreen /> : <PackMissingScreen />;
+  if (!pack) return leavePack.isPending || left ? <LoadingScreen /> : <PackMissingScreen />;
   return <SettingsForm pack={pack} leavePack={leavePack} />;
 }
 
@@ -85,11 +93,7 @@ function SettingsForm({ pack, leavePack }: { pack: Pack; leavePack: ReturnType<t
       cancel: t('settings.cancel'),
       destructive: true,
       // The promise, because mutate's callbacks are dropped once this screen has closed.
-      onConfirm: () =>
-        void leavePack.mutateAsync(pack.id).then(
-          () => router.dismissTo('/'),
-          (error: unknown) => notify(t(packErrorKey(error))),
-        ),
+      onConfirm: () => void leavePack.mutateAsync(pack.id).catch((error: unknown) => notify(t(packErrorKey(error)))),
     });
   };
 
