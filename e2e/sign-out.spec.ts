@@ -139,6 +139,36 @@ test.describe('when the profile will not load', () => {
     await expect(page.getByRole('button', { name: 'Continue with Apple' })).toBeVisible();
     expect(alerts).toEqual([]);
   });
+
+  test('asks first with a feed waiting, and cancelling keeps it and the session', async ({ page }) => {
+    const QUEUE_KEY = 'gozali.feed-queue';
+    const asked: string[] = [];
+    let yes = false;
+    page.on('dialog', (dialog) => {
+      asked.push(dialog.message());
+      void (yes ? dialog.accept() : dialog.dismiss());
+    });
+    // The web build keeps no feeds of its own, so the list is put there by hand.
+    const waiting = JSON.stringify([{ id: 'waiting', packId: 'pack', userId: noa.id, photoUri: 'waiting.jpg', caption: null, capturedAt: '2026-11-01T20:00:00Z', focusMinutes: null, extra: false }]);
+    await page.addInitScript(([key, value]) => window.localStorage.setItem(key!, value!), [QUEUE_KEY, waiting]);
+    await page.route(/\/(rest|auth)\/v1\//, (route) => route.abort('internetdisconnected'));
+    await page.goto('/');
+    await expect(page.getByText("This didn't load")).toBeVisible({ timeout: 30_000 });
+    const signOut = page.getByRole('button', { name: 'Sign out' });
+
+    await signOut.click();
+
+    await expect.poll(() => asked).toEqual(["Sign out?\n\n1 feed hasn't gone out yet. Signing out deletes it and its photo."]);
+    await expect(page.getByText("This didn't load")).toBeVisible();
+    expect(await page.evaluate((key) => window.localStorage.getItem(key), QUEUE_KEY)).toBe(waiting);
+    expect(await page.evaluate(() => window.localStorage.getItem('sb-127-auth-token'))).not.toBeNull();
+
+    yes = true;
+    await signOut.click();
+
+    await expect(page.getByRole('button', { name: 'Continue with Apple' })).toBeVisible();
+    expect(await page.evaluate((key) => window.localStorage.getItem(key), QUEUE_KEY)).toBeNull();
+  });
 });
 
 test.describe('on the profile setup', () => {
