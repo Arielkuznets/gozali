@@ -9,7 +9,7 @@ import { forgetOtherAccounts } from '@/features/auth/signIn';
 import { renameMember } from '@/features/packs/api';
 import { clearWidgetsLeftBehind } from '@/features/widgets/sync';
 import { deviceTimeZone } from '@/lib/dates';
-import { askForNotificationsOnce } from '@/lib/notifications';
+import { askForNotificationsOnce, forgetNotificationsAsked } from '@/lib/notifications';
 import { registerPushToken, unregisterWhileSignedOut } from '@/lib/push';
 import { sendPendingCrash } from '@/lib/reportError';
 import { requireSupabase } from '@/lib/supabase';
@@ -99,7 +99,10 @@ export function useCompleteProfile() {
         .eq('id', userId);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: profileKey(userId) }),
+    onSuccess: async () => {
+      await forgetNotificationsAsked();
+      await queryClient.invalidateQueries({ queryKey: profileKey(userId) });
+    },
   });
 }
 

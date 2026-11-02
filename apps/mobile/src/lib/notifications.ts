@@ -7,7 +7,7 @@ import { AppState, Platform } from 'react-native';
 import { FOCUS_CHANNEL } from '@/lib/channels';
 import { registerPushToken } from '@/lib/push';
 
-/** Set once this install has had the one prompt the app opens by itself. */
+/** Set once the app has opened the one prompt it opens by itself. */
 const ASKED_KEY = 'gozali.notifications-asked';
 
 if (Platform.OS !== 'web') {
@@ -43,12 +43,17 @@ export async function allowNotifications(): Promise<boolean> {
 /**
  * The prompt the app opens by itself as the first home screen opens: a new account comes there
  * from the profile setup, and an account on a new phone comes straight from signing in. The key
- * makes it once per install, since Android lets the app ask again after a no.
+ * makes it once, since Android lets the app ask again after a no.
  */
 export async function askForNotificationsOnce(): Promise<void> {
   if (await AsyncStorage.getItem(ASKED_KEY)) return;
   await AsyncStorage.setItem(ASKED_KEY, '1');
   await allowNotifications();
+}
+
+/** The profile setup promises a new account that prompt, whoever had it on this phone before. */
+export async function forgetNotificationsAsked(): Promise<void> {
+  await AsyncStorage.removeItem(ASKED_KEY).catch(() => undefined);
 }
 
 export type NotificationPermission = 'granted' | 'ask' | 'blocked';

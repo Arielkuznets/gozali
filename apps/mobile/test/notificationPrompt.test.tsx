@@ -190,4 +190,40 @@ describe('a new account', () => {
     await restartApp();
     expect(mockPrompt).toHaveBeenCalledTimes(1);
   });
+
+  describe('on a phone that already asked another account', () => {
+    beforeEach(async () => {
+      mockAnswer = NEVER_ASKED;
+      await startApp();
+      expect(mockPrompt).toHaveBeenCalledTimes(1);
+
+      mockAnswer = { granted: true, canAskAgain: true };
+      mockProfile = { id: 'noa', timezone: 'UTC', display_name: null, terms_accepted_at: null };
+      mockRpc.mockClear();
+      await restartApp();
+    });
+
+    it('gets the prompt the setup promised, and its token to the server after a yes', async () => {
+      await finishProfileSetup();
+
+      expect(mockPrompt).toHaveBeenCalledTimes(2);
+      expect(mockRpc).toHaveBeenCalledWith('register_push_token');
+    });
+
+    it('is not asked again at the next start after a no that leaves the phone able to ask', async () => {
+      mockAnswer = NEVER_ASKED;
+      await finishProfileSetup();
+      await restartApp();
+
+      expect(mockPrompt).toHaveBeenCalledTimes(2);
+    });
+
+    it('finishes the setup when the phone fails to forget the first prompt', async () => {
+      jest.mocked(AsyncStorage.removeItem).mockRejectedValueOnce(new Error('database or disk is full'));
+      await finishProfileSetup();
+
+      expect(mockProfile.display_name).toBe('Noa');
+      expect(app.root.findAllByType(TextInput)).toEqual([]);
+    });
+  });
 });
