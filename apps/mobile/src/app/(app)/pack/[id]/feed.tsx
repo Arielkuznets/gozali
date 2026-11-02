@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
+  AppState,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -51,7 +52,7 @@ export default function FeedScreen() {
   const focusMinutes = params.focus && /^[0-9]{1,3}$/.test(params.focus) ? Number(params.focus) : null;
   const { session } = useAuth();
   const { data: pack, isLoading: packLoading, refetch: refetchPack } = usePack(packId);
-  const [permission, requestPermission] = useCameraPermissions();
+  const [permission, requestPermission, readPermission] = useCameraPermissions();
   // A no stays on screen until the next opening, also where the system could still ask: Android
   // asks a second time, and a browser's prompt can be dismissed.
   const [answered, setAnswered] = useState(false);
@@ -89,6 +90,17 @@ export default function FeedScreen() {
   useEffect(() => {
     if (askNow) void requestPermission().finally(() => setAnswered(true));
   }, [askNow, requestPermission]);
+
+  // On Android the app keeps running through a yes in the phone's settings and nothing tells it, so
+  // the refused screen reads the answer again on the way back. An alert brings its own answer.
+  const refused = permission !== null && !permission.granted && !toAsk;
+  useEffect(() => {
+    if (!refused) return;
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void readPermission();
+    });
+    return () => subscription.remove();
+  }, [refused, readPermission]);
 
   // After a successful feed, the critter eats for a moment and the screen closes by itself. Under
   // another screen it waits to be back in front, or going back would close that screen instead.

@@ -1,4 +1,4 @@
-import { Linking } from 'react-native';
+import { AppState, Linking, type AppStateStatus } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import '@/i18n';
@@ -46,6 +46,8 @@ const refusedOnce = answer('denied', true);
 const PACK = { name: 'Gym squad', category: 'gym', critters: { name: 'Mochi' } };
 const CAMERA_NEEDED = 'Camera needed';
 
+const appStates = new Set<(state: AppStateStatus) => void>();
+
 let screen: ReactTestRenderer;
 let settleAlert: (permission: unknown) => void;
 
@@ -59,6 +61,10 @@ async function answerAlert(permission: unknown) {
   await act(async () => settleAlert(permission));
 }
 
+async function comeBackToApp() {
+  await act(async () => appStates.forEach((listener) => listener('active')));
+}
+
 const shown = () => JSON.stringify(screen.toJSON());
 const buttons = () =>
   screen.root
@@ -70,6 +76,11 @@ beforeEach(() => {
   mockGet.mockReset();
   mockRequest.mockReset();
   mockBack.mockReset();
+  appStates.clear();
+  jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
+    appStates.add(listener);
+    return { remove: () => appStates.delete(listener) };
+  });
   mockPack = { data: PACK, isLoading: false, refetch: jest.fn() };
   settleAlert = () => {
     throw new Error('The system alert never came up');
@@ -186,5 +197,42 @@ describe('an opening after the system has its answer', () => {
     expect(settings).toHaveBeenCalledTimes(1);
     await press('Close');
     expect(mockBack).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('coming back to the app', () => {
+  it('opens the camera after a yes in the phone settings', async () => {
+    mockGet.mockResolvedValue(refused);
+    await open();
+    expect(shown()).toContain(CAMERA_NEEDED);
+
+    mockGet.mockResolvedValue(allowed);
+    await comeBackToApp();
+
+    expect(hasCamera()).toBe(true);
+    expect(mockRequest).not.toHaveBeenCalled();
+  });
+
+  it('stays on Camera needed after a no, also where the system could ask again', async () => {
+    mockGet.mockResolvedValue(notAsked);
+    await open();
+    await answerAlert(refusedOnce);
+
+    mockGet.mockResolvedValue(refusedOnce);
+    await comeBackToApp();
+
+    expect(shown()).toContain(CAMERA_NEEDED);
+    expect(mockRequest).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the answer to the system alert while it is up', async () => {
+    mockGet.mockResolvedValue(notAsked);
+    await open();
+    await comeBackToApp();
+    expect(mockGet).toHaveBeenCalledTimes(1);
+
+    await answerAlert(allowed);
+    expect(hasCamera()).toBe(true);
+    expect(mockRequest).toHaveBeenCalledTimes(1);
   });
 });
