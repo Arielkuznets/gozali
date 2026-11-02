@@ -15,6 +15,26 @@ test.afterEach(async () => {
   await removeUsers(noa, dan);
 });
 
+test('a rest day is on the pack when its screen closes, and Undo takes it back', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Rest test', habit: 'gym', species: 'kit' }, [dan]);
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+
+  await page.getByRole('button', { name: 'Not today' }).click();
+  await page.getByRole('button', { name: 'Use', exact: true }).first().click();
+
+  await expect(page.getByRole('button', { name: 'Undo' })).toBeVisible();
+  await expect(page.getByLabel('Noa, resting today')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(page.getByText("You're resting today.").last()).toBeVisible();
+  await page.getByRole('button', { name: 'Undo' }).click();
+
+  await expect(page.getByRole('button', { name: 'Use', exact: true })).toHaveCount(2);
+  const { data: passes } = await noa.client.from('day_passes').select('kind');
+  expect(passes).toEqual([]);
+});
+
 test('a double tap on Create pack makes one pack', async ({ page }) => {
   await signIn(page, noa);
   await page.goto('/create-pack');
