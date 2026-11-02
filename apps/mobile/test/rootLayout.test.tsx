@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import * as SplashScreen from 'expo-splash-screen';
 import type { ReactNode } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import RootLayout from '@/app/_layout';
@@ -40,8 +41,9 @@ jest.mock('@/lib/reportError', () => ({ watchForCrashes: () => undefined }));
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
 
+let app: ReactTestRenderer | undefined;
+
 async function open() {
-  let app: ReactTestRenderer | undefined;
   await act(async () => {
     app = create(<RootLayout />);
     await settle();
@@ -79,28 +81,47 @@ it('opens the app when a font fails to load', async () => {
   expect(SplashScreen.hide).toHaveBeenCalled();
 });
 
-describe('an answer from the server that shows the phone clock moved', () => {
+describe('what is on screen', () => {
+  const read = jest.fn(async () => 'from the server');
+
+  function Reader() {
+    useQuery({ queryKey: ['read'], queryFn: read });
+    return null;
+  }
+
   const hearServer = (ahead: number) =>
     act(async () => {
       noteServerDate(new Date(Date.now() + ahead).toUTCString(), Date.now(), Date.now());
       await settle();
     });
 
-  function Reader({ read }: { read: () => Promise<string> }) {
-    useQuery({ queryKey: ['read'], queryFn: read });
-    return null;
-  }
+  const phoneReports = (state: AppStateStatus) =>
+    act(async () => {
+      jest.mocked(AppState.addEventListener).mock.calls.forEach(([, listener]) => listener(state));
+      await settle();
+    });
 
-  afterEach(() => hearServer(0));
-
-  it('reads again what is on screen', async () => {
-    const read = jest.fn(async () => 'from the server');
+  beforeEach(async () => {
+    read.mockClear();
     mockFonts = [true, null];
-    mockOnScreen = <Reader read={read} />;
+    mockOnScreen = <Reader />;
     await open();
     expect(read).toHaveBeenCalledTimes(1);
+  });
 
+  afterEach(async () => {
+    await hearServer(0);
+    await act(async () => app?.unmount());
+  });
+
+  it('is read again when an answer shows the phone clock moved', async () => {
     await hearServer(3 * 60 * 60_000);
+    expect(read).toHaveBeenCalledTimes(2);
+  });
+
+  it('is read again after a return to the app', async () => {
+    await phoneReports('background');
+    await phoneReports('active');
     expect(read).toHaveBeenCalledTimes(2);
   });
 });
