@@ -302,9 +302,22 @@ describe('offline feed queue', () => {
   it('drops a feed the server refused for good and goes on', async () => {
     await enqueue(feed('a'));
     await enqueue(feed('b'));
-    mockSendFeed.mockRejectedValueOnce({ code: 'P0001', message: 'photo_missing' }).mockResolvedValueOnce('feed-id');
+    mockSendFeed.mockRejectedValueOnce({ code: 'P0001', message: 'too_many_posts' }).mockResolvedValueOnce('feed-id');
     expect((await flushQueue()).handled).toBe(2);
     expect(await pendingFeeds()).toEqual([]);
+  });
+
+  it('keeps a feed the server has no photo for, as this phone still does, and sends it on the next run', async () => {
+    const missing = { code: 'P0001', message: 'photo_missing' };
+    await enqueue(feed('a'));
+    await enqueue(feed('b'));
+    mockSendFeed.mockRejectedValueOnce(missing).mockResolvedValue('feed-id');
+    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], stuck: [missing] });
+    expect(await waiting()).toEqual(['a']);
+    expect(mockDeleted).toEqual(['documents/feed-queue/b.jpg']);
+
+    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], stuck: [] });
+    expect(await waiting()).toEqual([]);
   });
 
   it('posts a second feed of the day as an extra', async () => {

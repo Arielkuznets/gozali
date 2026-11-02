@@ -23,6 +23,8 @@ describe('feed errors', () => {
     expect(isFinalRejection({ statusCode: '408' })).toBe(false);
     expect(isFinalRejection({ statusCode: '423' })).toBe(false);
     expect(isFinalRejection({ statusCode: '429' })).toBe(false);
+    // The photo is still on the phone, and the next try uploads it again.
+    expect(isFinalRejection({ code: 'P0001', message: 'photo_missing' })).toBe(false);
   });
 
   it('treats a refusal the same feed can never pass as final', () => {

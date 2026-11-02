@@ -152,7 +152,7 @@ function replacement(feed: QueuedFeed, error: unknown): QueuedFeed | null {
 /** Sends a feed, then its replacements. */
 async function sendOrReplace(feed: QueuedFeed): Promise<Attempt> {
   try {
-    await inTime(sendFeed(feed));
+    await inTime((givenUp) => sendFeed(feed, givenUp));
     return { outcome: 'sent' };
   } catch (error) {
     if (!isFinalRejection(error)) return { outcome: 'waiting', error };
@@ -167,11 +167,11 @@ async function sendOrReplace(feed: QueuedFeed): Promise<Attempt> {
 /**
  * Sends what the signed-in account has waiting, oldest first. A feed the server turns down for
  * good (already fed, or no longer a member) is dropped, except for its replacements above; so is
- * one whose photo is gone, since it can never go out and the ones behind it can. No answer from
- * the server stops the run and keeps the feed, as the ones behind it would meet the same. Any other
- * error keeps the feed for the next run and goes on: it may be that one photo that can't be read,
- * and the server takes feeds in any order. The list is read again for each feed, so one queued
- * meanwhile goes out too, and nothing goes on after the queue was forgotten.
+ * one whose photo left the phone, since it can never go out and the ones behind it can. No answer
+ * from the server stops the run and keeps the feed, as the ones behind it would meet the same. Any
+ * other error keeps the feed for the next run and goes on: it may be that one photo that can't be
+ * read, and the server takes feeds in any order. The list is read again for each feed, so one
+ * queued meanwhile goes out too, and nothing goes on after the queue was forgotten.
  */
 async function run(): Promise<FlushResult> {
   const result: FlushResult = { handled: 0, dropped: [], stuck: [] };

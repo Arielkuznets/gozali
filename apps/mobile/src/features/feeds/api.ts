@@ -152,7 +152,7 @@ export function usePendingFeeds(packId: string) {
  */
 async function sendOrKeep(feed: OutgoingFeed): Promise<'sent' | 'queued'> {
   try {
-    await inTime(sendFeed(feed));
+    await inTime((givenUp) => sendFeed(feed, givenUp));
     return 'sent';
   } catch (error) {
     if (feedErrorCode(error) === 'already_fed' && !feed.extra) return sendOrKeep({ ...feed, extra: true });

@@ -104,6 +104,26 @@ describe('sending a queued feed', () => {
   });
 });
 
+describe('a feed the server turns down for good', () => {
+  const tooMany = { code: 'P0001', message: 'too_many_posts' };
+
+  beforeEach(() => {
+    mockGetSession.mockResolvedValue({ data: { session: { access_token: 'token' } }, error: null });
+    mockUpload.mockResolvedValue({ error: null });
+    mockRpc.mockResolvedValue({ data: null, error: tooMany });
+  });
+
+  it('takes its photo off the server', async () => {
+    await expect(sendFeed(feed)).rejects.toBe(tooMany);
+    expect(mockRemove).toHaveBeenCalledWith(['pack/noa/a.jpg']);
+  });
+
+  it('leaves the photo there when the send was given up on: the next try has it now', async () => {
+    await expect(sendFeed(feed, () => true)).rejects.toBe(tooMany);
+    expect(mockRemove).not.toHaveBeenCalled();
+  });
+});
+
 describe("the sender's own photo", () => {
   beforeEach(() => {
     mockGetSession.mockResolvedValue({ data: { session: { access_token: 'token' } }, error: null });

@@ -42,7 +42,7 @@ async function photoBytes(uri: string): Promise<ArrayBuffer> {
  * Uploads the photo and saves the feed. The upload path is named after the feed's local id,
  * so a retry after a lost response overwrites nothing and finds the photo already there.
  */
-export async function sendFeed(feed: OutgoingFeed): Promise<string> {
+export async function sendFeed(feed: OutgoingFeed, givenUp: () => boolean = () => false): Promise<string> {
   const supabase = requireSupabase();
   // Back online after the access token expired, a refresh that fails leaves no session, and the
   // requests go out signed out, which the server refuses as if for good. This error is not final,
@@ -63,8 +63,9 @@ export async function sendFeed(feed: OutgoingFeed): Promise<string> {
     extra: feed.extra,
   });
   if (error) {
-    // Turned down for good (for example a blocked word): don't leave the file behind.
-    if (isFinalRejection(error)) await supabase.storage.from(PHOTO_BUCKET).remove([path]);
+    // Turned down for good (for example a blocked word): don't leave the file behind. After a send
+    // was given up on, the file is the next try's, and orphan_photos clears one nobody ends up using.
+    if (isFinalRejection(error) && !givenUp()) await supabase.storage.from(PHOTO_BUCKET).remove([path]);
     throw error;
   }
   // The feed card asks the image cache for this id. With the bytes already there, the sender's own
@@ -82,15 +83,20 @@ function isAlreadyUploaded(error: object): boolean {
  * Stops waiting for a send that takes too long, so the feed can wait in the queue. The requests
  * have limits of their own, but a photo's is far longer than anyone holds a spinner, and none covers
  * an answer that stops after it started. The send itself goes on: if it was only slow it lands, and
- * the next try finds the same photo and gets back the same feed.
+ * the next try finds the same photo and gets back the same feed. It can ask whether it was given up
+ * on, as a try may be running beside it by then.
  */
-export async function inTime<T>(send: Promise<T>): Promise<T> {
+export async function inTime<T>(send: (givenUp: () => boolean) => Promise<T>): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let late = false;
   const limit = new Promise<never>((_resolve, reject) => {
-    timer = setTimeout(() => reject(new Error(SEND_TIMED_OUT)), SEND_LIMIT_MS);
+    timer = setTimeout(() => {
+      late = true;
+      reject(new Error(SEND_TIMED_OUT));
+    }, SEND_LIMIT_MS);
   });
   try {
-    return await Promise.race([send, limit]);
+    return await Promise.race([send(() => late), limit]);
   } finally {
     clearTimeout(timer);
   }
@@ -101,10 +107,12 @@ export async function inTime<T>(send: Promise<T>): Promise<T> {
  * photo, so anything else waits. The database refuses with a raised error, bad data, a broken
  * constraint or a missing privilege (SQLSTATE); storage refuses with row-level security, or a
  * missing bucket or a file it won't take. A timeout, a lock or an expired token passes on a later
- * try, and storage answers that last one with a 403 too.
+ * try, and storage answers that last one with a 403 too. So does a photo the server doesn't have:
+ * the phone has it, and the next try uploads it again.
  */
 export function isFinalRejection(error: unknown): boolean {
   if (typeof error !== 'object' || error === null) return false;
+  if (errorMessage(error).includes('photo_missing')) return false;
   if ('code' in error && /^(P0[0-9A-Z]{3}|2[23][0-9A-Z]{3}|42501)$/.test(String(error.code))) return true;
   if (!('statusCode' in error)) return false;
   const status = String(error.statusCode);

@@ -58,6 +58,8 @@ const { FetchError } = jest.requireActual<typeof import('expo/src/winter/fetch/F
 
 const UPLOAD = '/storage/v1/object/feed-photos/';
 const SUBMIT = '/rest/v1/rpc/submit_feed';
+/** A caption the word filter turns down. */
+const BLOCKED = 'Kicked ass today';
 const nowSeconds = () => Math.floor(Date.now() / 1000);
 
 let sessions = 0;
@@ -89,6 +91,10 @@ let unanswered: (url: URL, init?: RequestInit) => boolean = () => false;
 let answeredHalfway: (url: URL) => boolean = () => false;
 /** How long the server takes over a request, if it isn't at once. */
 let slowBy: (url: URL) => number = () => 0;
+/** The server does the work of these at once, and the answer takes this long to get back. */
+let lateBy: (url: URL) => number = () => 0;
+/** The next save meets another save of the same feed, and loses. */
+let losesTheRace = false;
 
 /** Only the first of these goes unanswered: the connection comes back behind it. */
 function firstOf(path: string) {
@@ -100,10 +106,18 @@ function firstOf(path: string) {
   };
 }
 
+/** Only the first of these takes that long. */
+function firstBy(path: string, ms: number) {
+  const first = firstOf(path);
+  return (url: URL) => (first(url) ? ms : 0);
+}
+
 function reply(status: number, body?: unknown) {
   const headers = { 'content-type': 'application/json', date: new Date().toUTCString() };
   return new Response(body === undefined ? null : JSON.stringify(body), { status, headers });
 }
+
+const refusal = (message: string, code = 'P0001') => reply(400, { code, details: null, hint: null, message });
 
 function server(url: URL, init: RequestInit | undefined, caller: string | null) {
   const path = url.pathname;
@@ -122,15 +136,27 @@ function server(url: URL, init: RequestInit | undefined, caller: string | null) 
   }
   if (path === '/rest/v1/packs') return reply(200, { id: 'pack', name: 'Gym squad', timezone: 'UTC', pack_members: [], critters: null });
   if (path === '/rest/v1/feeds') return reply(200, []);
+  if (`${path}/` === UPLOAD && init?.method === 'DELETE') {
+    const { prefixes } = JSON.parse(String(init.body)) as { prefixes: string[] };
+    for (const name of prefixes) photos.delete(`${UPLOAD}${name}`);
+    return reply(200, []);
+  }
   if (path.startsWith(UPLOAD)) {
     if (photos.has(path)) return reply(400, { statusCode: '409', error: 'Duplicate', message: 'The resource already exists' });
     photos.add(path);
     return reply(200, { Id: 'object', Key: path });
   }
   if (path === SUBMIT) {
-    const { photo, extra } = JSON.parse(String(init?.body)) as { photo: string; extra: boolean };
-    if (fedOnAnotherPhone && !extra) return reply(400, { code: 'P0001', details: null, hint: null, message: 'already_fed' });
-    if (!feeds.has(photo)) feeds.set(photo, `feed-${feeds.size + 1}`);
+    const { photo, extra, note } = JSON.parse(String(init?.body)) as { photo: string; extra: boolean; note?: string };
+    if (losesTheRace) {
+      losesTheRace = false;
+      return refusal('already_fed');
+    }
+    if (feeds.has(photo)) return reply(200, feeds.get(photo));
+    if (!photos.has(`${UPLOAD}${photo}`)) return refusal('photo_missing');
+    if (note === BLOCKED) return refusal('text_not_allowed', '22023');
+    if (fedOnAnotherPhone && !extra) return refusal('already_fed');
+    feeds.set(photo, `feed-${feeds.size + 1}`);
     return reply(200, feeds.get(photo));
   }
   return reply(200, []);
@@ -173,8 +199,11 @@ beforeAll(() => {
     const bearer = new Headers(init?.headers).get('authorization') ?? '';
     const caller = bearer.endsWith('-access') ? 'noa' : null;
     requests.push(`${init?.method ?? 'GET'} ${url.pathname} by ${caller}`);
-    if (slowBy(url) > 0) return new Promise((resolve) => setTimeout(() => resolve(server(url, init, caller)), slowBy(url)));
+    const slow = slowBy(url);
+    if (slow > 0) return new Promise((resolve) => setTimeout(() => resolve(server(url, init, caller)), slow));
     const answer = server(url, init, caller);
+    const late = lateBy(url);
+    if (late > 0) return new Promise((resolve) => setTimeout(() => resolve(answer), late));
     if (answeredHalfway(url)) return Promise.resolve(new Response(new ReadableStream(), { headers: answer.headers }));
     if (!unanswered(url, init)) return Promise.resolve(answer);
     return new Promise((_resolve, reject) => {
@@ -199,6 +228,8 @@ beforeEach(async () => {
   unanswered = () => false;
   answeredHalfway = () => false;
   slowBy = () => 0;
+  lateBy = () => 0;
+  losesTheRace = false;
 });
 
 afterEach(async () => {
@@ -319,6 +350,92 @@ describe('a queued feed', () => {
     expect(await run()).toBe(1);
     expect(requested(SUBMIT)).toBe(2);
     expect(feeds.size).toBe(1);
+    expect(await pendingFeeds()).toEqual([]);
+  });
+
+  it('uploads its photo again when the server no longer has it', async () => {
+    await enqueue(feed('a'));
+    slowBy = firstBy(SUBMIT, 1_000);
+    const outcome: { result?: unknown } = {};
+    void flushQueue().then((result) => {
+      outcome.result = result;
+    });
+    await advance(500);
+    photos.clear();
+    await advance(1_000);
+
+    expect(outcome.result).toEqual({ handled: 0, dropped: [], stuck: [expect.objectContaining({ message: 'photo_missing' })] });
+    expect(await pendingFeeds()).toHaveLength(1);
+
+    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], stuck: [] });
+    expect(await pendingFeeds()).toEqual([]);
+    expect(photos.size).toBe(1);
+    expect(feeds.size).toBe(1);
+  });
+});
+
+describe('a send given up on, beside the queue try at the same feed', () => {
+  let send: ReturnType<typeof useSendFeed>['mutateAsync'];
+
+  function Camera() {
+    send = useSendFeed().mutateAsync;
+    return null;
+  }
+
+  /** Send is tapped and the photo lands, but its answer comes after the feed was saved for later. */
+  async function tapAndGiveUp(outgoing: OutgoingFeed) {
+    await open(Camera);
+    lateBy = firstBy(UPLOAD, 45_000);
+    const told: { outcome?: string } = {};
+    void send(outgoing).then((outcome) => {
+      told.outcome = outcome;
+    });
+    await advance(31_000);
+    expect(told.outcome).toBe('queued');
+  }
+
+  /** The queue's try gets past the upload, and is still saving when the first send hears its answer. */
+  async function runBesideIt() {
+    slowBy = firstBy(SUBMIT, 20_000);
+    const outcome: { result?: unknown } = {};
+    void flushQueue().then((result) => {
+      outcome.result = result;
+    });
+    await advance(5 * 60_000);
+    return outcome.result;
+  }
+
+  it('leaves the photo to the queue on a day fed from another phone, and it goes up as an extra', async () => {
+    fedOnAnotherPhone = true;
+    await tapAndGiveUp(feed('a'));
+
+    expect(await runBesideIt()).toEqual({ handled: 1, dropped: [], stuck: [] });
+
+    expect(await pendingFeeds()).toEqual([]);
+    expect(feeds.size).toBe(1);
+    expect(photos.size).toBe(1);
+  });
+
+  it('leaves the photo to the queue when the filter turns down the caption, and it goes up without it', async () => {
+    await tapAndGiveUp({ ...feed('a'), caption: BLOCKED });
+
+    expect(await runBesideIt()).toEqual({ handled: 1, dropped: [], stuck: [] });
+
+    expect(await pendingFeeds()).toEqual([]);
+    expect(feeds.size).toBe(1);
+    expect(photos.size).toBe(1);
+  });
+
+  it('keeps the photo of the feed that won when both reach the server together', async () => {
+    await tapAndGiveUp(feed('a'));
+    await flushQueue();
+    expect(feeds.size).toBe(1);
+
+    losesTheRace = true;
+    await advance(60_000);
+
+    expect(requested('DELETE')).toBe(0);
+    expect(photos.size).toBe(1);
     expect(await pendingFeeds()).toEqual([]);
   });
 });
