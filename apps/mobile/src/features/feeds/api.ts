@@ -112,12 +112,12 @@ export function usePackFeed(packId: string, limit = FEED_PAGE) {
       if (error) throw error;
       const paths = data.flatMap((feed) => (feed.photo_path ? [feed.photo_path] : []));
       const links = new Map<string, string>();
-      const reactions = await fetchReactions(data.map((feed) => feed.id));
-      if (paths.length > 0) {
-        const signed = await supabase.storage.from(PHOTO_BUCKET).createSignedUrls(paths, PHOTO_LINK_SECONDS);
-        if (signed.error) throw signed.error;
-        for (const item of signed.data) if (item.path && item.signedUrl) links.set(item.path, item.signedUrl);
-      }
+      const [reactions, signed] = await Promise.all([
+        fetchReactions(data.map((feed) => feed.id)),
+        paths.length > 0 ? supabase.storage.from(PHOTO_BUCKET).createSignedUrls(paths, PHOTO_LINK_SECONDS) : null,
+      ]);
+      if (signed?.error) throw signed.error;
+      for (const item of signed?.data ?? []) if (item.path && item.signedUrl) links.set(item.path, item.signedUrl);
       return data.map((feed) => ({
         ...feed,
         photoUrl: feed.photo_path ? (links.get(feed.photo_path) ?? null) : null,
