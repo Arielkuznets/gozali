@@ -14,7 +14,7 @@ import {
   useRenewInviteCode,
   useUpdatePack,
 } from '@/features/packs/api';
-import { useBlock, useReact } from '@/features/social/api';
+import { useBlock, useReact, useSuggestName } from '@/features/social/api';
 
 // Saves against reads that keep failing or never answer: what a save tells the member can't wait
 // for them. The read stands in for whatever is mounted under the screen; retries are the defaults.
@@ -72,6 +72,7 @@ let hooks: {
   update: ReturnType<typeof useUpdatePack>;
   renew: ReturnType<typeof useRenewInviteCode>;
   remove: ReturnType<typeof useRemoveMember>;
+  suggest: ReturnType<typeof useSuggestName>;
 };
 
 function Screen() {
@@ -80,6 +81,7 @@ function Screen() {
   useQuery({ queryKey: [...packsKey, 'read'], queryFn: mockPackRead });
   useQuery({ queryKey: packsKey, queryFn: mockRead });
   useQuery({ queryKey: [...packsKey, 'pack'], queryFn: mockRead });
+  useQuery({ queryKey: ['social', 'read'], queryFn: mockRead });
   const current = {
     send: useSendFeed(),
     rest: useDayPass('pack'),
@@ -94,6 +96,7 @@ function Screen() {
     update: useUpdatePack('pack'),
     renew: useRenewInviteCode('pack'),
     remove: useRemoveMember('pack'),
+    suggest: useSuggestName('pack'),
   };
   useEffect(() => {
     hooks = current;
@@ -162,6 +165,7 @@ describe('a save while the reads fail', () => {
     ['the end of a pause', (onError: () => void) => hooks.endPause.mutate(undefined, { onError })],
     ['a reaction', (onError: () => void) => hooks.react.mutate({ feedId: 'f', emoji: 'fire' }, { onError })],
     ['a block', (onError: () => void) => hooks.block.mutate({ blockerId: 'noa', blockedId: 'dan' }, { onError })],
+    ['a suggested name', (onError: () => void) => hooks.suggest.mutate('Mochi', { onError })],
   ])('reports %s that failed at once, and the reads still run', async (_name, save) => {
     const onError = jest.fn();
     await act(async () => save(onError));
@@ -225,6 +229,7 @@ describe('a save the server took while the reads never answer', () => {
     ['a leave', (onSuccess: () => void) => hooks.leave.mutate('pack', { onSuccess })],
     ['a new invite code', (onSuccess: () => void) => hooks.renew.mutate(undefined, { onSuccess })],
     ['a removed member', (onSuccess: () => void) => hooks.remove.mutate('dan', { onSuccess })],
+    ['a suggested name', (onSuccess: () => void) => hooks.suggest.mutate('Mochi', { onSuccess })],
   ])('is done with %s, and the reads still run', async (_name, save) => {
     const onSuccess = jest.fn();
     await act(async () => save(onSuccess));

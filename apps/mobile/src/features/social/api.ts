@@ -138,7 +138,10 @@ export function useSuggestName(packId: string) {
       const { error } = await requireSupabase().rpc('suggest_name', { target: packId, suggested: name });
       if (error) throw error;
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: socialKey }),
+    // Not returned: a failed suggestion is told at once, not after reads that may be failing too.
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: socialKey });
+    },
   });
 }
 
