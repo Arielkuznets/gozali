@@ -163,6 +163,8 @@ function server(url: URL, init: RequestInit | undefined) {
     return reply(200, widgetState(token.split('-')[0]!));
   }
   if (url.pathname.startsWith('/storage/v1/object/')) {
+    // Storage's answer when the photo isn't there, which it never is before its upload here.
+    if (init?.method === 'HEAD') return reply(400, {});
     // Row level security: a photo goes into its owner's folder only.
     if (caller === null || !url.pathname.includes(`/${caller}/`)) {
       return reply(400, { statusCode: '403', error: 'Unauthorized', message: 'new row violates row-level security policy' });

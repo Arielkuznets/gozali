@@ -10,6 +10,8 @@ export const PHOTO_BUCKET = 'feed-photos';
 const MAX_WIDTH = 1080;
 const JPEG_QUALITY = 0.7;
 const SEND_LIMIT_MS = 30_000;
+/** A little over a photo's own limit (lib/serverClock.ts). */
+export const QUEUE_LIMIT_MS = 170_000;
 const SEND_TIMED_OUT = 'send_timed_out';
 const NOT_SIGNED_IN = 'not_signed_in';
 
@@ -49,24 +51,36 @@ async function requireSession(): Promise<void> {
   if (!(await requireSupabase().auth.getSession()).data.session) throw new Error(NOT_SIGNED_IN);
 }
 
+/** Whether storage has the photo. A question that fails counts as no, and the upload finds out. */
+async function photoIsThere(path: string): Promise<boolean> {
+  try {
+    return (await requireSupabase().storage.from(PHOTO_BUCKET).exists(path)).data;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Uploads the photo and saves the feed. The upload path is named after the feed's local id,
- * so a retry after a lost response overwrites nothing and finds the photo already there.
+ * so a retry after a lost response overwrites nothing and finds the photo already there. A retry
+ * can ask first, as the 409 that says so comes only after the whole photo went up again.
  */
-export async function sendFeed(feed: OutgoingFeed, givenUp: () => boolean = () => false): Promise<string> {
+export async function sendFeed(feed: OutgoingFeed, givenUp: () => boolean = () => false, askFirst = false): Promise<string> {
   const supabase = requireSupabase();
   await requireSession();
   const tokenlessBefore = tokenlessRequests();
   const path = `${feed.packId}/${feed.userId}/${feed.id}.jpg`;
-  const upload = await supabase.storage
-    .from(PHOTO_BUCKET)
-    .upload(path, await photoBytes(feed.photoUri), { contentType: 'image/jpeg' });
-  if (upload.error && !isAlreadyUploaded(upload.error)) {
-    await requireSession();
-    // Storage's words for a request with no token are the same as for a member who can't post, and
-    // the session can be back by the time they land.
-    if (tokenlessRequests() !== tokenlessBefore) throw new Error(NOT_SIGNED_IN);
-    throw upload.error;
+  if (!askFirst || !(await photoIsThere(path))) {
+    const upload = await supabase.storage
+      .from(PHOTO_BUCKET)
+      .upload(path, await photoBytes(feed.photoUri), { contentType: 'image/jpeg' });
+    if (upload.error && !isAlreadyUploaded(upload.error)) {
+      await requireSession();
+      // Storage's words for a request with no token are the same as for a member who can't post, and
+      // the session can be back by the time they land.
+      if (tokenlessRequests() !== tokenlessBefore) throw new Error(NOT_SIGNED_IN);
+      throw upload.error;
+    }
   }
 
   const { data, error } = await supabase.rpc('submit_feed', {
@@ -102,14 +116,14 @@ function isAlreadyUploaded(error: object): boolean {
  * the next try finds the same photo and gets back the same feed. It can ask whether it was given up
  * on, as a try may be running beside it by then.
  */
-export async function inTime<T>(send: (givenUp: () => boolean) => Promise<T>): Promise<T> {
+export async function inTime<T>(send: (givenUp: () => boolean) => Promise<T>, limitMs = SEND_LIMIT_MS): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let late = false;
   const limit = new Promise<never>((_resolve, reject) => {
     timer = setTimeout(() => {
       late = true;
       reject(new Error(SEND_TIMED_OUT));
-    }, SEND_LIMIT_MS);
+    }, limitMs);
   });
   try {
     return await Promise.race([send(() => late), limit]);

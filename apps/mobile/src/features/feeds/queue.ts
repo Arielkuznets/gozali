@@ -3,7 +3,7 @@ import NetInfo, { type NetInfoState } from '@react-native-community/netinfo';
 import { Directory, File, Paths } from 'expo-file-system';
 import { AppState, Platform } from 'react-native';
 
-import { feedErrorCode, inTime, isFinalRejection, isNetworkFailure, sendFeed, type OutgoingFeed } from '@/features/feeds/send';
+import { QUEUE_LIMIT_MS, feedErrorCode, inTime, isFinalRejection, isNetworkFailure, sendFeed, type OutgoingFeed } from '@/features/feeds/send';
 import { isBlockedText } from '@/lib/errors';
 import { errorText } from '@/lib/reportError';
 import { storedSession } from '@/lib/supabase';
@@ -183,10 +183,14 @@ function replacement(feed: QueuedFeed, error: unknown, retried: boolean): Queued
   return null;
 }
 
-/** Sends a feed, then its replacements. */
+/**
+ * Sends a feed, then its replacements. Nobody holds a spinner here, so a try waits out a whole
+ * upload: cut short, a photo that takes longer than Send's limit would stop every run at that feed.
+ * A try can follow one that landed after it was given up on, so it asks storage first.
+ */
 async function sendOrReplace(feed: QueuedFeed, retried = false): Promise<Attempt> {
   try {
-    await inTime((givenUp) => sendFeed(feed, givenUp));
+    await inTime((givenUp) => sendFeed(feed, givenUp, true), QUEUE_LIMIT_MS);
     return { outcome: 'sent' };
   } catch (error) {
     if (!isFinalRejection(error)) return { outcome: 'waiting', error };

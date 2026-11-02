@@ -39,6 +39,7 @@ jest.mock('expo-image', () => ({ Image: { writeToCacheAsync: (...args: unknown[]
 // A server that turns down anything sent without a session, the way storage's row level
 // security answers the publishable key.
 const mockGetSession = jest.fn();
+const mockExists = jest.fn();
 const mockUpload = jest.fn();
 const mockRemove = jest.fn();
 const mockRpc = jest.fn();
@@ -48,7 +49,7 @@ jest.mock('@/lib/supabase', () => ({
   tokenlessRequests: () => mockTokenless,
   requireSupabase: () => ({
     auth: { getSession: () => mockGetSession() },
-    storage: { from: () => ({ upload: mockUpload, remove: mockRemove }) },
+    storage: { from: () => ({ exists: mockExists, upload: mockUpload, remove: mockRemove }) },
     rpc: mockRpc,
   }),
 }));
@@ -68,6 +69,7 @@ beforeEach(async () => {
   await AsyncStorage.clear();
   jest.clearAllMocks();
   mockUnreadable.clear();
+  mockExists.mockResolvedValue({ data: false, error: { status: 400, message: 'HTTP 400 error' } });
   mockUpload.mockResolvedValue({ error: { statusCode: '403', message: 'new row violates row-level security policy' } });
   mockRemove.mockResolvedValue({ error: null });
   mockRpc.mockResolvedValue({ data: 'feed-id', error: null });

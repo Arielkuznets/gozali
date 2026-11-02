@@ -102,6 +102,8 @@ let lateBy: (url: URL) => number = () => 0;
 let losesTheRace = false;
 /** These fail at once, as on a phone with no connection. */
 let noConnection: (url: URL) => boolean = () => false;
+/** What asking whether a photo is there meets, when it isn't an answer at once. */
+let askingMeets: ((init?: RequestInit) => Promise<Response>) | null = null;
 
 /** Only the first of these goes unanswered: the connection comes back behind it. */
 function firstOf(path: string) {
@@ -136,6 +138,8 @@ function server(url: URL, init: RequestInit | undefined, caller: string | null) 
     return accountGone ? reply(404, { error_code: 'user_not_found', msg: 'User from sub claim in JWT does not exist' }) : reply(200, sessionOf(0).user);
   }
   if (path === '/auth/v1/logout') return reply(204);
+  // Storage says the same to a file that isn't there and to a caller who may not see it.
+  if (init?.method === 'HEAD') return reply(photos.has(path) && caller !== null ? 200 : 400);
   // What the API and storage say to a request that went out without the user's token.
   if ((caller === null || accountGone) && path.startsWith(UPLOAD)) {
     return reply(400, { statusCode: '403', code: 'AccessDenied', error: 'Unauthorized', message: 'new row violates row-level security policy' });
@@ -213,6 +217,8 @@ beforeAll(() => {
     const caller = bearer.endsWith('-access') ? 'noa' : null;
     requests.push(`${init?.method ?? 'GET'} ${url.pathname} by ${caller}`);
     if (noConnection(url)) return Promise.reject(new TypeError('Network request failed'));
+    // No photo goes with this, so what holds a slow upload back doesn't hold it back.
+    if (init?.method === 'HEAD') return askingMeets?.(init) ?? Promise.resolve(server(url, init, caller));
     const slow = slowBy(url);
     if (slow > 0) return new Promise((resolve) => setTimeout(() => resolve(server(url, init, caller)), slow));
     const answer = server(url, init, caller);
@@ -245,6 +251,7 @@ beforeEach(async () => {
   lateBy = () => 0;
   losesTheRace = false;
   noConnection = () => false;
+  askingMeets = null;
   mockReadTakes = 0;
 });
 
@@ -462,6 +469,38 @@ describe('a queued feed', () => {
     });
   });
 
+  it('sends no photo that already landed: it asks storage first', async () => {
+    await enqueue(feed('a'));
+    photos.add(`${UPLOAD}pack/noa/a.jpg`);
+
+    expect(await run()).toBe(1);
+
+    expect(requests).toEqual([`HEAD ${UPLOAD}pack/noa/a.jpg by noa`, `POST ${SUBMIT} by noa`]);
+    expect(feeds.size).toBe(1);
+    expect(await pendingFeeds()).toEqual([]);
+  });
+
+  it.each([
+    ['an error', () => Promise.resolve(reply(500))],
+    ['no connection', () => Promise.reject(new TypeError('Network request failed'))],
+    [
+      'no answer',
+      (init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(new FetchError('Fetch request has been canceled')));
+        }),
+    ],
+  ])('uploads the photo when asking storage meets %s', async (_name, meets) => {
+    await enqueue(feed('a'));
+    askingMeets = meets;
+
+    expect(await run()).toBe(1);
+
+    expect(requested(`POST ${UPLOAD}`)).toBe(1);
+    expect(feeds.size).toBe(1);
+    expect(await pendingFeeds()).toEqual([]);
+  });
+
   it('uploads its photo again when the server no longer has it', async () => {
     await enqueue(feed('a'));
     slowBy = firstBy(SUBMIT, 1_000);
@@ -562,11 +601,11 @@ describe('a queue run on a dead connection', () => {
   it.each([
     ['an upload with no answer', () => (unanswered = firstOf(UPLOAD))],
     ['an answer that stops halfway', () => (answeredHalfway = firstOf(UPLOAD))],
-  ])('ends after half a minute on %s, says nothing, and the next run sends the feed', async (_name, die) => {
+  ])('ends within the limit of a try on %s, says nothing, and the next run sends the feed', async (_name, die) => {
     await enqueue(feed('a'));
     die();
 
-    expect(await runFor(30)).toEqual({ handled: 0, dropped: [], stuck: [] });
+    expect(await runFor(170)).toEqual({ handled: 0, dropped: [], stuck: [] });
     expect(await pendingFeeds()).toHaveLength(1);
 
     expect(await runFor(1)).toEqual({ handled: 1, dropped: [], stuck: [] });
@@ -627,11 +666,11 @@ describe('a feed waiting with the app left open', () => {
     await open(Pack);
     await advance(10_000);
     await act(async () => appStates.forEach((listener) => listener('active')));
-    await advance(25_000);
-    expect(requested(UPLOAD)).toBe(1);
+    await advance(140_000);
+    expect(requested(`POST ${UPLOAD}`)).toBe(1);
     expect(await pendingFeeds()).toHaveLength(1);
 
-    await advance(30_000);
+    await advance(40_000);
 
     expect(await pendingFeeds()).toEqual([]);
     expect(feeds.size).toBe(1);
@@ -653,6 +692,20 @@ describe('a feed waiting with the app left open', () => {
     expect(card()).toEqual([]);
     expect(requested(SUBMIT)).toBe(2);
     expect(feeds.size).toBe(1);
+  });
+
+  it.each([37, 150])('sends every feed on a link where each photo takes %i s, once each', async (seconds) => {
+    await enqueue(feed('a'));
+    await enqueue(feed('b'));
+    slowBy = (url) => (url.pathname.startsWith(UPLOAD) ? seconds * 1000 : 0);
+    await open(Pack);
+
+    await advance(2 * seconds * 1000 + 60_000);
+
+    expect(feeds.size).toBe(2);
+    expect(requested(`POST ${UPLOAD}`)).toBe(2);
+    expect(await pendingFeeds()).toEqual([]);
+    expect(card()).toEqual([]);
   });
 
   it('adds nothing to a run that is still going', async () => {
@@ -778,6 +831,7 @@ describe('Send on a dead connection', () => {
     await flushQueue();
     expect(await pendingFeeds()).toEqual([]);
     expect(requested(SUBMIT)).toBe(2);
+    expect(requested(`POST ${UPLOAD}`)).toBe(1);
     expect(feeds.size).toBe(1);
   });
 
@@ -788,6 +842,7 @@ describe('Send on a dead connection', () => {
     expect(await tapSend()).toEqual({ outcome: 'sent', seconds: 0 });
     expect(await pendingFeeds()).toEqual([]);
     expect(feeds.size).toBe(1);
+    expect(requested('HEAD')).toBe(0);
   });
 });
 

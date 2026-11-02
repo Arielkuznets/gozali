@@ -128,6 +128,8 @@ function server(url: URL, init: RequestInit | undefined) {
   const bearer = new Headers(init?.headers).get('authorization')?.replace('Bearer ', '') ?? '';
   const alive = (tokenExpiry.get(bearer) ?? 0) > nowSeconds();
   if (url.pathname.startsWith('/storage/v1/object/')) {
+    // Storage's answer when the photo isn't there, which it never is before its upload here.
+    if (init?.method === 'HEAD') return answer(400, {});
     if (!alive) return answer(400, { statusCode: '403', error: 'Unauthorized', message: '"exp" claim timestamp check failed' });
     return answer(200, { Id: 'object', Key: url.pathname });
   }

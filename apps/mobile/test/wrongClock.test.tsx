@@ -76,7 +76,7 @@ function answer(status: number, body: unknown) {
   return new Response(JSON.stringify(body), { status, headers });
 }
 
-function server(url: URL, bearer: string | null) {
+function server(url: URL, bearer: string | null, method?: string) {
   if (url.pathname === '/auth/v1/token') {
     if (refreshRefusal !== null) return answer(refreshRefusal, { error_code: 'over_request_rate_limit', msg: 'Slow down' });
     const access = `fresh-${tokenCalls()}`;
@@ -93,6 +93,8 @@ function server(url: URL, bearer: string | null) {
   }
   const alive = (tokenExpiry.get(bearer ?? '') ?? 0) > serverSeconds();
   if (url.pathname.startsWith('/storage/v1/object/')) {
+    // Storage's answer when the photo isn't there, which it never is before its upload here.
+    if (method === 'HEAD') return answer(400, {});
     if (!alive) return answer(400, { statusCode: '403', error: 'Unauthorized', message: '"exp" claim timestamp check failed' });
     return answer(200, { Id: 'object', Key: url.pathname });
   }
@@ -151,7 +153,7 @@ beforeAll(() => {
     }
     const url = new URL(String(input));
     requests.push(url.pathname);
-    return server(url, new Headers(init?.headers).get('authorization')?.replace('Bearer ', '') ?? null);
+    return server(url, new Headers(init?.headers).get('authorization')?.replace('Bearer ', '') ?? null, init?.method);
   }) as unknown as typeof fetch;
 });
 
