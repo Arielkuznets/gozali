@@ -168,8 +168,8 @@ test('the buttons at the top of a pack stay on the screen at the largest text', 
 
 test('a pack in a zone this phone can not read still opens, and the developer hears of it', async ({ page }) => {
   const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
-  // As with a zone newer than an old phone's list.
-  await admin.from('packs').update({ timezone: 'Mars/Olympus' }).eq('id', pack.id);
+  // Postgres knows this name and Intl doesn't, as with a zone newer than an old phone's list.
+  await admin.from('packs').update({ timezone: 'posix/Asia/Jerusalem' }).eq('id', pack.id);
   await signIn(page, noa);
 
   await page.goto('/');
@@ -184,7 +184,7 @@ test('a pack in a zone this phone can not read still opens, and the developer he
 
   await expect
     .poll(async () => (await admin.from('app_errors').select('message').eq('user_id', noa.id)).data)
-    .toEqual([{ message: expect.stringContaining('Mars/Olympus') }]);
+    .toEqual([{ message: expect.stringContaining('posix/Asia/Jerusalem') }]);
 });
 
 test('leaving a pack ends on the home screen', async ({ page }) => {
