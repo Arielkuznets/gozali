@@ -46,7 +46,7 @@ async function openAtTheEnd(page: Page) {
 /** How far down the screen is scrolled. */
 const place = (page: Page) =>
   page.evaluate(() => {
-    const scrollers = [...document.querySelectorAll('div')].filter((div) => div.scrollHeight > div.clientHeight + 200 && div.innerText.includes('Post 29'));
+    const scrollers = Array.from(document.querySelectorAll('div')).filter((div) => div.scrollHeight > div.clientHeight + 200 && div.innerText.includes('Post 29'));
     return Math.round(scrollers.at(-1)?.scrollTop ?? -1);
   });
 
