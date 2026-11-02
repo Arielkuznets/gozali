@@ -106,9 +106,10 @@ test.describe('a restore', () => {
     return JSON.parse(psql('postgres', `select coalesce(json_agg(t), '[]') from (select * from ${table} as r where ${where} order by (r.*)) t`));
   }
 
-  /** A backup holding the accounts, the app settings and one pack, nothing else. */
-  function backUp(users: TestUser[], packId: string): { tables: Record<string, Row[]> } {
+  /** A backup holding the accounts, the app settings and these packs, nothing else. */
+  function backUp(users: TestUser[], ...packIds: string[]): { tables: Record<string, Row[]> } {
     const ids = users.map((user) => `'${user.id}'`).join(', ');
+    const packs = packIds.map((id) => `'${id}'`).join(', ');
     return {
       tables: {
         'auth.users': saved('auth.users', `id in (${ids})`),
@@ -116,11 +117,11 @@ test.describe('a restore', () => {
         'public.app_config': saved('public.app_config', 'true'),
         'public.app_errors': saved('public.app_errors', `user_id in (${ids})`),
         'public.profiles': saved('public.profiles', `id in (${ids})`),
-        'public.packs': saved('public.packs', `id = '${packId}'`),
-        'public.critters': saved('public.critters', `pack_id = '${packId}'`),
-        'public.pack_members': saved('public.pack_members', `pack_id = '${packId}'`),
-        'public.feeds': saved('public.feeds', `pack_id = '${packId}'`),
-        'public.reactions': saved('public.reactions', `feed_id in (select id from public.feeds where pack_id = '${packId}')`),
+        'public.packs': saved('public.packs', `id in (${packs})`),
+        'public.critters': saved('public.critters', `pack_id in (${packs})`),
+        'public.pack_members': saved('public.pack_members', `pack_id in (${packs})`),
+        'public.feeds': saved('public.feeds', `pack_id in (${packs})`),
+        'public.reactions': saved('public.reactions', `feed_id in (select id from public.feeds where pack_id in (${packs}))`),
       },
     };
   }
@@ -232,6 +233,52 @@ test.describe('a restore', () => {
     expect(psql(target, 'select id from public.app_errors')).toBe(String(noasReport));
     expect(psql(target, `select name from public.packs where id = '${pack.id}'`)).toBe('Gym squad');
     expect(psql(target, `select count(*) from pg_trigger where tgenabled = 'D'`)).toBe('0');
+  });
+
+  test('a pack the backup caught being made, without its critter, stays out with all it holds', async () => {
+    const older = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
+    const newer = await createPack(noa, { name: 'Morning runs', habit: 'running', species: 'hoot' }, [dan]);
+    const fed = await admin
+      .from('feeds')
+      .insert([older, newer].map((pack, n) => ({ pack_id: pack.id, user_id: noa.id, photo_path: `${n}.jpg`, day: '2026-10-29' })))
+      .select('id, pack_id');
+    expect(fed.error).toBeNull();
+    const reacted = await admin.from('reactions').insert(fed.data!.map((row) => ({ feed_id: row.id, user_id: dan.id, emoji: 'fire' as const })));
+    expect(reacted.error).toBeNull();
+    const backup = backUp([noa, dan], older.id, newer.id);
+    // The second pack was made after the backup, begun at 18:30, read critters.
+    for (const row of backup.tables['public.packs']!) row.created_at = row.id === newer.id ? '2026-10-29T18:31:00+00:00' : '2026-03-01T09:00:00+00:00';
+    backup.tables['public.critters'] = backup.tables['public.critters']!.filter((row) => row.pack_id !== newer.id);
+
+    const printed = restore(backup);
+
+    expect(psql(target, 'select id from public.packs')).toBe(older.id);
+    expect(psql(target, 'select pack_id from public.critters')).toBe(older.id);
+    expect(psql(target, 'select distinct pack_id from public.pack_members')).toBe(older.id);
+    expect(psql(target, 'select pack_id from public.feeds')).toBe(older.id);
+    expect(psql(target, 'select count(*) from public.reactions')).toBe('1');
+    expect(printed).toContain('public.pack_members: 2, skipped 2');
+    expect(printed).toContain('public.feeds: 1, skipped 1');
+    expect(printed).toContain('public.reactions: 1, skipped 1');
+    expect(printed).toContain(
+      `Left out packs made after the backup began, which it holds without a critter, and their rows: ${newer.id} "Morning runs" (public.pack_members 2, public.feeds 1).`,
+    );
+  });
+
+  test('a pack older than the backup and held without its critter keeps its history, and the run says so', async () => {
+    const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
+    const fed = await admin.from('feeds').insert({ pack_id: pack.id, user_id: noa.id, photo_path: 'noa.jpg', day: '2026-10-29' }).select('id');
+    expect(fed.error).toBeNull();
+    const backup = backUp([noa, dan], pack.id);
+    backup.tables['public.packs']![0]!.created_at = '2026-03-01T09:00:00+00:00';
+    backup.tables['public.critters'] = [];
+
+    const printed = restore(backup);
+
+    expect(psql(target, 'select id from public.packs')).toBe(pack.id);
+    expect(psql(target, 'select count(*) from public.pack_members')).toBe('2');
+    expect(psql(target, 'select id from public.feeds')).toBe(fed.data![0]!.id);
+    expect(printed).toContain(`Kept packs from before the backup that it holds without a critter: ${pack.id} "Gym squad"`);
   });
 
   test('text that reads like the quotes of the script comes back as it was', async () => {

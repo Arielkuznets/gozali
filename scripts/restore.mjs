@@ -7,7 +7,8 @@
 // triggers off so nothing is queued or counted twice. A row the migrations seeded gives way to the
 // backup's, and one the backup doesn't hold stays. A backup reads one table after another while
 // people use the app, so a row can be in it without its parent: that row is skipped, and the run
-// says how many per table. Photo files aren't in backups, so the restored feeds and profiles forget
+// says how many per table. A pack made in that time can be in it without its critter: it stays out,
+// and the run names it. Photo files aren't in backups, so the restored feeds and profiles forget
 // their photo paths. The Vault values (CRON_SECRET, functions_url) and the function secrets are set
 // again by hand (docs/setup.md, section 1).
 import { readFileSync } from 'node:fs';
@@ -89,6 +90,16 @@ const columns = new Map(
   ).map((row) => [row.t, row]),
 );
 
+// A pack is made with its critter, and a backup reads critters before packs, so a pack made in
+// between is in the file without one, and no day of a pack like that can close. It is newer than the
+// backup, so it stays out, and what it holds goes the way of any row without its parent. A pack from
+// before the backup can't get here that way and has history to keep, so it stays for the owner.
+const critters = new Set((backup.tables['public.critters'] ?? []).map((row) => row.pack_id));
+const noCritter = (backup.tables['public.packs'] ?? []).filter((row) => !critters.has(row.id));
+const newPacks = noCritter.filter((row) => Date.parse(row.created_at) >= Date.parse(backup.takenAt));
+const oldPacks = noCritter.filter((row) => !newPacks.includes(row));
+if (newPacks.length > 0) backup.tables['public.packs'] = backup.tables['public.packs'].filter((row) => !newPacks.includes(row));
+
 const leftOut = [];
 for (const table of order) {
   const rows = backup.tables[table] ?? [];
@@ -157,4 +168,21 @@ if (leftOut.length > 0) {
   const total = leftOut.reduce((sum, { skipped }) => sum + skipped, 0);
   const tables = leftOut.map(({ table, skipped }) => `${table} ${skipped}`).join(', ');
   console.log(`Left out ${total} rows the backup holds without their parent, or holds twice: ${tables}.`);
+}
+/** Each pack, with the rows of the backup that are its own. */
+const listed = (packs) =>
+  packs
+    .map((pack) => {
+      const held = Object.entries(backup.tables).flatMap(([table, rows]) => {
+        const count = rows.filter((row) => row.pack_id === pack.id).length;
+        return count > 0 ? [`${table} ${count}`] : [];
+      });
+      return `${pack.id} "${pack.name}" (${held.join(', ') || 'no rows'})`;
+    })
+    .join(', ');
+if (newPacks.length > 0) {
+  console.log(`Left out packs made after the backup began, which it holds without a critter, and their rows: ${listed(newPacks)}.`);
+}
+if (oldPacks.length > 0) {
+  console.log(`Kept packs from before the backup that it holds without a critter: ${listed(oldPacks)}. No day of them can close until each has one.`);
 }
