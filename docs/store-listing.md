@@ -55,7 +55,8 @@ What the app collects (see docs/legal/privacy-policy.md). No tracking, no ads, n
 | User ID | Identifiers: user ID, linked | App info: other IDs | App functionality |
 | Push token and widget token | Identifiers: device ID, linked | Device or other IDs | App functionality |
 | Time zone and reminder settings | Other data, linked | App info: other | App functionality |
-| Error reports (the error, the screen, the app version, iPhone or Android) | Diagnostics: other diagnostic data, linked | App info and performance: diagnostics, collected | App functionality |
+| Error reports (the error, stack trace, the screen, the app version, iPhone or Android, whether the app crashed, and on a sign-in report the system name and version) | Diagnostics: crash data, other diagnostic data, linked | App info and performance: crash logs, diagnostics, collected | App functionality |
+| Scrambled network address when a sign-in fails (a keyed hash kept apart from the report, used for an hour, deleted within about a day) | Other data, not linked | Device or other IDs, collected | App functionality; on Google Play: fraud prevention, security and compliance |
 
 Data is encrypted in transit, and users can delete their account and all its data inside the app (Settings → Delete account). Photos are deleted after 30 days (a photo in a weekly recap collage 8 weeks after that week).
 

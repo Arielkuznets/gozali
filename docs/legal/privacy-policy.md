@@ -2,7 +2,7 @@
 
 > Draft for the pilot. It describes what the app does today and must be reviewed before the public launch. Published at gozali.app/privacy.
 
-Last updated: November 1, 2026
+Last updated: November 2, 2026
 
 Gozali is an app where a small group of friends (a "pack") raises a shared pet by doing a habit every day and proving it with a photo. This policy explains what we collect, why, who can see it, and how to delete it. Questions: hello@gozali.app.
 
@@ -13,7 +13,8 @@ Gozali is an app where a small group of friends (a "pack") raises a shared pet b
 - **What you do in packs:** the packs you create or join, your photos, their captions and time, focus session lengths, rest days, jokers and pauses you take, reactions, nudges, name suggestions and changes to the pet's outfit.
 - **Safety:** reports you send and people you block.
 - **Devices:** a push notification token for each phone you sign in on, and a token that lets your widgets read your packs' state (we keep only a scrambled form of it).
-- **Errors:** when something goes wrong in the app, a short technical report (the error, the screen, the app version and whether it's an iPhone or Android phone) so we can fix it. Reports are deleted after 30 days.
+- **Errors:** when something goes wrong in the app, a technical report so we can fix it: the error and its stack trace (the place in the app's code where it happened), the screen, the app version, whether it's an iPhone or Android phone, whether the error closed the app, and your account id. Reports are deleted after 30 days.
+- **Sign-in problems:** when a sign-in doesn't finish, even if you closed it yourself and have no account yet, a report with the sign-in method, the error, how long it took, the app version and your phone's system and its version. These reports are deleted after 30 days too. We also keep a scrambled form of your network address, apart from the report, to limit how many reports one address can send. It is used for an hour and deleted within about a day.
 
 We do **not** collect your location or contacts, we don't use advertising or tracking identifiers, and we don't sell or rent your data.
 
