@@ -91,9 +91,19 @@ export function artVersion(art: CritterArt): string {
   return hash.toString(36);
 }
 
-/** A calendar day in a time zone, YYYY-MM-DD (the en-CA format is already in that order). */
+/**
+ * A calendar day in a time zone, YYYY-MM-DD (the en-CA format is already in that order). The zone
+ * is the phone's, and a phone's list can hold names this Intl doesn't know. The day only picks a
+ * holiday hat, so the day in UTC does then.
+ */
 export function dayIn(timeZone: string, at: Date): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(at);
+  const inZone = (zone: string) =>
+    new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(at);
+  try {
+    return inZone(timeZone);
+  } catch {
+    return inZone('UTC');
+  }
 }
 
 export function artSvg(art: CritterArt): string {

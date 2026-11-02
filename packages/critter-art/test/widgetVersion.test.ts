@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { artVersion } from '../../../supabase/functions/widget-state/state.ts';
+import { artVersion, dayIn } from '../../../supabase/functions/widget-state/state.ts';
 import { CREATURE_COLORS, CREATURES, renderCritter, type CritterArt } from '../src/index.ts';
 
 /** Hungry on purpose: a happy critter already has cheeks, so the half-fed step draws nothing for it. */
@@ -36,4 +36,12 @@ test('two moods share an address exactly when they draw the same', () => {
           for (const other of drawings)
             assert.equal(one.version === other.version, one.svg === other.svg, `${species} ${look} sleeping ${sleeping}: moods ${one.mood} and ${other.mood}`);
       }
+});
+
+test('the day goes by the phone\'s zone', () => {
+  assert.equal(dayIn('Asia/Jerusalem', new Date('2026-11-02T23:30:00Z')), '2026-11-03');
+});
+
+test('a zone this Intl can\'t read gives the day in UTC, not an error', () => {
+  assert.equal(dayIn('posix/Asia/Jerusalem', new Date('2026-11-02T23:30:00Z')), '2026-11-02');
 });
