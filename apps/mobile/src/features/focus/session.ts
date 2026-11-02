@@ -61,6 +61,16 @@ async function cancelEnd(session: FocusSession | null) {
   }
 }
 
+/** The stored session. One that can't be read counts as none, or the timer would never open. */
+async function load(): Promise<FocusSession | null> {
+  try {
+    const raw = await AsyncStorage.getItem(STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as FocusSession) : null;
+  } catch {
+    return null;
+  }
+}
+
 async function save(session: FocusSession | null) {
   if (session) await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(session));
   else await AsyncStorage.removeItem(STORAGE_KEY);
@@ -68,8 +78,7 @@ async function save(session: FocusSession | null) {
 
 /** Ends whatever session is stored, from outside the focus screen (the camera after a feed). */
 export async function clearFocusSession(): Promise<void> {
-  const raw = await AsyncStorage.getItem(STORAGE_KEY);
-  await cancelEnd(raw ? (JSON.parse(raw) as FocusSession) : null);
+  await cancelEnd(await load());
   await save(null);
 }
 
@@ -79,8 +88,8 @@ export function useFocusSession(text: { title: string; body: string }) {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    void AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
-      setSession(raw ? (JSON.parse(raw) as FocusSession) : null);
+    void load().then((stored) => {
+      setSession(stored);
       setLoaded(true);
     });
   }, []);

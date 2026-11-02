@@ -66,8 +66,12 @@ export async function fetchSnapshot(token: string): Promise<WidgetSnapshot | nul
 }
 
 export async function loadSnapshot(): Promise<WidgetSnapshot | null> {
-  const raw = await AsyncStorage.getItem(SNAPSHOT_KEY);
-  return raw ? (JSON.parse(raw) as WidgetSnapshot) : null;
+  try {
+    const raw = await AsyncStorage.getItem(SNAPSHOT_KEY);
+    return raw ? (JSON.parse(raw) as WidgetSnapshot) : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function saveSnapshot(snapshot: WidgetSnapshot | null): Promise<void> {

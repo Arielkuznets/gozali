@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { widgetToken } from '@/features/widgets/data';
+import { loadSnapshot, widgetToken } from '@/features/widgets/data';
 import { clearWidgets, refreshWidgets, resumeWidgets } from '@/features/widgets/sync';
 import { noteServerDate, serverNow } from '@/lib/serverClock';
 
@@ -51,6 +51,14 @@ beforeEach(async () => {
   mockSignedIn = 'noa';
   globalThis.fetch = mockFetch as unknown as typeof fetch;
   mockRpc.mockResolvedValue({ data: 'new-token', error: null });
+});
+
+describe('the saved snapshot', () => {
+  it("counts as none when it can't be read", async () => {
+    await AsyncStorage.setItem('gozali.widget-snapshot', '{"packs":[');
+
+    await expect(loadSnapshot()).resolves.toBeNull();
+  });
 });
 
 describe('refreshing the widgets', () => {
