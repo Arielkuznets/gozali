@@ -3,6 +3,7 @@ import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
 import { forgetNotificationsOfOthers } from '@/features/auth/signIn';
+import { suggestName } from '@/features/profile/suggestedName';
 import { clearWidgets } from '@/features/widgets/sync';
 import { forgetKeptQueries } from '@/lib/queryCache';
 import { clockRestored, serverNow } from '@/lib/serverClock';
@@ -47,6 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Nothing cached for one person may show to the next one on this phone.
       if (event === 'SIGNED_OUT') {
         queryClient.clear();
+        suggestName(null);
         void forgetKeptQueries().catch(() => undefined);
         void clearWidgets().catch(() => undefined);
       }

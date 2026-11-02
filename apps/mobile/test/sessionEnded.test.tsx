@@ -82,6 +82,7 @@ const { enqueue, flushQueue, pendingFeeds } = jest.requireActual<typeof import('
 const { isProfileComplete, useAccountSync, useProfile } = jest.requireActual<typeof import('@/features/profile/useProfile')>(
   '@/features/profile/useProfile',
 );
+const { suggestName, suggestedName } = jest.requireActual<typeof import('@/features/profile/suggestedName')>('@/features/profile/suggestedName');
 const { deviceTimeZone } = jest.requireActual<typeof import('@/lib/dates')>('@/lib/dates');
 const { refreshWidgets, resumeWidgets } = jest.requireActual<typeof import('@/features/widgets/sync')>('@/features/widgets/sync');
 
@@ -153,6 +154,7 @@ function server(url: URL, init: RequestInit | undefined) {
     if (url.searchParams.get('grant_type') === 'refresh_token') {
       return reply(400, { error_code: 'refresh_token_not_found', msg: 'Invalid Refresh Token: Refresh Token Not Found' });
     }
+    if (url.searchParams.get('grant_type') === 'id_token') return reply(400, { error_code: 'bad_jwt', msg: 'Bad ID token' });
     const { email } = JSON.parse(String(init?.body)) as { email: string };
     return reply(200, sessionOf(email.split('@')[0]!, nowSeconds() + 3600));
   }
@@ -477,6 +479,29 @@ describe('a phone from before there was a last account on record, nobody signed 
     await signInAs('bob');
 
     expect(await AsyncStorage.getItem(LAST_ACCOUNT_KEY)).toBe('bob');
+  });
+});
+
+describe('the name the sign-in provider gave', () => {
+  beforeEach(() => openAppAs('noa'));
+
+  it('goes with a session the server ended, so the next account is not offered it', async () => {
+    suggestName('Noa Levi');
+
+    await serverEndsSession('noa');
+
+    expect(suggestedName()).toBeNull();
+  });
+
+  it('stays through a sign-in that failed, for the try after it, which comes without it', async () => {
+    await serverEndsSession('noa');
+    suggestName('Noa Levi');
+
+    const { error } = await requireSupabase().auth.signInWithIdToken({ provider: 'apple', token: 'apple-token' });
+    await settleScreens();
+
+    expect(error).not.toBeNull();
+    expect(suggestedName()).toBe('Noa Levi');
   });
 });
 
