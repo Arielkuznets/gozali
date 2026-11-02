@@ -18,6 +18,7 @@ jest.mock('expo-image', () => ({ Image: 'Image' }));
 const mockBack = jest.fn();
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: 'pack-1' }),
+  useIsFocused: () => true,
   router: { canGoBack: () => true, back: () => mockBack(), replace: jest.fn() },
   useFocusEffect: jest.fn(),
 }));

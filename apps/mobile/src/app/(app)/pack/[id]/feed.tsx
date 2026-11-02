@@ -1,6 +1,6 @@
 import { CameraView, useCameraPermissions, type CameraType } from 'expo-camera';
 import { Image } from 'expo-image';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useIsFocused, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -56,9 +56,14 @@ export default function FeedScreen() {
   // asks a second time, and a browser's prompt can be dismissed.
   const [answered, setAnswered] = useState(false);
   const toAsk = permission !== null && !permission.granted && permission.canAskAgain && !answered;
+  // A screen opened over this one (a tapped notification, a link) leaves it mounted. Only iOS can
+  // stop a camera that stays mounted, so the camera goes with the focus.
+  const focused = useIsFocused();
   const camera = useRef<CameraView>(null);
   const [facing, setFacing] = useState<CameraType>('back');
   const [ready, setReady] = useState(false);
+  // The camera that comes back has to report ready again.
+  if (!focused && ready) setReady(false);
   const [shot, setShot] = useState<Shot | null>(null);
   const [caption, setCaption] = useState('');
   const [result, setResult] = useState<'sent' | 'queued' | null>(null);
@@ -240,7 +245,7 @@ export default function FeedScreen() {
         <View style={styles.iconSpace} />
       </View>
       <View style={styles.frame}>
-        <CameraView ref={camera} style={styles.fill} facing={facing} onCameraReady={() => setReady(true)} />
+        {focused && <CameraView ref={camera} style={styles.fill} facing={facing} onCameraReady={() => setReady(true)} />}
         {focusMinutes !== null && <FocusChip minutes={focusMinutes} emoji={pack ? categoryInfo(pack.category).emoji : '⏱'} />}
       </View>
       <View style={styles.controls}>
