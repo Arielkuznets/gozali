@@ -16,7 +16,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Unit tests (game engine, critter art, app)
+      - name: Unit tests (game engine, critter art, app, scripts)
         run: npm test
       - name: Typecheck the workspaces
         run: npm run typecheck

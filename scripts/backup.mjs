@@ -19,9 +19,26 @@ const outIndex = args.indexOf('--out');
 const out = outIndex >= 0 ? args[outIndex + 1] : join(homedir(), 'Gozali backups');
 const KEEP = 14;
 const PAGE = 1000;
+// The pauses before a failed call goes again. A run keeps nothing until its last call, and a dropped
+// connection tends to come back within a minute or two. Repeating does no harm: a page is only read
+// again, and a restore's rows meet themselves in `on conflict`, apart from the two rate-limit tables
+// with no key, where a few extra rows expire with the rest.
+const PAUSES = [5_000, 30_000, 120_000];
 
-/** Runs SQL through the CLI and returns the rows. */
+/** Runs SQL through the CLI and returns the rows, trying again while the call fails. */
 export function query(sql, where = target) {
+  for (const pause of PAUSES) {
+    try {
+      return queryOnce(sql, where);
+    } catch (error) {
+      console.error(`Trying again in ${pause / 1000} s: ${error.message}`);
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, pause);
+    }
+  }
+  return queryOnce(sql, where);
+}
+
+function queryOnce(sql, where) {
   const file = join(tmpdir(), `gozali-query-${process.pid}.sql`);
   writeFileSync(file, sql);
   try {
