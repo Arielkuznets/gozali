@@ -55,6 +55,10 @@ jest.mock('@react-native-community/netinfo', () => ({
 jest.mock('@/features/auth/signIn', () => ({ forgetOtherAccounts: async () => undefined }));
 jest.mock('@/features/widgets/sync', () => ({ clearWidgets: async () => undefined }));
 
+// The app's timers run on a clock the tests move, and all it does between them is promises, so the
+// tests read the same on a busy machine. Before the client below, whose timers start with it.
+jest.useFakeTimers();
+
 type Supabase = typeof import('@/lib/supabase');
 
 // Required here, for the environment above to be in place first.
@@ -71,9 +75,8 @@ const avatarsKey = ['avatars', AVATAR];
 const USER = { id: 'noa', aud: 'authenticated', app_metadata: {}, user_metadata: {}, created_at: '2026-10-01T00:00:00Z' };
 
 // auth-js gives a failed refresh half a minute of tries and then waits a minute; here a try takes
-// that half minute at once, and the test skips the minute.
-const machineNow = Date.now.bind(Date);
-let skipped = 0;
+// that half minute at once, and the test skips the minute. Skipped time fires no timer.
+const skip = (ms: number) => jest.setSystemTime(Date.now() + ms);
 const nowSeconds = () => Math.floor(Date.now() / 1000);
 
 let reachable = true;
@@ -112,11 +115,18 @@ function server(url: URL, bearer: string | null) {
   return answer(200, [{ name: 'From the server' }]);
 }
 
-const settle = (ms = 50) => new Promise((resolve) => setTimeout(resolve, ms));
+/** Runs the app that long, in short steps so that it draws along the way. */
+async function run(ms = 50) {
+  for (let left = ms; left > 0; left -= 10) {
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(10);
+    });
+  }
+}
 
 /** Waits for what the app does in its own time after a render. */
 async function until(check: () => Promise<boolean>) {
-  for (let tries = 0; tries < 100 && !(await check()); tries += 1) await act(() => settle(20));
+  for (let tries = 0; tries < 100 && !(await check()); tries += 1) await run(20);
 }
 
 let sessions = 0;
@@ -157,8 +167,8 @@ async function openApp(options?: QueryClientConfig['defaultOptions']) {
         </AuthProvider>
       </QueryClientProvider>,
     );
-    await settle();
   });
+  await run();
   return { client, shown: () => screen };
 }
 
@@ -170,30 +180,31 @@ async function openAppOffline(options?: QueryClientConfig['defaultOptions']) {
   return openApp(options);
 }
 
-const connectionBack = () =>
-  act(async () => {
+async function connectionBack() {
+  await act(async () => {
     reachable = true;
     mockHearNetwork({ isConnected: true });
-    await settle();
   });
+  await run();
+}
 
 /** The next run of auth-js's own timer, once its wait is over. */
-const refreshRuns = (later = 61_000, wait?: number) =>
-  act(async () => {
-    skipped += later;
+async function refreshRuns(later = 61_000, wait?: number) {
+  skip(later);
+  await act(async () => {
     await requireSupabase().auth.getSession();
-    await settle(wait);
   });
+  await run(wait);
+}
 
 beforeAll(() => {
   // auth-js says so on the console each time a refresh can't reach the server.
   jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-  jest.spyOn(Date, 'now').mockImplementation(() => machineNow() + skipped);
   globalThis.fetch = jest.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input));
     requests.push(url.pathname);
     if (!reachable) {
-      if (url.pathname === '/auth/v1/token') skipped += 31_000;
+      if (url.pathname === '/auth/v1/token') skip(31_000);
       throw new TypeError('Network request failed');
     }
     return server(url, new Headers(init?.headers).get('authorization')?.replace('Bearer ', '') ?? null);
@@ -217,6 +228,8 @@ beforeEach(async () => {
 afterEach(async () => {
   await act(async () => app?.unmount());
   app = undefined;
+  // A retry on its way must not go out in the next test.
+  jest.clearAllTimers();
 });
 
 describe('a connection back on a good token', () => {
@@ -271,7 +284,7 @@ describe('a connection back while auth-js waits after a failed refresh', () => {
     readsRefused = true;
     await refreshRuns();
     const reads = packReads();
-    await act(() => settle(300));
+    await run(300);
     expect(packReads()).toBe(reads);
     expect(tokenCalls()).toBe(2);
     expect(shown().packs).toEqual(['From the copy']);
