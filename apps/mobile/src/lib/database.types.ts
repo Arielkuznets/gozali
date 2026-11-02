@@ -1096,6 +1096,7 @@ export type Database = {
       call_edge_function:
         | { Args: { name: string }; Returns: undefined }
         | { Args: { body: Json; name: string }; Returns: undefined };
+      can_report_feed: { Args: { target_feed: string }; Returns: boolean };
       cancel_day_pass: { Args: { target: string }; Returns: undefined };
       check_code_attempts: { Args: { caller: string }; Returns: undefined };
       choose_name: { Args: { suggestion: string; target: string }; Returns: undefined };

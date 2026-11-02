@@ -1,7 +1,7 @@
 -- Word filtering, reports on photos and on members, and the helpers of account deletion.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(31);
+select plan(36);
 
 select ok(public.is_clean('Leg day, done'), 'ordinary captions pass');
 select ok(not public.is_clean('what the fuuuck'), 'repeated letters don''t get around the filter');
@@ -131,6 +131,46 @@ select is(
   (select d ->> 'reports' from public.report_details((select r.id from public.reports r where r.reason = 'Not a workout')) d),
   '3', 'a report on the member doesn''t count toward those on their photo'
 );
+
+-- A photo out of a member's sight stays open to their report: it can still be on their screen.
+reset role;
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000f7', 'ari@test.local');
+insert into public.pack_members (pack_id, user_id) select id, '00000000-0000-0000-0000-0000000000f7' from pack;
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000f7');
+select lives_ok(
+  $$ insert into public.reports (feed_id, reporter_id) values ((select id from feed), '00000000-0000-0000-0000-0000000000f7')
+     on conflict (feed_id, reporter_id) do nothing $$,
+  'a member can report a photo that reports just hid'
+);
+select is(
+  (select count(*) from public.reports where reporter_id = '00000000-0000-0000-0000-0000000000f7'), 1::bigint,
+  'and the report is saved'
+);
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000d7');
+select lives_ok(
+  $$ insert into public.reports (feed_id, reporter_id) values ((select id from feed), '00000000-0000-0000-0000-0000000000d7')
+     on conflict (feed_id, reporter_id) do nothing $$,
+  'reporting a hidden photo again changes nothing'
+);
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000e7');
+select throws_ok(
+  $$ insert into public.reports (feed_id, reporter_id) values ((select id from feed), '00000000-0000-0000-0000-0000000000e7') $$,
+  '42501', null, 'someone outside the pack can''t report a hidden photo'
+);
+reset role;
+update public.feeds set hidden_at = null where id = (select id from feed);
+delete from public.reports where feed_id = (select id from feed) and reporter_id = '00000000-0000-0000-0000-0000000000c7';
+insert into public.blocks (blocker_id, blocked_id) values ('00000000-0000-0000-0000-0000000000c7', '00000000-0000-0000-0000-0000000000a7');
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000c7');
+select lives_ok(
+  $$ insert into public.reports (feed_id, reporter_id) values ((select id from feed), '00000000-0000-0000-0000-0000000000c7')
+     on conflict (feed_id, reporter_id) do nothing $$,
+  'a member can report the photo of someone they just blocked'
+);
+reset role;
+
 select is(
   (select count(*) from public.account_photo_paths('00000000-0000-0000-0000-0000000000a7')), 2::bigint,
   'all of a member''s photo files are found for deletion'

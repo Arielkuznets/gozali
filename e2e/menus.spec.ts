@@ -91,6 +91,22 @@ test('a member reported from their menu reaches the developer', async ({ page })
   expect(reports).toEqual([{ feed_id: null, member_id: dan.id, reporter_id: noa.id }]);
 });
 
+test('a photo that reports just hid can still be reported from a screen that shows it', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' }, [dan]);
+  await feed(dan, pack.id, await photo(page, '🏋️'), 'Leg day');
+
+  const dialogs = answerDialogs(page);
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+  await page.getByRole('button', { name: 'More' }).click();
+  const hidden = await admin.from('feeds').update({ hidden_at: new Date().toISOString() }).eq('pack_id', pack.id).select('id').single();
+  await page.getByRole('menuitem', { name: 'Report photo' }).click();
+
+  await expect.poll(() => dialogs.at(-1)).toContain('We will look at it');
+  const { data: reports } = await admin.from('reports').select('feed_id, reporter_id').eq('reporter_id', noa.id);
+  expect(reports).toEqual([{ feed_id: hidden.data!.id, reporter_id: noa.id }]);
+});
+
 test('the menu of a photo stays on the screen beside a long name', async ({ page }) => {
   await dan.client.from('profiles').update({ display_name: 'Bartholomew Montgomery-Smithso' }).eq('id', dan.id);
   const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' }, [dan]);
