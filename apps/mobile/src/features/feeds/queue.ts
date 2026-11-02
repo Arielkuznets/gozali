@@ -3,7 +3,7 @@ import NetInfo, { type NetInfoState } from '@react-native-community/netinfo';
 import { Directory, File, Paths } from 'expo-file-system';
 import { Platform } from 'react-native';
 
-import { feedErrorCode, isFinalRejection, isNetworkFailure, sendFeed, type OutgoingFeed } from '@/features/feeds/send';
+import { feedErrorCode, inTime, isFinalRejection, isNetworkFailure, sendFeed, type OutgoingFeed } from '@/features/feeds/send';
 import { isBlockedText } from '@/lib/errors';
 import { storedSession } from '@/lib/supabase';
 
@@ -134,7 +134,7 @@ function replacement(feed: QueuedFeed, error: unknown): QueuedFeed | null {
 /** Sends a feed, then its replacements. */
 async function sendOrReplace(feed: QueuedFeed): Promise<Attempt> {
   try {
-    await sendFeed(feed);
+    await inTime(sendFeed(feed));
     return { outcome: 'sent' };
   } catch (error) {
     if (!isFinalRejection(error)) return { outcome: 'waiting', error };

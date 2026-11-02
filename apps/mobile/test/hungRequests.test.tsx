@@ -48,7 +48,7 @@ jest.mock('@/lib/push', () => ({ unregisterPushToken: async () => undefined }));
 // Required here, for the environment above to be in place first.
 const { AUTH_STORAGE_KEY, requireSupabase } = jest.requireActual<typeof import('@/lib/supabase')>('@/lib/supabase');
 const { usePack } = jest.requireActual<typeof import('@/features/packs/api')>('@/features/packs/api');
-const { usePackFeed } = jest.requireActual<typeof import('@/features/feeds/api')>('@/features/feeds/api');
+const { useCountedFeeds, usePackFeed, usePendingFeeds, useSendFeed } = jest.requireActual<typeof import('@/features/feeds/api')>('@/features/feeds/api');
 const { enqueue, flushQueue, pendingFeeds } = jest.requireActual<typeof import('@/features/feeds/queue')>('@/features/feeds/queue');
 const { useDayPass } = jest.requireActual<typeof import('@/features/days/api')>('@/features/days/api');
 const { useBuy, useNudge } = jest.requireActual<typeof import('@/features/social/api')>('@/features/social/api');
@@ -82,8 +82,13 @@ const requested = (what: string) => requests.filter((request) => request.include
 const photos = new Set<string>();
 const feeds = new Map<string, string>();
 let accountGone = false;
+let fedOnAnotherPhone = false;
 /** The server does the work of these, but no answer comes back. */
-let unanswered: (url: URL) => boolean = () => false;
+let unanswered: (url: URL, init?: RequestInit) => boolean = () => false;
+/** The server's answer to these starts, and stops after the headers. */
+let answeredHalfway: (url: URL) => boolean = () => false;
+/** How long the server takes over a request, if it isn't at once. */
+let slowBy: (url: URL) => number = () => 0;
 
 /** Only the first of these goes unanswered: the connection comes back behind it. */
 function firstOf(path: string) {
@@ -123,7 +128,8 @@ function server(url: URL, init: RequestInit | undefined, caller: string | null) 
     return reply(200, { Id: 'object', Key: path });
   }
   if (path === SUBMIT) {
-    const { photo } = JSON.parse(String(init?.body)) as { photo: string };
+    const { photo, extra } = JSON.parse(String(init?.body)) as { photo: string; extra: boolean };
+    if (fedOnAnotherPhone && !extra) return reply(400, { code: 'P0001', details: null, hint: null, message: 'already_fed' });
     if (!feeds.has(photo)) feeds.set(photo, `feed-${feeds.size + 1}`);
     return reply(200, feeds.get(photo));
   }
@@ -167,8 +173,10 @@ beforeAll(() => {
     const bearer = new Headers(init?.headers).get('authorization') ?? '';
     const caller = bearer.endsWith('-access') ? 'noa' : null;
     requests.push(`${init?.method ?? 'GET'} ${url.pathname} by ${caller}`);
+    if (slowBy(url) > 0) return new Promise((resolve) => setTimeout(() => resolve(server(url, init, caller)), slowBy(url)));
     const answer = server(url, init, caller);
-    if (!unanswered(url)) return Promise.resolve(answer);
+    if (answeredHalfway(url)) return Promise.resolve(new Response(new ReadableStream(), { headers: answer.headers }));
+    if (!unanswered(url, init)) return Promise.resolve(answer);
     return new Promise((_resolve, reject) => {
       init?.signal?.addEventListener('abort', () => reject(new FetchError('Fetch request has been canceled')));
     });
@@ -187,7 +195,10 @@ beforeEach(async () => {
   photos.clear();
   feeds.clear();
   accountGone = false;
+  fedOnAnotherPhone = false;
   unanswered = () => false;
+  answeredHalfway = () => false;
+  slowBy = () => 0;
 });
 
 afterEach(async () => {
@@ -309,6 +320,126 @@ describe('a queued feed', () => {
     expect(requested(SUBMIT)).toBe(2);
     expect(feeds.size).toBe(1);
     expect(await pendingFeeds()).toEqual([]);
+  });
+});
+
+describe('a queue run on a dead connection', () => {
+  async function runFor(seconds: number) {
+    const outcome: { result?: unknown } = {};
+    void flushQueue().then((result) => {
+      outcome.result = result;
+    });
+    await advance(seconds * 1000);
+    return outcome.result;
+  }
+
+  it.each([
+    ['an upload with no answer', () => (unanswered = firstOf(UPLOAD))],
+    ['an answer that stops halfway', () => (answeredHalfway = firstOf(UPLOAD))],
+  ])('ends after half a minute on %s, says nothing, and the next run sends the feed', async (_name, die) => {
+    await enqueue(feed('a'));
+    die();
+
+    expect(await runFor(30)).toEqual({ handled: 0, dropped: [], stuck: [] });
+    expect(await pendingFeeds()).toHaveLength(1);
+
+    expect(await runFor(1)).toEqual({ handled: 1, dropped: [], stuck: [] });
+    expect(await pendingFeeds()).toEqual([]);
+    expect(feeds.size).toBe(1);
+  });
+});
+
+describe('Send on a dead connection', () => {
+  let send: ReturnType<typeof useSendFeed>['mutateAsync'];
+
+  /** The camera, with the pack screen and its reads mounted under it. */
+  function Camera() {
+    send = useSendFeed().mutateAsync;
+    useCountedFeeds();
+    usePackFeed('pack', 30);
+    usePendingFeeds('pack');
+    return null;
+  }
+
+  /** What the member was told after tapping Send, and how many seconds later. */
+  async function tapSend() {
+    const started = Date.now();
+    const told: { outcome?: string; seconds?: number } = {};
+    void send(feed('a')).then((outcome) => {
+      told.outcome = outcome;
+      told.seconds = (Date.now() - started) / 1000;
+    });
+    await advance(5 * 60_000);
+    return told;
+  }
+
+  it.each([
+    ['nothing answers', () => (unanswered = () => true)],
+    ['the photo gets no answer', () => (unanswered = (url) => url.pathname.startsWith(UPLOAD))],
+    ['saving the feed gets no answer', () => (unanswered = (url) => url.pathname === SUBMIT)],
+    ['the answer stops halfway', () => (answeredHalfway = (url) => url.pathname === SUBMIT)],
+  ])('keeps the feed for later within half a minute when %s', async (_name, die) => {
+    await open(Camera);
+    await advance(1_000);
+    die();
+
+    const told = await tapSend();
+
+    expect(told.outcome).toBe('queued');
+    expect(told.seconds).toBeLessThanOrEqual(30);
+    expect(await pendingFeeds()).toHaveLength(1);
+  });
+
+  it('keeps the feed for later within half a minute behind a token refresh with no answer', async () => {
+    await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(sessionOf(nowSeconds() - 60)));
+    unanswered = (url) => url.pathname === '/auth/v1/token';
+    await open(Camera);
+    await advance(1_000);
+
+    const told = await tapSend();
+
+    expect(told.outcome).toBe('queued');
+    expect(told.seconds).toBeLessThanOrEqual(30);
+    expect(await pendingFeeds()).toHaveLength(1);
+  });
+
+  it('keeps it as an extra when the try after a feed from another phone gets no answer', async () => {
+    await open(Camera);
+    await advance(1_000);
+    fedOnAnotherPhone = true;
+    unanswered = (url, init) => url.pathname === SUBMIT && String(init?.body).includes('"extra":true');
+
+    const told = await tapSend();
+
+    expect(told).toEqual({ outcome: 'queued', seconds: 30 });
+    expect(await pendingFeeds()).toEqual([expect.objectContaining({ id: 'a', extra: true })]);
+  });
+
+  it('lets a send that was only slow land, and the queue finds it there', async () => {
+    await open(Camera);
+    await advance(1_000);
+    slowBy = (url) => (url.pathname.startsWith(UPLOAD) ? 45_000 : 0);
+
+    const told = await tapSend();
+
+    expect(told).toEqual({ outcome: 'queued', seconds: 30 });
+    expect(feeds.size).toBe(1);
+    expect(await pendingFeeds()).toHaveLength(1);
+
+    slowBy = () => 0;
+    await flushQueue();
+    expect(await pendingFeeds()).toEqual([]);
+    expect(requested(SUBMIT)).toBe(2);
+    expect(feeds.size).toBe(1);
+  });
+
+  it('goes through as before on a good connection', async () => {
+    await open(Camera);
+    await advance(1_000);
+
+    expect(await tapSend()).toEqual({ outcome: 'sent', seconds: 0 });
+    expect(await pendingFeeds()).toEqual([]);
+    expect(feeds.size).toBe(1);
   });
 });
 

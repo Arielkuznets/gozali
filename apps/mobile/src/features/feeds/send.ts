@@ -8,6 +8,8 @@ import { requireSupabase } from '@/lib/supabase';
 export const PHOTO_BUCKET = 'feed-photos';
 const MAX_WIDTH = 1080;
 const JPEG_QUALITY = 0.7;
+const SEND_LIMIT_MS = 30_000;
+const SEND_TIMED_OUT = 'send_timed_out';
 
 /** A feed waiting to be sent: the compressed photo on the device plus what goes with it. */
 export type OutgoingFeed = {
@@ -73,6 +75,24 @@ function isAlreadyUploaded(error: object): boolean {
 }
 
 /**
+ * Stops waiting for a send that takes too long, so the feed can wait in the queue. The requests
+ * have limits of their own, but a photo's is far longer than anyone holds a spinner, and none covers
+ * an answer that stops after it started. The send itself goes on: if it was only slow it lands, and
+ * the next try finds the same photo and gets back the same feed.
+ */
+export async function inTime<T>(send: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const limit = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => reject(new Error(SEND_TIMED_OUT)), SEND_LIMIT_MS);
+  });
+  try {
+    return await Promise.race([send, limit]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
  * True when this feed can never pass: a queued feed that gets this answer is dropped with its only
  * photo, so anything else waits. The database refuses with a raised error, bad data, a broken
  * constraint or a missing privilege (SQLSTATE); storage refuses with row-level security, or a
@@ -90,12 +110,14 @@ export function isFinalRejection(error: unknown): boolean {
 
 /**
  * True when the server gave no answer: supabase-js hands a failed request back with an empty code,
- * and storage as its "unknown" error. Without a session the refresh failed the same way.
+ * and storage as its "unknown" error. Without a session the refresh failed the same way, and a send
+ * that ran out of time heard nothing either.
  */
 export function isNetworkFailure(error: unknown): boolean {
   if (typeof error !== 'object' || error === null) return false;
   if ('name' in error && error.name === 'StorageUnknownError') return true;
-  return ('code' in error && error.code === '') || errorMessage(error) === 'not_signed_in';
+  if ('code' in error && error.code === '') return true;
+  return errorMessage(error) === 'not_signed_in' || errorMessage(error) === SEND_TIMED_OUT;
 }
 
 export function feedErrorCode(error: unknown): 'already_fed' | 'not_a_member' | 'other' {

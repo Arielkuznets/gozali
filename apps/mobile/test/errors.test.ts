@@ -39,6 +39,7 @@ describe('feed errors', () => {
     expect(isNetworkFailure({ message: 'TypeError: Network request failed', details: '', hint: '', code: '' })).toBe(true);
     expect(isNetworkFailure(Object.assign(new Error('Aborted'), { name: 'StorageUnknownError' }))).toBe(true);
     expect(isNetworkFailure(new Error('not_signed_in'))).toBe(true);
+    expect(isNetworkFailure(new Error('send_timed_out'))).toBe(true);
   });
 
   it('knows an answer, or a failure on the phone, from a network failure', () => {

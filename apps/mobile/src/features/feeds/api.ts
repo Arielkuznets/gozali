@@ -7,7 +7,7 @@ import { AppState } from 'react-native';
 
 import type { Pack } from '@/features/packs/api';
 import { enqueue, flushQueue, hasConnection, isOnline, pendingFeeds } from '@/features/feeds/queue';
-import { PHOTO_BUCKET, feedErrorCode, isFinalRejection, sendFeed, type OutgoingFeed } from '@/features/feeds/send';
+import { PHOTO_BUCKET, feedErrorCode, inTime, isFinalRejection, sendFeed, type OutgoingFeed } from '@/features/feeds/send';
 import type { ReactionTotal } from '@/features/social/api';
 import { notify } from '@/lib/confirm';
 import { errorText, reportError } from '@/lib/reportError';
@@ -137,7 +137,7 @@ export function usePendingFeeds(packId: string) {
  */
 async function sendOrKeep(feed: OutgoingFeed): Promise<'sent' | 'queued'> {
   try {
-    await sendFeed(feed);
+    await inTime(sendFeed(feed));
     return 'sent';
   } catch (error) {
     if (feedErrorCode(error) === 'already_fed' && !feed.extra) return sendOrKeep({ ...feed, extra: true });
@@ -154,7 +154,10 @@ export function useSendFeed() {
       if (!(await isOnline()) && (await enqueue(feed))) return 'queued';
       return sendOrKeep(feed);
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: feedsKey }),
+    // Not returned: the camera covers the pack, and these reads can die with the same connection.
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: feedsKey });
+    },
   });
 }
 
