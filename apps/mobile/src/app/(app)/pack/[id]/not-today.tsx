@@ -6,8 +6,7 @@ import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { LoadFailed } from '@/components/ScreenStates';
-import { dayErrorKey, useCancelDayPass, useDayPass, useDayStatus } from '@/features/days/api';
-import { notify } from '@/lib/confirm';
+import { useCancelDayPass, useDayPass, useDayStatus } from '@/features/days/api';
 import { goBack } from '@/lib/navigation';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
@@ -19,11 +18,7 @@ export default function NotTodayScreen() {
   const dayPass = useDayPass(id);
   const cancelPass = useCancelDayPass(id);
 
-  const choose = (pass: 'rest' | 'joker') =>
-    dayPass.mutate(pass, {
-      onSuccess: () => goBack(`/pack/${id}`),
-      onError: (error) => notify(t(dayErrorKey(error))),
-    });
+  const choose = (pass: 'rest' | 'joker') => dayPass.mutate(pass, { onSuccess: () => goBack(`/pack/${id}`) });
 
   if (!status.data) {
     return (
@@ -57,7 +52,7 @@ export default function NotTodayScreen() {
               variant="secondary"
               size="small"
               loading={cancelPass.isPending}
-              onPress={() => cancelPass.mutate(undefined, { onError: (error) => notify(t(dayErrorKey(error))) })}
+              onPress={() => cancelPass.mutate()}
             />
           </View>
         ) : (

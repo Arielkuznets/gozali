@@ -5,8 +5,8 @@ import { StyleSheet, View } from 'react-native';
 import { ActionMenu, type Menu } from '@/components/ActionMenu';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
-import { PAUSE_LENGTHS, canEndPause, dayErrorKey, useDayStatus, useEndPause, useStartPause } from '@/features/days/api';
-import { confirm, notify } from '@/lib/confirm';
+import { PAUSE_LENGTHS, canEndPause, useDayStatus, useEndPause, useStartPause } from '@/features/days/api';
+import { confirm } from '@/lib/confirm';
 import { formatDay } from '@/lib/dates';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
@@ -28,7 +28,7 @@ export function PauseSection({ packId }: { packId: string }) {
       title: t('days.pauseConfirm', { count: days }),
       confirm: t('settings.confirm'),
       cancel: t('settings.cancel'),
-      onConfirm: () => startPause.mutate(days, { onError: (error) => notify(t(dayErrorKey(error))) }),
+      onConfirm: () => startPause.mutate(days),
     });
   };
   const chooseLength = () =>
@@ -36,7 +36,7 @@ export function PauseSection({ packId }: { packId: string }) {
       title: t('days.pauseHowLong'),
       actions: PAUSE_LENGTHS.map((days) => ({ label: lengthLabel(days, t), onPress: () => onStart(days) })),
     });
-  const onEnd = () => endPause.mutate(undefined, { onError: (error) => notify(t(dayErrorKey(error))) });
+  const onEnd = () => endPause.mutate();
 
   const pause = day.pause;
   const upcoming = pause !== null && pause.startsOn > day.day;

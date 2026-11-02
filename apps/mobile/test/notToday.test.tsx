@@ -4,6 +4,7 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import '@/i18n';
 import NotTodayScreen from '@/app/(app)/pack/[id]/not-today';
 import { Button } from '@/components/Button';
+import { notify } from '@/lib/confirm';
 
 // The real screen, hooks and query client; only the server stands in, and takes a moment to answer.
 const mockGoBack = jest.fn();
@@ -33,6 +34,7 @@ async function advance(ms: number) {
 beforeEach(async () => {
   jest.useFakeTimers({ now: new Date('2026-11-01T10:00:00Z') });
   pass = null;
+  jest.mocked(notify).mockReset();
   mockGoBack.mockReset();
   mockRpc.mockReset().mockImplementation((name: string) => {
     if (name === 'use_day_pass') pass = 'rest';
@@ -111,5 +113,31 @@ describe('Not today', () => {
     await advance(ANSWER_MS);
     expect(buttons('Undo')).toHaveLength(0);
     expect(buttons('Use')).toHaveLength(2);
+  });
+
+  describe('when the server refuses', () => {
+    const REFUSED = 'No rest days left this week.';
+
+    async function tapUseAndRefuse() {
+      await open();
+      mockRpc.mockImplementation(() => later({ data: null, error: { message: 'no_rest_days_left' } }));
+      await act(async () => buttons('Use')[0]!.props.onPress());
+    }
+
+    it('says so once, with the screen still open', async () => {
+      await tapUseAndRefuse();
+      await advance(ANSWER_MS + 1);
+
+      expect(jest.mocked(notify).mock.calls).toEqual([[REFUSED]]);
+      expect(mockGoBack).not.toHaveBeenCalled();
+    });
+
+    it('says so even when the screen closed on the way', async () => {
+      await tapUseAndRefuse();
+      await act(async () => tree.unmount());
+      await advance(ANSWER_MS + 1);
+
+      expect(jest.mocked(notify).mock.calls).toEqual([[REFUSED]]);
+    });
   });
 });

@@ -1,7 +1,9 @@
 import { QueryClient, QueryClientProvider, QueryObserver, useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
+import { Alert } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
+import '@/i18n';
 import { daysKey, useCancelDayPass, useDayPass, useEndPause, useStartPause } from '@/features/days/api';
 import { feedsKey, packFeedsKey, useSendFeed } from '@/features/feeds/api';
 import type { OutgoingFeed } from '@/features/feeds/send';
@@ -179,6 +181,31 @@ describe('a save while the reads fail', () => {
     await advance(SOON);
     expect(onError).toHaveBeenCalledTimes(1);
     expect(mockRead).toHaveBeenCalled();
+  });
+});
+
+describe('a day action that fails after its screen closed', () => {
+  it.each([
+    ['a rest day', () => hooks.rest.mutate('rest')],
+    ['an undone rest day', () => hooks.undo.mutate()],
+    ['a pause', () => hooks.startPause.mutate(7)],
+    ['the end of a pause', () => hooks.endPause.mutate()],
+  ])('still reports %s', async (_name, save) => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    let answer: (result: typeof failed) => void = () => undefined;
+    mockSave.mockReturnValue(
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
+    );
+    await act(async () => save());
+    await act(async () => screen.unmount());
+
+    await act(async () => answer(failed));
+    await advance(SOON);
+
+    expect(alert.mock.calls).toEqual([["Saving didn't work. Please try again.", undefined]]);
+    alert.mockRestore();
   });
 });
 

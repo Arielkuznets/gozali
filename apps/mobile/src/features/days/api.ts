@@ -1,7 +1,9 @@
 import { addDays, packDayOf, type DayInput } from '@gozali/game-engine';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
 import { packsKey, usePack, type Pack, type PackMember } from '@/features/packs/api';
+import { notify } from '@/lib/confirm';
 import { readableZone } from '@/lib/dates';
 import { isBlockedText } from '@/lib/errors';
 import { requireSupabase } from '@/lib/supabase';
@@ -142,6 +144,7 @@ export function useTodayPasses(pack: Pick<Pack, 'id' | 'timezone'> | undefined, 
 
 function useDayAction<T>(action: (packId: string, value: T) => PromiseLike<{ error: unknown }>, packId: string, onPack = false) {
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
   return useMutation({
     mutationFn: async (value: T) => {
       const { error } = await action(packId, value);
@@ -150,7 +153,10 @@ function useDayAction<T>(action: (packId: string, value: T) => PromiseLike<{ err
     // The spinner ends and the screen closes with the change on show. A refusal changed nothing, and
     // its message shouldn't wait for reads that may be failing too.
     onSuccess: () => queryClient.invalidateQueries({ queryKey: daysKey }),
-    onError: () => {
+    // Said here, not at the tap: callbacks of the tap don't run for a screen that closed meanwhile, and
+    // someone who left it counting on a rest day has to hear that it didn't save.
+    onError: (error) => {
+      notify(t(dayErrorKey(error)));
       void queryClient.invalidateQueries({ queryKey: daysKey });
     },
     // A pause is also in the pack, whose copy on the phone says so with no connection.
