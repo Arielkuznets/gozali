@@ -18,8 +18,11 @@ export default function InviteLinkScreen() {
   // With the app running this route opens over it; a link that starts the app has nothing under it.
   const overApp = ready && router.canGoBack();
 
+  // A phone that refuses the code loses the link, not the way out of this route.
   useEffect(() => {
-    void savePendingInvite(code).then(() => setSaved(true));
+    void savePendingInvite(code)
+      .catch(() => undefined)
+      .finally(() => setSaved(true));
   }, [code]);
 
   useLeaveFor(saved && home !== '/' ? home : null);
@@ -28,10 +31,12 @@ export default function InviteLinkScreen() {
   // screen opened long ago and won't read the code, so the code is taken here.
   useEffect(() => {
     if (!overApp) return;
-    void takePendingInvite().then((pending) => {
-      router.back();
-      if (pending) router.navigate(`/join?code=${pending}`);
-    });
+    void takePendingInvite()
+      .catch(() => null)
+      .then((pending) => {
+        router.back();
+        if (pending) router.navigate(`/join?code=${pending}`);
+      });
   }, [overApp]);
 
   // The home screen reads the saved code as it opens.

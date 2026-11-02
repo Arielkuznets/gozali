@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { ExpoRoot } from 'expo-router/build/ExpoRoot';
@@ -60,6 +61,7 @@ jest.mock('@/lib/supabase', () => ({
 
 const USER = 'user-1';
 const CODE = 'ABCD2345';
+const FULL = new Error('database or disk is full');
 const started = { id: USER, display_name: null, terms_accepted_at: null } as Profile;
 const finished = { ...started, display_name: 'Maya', terms_accepted_at: '2026-11-01T00:00:00Z' };
 
@@ -237,6 +239,24 @@ describe('an invite link', () => {
     await expect(takePendingInvite()).resolves.toBe(CODE);
   });
 
+  it('opening the app gets past a phone that refuses the code', async () => {
+    signInWith(finished);
+    jest.mocked(AsyncStorage.setItem).mockRejectedValueOnce(FULL);
+
+    await start(`/i/${CODE}`);
+
+    expect(rootRoutes()).toEqual(['(app)']);
+    expect(opened).toEqual(['home']);
+  });
+
+  it('opening the app signed out gets past a phone that refuses the code', async () => {
+    jest.mocked(AsyncStorage.setItem).mockRejectedValueOnce(FULL);
+
+    await start(`/i/${CODE}`);
+
+    expect(rootRoutes()).toEqual(['welcome']);
+  });
+
   it('waits with a spinner until the profile is known', async () => {
     mockSession = { user: { id: USER } };
     await start(`/i/${CODE}`);
@@ -303,6 +323,20 @@ describe('an invite link reaching the app while it is running', () => {
     expect(appStack()).toEqual(['index', 'pack/[id]/index', 'join']);
     expect(opened.at(-1)).toBe('join EFGH6789');
     await expect(takePendingInvite()).resolves.toBeNull();
+  });
+
+  it.each([
+    ['keep the code', () => jest.mocked(AsyncStorage.setItem)],
+    ['read the code back', () => jest.mocked(AsyncStorage.getItem)],
+  ])('goes back to the open screen when the phone can not %s', async (_what, storage) => {
+    await openPack();
+    storage().mockRejectedValueOnce(FULL);
+
+    await followLink(`gozali://i/${CODE}`);
+
+    expect(rootRoutes()).toEqual(['(app)']);
+    expect(appStack()).toEqual(['index', 'pack/[id]/index']);
+    expect(app.root.findAllByType(ActivityIndicator)).toHaveLength(0);
   });
 
   it('with no real code in it leaves the open screen as it was', async () => {
