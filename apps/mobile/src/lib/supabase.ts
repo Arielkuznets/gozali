@@ -40,6 +40,18 @@ const authStorage = {
   removeItem: (key: string) => AsyncStorage.removeItem(key),
 };
 
+let tokenlessRequest = false;
+
+/**
+ * Whether a request went out without the user's token since the last time this was asked: during
+ * auth-js's wait after a failed refresh it has no session to hand out, and the key goes instead.
+ */
+export function tookTokenlessRequest(): boolean {
+  const took = tokenlessRequest;
+  tokenlessRequest = false;
+  return took;
+}
+
 /** Refusals that say nothing about the refresh token: project restricted, rate limit, project paused. */
 const NOT_ABOUT_THE_TOKEN = new Set([402, 429, 540]);
 
@@ -50,6 +62,10 @@ const NOT_ABOUT_THE_TOKEN = new Set([402, 429, 540]);
  * refresh gets through. A token still good needs none of this, because auth-js keeps that session.
  */
 const appFetch: typeof fetch = async (input, init) => {
+  // auth-js's own calls always carry the key.
+  if (!String(input).includes('/auth/v1/') && new Headers(init?.headers).get('authorization') === `Bearer ${publishableKey}`) {
+    tokenlessRequest = true;
+  }
   const response = await clockedFetch(input, init);
   if (!NOT_ABOUT_THE_TOKEN.has(response.status)) return response;
   if (!String(input).includes('/auth/v1/token?grant_type=refresh_token')) return response;

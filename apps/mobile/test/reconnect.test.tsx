@@ -81,6 +81,7 @@ const nowSeconds = () => Math.floor(Date.now() / 1000);
 
 let reachable = true;
 let readsRefused = false;
+let answersTake = 0;
 const liveTokens = new Set<string>();
 const requests: string[] = [];
 const tokenCalls = () => requests.filter((path) => path === '/auth/v1/token').length;
@@ -207,7 +208,9 @@ beforeAll(() => {
       if (url.pathname === '/auth/v1/token') skip(31_000);
       throw new TypeError('Network request failed');
     }
-    return server(url, new Headers(init?.headers).get('authorization')?.replace('Bearer ', '') ?? null);
+    const bearer = new Headers(init?.headers).get('authorization')?.replace('Bearer ', '') ?? null;
+    if (answersTake > 0 && url.pathname !== '/auth/v1/token') await new Promise((resolve) => setTimeout(resolve, answersTake));
+    return server(url, bearer);
   }) as unknown as typeof fetch;
 });
 
@@ -220,6 +223,7 @@ beforeEach(async () => {
   await AsyncStorage.clear();
   reachable = true;
   readsRefused = false;
+  answersTake = 0;
   mockNetwork = { isConnected: true };
   liveTokens.clear();
   requests.length = 0;
@@ -275,6 +279,17 @@ describe('a connection back while auth-js waits after a failed refresh', () => {
     await connectionBack();
     expect(shown().avatar).toBeUndefined();
     await refreshRuns(61_000, 10);
+    expect(shown().avatar).toContain('/object/sign/avatars/link');
+  });
+
+  it('does that too when the refresh works before the refused reads are back', async () => {
+    const { shown } = await openAppOffline();
+    answersTake = 100;
+    await connectionBack();
+    answersTake = 0;
+    await refreshRuns();
+    await run(100);
+    expect(shown().packs).toEqual(['From the server']);
     expect(shown().avatar).toContain('/object/sign/avatars/link');
   });
 

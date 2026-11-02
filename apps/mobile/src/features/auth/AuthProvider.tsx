@@ -6,7 +6,7 @@ import { forgetOtherAccounts } from '@/features/auth/signIn';
 import { clearWidgets } from '@/features/widgets/sync';
 import { forgetKeptQueries } from '@/lib/queryCache';
 import { clockRestored, serverNow } from '@/lib/serverClock';
-import { storedSession, supabase } from '@/lib/supabase';
+import { storedSession, supabase, tookTokenlessRequest } from '@/lib/supabase';
 
 /** Whether a stored session's access token has expired, or is about to, so it needs a refresh. */
 function hasExpired(session: Session): boolean {
@@ -42,6 +42,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setState({ session, loading: false });
     });
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      // Asked at every change, so what went out signed out says nothing about a later refresh.
+      const tokenless = tookTokenlessRequest();
       // Nothing cached for one person may show to the next one on this phone.
       if (event === 'SIGNED_OUT') {
         queryClient.clear();
@@ -50,8 +52,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       // After a failed refresh auth-js waits a minute before the next, connection or not, and reads
       // go out without a token meanwhile: most are refused, and storage answers as if to nobody. So
-      // all of them go again, but only after a failure, as reads waiting for this refresh are fine.
-      if (event === 'TOKEN_REFRESHED' && hasFailedRead(queryClient)) void queryClient.invalidateQueries();
+      // all of them go again, but only after such a read or a failure, as reads waiting for this
+      // refresh are fine. A failure alone comes too late for a read still on its way.
+      if (event === 'TOKEN_REFRESHED' && (tokenless || hasFailedRead(queryClient))) void queryClient.invalidateQueries();
       if (session) void forgetOtherAccounts(session.user.id).catch(() => undefined);
       // An offline start keeps the stored session until a real one (or a sign-out) comes.
       if (event === 'INITIAL_SESSION' && !session) return;
