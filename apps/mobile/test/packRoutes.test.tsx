@@ -37,21 +37,19 @@ jest.mock('@/lib/confirm', () => ({
 
 let mockPacks: Pack[] = [];
 let mockListAnswered: Promise<void> = Promise.resolve();
-let mockOwnReadFails = false;
+let mockOffline = false;
+const mockNoConnection = { data: null, error: new TypeError('Network request failed') };
 const mockRpc = jest.fn();
 jest.mock('@/lib/supabase', () => ({
   requireSupabase: () => ({
     from: () => ({
       select: () => ({
         eq: (_column: string, id: string) => ({
-          maybeSingle: async () =>
-            mockOwnReadFails
-              ? { data: null, error: new TypeError('Network request failed') }
-              : { data: mockPacks.find((pack) => pack.id === id) ?? null, error: null },
+          maybeSingle: async () => (mockOffline ? mockNoConnection : { data: mockPacks.find((pack) => pack.id === id) ?? null, error: null }),
         }),
         order: async () => {
           await mockListAnswered;
-          return { data: mockPacks, error: null };
+          return mockOffline ? mockNoConnection : { data: mockPacks, error: null };
         },
       }),
     }),
@@ -154,7 +152,7 @@ beforeEach(() => {
   process.env.EXPO_ROUTER_IMPORT_MODE = 'sync';
   mockPacks = [packNamed('p1')];
   mockListAnswered = Promise.resolve();
-  mockOwnReadFails = false;
+  mockOffline = false;
   mockNotify.mockClear();
   mockRpc.mockReset();
   mockRpc.mockImplementation(async (name: string) => {
@@ -299,9 +297,7 @@ describe('a pack the phone has only on its list', () => {
 
   describe('without a connection', () => {
     beforeEach(() => {
-      mockOwnReadFails = true;
-      // The list has no answer either, and what the phone holds stays.
-      mockListAnswered = new Promise(() => undefined);
+      mockOffline = true;
     });
 
     it('opens its settings', async () => {
