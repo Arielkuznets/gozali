@@ -39,20 +39,30 @@ async function photoBytes(uri: string): Promise<ArrayBuffer> {
 }
 
 /**
+ * Back online after the access token expired, a refresh that fails leaves no session, and the
+ * requests go out signed out, which the server refuses as if for good. A token can also run out
+ * during a send, so a refusal counts against a feed only after this. Its error is not final, so the
+ * feed waits for the next try.
+ */
+async function requireSession(): Promise<void> {
+  if (!(await requireSupabase().auth.getSession()).data.session) throw new Error('not_signed_in');
+}
+
+/**
  * Uploads the photo and saves the feed. The upload path is named after the feed's local id,
  * so a retry after a lost response overwrites nothing and finds the photo already there.
  */
 export async function sendFeed(feed: OutgoingFeed, givenUp: () => boolean = () => false): Promise<string> {
   const supabase = requireSupabase();
-  // Back online after the access token expired, a refresh that fails leaves no session, and the
-  // requests go out signed out, which the server refuses as if for good. This error is not final,
-  // so the feed waits for the next try.
-  if (!(await supabase.auth.getSession()).data.session) throw new Error('not_signed_in');
+  await requireSession();
   const path = `${feed.packId}/${feed.userId}/${feed.id}.jpg`;
   const upload = await supabase.storage
     .from(PHOTO_BUCKET)
     .upload(path, await photoBytes(feed.photoUri), { contentType: 'image/jpeg' });
-  if (upload.error && !isAlreadyUploaded(upload.error)) throw upload.error;
+  if (upload.error && !isAlreadyUploaded(upload.error)) {
+    await requireSession();
+    throw upload.error;
+  }
 
   const { data, error } = await supabase.rpc('submit_feed', {
     target: feed.packId,
@@ -63,6 +73,7 @@ export async function sendFeed(feed: OutgoingFeed, givenUp: () => boolean = () =
     extra: feed.extra,
   });
   if (error) {
+    await requireSession();
     // Turned down for good (for example a blocked word): don't leave the file behind. After a send
     // was given up on, the file is the next try's, and orphan_photos clears one nobody ends up using.
     if (isFinalRejection(error) && !givenUp()) await supabase.storage.from(PHOTO_BUCKET).remove([path]);

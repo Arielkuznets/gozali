@@ -95,6 +95,8 @@ let slowBy: (url: URL) => number = () => 0;
 let lateBy: (url: URL) => number = () => 0;
 /** The next save meets another save of the same feed, and loses. */
 let losesTheRace = false;
+/** These fail at once, as on a phone with no connection. */
+let noConnection: (url: URL) => boolean = () => false;
 
 /** Only the first of these goes unanswered: the connection comes back behind it. */
 function firstOf(path: string) {
@@ -199,6 +201,7 @@ beforeAll(() => {
     const bearer = new Headers(init?.headers).get('authorization') ?? '';
     const caller = bearer.endsWith('-access') ? 'noa' : null;
     requests.push(`${init?.method ?? 'GET'} ${url.pathname} by ${caller}`);
+    if (noConnection(url)) return Promise.reject(new TypeError('Network request failed'));
     const slow = slowBy(url);
     if (slow > 0) return new Promise((resolve) => setTimeout(() => resolve(server(url, init, caller)), slow));
     const answer = server(url, init, caller);
@@ -230,6 +233,7 @@ beforeEach(async () => {
   slowBy = () => 0;
   lateBy = () => 0;
   losesTheRace = false;
+  noConnection = () => false;
 });
 
 afterEach(async () => {
@@ -351,6 +355,24 @@ describe('a queued feed', () => {
     expect(requested(SUBMIT)).toBe(2);
     expect(feeds.size).toBe(1);
     expect(await pendingFeeds()).toEqual([]);
+  });
+
+  it('stays in the queue when its token runs out during the send, and goes out on the next run', async () => {
+    await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(sessionOf(nowSeconds() + 50)));
+    await enqueue(feed('a'));
+    noConnection = (url) => url.pathname === '/auth/v1/token';
+    void requireSupabase().auth.getSession();
+    await advance(31_000);
+
+    lateBy = firstBy(UPLOAD, 25_000);
+    expect(await run()).toBe(0);
+    expect(await pendingFeeds()).toHaveLength(1);
+    expect(requested(`POST ${SUBMIT} by null`)).toBe(1);
+
+    noConnection = () => false;
+    expect(await run()).toBe(1);
+    expect(await pendingFeeds()).toEqual([]);
+    expect(feeds.size).toBe(1);
   });
 
   it('uploads its photo again when the server no longer has it', async () => {

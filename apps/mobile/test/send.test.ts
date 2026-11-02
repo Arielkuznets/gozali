@@ -104,6 +104,46 @@ describe('sending a queued feed', () => {
   });
 });
 
+describe('a token that runs out inside the send', () => {
+  // What the server answers a request that went out with no session.
+  const signedOut = { code: '42501', message: 'permission denied for function submit_feed' };
+
+  beforeEach(() => {
+    mockGetSession
+      .mockResolvedValueOnce({ data: { session: { access_token: 'token' } }, error: null })
+      .mockResolvedValue({ data: { session: null }, error: new Error('Network request failed') });
+    mockRpc.mockResolvedValue({ data: null, error: signedOut });
+  });
+
+  it('keeps the feed when the photo is refused', async () => {
+    await enqueue(feed);
+
+    expect(await flushQueue()).toEqual({ handled: 0, dropped: [], stuck: [] });
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect((await pendingFeeds()).map((item) => item.id)).toEqual(['a']);
+  });
+
+  it('keeps the feed and its photo when saving it is refused', async () => {
+    mockUpload.mockResolvedValue({ error: null });
+    await enqueue(feed);
+
+    expect(await flushQueue()).toEqual({ handled: 0, dropped: [], stuck: [] });
+    expect(mockRemove).not.toHaveBeenCalled();
+    expect((await pendingFeeds()).map((item) => item.id)).toEqual(['a']);
+  });
+
+  it('counts a refusal once the session is known to be there', async () => {
+    mockGetSession.mockReset().mockResolvedValue({ data: { session: { access_token: 'token' } }, error: null });
+    mockUpload.mockResolvedValue({ error: null });
+    mockRpc.mockResolvedValue({ data: null, error: { code: '42501', message: 'not_a_member' } });
+    await enqueue(feed);
+
+    expect(await flushQueue()).toMatchObject({ handled: 1 });
+    expect(mockRemove).toHaveBeenCalledTimes(1);
+    expect(await pendingFeeds()).toEqual([]);
+  });
+});
+
 describe('a feed the server turns down for good', () => {
   const tooMany = { code: 'P0001', message: 'too_many_posts' };
 
