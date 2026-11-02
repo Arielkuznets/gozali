@@ -1,7 +1,7 @@
 -- Owner alerts: a push when someone finishes signing up, and the day's summary at 21:00.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(22);
+select plan(23);
 
 delete from public.notifications;
 
@@ -85,6 +85,23 @@ select ok(
   (select (payload ->> 'newUsers')::int >= 2 from public.notifications where type = 'daily_summary'),
   'counting today''s sign-ups'
 );
+
+-- Only runs that ended in failure count, with or without an end time: a restart leaves none. A run
+-- still going is not one, and the run that queues the summary is always still going. A later day,
+-- so the real jobs' runs can't land in it.
+update today set day = day + 1;
+insert into cron.job_run_details (jobid, runid, status, start_time, end_time) values
+  (0, -1, 'succeeded', pg_temp.at_local('04:00'), pg_temp.at_local('04:00')),
+  (0, -2, 'failed', pg_temp.at_local('05:00'), pg_temp.at_local('05:00')),
+  (0, -3, 'failed', pg_temp.at_local('06:00'), null),
+  (0, -4, 'running', pg_temp.at_local('21:00'), null);
+select public.queue_daily_summaries(pg_temp.at_local('21:05'));
+select is(
+  (select (payload ->> 'failedJobs')::int from public.notifications where type = 'daily_summary' and day = (select day from today)),
+  2,
+  'a run still in progress is not a failed job'
+);
+update today set day = day - 1;
 
 -- Calls from the database to the functions that failed are kept for the summary.
 insert into net._http_response (id, status_code, content, created)
