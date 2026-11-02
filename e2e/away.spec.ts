@@ -1,6 +1,6 @@
 // What a phone misses while it is away. A suspended app's socket is gone and Realtime replays
-// nothing, so whatever was sent meanwhile has to come from a fetch. Here the frames are dropped on
-// their way to the page; the socket itself stays up, because closing it isn't what a phone does.
+// nothing, so whatever was sent meanwhile has to come from a fetch. Mostly the frames are dropped on
+// their way to the page and the socket stays up, because a suspended phone doesn't close it.
 import { expect, test, type Page } from '@playwright/test';
 
 import { admin, createPack, createUser, feed, listening, photo, removeUsers, signIn, watchSocket, type TestUser } from './support';
@@ -166,4 +166,23 @@ test('a failed reaction leaves a photo that arrived while it was on its way', as
   await page.waitForTimeout(1000);
 
   await expect(page.getByText('dan on the way')).toBeVisible();
+});
+
+test('a photo from while the socket was down shows when it rejoins, with no return to the app', async ({ page }) => {
+  const socket = await watchSocket(page);
+  const pack = await createPack(noa, { name: 'Rejoined', habit: 'gym', species: 'kit' }, [dan]);
+  const image = await photo(page, '🏋️');
+  await feed(noa, pack.id, image, 'noa first');
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+  await expect(page.getByText('noa first')).toBeVisible();
+  await listening(socket, 'mine');
+
+  await socket.drop();
+  await feed(dan, pack.id, image, 'dan in the gap');
+  await page.waitForTimeout(1500);
+  socket.refused = false;
+
+  await expect(page.getByText('dan in the gap')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText('2/2 fed today').last()).toBeVisible();
 });

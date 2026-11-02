@@ -1,5 +1,5 @@
 // Test data for the end-to-end tests, made through the local Supabase API like the smoke scripts.
-import { expect, type Page } from '@playwright/test';
+import { expect, type Page, type WebSocketRoute } from '@playwright/test';
 import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js';
 
 import type { Database } from '../apps/mobile/src/lib/database.types';
@@ -78,12 +78,27 @@ export async function signIn(page: Page, user: TestUser): Promise<void> {
   }, user.session);
 }
 
-export type RealtimeSocket = { away: boolean; subscribed: string[] };
+export type RealtimeSocket = { away: boolean; refused: boolean; subscribed: string[]; drop: () => Promise<void> };
 
-/** Carries Realtime's frames to the page, until `away` is set, and notes the channels that start listening. */
+/**
+ * Carries Realtime's frames to the page, until `away` is set, and notes the channels that start
+ * listening. While `refused` is set, no socket connects.
+ */
 export async function watchSocket(page: Page): Promise<RealtimeSocket> {
-  const socket: RealtimeSocket = { away: false, subscribed: [] };
+  const open: WebSocketRoute[] = [];
+  const socket: RealtimeSocket = {
+    away: false,
+    refused: false,
+    subscribed: [],
+    /** Closes the socket with the app open, as a lost route or a Realtime restart does. */
+    drop: async () => {
+      socket.refused = true;
+      await Promise.all(open.splice(0).map((ws) => ws.close()));
+    },
+  };
   await page.routeWebSocket(/realtime\/v1\/websocket/, (ws) => {
+    if (socket.refused) return void ws.close();
+    open.push(ws);
     const server = ws.connectToServer();
     ws.onMessage((message) => server.send(message));
     server.onMessage((message) => {

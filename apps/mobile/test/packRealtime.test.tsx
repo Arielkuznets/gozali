@@ -39,6 +39,9 @@ function held() {
 /** The socket's answers wait for this, as on a connection slower than the refresh. */
 let socketAnswers = Promise.resolve();
 
+/** Every socket the client opened, the last one the live one. */
+let sockets: StandInSocket[] = [];
+
 /** Opens on the next turn, and says yes to everything as the server does to a good join. */
 class StandInSocket {
   readyState = 0;
@@ -48,6 +51,7 @@ class StandInSocket {
   onmessage: ((message: { data: string }) => void) | null = null;
 
   constructor() {
+    sockets.push(this);
     setImmediate(() => {
       this.readyState = 1;
       this.onopen?.();
@@ -69,6 +73,12 @@ class StandInSocket {
   close() {
     this.readyState = 3;
     this.onclose?.({ code: 1000 });
+  }
+
+  /** Gone with the app open: a lost route, or a restart of Realtime. */
+  drop() {
+    this.readyState = 3;
+    this.onclose?.({ code: 1006 });
   }
 }
 
@@ -155,6 +165,7 @@ afterAll(() => {
 beforeEach(async () => {
   await AsyncStorage.clear();
   frames = [];
+  sockets = [];
   socketAnswers = Promise.resolve();
   refresh = held();
   beforeAnswering = () => refresh.answer;
@@ -242,5 +253,95 @@ describe('joining Realtime on a good token', () => {
     await open(undefined);
     await settle();
     expect(tokens('phx_join')).toHaveLength(1);
+  });
+});
+
+describe('a socket that drops with the app open', () => {
+  let invalidated: jest.SpyInstance;
+  /** Each read covers the feeds, so these count the reads. */
+  const reads = () => invalidated.mock.calls.filter(([filters]) => filters?.queryKey?.[0] === 'feeds').length;
+  const joins = () => tokens('phx_join').length;
+
+  /** The app with the home screen and a pack on top of it, as it always is. */
+  async function openApp() {
+    await storeSession(nowSeconds() + 3600);
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
+    startApp();
+    await open(undefined, 'pack');
+    await pass(1);
+    expect(joins()).toBe(2);
+  }
+
+  /** Lost for a moment: the client connects again a second later, and both channels rejoin. */
+  async function dropAndRejoin() {
+    sockets.at(-1)?.drop();
+    await pass(2);
+    await settle();
+  }
+
+  beforeEach(() => {
+    invalidated = jest.spyOn(QueryClient.prototype, 'invalidateQueries');
+  });
+
+  afterEach(() => {
+    invalidated.mockRestore();
+  });
+
+  it('reads nothing on the first join', async () => {
+    await openApp();
+    await pass(60);
+    expect(invalidated).not.toHaveBeenCalled();
+  });
+
+  it('reads what it may have missed once its channels are back, once for all of them', async () => {
+    await openApp();
+    await dropAndRejoin();
+
+    expect(joins()).toBe(4);
+    expect(invalidated.mock.calls.map(([filters]) => filters.queryKey[0]).sort()).toEqual(['days', 'feeds', 'packs', 'social']);
+  });
+
+  it('reads again for another drop later on', async () => {
+    await openApp();
+    await dropAndRejoin();
+    await pass(30);
+    await dropAndRejoin();
+    expect(reads()).toBe(2);
+  });
+
+  it('keeps to one read each half a minute while the socket keeps dropping', async () => {
+    await openApp();
+    for (let drop = 0; drop < 30; drop += 1) await dropAndRejoin();
+
+    expect(joins()).toBe(2 + 2 * 30);
+    expect(reads()).toBeLessThanOrEqual(3);
+  });
+
+  it('reads after the last rejoin, whenever in the half minute that came', async () => {
+    await openApp();
+    await dropAndRejoin();
+    await pass(5);
+    await dropAndRejoin();
+    expect(reads()).toBe(1);
+
+    await pass(30);
+    expect(reads()).toBe(2);
+    await pass(60);
+    expect(reads()).toBe(2);
+  });
+
+  it('stops waiting to read once the screen is gone', async () => {
+    await storeSession(nowSeconds() + 3600);
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
+    startApp();
+    const app = await open(undefined);
+    await pass(1);
+    await dropAndRejoin();
+    await pass(5);
+    await dropAndRejoin();
+    await act(async () => app.unmount());
+
+    await pass(60);
+    expect(reads()).toBe(1);
   });
 });
