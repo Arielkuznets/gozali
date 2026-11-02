@@ -385,4 +385,46 @@ describe('registering again', () => {
     expect(registrations()).toBe(1);
     expect(await kept()).toBeNull();
   });
+
+  describe('with two forgets under way', () => {
+    let answers: (() => void)[];
+    let first: Promise<void>;
+    let second: Promise<void>;
+
+    beforeEach(async () => {
+      await signOutOffline();
+      answers = [];
+      mockRpc.mockImplementation((name: string) =>
+        name === 'forget_push_token'
+          ? new Promise((resolve) => answers.push(() => resolve({ error: null })))
+          : Promise.resolve({ error: null }),
+      );
+      mockRpc.mockClear();
+      first = unregisterPushToken();
+      await settle();
+      second = unregisterPushToken();
+      await settle();
+    });
+
+    it('goes out only after both have their answers, whichever comes last', async () => {
+      answers[1]!();
+      await second;
+
+      const register = registerPushToken();
+      await settle();
+      expect(registrations()).toBe(0);
+
+      answers[0]!();
+      await Promise.all([first, register]);
+      expect(registrations()).toBe(1);
+    });
+
+    it('leaves a forget waiting only for its own answer', async () => {
+      answers[1]!();
+      await expect(second).resolves.toBeUndefined();
+
+      answers[0]!();
+      await first;
+    });
+  });
 });

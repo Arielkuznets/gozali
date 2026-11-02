@@ -14,7 +14,7 @@ const TOKEN_KNOWN_KEY = 'gozali.push-token-known';
 /** The app comes to the foreground often; the server hears about the same token twice a day. */
 const REFRESH_MS = 12 * 60 * 60 * 1000;
 
-/** The latest forget. A register waits for its answer: arriving later, it would undo the register. */
+/** Every forget under way. A register waits for their answers: arriving later, one would undo it. */
 let forgetting: Promise<void> = Promise.resolve();
 
 /** The EAS project id, present once the app is linked to an Expo project (eas init). */
@@ -89,8 +89,9 @@ async function forgetToken(): Promise<void> {
  * server didn't answer for is kept, and goes with the next call (useSignedOutSync).
  */
 export function unregisterPushToken(): Promise<void> {
-  forgetting = forgetToken();
-  return forgetting;
+  const forgotten = forgetToken();
+  forgetting = Promise.all([forgetting, forgotten]).then(() => undefined);
+  return forgotten;
 }
 
 /**
