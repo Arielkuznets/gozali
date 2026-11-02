@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { loadSnapshot, widgetToken } from '@/features/widgets/data';
+import { loadSnapshot, savedWidgetToken } from '@/features/widgets/data';
 import { clearWidgets, refreshWidgets, resumeWidgets } from '@/features/widgets/sync';
 import { noteServerDate, serverNow } from '@/lib/serverClock';
 
@@ -213,7 +213,7 @@ describe('whose token it is', () => {
   it('asks nothing of the server to read the token in the background', async () => {
     await saveToken('dans-token', 'dan');
 
-    expect(await widgetToken(false)).toBe('dans-token');
+    expect(await savedWidgetToken()).toBe('dans-token');
     expect(mockRpc).not.toHaveBeenCalled();
   });
 });

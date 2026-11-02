@@ -2,7 +2,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { WidgetPack } from '../../../../../supabase/functions/widget-state/state.ts';
 import { clockedFetch } from '@/lib/serverClock';
-import { storedSession, supabase } from '@/lib/supabase';
 
 /** What the widget-state endpoint returns; the widgets show exactly this. */
 export type WidgetSnapshot = {
@@ -20,31 +19,12 @@ export const WIDGET_ENDPOINT = `${process.env.EXPO_PUBLIC_SUPABASE_URL ?? ''}/fu
 /** Shared with the iOS widget target; must match app.json and targets/widget. */
 export const APP_GROUP = 'group.app.gozali';
 
-const TOKEN_KEY = 'gozali.widget-token';
-const OWNER_KEY = 'gozali.widget-token-owner';
-const SNAPSHOT_KEY = 'gozali.widget-snapshot';
+export const TOKEN_KEY = 'gozali.widget-token';
+export const SNAPSHOT_KEY = 'gozali.widget-snapshot';
 
-/**
- * This device's widget token, created on first use while signed in. It belongs to the account it
- * was made for, and with `create` it must be the signed-in one's: a session the server ended leaves
- * its token behind, and the next account's widgets would go on showing the packs of the last. A
- * token from before owners were kept goes the same way, since nothing says whose it is.
- */
-export async function widgetToken(create: boolean): Promise<string | null> {
-  const saved = await AsyncStorage.getItem(TOKEN_KEY);
-  if (!create || !supabase) return saved;
-  const [owner, session] = await Promise.all([AsyncStorage.getItem(OWNER_KEY), storedSession()]);
-  const account = session?.user.id;
-  if (saved && owner === account) return saved;
-  if (saved) await forgetWidgetToken();
-  if (!account) return null;
-  const { data, error } = await supabase.rpc('create_widget_token');
-  if (error) return null;
-  await AsyncStorage.multiSet([
-    [TOKEN_KEY, data],
-    [OWNER_KEY, account],
-  ]);
-  return data;
+/** This device's widget token, if it has one. */
+export function savedWidgetToken(): Promise<string | null> {
+  return AsyncStorage.getItem(TOKEN_KEY);
 }
 
 /**
@@ -77,13 +57,6 @@ export async function loadSnapshot(): Promise<WidgetSnapshot | null> {
 export async function saveSnapshot(snapshot: WidgetSnapshot | null): Promise<void> {
   if (snapshot) await AsyncStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snapshot));
   else await AsyncStorage.removeItem(SNAPSHOT_KEY);
-}
-
-/** On sign-out the token is revoked and the widgets forget everything. */
-export async function forgetWidgetToken(): Promise<void> {
-  const token = await AsyncStorage.getItem(TOKEN_KEY);
-  if (token && supabase) await supabase.rpc('revoke_widget_token', { token });
-  await AsyncStorage.multiRemove([TOKEN_KEY, OWNER_KEY, SNAPSHOT_KEY]);
 }
 
 /** The absolute address of a pack picture, from the relative one in the snapshot. */

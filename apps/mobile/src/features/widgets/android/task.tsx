@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { requestWidgetUpdate, type WidgetTaskHandlerProps } from 'react-native-android-widget';
 
 import { AllPacksWidget, PackWideWidget, PackWidget } from '@/features/widgets/android/widgets';
-import { fetchSnapshot, loadSnapshot, saveSnapshot, widgetToken, type WidgetSnapshot } from '@/features/widgets/data';
+import { fetchSnapshot, loadSnapshot, saveSnapshot, savedWidgetToken, type WidgetSnapshot } from '@/features/widgets/data';
 import { clockRestored } from '@/lib/serverClock';
 
 export const ANDROID_WIDGETS = ['PackSmall', 'PackMedium', 'AllPacks'] as const;
@@ -43,7 +43,7 @@ function isFresh({ savedAt = 0 }: WidgetSnapshot): boolean {
 async function currentSnapshot(): Promise<WidgetSnapshot | null> {
   const saved = await loadSnapshot();
   if (saved && isFresh(saved)) return saved;
-  const token = await widgetToken(false);
+  const token = await savedWidgetToken();
   const fresh = token ? await fetchSnapshot(token) : null;
   if (fresh) await saveSnapshot(fresh);
   return fresh ?? saved;

@@ -8,12 +8,11 @@ import {
   APP_GROUP,
   WIDGET_ENDPOINT,
   fetchSnapshot,
-  forgetWidgetToken,
   loadSnapshot,
   saveSnapshot,
-  widgetToken,
   type WidgetSnapshot,
 } from '@/features/widgets/data';
+import { forgetWidgetToken, widgetToken } from '@/features/widgets/token';
 
 const shared = new ExtensionStorage(APP_GROUP);
 
@@ -45,7 +44,7 @@ export function resumeWidgets(): void {
 export async function refreshWidgets(): Promise<void> {
   if (Platform.OS === 'web' || leaving) return;
   const started = departures;
-  const token = await widgetToken(true);
+  const token = await widgetToken();
   if (!token) {
     // Nothing to show, which the widgets may not know yet: another account's token can have gone
     // with no new one to take its place.
