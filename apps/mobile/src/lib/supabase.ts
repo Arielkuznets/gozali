@@ -52,8 +52,11 @@ export function tookTokenlessRequest(): boolean {
   return took;
 }
 
-/** Refusals that say nothing about the refresh token: project restricted, rate limit, project paused. */
-const NOT_ABOUT_THE_TOKEN = new Set([402, 429, 540]);
+/**
+ * Refusals that say nothing about the refresh token: project restricted, rate limit, project paused,
+ * gateway time limit.
+ */
+const NOT_ABOUT_THE_TOKEN = new Set([402, 429, 540, 544]);
 
 /**
  * The fetch behind every request. auth-js takes any refused refresh for a dead refresh token, and

@@ -7,9 +7,9 @@ import type { OutgoingFeed } from '@/features/feeds/send';
 import type { Pack } from '@/features/packs/api';
 
 // The real auth-js and the app's own client, auth provider, reads, sign-out, feed queue and widgets,
-// against a stand-in for a project that stops serving: restricted or paused, every call comes back
-// refused at its gateway, from whoever makes it. Only what is native is replaced. Time is the
-// test's, so auth-js's timer and its half a minute of tries run as they do on a phone.
+// against a stand-in for a project that stops serving: restricted, paused or timing out, every call
+// comes back refused at its gateway, from whoever makes it. Only what is native is replaced. Time
+// is the test's, so auth-js's timer and its half a minute of tries run as they do on a phone.
 process.env.EXPO_PUBLIC_SUPABASE_URL = 'http://gozali.test';
 process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'publishable';
 
@@ -95,13 +95,14 @@ function answer(status: number, body: unknown) {
 }
 
 function refusal(status: number) {
-  if (status !== 540) {
+  if (status === 402) {
     return answer(status, {
       message:
         'Service for this project is restricted due to the following violations: exceed_storage_size_quota. The project owner must upgrade their plan or remove spend caps to restore service.',
     });
   }
-  return new Response('Project paused', { status, headers: { 'content-type': 'text/plain', date: new Date().toUTCString() } });
+  const text = status === 540 ? 'Project paused' : 'Project API gateway timeout';
+  return new Response(text, { status, headers: { 'content-type': 'text/plain', date: new Date().toUTCString() } });
 }
 
 function server(url: URL, init: RequestInit | undefined) {
@@ -270,6 +271,7 @@ afterEach(async () => {
 describe.each([
   ['restricted', 402],
   ['paused', 540],
+  ['timing out at its gateway', 544],
 ])('a project %s, answering %i to everything', (_state, status) => {
   describe('on opening the app with the token run out', () => {
     it('keeps the person on their packs, with the copy and the widgets', async () => {
