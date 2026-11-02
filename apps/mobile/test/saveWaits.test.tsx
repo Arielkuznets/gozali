@@ -202,6 +202,21 @@ describe('a save the server took while the reads never answer', () => {
     expect(reload).toHaveBeenCalledTimes(2);
   });
 
+  it('reports a refused reaction at once, and runs the reload it cancelled again', async () => {
+    mockSave.mockResolvedValue({ data: null, error: { message: 'feed_not_found' } });
+    const reload = jest.fn(() => new Promise<never>(() => undefined));
+    const stop = new QueryObserver(client, { queryKey: [...packFeedsKey, 'pack', 30], queryFn: reload }).subscribe(() => undefined);
+    await advance(1);
+
+    const onError = jest.fn();
+    await act(async () => hooks.react.mutate({ feedId: 'f', emoji: 'fire' }, { onError }));
+    await advance(SOON);
+    stop();
+
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(reload).toHaveBeenCalledTimes(2);
+  });
+
   it('says the feed was sent, and the reads still run', async () => {
     const outcome = jest.fn();
     void hooks.send.mutateAsync(feed).then(outcome);

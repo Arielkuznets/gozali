@@ -88,8 +88,16 @@ export function useReact() {
       );
       return { before, reloading };
     },
-    onError: (_error, _variables, context) => {
-      for (const [key, feeds] of context?.before ?? []) queryClient.setQueryData(key, feeds);
+    // This photo only, on the page as it stands: a late failure comes after what a friend posted
+    // or the member reacted to since the tap.
+    onError: (_error, { feedId }, context) => {
+      for (const [key, feeds] of context?.before ?? []) {
+        const earlier = feeds?.find((feed) => feed.id === feedId)?.reactions;
+        if (!earlier) continue;
+        queryClient.setQueryData<FeedItem[]>(key, (now) =>
+          now?.map((feed) => (feed.id === feedId ? { ...feed, reactions: earlier } : feed)),
+        );
+      }
     },
     // A reload cancelled above may have been bringing a new photo, so it runs again, totals included.
     // Not returned: a failed reaction is told at once, not after reads that may be failing too.

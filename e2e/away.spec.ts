@@ -135,3 +135,35 @@ test('a reaction tapped while the pack reloads on coming back leaves the new pho
 
   await expect(page.getByText('dan while away')).toBeVisible();
 });
+
+test('a failed reaction leaves a photo that arrived while it was on its way', async ({ page }) => {
+  const socket = await watchSocket(page);
+  const pack = await createPack(noa, { name: 'Failed', habit: 'gym', species: 'kit' }, [dan]);
+  const image = await photo(page, '🏋️');
+  await feed(noa, pack.id, image, 'noa first');
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+  await expect(page.getByText('noa first')).toBeVisible();
+  await listening(socket, pack.id);
+
+  // The first request outlives a reload and then dies, as on a connection the phone just left.
+  let cut = () => {};
+  const held = new Promise<void>((resolve) => {
+    cut = resolve;
+  });
+  await page.route('**/rest/v1/rpc/react', async (route) => {
+    await held;
+    await route.abort('connectionreset');
+  });
+  await page.getByRole('button', { name: 'React with 🔥' }).click();
+
+  await feed(dan, pack.id, image, 'dan on the way');
+  await expect(page.getByText('dan on the way')).toBeVisible({ timeout: 15_000 });
+
+  const told = page.waitForEvent('dialog').then((dialog) => dialog.accept());
+  cut();
+  await told;
+  await page.waitForTimeout(1000);
+
+  await expect(page.getByText('dan on the way')).toBeVisible();
+});
