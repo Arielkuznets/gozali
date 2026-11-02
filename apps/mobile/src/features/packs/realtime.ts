@@ -33,6 +33,7 @@ export function usePackRealtime(packId?: string) {
       if (feedId) void refreshReactions(queryClient, feedId).catch(refetchFeeds);
       else refetchFeeds();
     };
+    let leaving = false;
     const channel = client
       .channel(`packs-live:${packId ?? 'mine'}:${instance}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'critters', filter }, refetchPacks)
@@ -43,9 +44,18 @@ export function usePackRealtime(packId?: string) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'reactions' }, refetchReactions)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'name_suggestions', filter }, refetchSocial)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pack_items', filter }, refetchSocial)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'day_passes', filter }, refetchDays)
-      .subscribe();
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'day_passes', filter }, refetchDays);
+    // A join takes the token known when it is sent, and while it waits for its answer no newer token
+    // reaches it. A start on an expired token is still refreshing it, so the join waits for that
+    // instead of staying anonymous.
+    void client.realtime
+      .setAuth()
+      .catch(() => undefined)
+      .then(() => {
+        if (!leaving) channel.subscribe();
+      });
     return () => {
+      leaving = true;
       void client.removeChannel(channel);
     };
   }, [packId, queryClient, instance]);
