@@ -5,7 +5,7 @@ import { createClient, type Session, type SupabaseClient } from '@supabase/supab
 import { AppState, Platform } from 'react-native';
 
 import type { Database } from '@/lib/database.types';
-import { clockRestored, clockedFetch, onPhoneClock } from '@/lib/serverClock';
+import { clockRestored, clockedFetch, onPhoneClock, serverNow } from '@/lib/serverClock';
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const publishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -40,6 +40,20 @@ const authStorage = {
   removeItem: (key: string) => AsyncStorage.removeItem(key),
 };
 
+/**
+ * The fetch behind every request. auth-js takes any refused refresh for a dead refresh token, and
+ * with the access token run out it removes the session. A rate limit says nothing about the token,
+ * so there it hears what a lost connection says: it tries again, and the session stays until a
+ * refresh gets through. A token still good needs none of this, because auth-js keeps that session.
+ */
+const appFetch: typeof fetch = async (input, init) => {
+  const response = await clockedFetch(input, init);
+  if (response.status !== 429 || !String(input).includes('/auth/v1/token?grant_type=refresh_token')) return response;
+  const session = await storedSession();
+  if (session && (session.expires_at ?? 0) * 1000 <= serverNow().getTime()) throw new TypeError('Too many refreshes');
+  return response;
+};
+
 /** Null until .env points at a Supabase project, so the app still opens before the backend exists. */
 export const supabase: Client | null =
   url && publishableKey
@@ -55,7 +69,7 @@ export const supabase: Client | null =
         // TanStack Query already retries failed reads; a second layer inside supabase-js made an
         // offline screen spin for half a minute before it could say so.
         db: { retry: false },
-        global: { fetch: clockedFetch },
+        global: { fetch: appFetch },
       })
     : null;
 
