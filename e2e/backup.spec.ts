@@ -181,17 +181,24 @@ test.describe('a restore', () => {
     };
     const [item, ...otherItems] = saved('public.shop_items', 'true');
     const [word] = saved('public.blocked_words', `match = 'word'`);
+    const otherWords = saved('public.blocked_words', `word <> '${word!.word}'`);
     backup.tables['public.app_config'] = [config];
     backup.tables['public.shop_items'] = [{ ...item, price: 999 }];
     backup.tables['public.blocked_words'] = [{ ...word, match: 'prefix' }];
 
-    restore(backup);
+    const printed = restore(backup);
 
     expect(JSON.parse(psql(target, 'select row_to_json(c) from public.app_config c'))).toEqual(config);
     expect(psql(target, `select price from public.shop_items where item = '${item!.item}'`)).toBe('999');
     expect(psql(target, `select match from public.blocked_words where word = '${word!.word}'`)).toBe('prefix');
-    // A seeded row the backup doesn't hold is newer than the backup.
+    // A seeded row the backup doesn't hold stays, since it can be newer than the backup, and the run
+    // names it, since it can also be one the owner had removed.
     expect(psql(target, 'select count(*) from public.shop_items')).toBe(String(otherItems.length + 1));
+    const named = (table: string) => new RegExp(`${table} \\(([^)]*)\\)`).exec(printed)?.[1]?.split(', ').sort();
+    expect(printed).toContain('Seeded rows the backup lacks: ');
+    expect(named('public.shop_items')).toEqual(otherItems.map((row) => row.item).sort());
+    expect(named('public.blocked_words')).toEqual(otherWords.map((row) => row.word).sort());
+    expect(named('public.app_config')).toBeUndefined();
   });
 
   test('a row whose parent the backup missed is skipped, and the run says how many', async () => {
