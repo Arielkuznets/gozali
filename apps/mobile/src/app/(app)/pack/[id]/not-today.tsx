@@ -73,6 +73,7 @@ export default function NotTodayScreen() {
                 label={t('days.use')}
                 size="small"
                 disabled={day.restDaysLeft === 0 || dayPass.isPending}
+                loading={dayPass.isPending && dayPass.variables === 'rest'}
                 onPress={() => choose('rest')}
               />
             </View>
@@ -85,6 +86,7 @@ export default function NotTodayScreen() {
                 label={t('days.use')}
                 size="small"
                 disabled={!day.jokerAvailable || dayPass.isPending}
+                loading={dayPass.isPending && dayPass.variables === 'joker'}
                 onPress={() => choose('joker')}
               />
             </View>
