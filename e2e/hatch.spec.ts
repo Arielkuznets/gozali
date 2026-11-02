@@ -58,14 +58,14 @@ test('the egg promises to hatch tonight only once nobody can stop it', async ({ 
   await signIn(page, noa);
   await page.goto(`/pack/${pack.id}`);
   await expect(page.getByText('Two of you fed today')).toBeVisible();
-  await expect(page.getByText('It hatches tonight if no one else misses today')).toBeVisible();
+  await expect(page.getByText('It hatches tonight if nobody misses today')).toBeVisible();
   await expect(page.getByText('It hatches tonight, when today ends 🎉')).toBeHidden();
 
   // Eve can take her joker back until the day ends, and she has no rest days, so it proves nothing.
   const joker = await eve.client.rpc('use_day_pass', { target: pack.id, pass: 'joker' });
   if (joker.error) throw joker.error;
   await expect(page.getByLabel('Eve, resting today')).toBeVisible();
-  await expect(page.getByText('It hatches tonight if no one else misses today')).toBeVisible();
+  await expect(page.getByText('It hatches tonight if nobody misses today')).toBeVisible();
   await expect(page.getByText('It hatches tonight, when today ends 🎉')).toBeHidden();
 
   // Once Eve fed, nobody is left who could stop it.
@@ -102,7 +102,7 @@ test('the promise waits for the close of the day before, and then comes by itsel
   await signIn(page, noa);
   await page.goto(`/pack/${pack.id}`);
   await expect(page.getByText('Two of you fed today')).toBeVisible();
-  await expect(page.getByText('It hatches tonight if no one else misses today')).toBeVisible();
+  await expect(page.getByText('It hatches tonight if nobody misses today')).toBeVisible();
   await expect(page.getByText('It hatches tonight, when today ends 🎉')).toBeHidden();
 
   await closeOneDay(admin, pack.id, ended);

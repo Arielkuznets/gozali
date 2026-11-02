@@ -118,7 +118,7 @@
   },
   "invite": {
     "title": "Invite your friends",
-    "body": "The egg starts to crack when a friend joins, and it hatches on the first day two of you feed it.",
+    "body": "The egg starts to crack when a friend joins, and it hatches on the first day two of you feed it and nobody misses.",
     "bodyHatched": "Up to {{count}} friends can raise {{name}} together. New members count from their first feed.",
     "full": "The pack is full: {{count}} members is the most.",
     "code": "Invite code",
@@ -156,7 +156,7 @@
       "fedEarlier": "Two of you fed on the same day",
       "dayEnds": "It hatches when that day ends, at night",
       "tonight": "It hatches tonight, when today ends 🎉",
-      "tonightIf": "It hatches tonight if no one else misses today",
+      "tonightIf": "It hatches tonight if nobody misses today",
       "soon": "It hatches very soon 🎉"
     },
     "doneToday": "Your part is done for today ✓",

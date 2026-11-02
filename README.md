@@ -35,7 +35,7 @@ Gozali (Hebrew for "my little chick") turns a habit into a pet you raise togethe
 - **Feed it with a photo.** Photos are taken in the app only, seen only by the pack, and deleted after 30 days.
 - **Do it together.** A day succeeds when the pack keeps up; in packs of 5 or more one miss is allowed, so bigger packs aren't punished (checked with a simulator).
 - **Life happens.** Weekly rest days, a monthly joker and pauses for trips. A member who keeps missing falls asleep instead of dragging everyone down.
-- **Grow and dress up.** An egg hatches on the first day two members feed it. Good days earn XP and coins; streaks earn more; achievements unlock special items.
+- **Grow and dress up.** An egg hatches on the first day two members feed it and nobody misses. Good days earn XP and coins; streaks earn more; achievements unlock special items.
 - **Stay in touch.** Reactions, nudges, a monthly board, a weekly recap to share as a story, reminders in the critter's own voice, and home screen widgets.
 
 ## Architecture

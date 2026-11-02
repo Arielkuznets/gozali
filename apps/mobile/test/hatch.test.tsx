@@ -137,7 +137,7 @@ describe('the hatch steps', () => {
   it('promise tonight only when it is sure', () => {
     expect(shown(true)).toContain('It hatches tonight, when today ends 🎉');
     expect(shown(false)).not.toContain('🎉');
-    expect(shown(false)).toContain('It hatches tonight if no one else misses today');
+    expect(shown(false)).toContain('It hatches tonight if nobody misses today');
   });
 
   it('keep the feeds of the day that ended while its close hatches the egg, not the new 0/2', () => {
