@@ -77,6 +77,24 @@ export async function clearQueue(): Promise<void> {
 }
 
 /**
+ * Clears what the camera and the compressor leave in the cache folder, a full-size photo per shot,
+ * which the system clears only when the phone runs out of room. Only for the start of the app,
+ * before any screen: later it would take the file a send is reading. A waiting feed has its own
+ * copy in the documents, and both libraries make their folder again for the next photo.
+ */
+export function clearShotFiles(): void {
+  if (Platform.OS === 'web') return;
+  for (const name of ['Camera', 'ImageManipulator']) {
+    try {
+      const directory = new Directory(Paths.cache, name);
+      if (directory.exists) directory.delete();
+    } catch {
+      // Still there at the next start, which does no harm.
+    }
+  }
+}
+
+/**
  * Forgets what other accounts left waiting, photos included. A session the server ended leaves its
  * feeds here for the same person to come back to, and nobody else can send them.
  */

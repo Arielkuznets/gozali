@@ -2,6 +2,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import RootLayout from '@/app/_layout';
+import { clearShotFiles } from '@/features/feeds/queue';
 
 // The real root layout with nobody signed in, so the fonts are all that holds the splash up.
 let mockFonts: [boolean, Error | null];
@@ -20,6 +21,7 @@ jest.mock('@/features/auth/AuthProvider', () => ({
   useAuth: () => ({ session: null, loading: false }),
 }));
 jest.mock('@/features/auth/signIn', () => ({}));
+jest.mock('@/features/feeds/queue', () => ({ clearShotFiles: jest.fn() }));
 jest.mock('@/features/packs/invites', () => ({ readInstallReferrer: async () => undefined }));
 jest.mock('@/features/profile/useProfile', () => ({
   useProfile: () => ({ isPending: true, isError: false }),
@@ -42,6 +44,13 @@ async function open() {
 }
 
 beforeEach(() => jest.mocked(SplashScreen.hide).mockClear());
+
+it('clears the photo files of earlier runs once, however often it draws', async () => {
+  mockFonts = [true, null];
+  await open();
+  await open();
+  expect(clearShotFiles).toHaveBeenCalledTimes(1);
+});
 
 it('keeps the splash up while the fonts load', async () => {
   mockFonts = [false, null];

@@ -19,6 +19,7 @@ import { UpdateRequired } from '@/components/UpdateRequired';
 import { installedVersion, isOlder, useAppConfig } from '@/features/app/appConfig';
 import { AuthProvider, useAuth } from '@/features/auth/AuthProvider';
 import { signOut } from '@/features/auth/signIn';
+import { clearShotFiles } from '@/features/feeds/queue';
 import { readInstallReferrer } from '@/features/packs/invites';
 import { isProfileComplete, useProfile, useSignedOutSync } from '@/features/profile/useProfile';
 import { refetchWhenAppReturns, useRefetchWhenClockMoves } from '@/lib/appFocus';
@@ -30,6 +31,7 @@ import { colors } from '@/theme/tokens';
 void SplashScreen.preventAutoHideAsync();
 watchForCrashes();
 refetchWhenAppReturns();
+clearShotFiles();
 
 // A screen that throws while drawing shows this instead of a blank app.
 export { ErrorScreen as ErrorBoundary };
