@@ -48,14 +48,16 @@ export default function RootLayout() {
 }
 
 function RootNavigator() {
-  const [fontsLoaded] = useFonts({ VarelaRound_400Regular, Rubik_400Regular, Rubik_500Medium, Rubik_700Bold });
+  const [fontsLoaded, fontError] = useFonts({ VarelaRound_400Regular, Rubik_400Regular, Rubik_500Medium, Rubik_700Bold });
+  // A font that can't load falls back to the system font, which is no reason to keep the app shut.
+  const fontsDone = fontsLoaded || fontError !== null;
   const { session, loading } = useAuth();
   const signedIn = session !== null;
   const profile = useProfile();
   const config = useAppConfig();
   useSignedOutSync();
   useRefetchWhenClockMoves();
-  const ready = fontsLoaded && !loading && (!signedIn || !profile.isPending);
+  const ready = fontsDone && !loading && (!signedIn || !profile.isPending);
 
   useEffect(() => {
     if (ready) SplashScreen.hide();
@@ -67,7 +69,7 @@ function RootNavigator() {
 
   // Waiting for the profile again (trying it once more, or just after signing in) shows a
   // spinner; at the start the splash screen still covers it.
-  if (!ready) return fontsLoaded && !loading ? <LoadingScreen /> : null;
+  if (!ready) return fontsDone && !loading ? <LoadingScreen /> : null;
   // A version the server no longer supports stops here, whoever is signed in.
   if (config.data && isOlder(installedVersion(), config.data.min_version)) {
     return <UpdateRequired storeUrl={Platform.OS === 'android' ? config.data.android_url : config.data.ios_url} />;
