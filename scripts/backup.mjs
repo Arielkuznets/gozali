@@ -69,6 +69,35 @@ const json = (value) => (typeof value === 'string' ? JSON.parse(value) : value);
 const quoted = (name) => `"${name.replaceAll('"', '""')}"`;
 const literal = (value) => `'${String(value).replaceAll("'", "''")}'`;
 
+/** Whether JSON.stringify gets through a value as far into the file as a row's column sits. */
+function writable(value) {
+  try {
+    JSON.stringify({ tables: { table: [{ column: value }] } });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Empties the columns of a page the file can't hold, and names them for the log, so one row can't
+ * cost everyone's backup. Anyone with an account can nest its metadata past what JSON.stringify's
+ * stack reaches, and a sign-up copies that into the identity too. Only a json or jsonb column can
+ * nest, and those all hold objects.
+ */
+export function emptyUnwritable(table, page, key) {
+  if (writable(page)) return [];
+  const emptied = [];
+  for (const row of page) {
+    for (const column of Object.keys(row)) {
+      if (writable(row[column])) continue;
+      row[column] = {};
+      emptied.push(`${table} ${key?.map((col) => row[col]).join(' ')} ${column}`);
+    }
+  }
+  return emptied;
+}
+
 /** Each table's primary key columns, in the key's order. */
 function primaryKeys() {
   return new Map(
@@ -97,6 +126,7 @@ function backUp() {
 
   const backup = { takenAt: new Date().toISOString(), source: target.slice(2), tables: {} };
   const keys = primaryKeys();
+  const emptied = [];
   for (const table of tables) {
     const rows = [];
     const key = keys.get(table);
@@ -107,9 +137,12 @@ function backUp() {
     let after = '';
     for (let offset = 0; ; offset += PAGE) {
       const tail = key ? `${after} order by ${columns} limit ${PAGE}` : `order by (r.*) limit ${PAGE} offset ${offset}`;
+      // As text, so the CLI only passes the rows on. A json column it parses and prints again, and
+      // what a member nests can go past the CLI's stack, and past 100 MB once it is indented.
       const page = json(
-        query(`select coalesce(json_agg(t), '[]'::json) as rows from (select * from ${table} as r ${tail}) t`)[0].rows,
+        query(`select coalesce(json_agg(t), '[]'::json)::text as rows from (select * from ${table} as r ${tail}) t`)[0].rows,
       );
+      emptied.push(...emptyUnwritable(table, page, key));
       rows.push(...page);
       if (page.length < PAGE) break;
       if (key) after = `where (${columns}) > (${key.map((col) => literal(page.at(-1)[col])).join(', ')})`;
@@ -130,7 +163,8 @@ function backUp() {
   for (const file of old) rmSync(join(out, file));
 
   const counts = Object.entries(backup.tables).map(([table, rows]) => `${table.replace('public.', '')} ${rows.length}`);
-  return `saved ${name}: ${counts.join(', ')}`;
+  const note = emptied.length > 0 ? `. Saved empty, nested too deep for the file: ${emptied.join(', ')}` : '';
+  return `saved ${name}: ${counts.join(', ')}${note}`;
 }
 
 // Run directly (not imported by restore.mjs): back up, and keep a log next to the backups, since

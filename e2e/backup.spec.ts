@@ -13,6 +13,9 @@ const root = fileURLToPath(new URL('..', import.meta.url));
 const stack = 'supabase_db_gozali';
 let noa: TestUser;
 let out: string;
+// Accounts a test makes beyond Noa. They go in afterEach, which runs after a test out of time too: a
+// value too deep for the file stays a problem for every other backup here until its account goes.
+const accounts: string[] = [];
 
 test.beforeEach(async () => {
   noa = await createUser('Noa');
@@ -21,6 +24,7 @@ test.beforeEach(async () => {
 
 test.afterEach(async () => {
   await removeUsers(noa);
+  for (const id of accounts.splice(0)) await admin.auth.admin.deleteUser(id);
   rmSync(out, { recursive: true, force: true });
 });
 
@@ -87,6 +91,67 @@ test('a backup keeps every row of a table longer than one page', async () => {
   const plan = psql('postgres', `set enable_seqscan = off; explain (costs off) ${readFileSync(secondPage, 'utf8')}`);
   expect(plan).toContain('Index');
   expect(plan).not.toContain('Sort');
+});
+
+test('a value nested deeper than the file can hold is left out, and the run names it', async () => {
+  test.setTimeout(600_000);
+  // What anyone can send with the app's public key. The bodies are written out by hand, since
+  // JSON.stringify can't nest this deep.
+  const auth = (path: string, method: string, body: string, token?: string) =>
+    fetch(`${process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321'}/auth/v1/${path}`, {
+      method,
+      body,
+      headers: {
+        apikey: process.env.SUPABASE_PUBLISHABLE_KEY!,
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+  const nested = (depth: number) => `${'['.repeat(depth)}${']'.repeat(depth)}`;
+  const live = (table: string, where: string) => JSON.parse(psql('postgres', `select row_to_json(r) from ${table} r where ${where}`));
+  const dan = await createUser('Dan');
+  accounts.push(dan.id);
+
+  // The deepest the auth server takes, in the account's own metadata.
+  expect((await auth('user', 'PUT', `{"data":{"list":${nested(9998)}}}`, noa.session.access_token)).status).toBe(200);
+  // A sign-up copies what it is given into the identity as well.
+  const email = `sam-e2e-${Date.now()}@gozali.test`;
+  const signedUp = await auth('signup', 'POST', `{"email":"${email}","password":"e2e-password","data":{"list":${nested(6000)}}}`);
+  expect(signedUp.status).toBe(200);
+  const sam = ((await signedUp.json()) as { user: { id: string } }).user.id;
+  accounts.push(sam);
+
+  const heartbeat = async () => (await admin.from('heartbeats').select('at').eq('job', 'backup').maybeSingle()).data?.at;
+  const lastBeat = await heartbeat();
+  run(`node scripts/backup.mjs --local --out "${out}"`);
+  expect(await heartbeat()).not.toBe(lastBeat);
+
+  const file = readdirSync(out).find((name) => name.endsWith('.json'))!;
+  const { tables } = JSON.parse(readFileSync(join(out, file), 'utf8')) as { tables: Record<string, Record<string, unknown>[]> };
+  const account = (id: string) => tables['auth.users']!.find((row) => row.id === id);
+  const identity = (id: string) => tables['auth.identities']!.find((row) => row.user_id === id);
+
+  // Everything else of those accounts is saved, and the value goes on its own: a change of metadata
+  // doesn't reach the identity.
+  expect(account(noa.id)).toEqual({ ...live('auth.users', `id = '${noa.id}'`), raw_user_meta_data: {} });
+  expect(identity(noa.id)).toEqual(live('auth.identities', `user_id = '${noa.id}'`));
+  expect(account(sam)).toEqual({ ...live('auth.users', `id = '${sam}'`), raw_user_meta_data: {} });
+  const samsIdentity = live('auth.identities', `user_id = '${sam}'`);
+  expect(identity(sam)).toEqual({ ...samsIdentity, identity_data: {} });
+
+  // The account beside them comes through untouched, and all three keep what the tables hold.
+  expect(account(dan.id)).toEqual(live('auth.users', `id = '${dan.id}'`));
+  expect(identity(dan.id)).toEqual(live('auth.identities', `user_id = '${dan.id}'`));
+  for (const id of [noa.id, sam, dan.id]) {
+    expect(tables['public.profiles']!.find((row) => row.id === id)).toEqual(live('public.profiles', `id = '${id}'`));
+  }
+
+  const log = readFileSync(join(out, 'backup.log'), 'utf8');
+  expect(log).toContain(`saved ${file}: `);
+  expect(log).toContain(`auth.users ${noa.id} raw_user_meta_data`);
+  expect(log).toContain(`auth.users ${sam} raw_user_meta_data`);
+  expect(log).toContain(`auth.identities ${samsIdentity.id} identity_data`);
+  expect(log).not.toContain(dan.id);
 });
 
 test.describe('a restore', () => {
