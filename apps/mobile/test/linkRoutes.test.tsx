@@ -12,7 +12,7 @@ import NotFound from '@/app/+not-found';
 import AuthCallback from '@/app/auth/callback';
 import DevLoginRoute from '@/app/dev-login';
 import InviteLinkScreen from '@/app/i/[code]';
-import { takePendingInvite } from '@/features/packs/invites';
+import { savePendingInvite, takePendingInvite } from '@/features/packs/invites';
 import { isProfileComplete, useProfile, type Profile } from '@/features/profile/useProfile';
 import { useNotificationRoutes } from '@/lib/notifications';
 
@@ -328,15 +328,26 @@ describe('an invite link reaching the app while it is running', () => {
   it.each([
     ['keep the code', () => jest.mocked(AsyncStorage.setItem)],
     ['read the code back', () => jest.mocked(AsyncStorage.getItem)],
-  ])('goes back to the open screen when the phone can not %s', async (_what, storage) => {
+  ])('opens the join screen from the link itself when the phone can not %s', async (_what, storage) => {
     await openPack();
     storage().mockRejectedValueOnce(FULL);
 
     await followLink(`gozali://i/${CODE}`);
 
     expect(rootRoutes()).toEqual(['(app)']);
-    expect(appStack()).toEqual(['index', 'pack/[id]/index']);
+    expect(appStack()).toEqual(['index', 'pack/[id]/index', 'join']);
+    expect(opened.at(-1)).toBe(`join ${CODE}`);
     expect(app.root.findAllByType(ActivityIndicator)).toHaveLength(0);
+  });
+
+  it("brings the link's own code, not an older one the phone holds and couldn't replace", async () => {
+    await openPack();
+    await savePendingInvite('EFGH6789');
+    jest.mocked(AsyncStorage.setItem).mockRejectedValueOnce(FULL);
+
+    await followLink(`gozali://i/${CODE}`);
+
+    expect(opened.at(-1)).toBe(`join ${CODE}`);
   });
 
   it('with no real code in it leaves the open screen as it was', async () => {

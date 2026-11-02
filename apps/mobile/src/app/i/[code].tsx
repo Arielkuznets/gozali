@@ -2,6 +2,7 @@ import { Redirect, router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 
 import { LoadingScreen } from '@/components/ScreenStates';
+import { INVITE_CODE_LENGTH, normalizeInviteCode } from '@/features/packs/constants';
 import { savePendingInvite, takePendingInvite } from '@/features/packs/invites';
 import { useHomeRoute } from '@/features/profile/useProfile';
 import { useLeaveFor } from '@/lib/navigation';
@@ -28,16 +29,19 @@ export default function InviteLinkScreen() {
   useLeaveFor(saved && home !== '/' ? home : null);
 
   // Back to the app that is open, because a Redirect would build a second copy of it. Its home
-  // screen opened long ago and won't read the code, so the code is taken here.
+  // screen opened long ago and won't read the code, so the code is taken here. A link with a code
+  // of its own has no need for the phone to keep it, and a phone that refused has an older one.
   useEffect(() => {
     if (!overApp) return;
     void takePendingInvite()
       .catch(() => null)
       .then((pending) => {
         router.back();
-        if (pending) router.navigate(`/join?code=${pending}`);
+        const link = normalizeInviteCode(code);
+        const next = link.length === INVITE_CODE_LENGTH ? link : pending;
+        if (next) router.navigate(`/join?code=${next}`);
       });
-  }, [overApp]);
+  }, [overApp, code]);
 
   // The home screen reads the saved code as it opens.
   if (ready && !overApp) return <Redirect href="/" />;
