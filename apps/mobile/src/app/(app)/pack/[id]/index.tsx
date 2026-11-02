@@ -23,7 +23,7 @@ import { MilestoneMoment } from '@/features/critter/MilestoneMoment';
 import { useMilestone } from '@/features/critter/milestones';
 import { critterArt, stageProgress } from '@/features/critter/art';
 import { useCritterText } from '@/features/critter/useCritterText';
-import { useDayStatus, useMembersToday, useTodayPasses, type TodayPasses } from '@/features/days/api';
+import { isPausedToday, useDayStatus, useMembersToday, useTodayPasses, type TodayPasses } from '@/features/days/api';
 import { FeedList } from '@/features/feeds/FeedList';
 import { FEED_PAGE, fedToday, useCountedFeeds, usePackFeed, usePendingFeeds, type FeedItem } from '@/features/feeds/api';
 import { countedToday, currentMembers, restDaysOn, usePack, type Pack, type PackCritter, type PackMember } from '@/features/packs/api';
@@ -79,7 +79,7 @@ export default function PackScreen() {
   const names = new Map(pack.pack_members.map((member) => [member.user_id, member.profiles?.display_name ?? null]));
   const focusable = FOCUS_CATEGORIES.has(pack.category);
   const pendingCount = pending.data?.length ?? 0;
-  const pausedToday = Boolean(dayStatus.data?.pause && dayStatus.data.pause.startsOn <= dayStatus.data.day);
+  const pausedToday = isPausedToday(dayStatus.data);
   const userId = session?.user.id;
   const critterName = pack.critters?.name ?? (pack.critters ? t(`packs.species.${pack.critters.species}`) : '');
   const admin = members.find((member) => member.role === 'admin');
@@ -241,7 +241,7 @@ export default function PackScreen() {
       <View style={styles.actions}>
         {pausedToday && dayStatus.data?.pause && (
           <AppText variant="caption" style={styles.centerText}>
-            {t('pack.pausedToday', { date: formatDay(dayStatus.data.pause.endsOn) })}
+            {t('pack.pausedToday', { date: formatDay(dayStatus.data.pause.endsOn), name: critterName })}
           </AppText>
         )}
         {!iFed && !pausedToday && dayStatus.data?.passToday && (
@@ -249,7 +249,7 @@ export default function PackScreen() {
             {dayStatus.data.passToday === 'rest' ? t('pack.restingToday') : t('pack.jokerToday')}
           </AppText>
         )}
-        {iFed && (
+        {iFed && !pausedToday && (
           <AppText variant="caption" style={styles.centerText}>
             {t('pack.doneToday')}
           </AppText>
@@ -259,11 +259,13 @@ export default function PackScreen() {
             {t('pack.asleepYou', { name: critterName })}
           </AppText>
         )}
-        {iFed ? (
-          <Button label={t('pack.postExtra')} variant="secondary" onPress={() => router.push(`/pack/${id}/feed?extra=1`)} />
-        ) : (
-          <Button label={t('pack.feed')} onPress={() => router.push(`/pack/${id}/feed`)} />
-        )}
+        {/* The day close doesn't count a paused member, whatever they send. */}
+        {!pausedToday &&
+          (iFed ? (
+            <Button label={t('pack.postExtra')} variant="secondary" onPress={() => router.push(`/pack/${id}/feed?extra=1`)} />
+          ) : (
+            <Button label={t('pack.feed')} onPress={() => router.push(`/pack/${id}/feed`)} />
+          ))}
         <View style={styles.row}>
           {!iFed && !pausedToday && (
             <View style={styles.fill}>
@@ -275,7 +277,7 @@ export default function PackScreen() {
               />
             </View>
           )}
-          {focusable && (
+          {focusable && !pausedToday && (
             <View style={styles.fill}>
               <Button
                 label={t('pack.focus')}
@@ -301,8 +303,9 @@ export default function PackScreen() {
 }
 
 function memberState(member: PackMember, fed: Set<string>, today: TodayPasses): MemberState {
-  if (fed.has(member.user_id)) return 'fed';
+  // In the order of the day close: a pause comes before a feed, which then doesn't count.
   if (today.paused.has(member.user_id)) return 'paused';
+  if (fed.has(member.user_id)) return 'fed';
   if (member.status === 'sleeping') return 'asleep';
   return today.passes.has(member.user_id) ? 'pass' : 'waiting';
 }

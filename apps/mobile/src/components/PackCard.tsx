@@ -28,6 +28,7 @@ export function PackCard({ pack, now, fed, userId, onPress, onFeed }: Props) {
   const awake = countedToday(pack, passes.data?.paused ?? new Set());
   const fedCount = awake.filter((member) => fed.has(member.user_id)).length;
   const iFed = userId !== undefined && fed.has(userId);
+  const iPaused = userId !== undefined && passes.data?.paused.has(userId) === true;
   const category = categoryInfo(pack.category);
   const habit = pack.custom_habit ?? t(`packs.categories.${pack.category}`);
 
@@ -62,7 +63,11 @@ export function PackCard({ pack, now, fed, userId, onPress, onFeed }: Props) {
           {members.length >= 2 ? t('pack.fedCount', { fed: fedCount, total: awake.length }) : t('pack.eggWaiting')}
         </AppText>
       </View>
-      {iFed ? (
+      {iPaused ? (
+        <View style={styles.done} accessible accessibilityLabel={t('pack.paused')}>
+          <AppText style={styles.doneText}>💤</AppText>
+        </View>
+      ) : iFed ? (
         <View style={styles.done} accessible accessibilityLabel={t('pack.fed')}>
           <AppText style={styles.doneText}>✓</AppText>
         </View>

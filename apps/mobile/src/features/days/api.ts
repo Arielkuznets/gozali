@@ -41,6 +41,11 @@ export type MembersToday = {
 export const daysKey = ['days'] as const;
 export const PAUSE_LENGTHS = [3, 7, 14, 30, 60] as const;
 
+/** Whether the pause in a status covers its day, and isn't one waiting to start. */
+export function isPausedToday(status: DayStatus | undefined): boolean {
+  return Boolean(status?.pause && status.pause.startsOn <= status.day);
+}
+
 /** Keyed by the pack day, so a screen left open past 03:00 asks again instead of showing yesterday. */
 export function useDayStatus(packId: string) {
   const { data: pack } = usePack(packId);

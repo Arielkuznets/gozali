@@ -22,6 +22,7 @@ jest.mock('expo-router', () => ({
   useFocusEffect: jest.fn(),
 }));
 jest.mock('@/features/auth/AuthProvider', () => ({ useAuth: () => ({ session: { user: { id: 'noa' } } }) }));
+jest.mock('@/features/days/api', () => ({ isPausedToday: () => false, useDayStatus: () => ({ data: undefined }) }));
 jest.mock('@/features/feeds/EatingMoment', () => ({ EatingMoment: () => null }));
 jest.mock('@/features/feeds/api', () => ({ useSendFeed: () => ({ mutateAsync: jest.fn() }) }));
 jest.mock('@/features/feeds/send', () => ({ compressPhoto: jest.fn(), isFinalRejection: () => false }));

@@ -1,7 +1,7 @@
 import { CameraView, useCameraPermissions, type CameraType } from 'expo-camera';
 import { Image } from 'expo-image';
-import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
@@ -21,6 +21,7 @@ import { TextField } from '@/components/TextField';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { critterArt } from '@/features/critter/art';
 import { EatingMoment } from '@/features/feeds/EatingMoment';
+import { isPausedToday, useDayStatus } from '@/features/days/api';
 import { useSendFeed } from '@/features/feeds/api';
 import { compressPhoto, feedErrorKey, isFinalRejection } from '@/features/feeds/send';
 import { clearFocusSession } from '@/features/focus/session';
@@ -65,11 +66,21 @@ export default function FeedScreen() {
   const [busy, setBusy] = useState(false);
   const sending = useRef(false);
   const send = useSendFeed();
+  const dayStatus = useDayStatus(packId);
+
+  // A widget or a notification can link here during a pause, when no photo counts. The pack says
+  // why. A photo already taken stays: it was taken before the pause reached this screen.
+  const paused = isPausedToday(dayStatus.data) && !shot && !result;
+  useFocusEffect(
+    useCallback(() => {
+      if (paused) router.dismissTo(`/pack/${packId}`);
+    }, [paused, packId]),
+  );
 
   // The tap on Feed gives the system alert its context and the purpose string its reason, so no
   // screen of ours comes first. A link to a pack that is gone has no use for the camera; offline
   // the pack never loads, and the camera still works.
-  const askNow = toAsk && pack !== null && !packLoading;
+  const askNow = toAsk && pack !== null && !packLoading && !paused;
   useEffect(() => {
     if (askNow) void requestPermission().finally(() => setAnswered(true));
   }, [askNow, requestPermission]);
@@ -162,7 +173,7 @@ export default function FeedScreen() {
   // still works so the feed can wait in the queue.
   if (pack === null) return <PackMissingScreen />;
 
-  if (!permission || toAsk) {
+  if (!permission || toAsk || paused) {
     return (
       <SafeAreaView style={styles.dark}>
         <ActivityIndicator color={colors.onDark} />

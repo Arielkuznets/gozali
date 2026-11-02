@@ -1,7 +1,7 @@
 import { addDays, packDayOf } from '@gozali/game-engine';
 import { expect, test } from '@playwright/test';
 
-import { admin, createPack, createUser, removeUsers, signIn, type TestUser } from './support';
+import { admin, createPack, createUser, feed, photo, removeUsers, signIn, type TestUser } from './support';
 
 let noa: TestUser;
 let dan: TestUser;
@@ -157,6 +157,85 @@ test('a member who dozed off is told how to come back', async ({ page }) => {
   await page.goto(`/pack/${pack.id}`);
   await expect(page.getByText("One photo and you're back.", { exact: false })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Noa, asleep' })).toBeVisible();
+});
+
+test.describe('a member on a pause', () => {
+  const onPause = "You're on a pause until";
+
+  /** A pack of a sitting habit where Noa's pause is running: the app can only start one for tomorrow. */
+  async function pausedPack() {
+    const pack = await createPack(noa, { name: 'Study buddies', habit: 'study', species: 'kit' }, [dan]);
+    await admin.from('critters').update({ status: 'active', stage: 'baby', xp: 2, health: 70 }).eq('pack_id', pack.id);
+    const today = packDayOf(new Date(), 'Asia/Jerusalem');
+    const paused = await admin.from('pauses').insert({
+      pack_id: pack.id,
+      user_id: noa.id,
+      starts_on: addDays(today, -1),
+      ends_on: addDays(today, 5),
+    });
+    if (paused.error) throw paused.error;
+    return pack;
+  }
+
+  test('is told so on the pack, where nothing offers a photo that would not count', async ({ page }) => {
+    const pack = await pausedPack();
+    await signIn(page, noa);
+    await page.goto(`/pack/${pack.id}`);
+
+    await expect(page.getByText(onPause, { exact: false })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Noa, on a pause' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Feed', exact: true })).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Focus', exact: true })).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Not today' })).toBeHidden();
+  });
+
+  test('has no Feed on the card on the home screen', async ({ page }) => {
+    await pausedPack();
+    await signIn(page, noa);
+    await page.goto('/');
+
+    await expect(page.getByLabel('On a pause')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Feed Study buddies' })).toBeHidden();
+  });
+
+  for (const [from, link] of [
+    ['a widget or a reminder', 'feed'],
+    ['a focus session that ended', 'feed?focus=25'],
+  ] as const) {
+    test(`goes to the pack from ${from}, not to the camera`, async ({ context, page }) => {
+      await context.grantPermissions(['camera']);
+      const pack = await pausedPack();
+      await signIn(page, noa);
+      await page.goto(`/pack/${pack.id}/${link}`);
+
+      await expect(page.getByText(onPause, { exact: false })).toBeVisible();
+      await expect(page).toHaveURL(new RegExp(`/pack/${pack.id}$`));
+      await expect(page.getByRole('button', { name: 'Take photo' })).toBeHidden();
+    });
+  }
+
+  test('is not one of those who fed, even with a photo sent from an older app', async ({ page }) => {
+    const pack = await pausedPack();
+    await feed(noa, pack.id, await photo(page, '📚'), 'On the road');
+    await signIn(page, noa);
+    await page.goto(`/pack/${pack.id}`);
+
+    await expect(page.getByText(onPause, { exact: false })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Noa, on a pause' })).toBeVisible();
+    await expect(page.getByText('Your part is done for today', { exact: false })).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Post another photo' })).toBeHidden();
+  });
+
+  test('feeds again once the pause is over', async ({ page }) => {
+    const pack = await pausedPack();
+    const today = packDayOf(new Date(), 'Asia/Jerusalem');
+    await admin.from('pauses').update({ ends_on: addDays(today, -1) }).eq('pack_id', pack.id);
+    await signIn(page, noa);
+    await page.goto(`/pack/${pack.id}`);
+
+    await expect(page.getByRole('button', { name: 'Feed', exact: true })).toBeVisible();
+    await expect(page.getByText(onPause, { exact: false })).toBeHidden();
+  });
 });
 
 test.describe('new rest days in a pack of one', () => {
