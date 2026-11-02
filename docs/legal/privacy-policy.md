@@ -20,7 +20,8 @@ We do **not** collect your location or contacts, we don't use advertising or tra
 
 ## Who can see what
 
-- Your photos, captions and reactions are visible **only to the members of that pack**. Photos are stored privately and shown through links that expire within an hour.
+- Your photos, captions and reactions are visible **only to the members of that pack**, unless something is reported. Photos are stored privately and shown through links that expire within an hour.
+- When someone reports a photo or a caption, or a member for their name or profile photo, the developer gets an email to review it. It holds the names and account ids of both people, the caption, and a link to the photo that works for 7 days. The email stays in the developer's mailbox after the link stops working.
 - The 🤨 reaction is shown only as a number, without names.
 - Pack members see who fed, rested, used a joker, was paused or missed on each day, because that is how the pack works together. Notifications never say who missed.
 - Widgets on your home screen and lock screen show only the pet and numbers, never photos or names.
@@ -39,7 +40,7 @@ We do **not** collect your location or contacts, we don't use advertising or tra
 - **Supabase** stores the data and runs the server (database, file storage, sign-in).
 - **Expo** delivers push notifications, through Apple's and Google's push services.
 - **Apple** and **Google** provide sign-in.
-- **Resend** delivers report alerts to the developer.
+- **Resend** delivers report emails to the developer, with what was reported.
 - **Cloudflare** hosts the gozali.app website and forwards email sent to hello@gozali.app.
 
 They process data only to provide these services to Gozali.

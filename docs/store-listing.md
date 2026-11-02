@@ -31,7 +31,7 @@ Also inside:
 - A weekly recap you can share as a story, with only your own photos.
 - Gentle reminders in your critter's voice, never more than a few a day, and never at night.
 
-Photos are seen only by your pack and are deleted after 30 days. No ads, no tracking.
+Photos are seen only by your pack, unless one is reported and the developer has to look at it. They are deleted after 30 days, or 8 weeks after their week if they're in a weekly recap. No ads, no tracking.
 
 ## Keywords (App Store, 100 characters)
 
@@ -58,7 +58,7 @@ What the app collects (see docs/legal/privacy-policy.md). No tracking, no ads, n
 | Error reports (the error, stack trace, the screen, the app version, iPhone or Android, whether the app crashed, and on a sign-in report the system name and version) | Diagnostics: crash data, other diagnostic data, linked | App info and performance: crash logs, diagnostics, collected | App functionality |
 | Scrambled network address when a sign-in fails (a keyed hash kept apart from the report, used for an hour, deleted within about a day) | Other data, not linked | Device or other IDs, collected | App functionality; on Google Play: fraud prevention, security and compliance |
 
-Data is encrypted in transit, and users can delete their account and all its data inside the app (Settings → Delete account). Photos are deleted after 30 days (a photo in a weekly recap collage 8 weeks after that week).
+Data is encrypted in transit, and users can delete their account and all its data inside the app (Settings → Delete account). Photos are deleted after 30 days (a photo in a weekly recap collage 8 weeks after that week). A reported photo reaches the developer by email, through a link that works for 7 days.
 
 ## Notes for Apple's review
 

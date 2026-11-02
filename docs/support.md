@@ -8,7 +8,7 @@ Questions, problems or ideas: write to **hello@gozali.app** and we will answer w
 - **What if I can't do my habit one day?** Use a rest day or the joker from the pack screen ("Not today?"), or pause the pack from its settings when you go away for a few days. The pet isn't hurt.
 - **The camera doesn't open.** Gozali needs the camera to feed the pet. Allow it in your phone's Settings, under Gozali.
 - **Notifications don't arrive.** Allow them in your phone's Settings, under Gozali, and check the reminder time in the app's Settings.
-- **Reporting a photo:** tap ⋯ on the photo and choose Report photo. We look at every report within 24 hours.
-- **Reporting someone:** for a name or a profile photo, press and hold them in the members row of the pack and choose Report. We look at every report within 24 hours.
+- **Reporting a photo:** tap ⋯ on the photo and choose Report photo. We look at every report within 24 hours. The photo reaches the developer by email, through a link that works for 7 days.
+- **Reporting someone:** for a name or a profile photo, press and hold them in the members row of the pack and choose Report. We look at every report within 24 hours. Their name and profile photo reach the developer the same way.
 - **Blocking someone:** press and hold them in the members row of the pack, or tap ⋯ on one of their photos. You can unblock people in the app's Settings.
 - **Deleting your account:** in the app, Settings → Delete account. Your account and your data are deleted right away.
