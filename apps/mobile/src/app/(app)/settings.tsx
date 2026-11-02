@@ -135,7 +135,13 @@ export default function SettingsScreen() {
               {blocked.data.map((person) => (
                 <View key={person.id} style={styles.listRow}>
                   <AppText style={styles.fill}>{person.name ?? '…'}</AppText>
-                  <Pressable accessibilityRole="button" onPress={() => blocked.unblock(person.id)} hitSlop={8}>
+                  {blocked.unblocking === person.id && <ActivityIndicator color={colors.accent} />}
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: blocked.unblocking !== null, busy: blocked.unblocking === person.id }}
+                    disabled={blocked.unblocking !== null}
+                    onPress={() => blocked.unblock(person.id)}
+                    hitSlop={8}>
                     <AppText variant="caption" style={styles.link}>
                       {t('settings.app.unblock')}
                     </AppText>
@@ -252,7 +258,7 @@ function useBlocked() {
       void queryClient.invalidateQueries({ queryKey: ['avatars'] });
     },
   });
-  return { ...query, unblock: (id: string) => remove.mutate(id) };
+  return { ...query, unblock: (id: string) => remove.mutate(id), unblocking: remove.isPending ? remove.variables : null };
 }
 
 const styles = StyleSheet.create({
