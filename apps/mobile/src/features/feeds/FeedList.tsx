@@ -154,12 +154,14 @@ const PhotoCard = memo(function PhotoCard({ feed, name, emoji, today, own, onRea
             accessibilityLabel={feed.caption ?? t('feed.photoBy', { name })}
           />
         </Pressable>
-      ) : (
+      ) : feed.photo_path === null ? (
         <View style={styles.noPhoto}>
           <AppText variant="caption" style={styles.noPhotoText}>
             {t('feed.photoGone')}
           </AppText>
         </View>
+      ) : (
+        <View style={styles.photo} />
       )}
       {feed.focus_minutes !== null && (
         <AppText style={styles.focus}>{t('feed.focusChip', { minutes: feed.focus_minutes, emoji })}</AppText>

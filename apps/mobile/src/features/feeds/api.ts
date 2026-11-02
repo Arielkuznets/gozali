@@ -26,7 +26,10 @@ export type FeedItem = {
   is_extra: boolean;
   focus_minutes: number | null;
   created_at: string;
-  /** Short-lived signed link; null once the photo was deleted after 30 days. */
+  /**
+   * Short-lived signed link; null once the photo was deleted after 30 days, which clears
+   * photo_path, and also for a path whose file storage can't find, at any age.
+   */
   photoUrl: string | null;
   reactions: ReactionTotal[];
 };

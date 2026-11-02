@@ -7,11 +7,13 @@ import { FeedList } from '@/features/feeds/FeedList';
 
 jest.mock('@/features/feeds/PhotoViewer', () => ({ PhotoViewer: () => null }));
 
-const item = (photoUrl: string | null): FeedItem => ({
+const PATH = 'pack/friend/photo.jpg';
+
+const item = (photoUrl: string | null, photo_path: string | null): FeedItem => ({
   id: 'feed',
   pack_id: 'pack',
   user_id: 'friend',
-  photo_path: 'pack/friend/photo.jpg',
+  photo_path,
   caption: null,
   day: '2026-11-01',
   is_extra: false,
@@ -21,9 +23,9 @@ const item = (photoUrl: string | null): FeedItem => ({
   reactions: [],
 });
 
-const list = (photoUrl: string | null) => (
+const list = (photoUrl: string | null, path: string | null = PATH) => (
   <FeedList
-    feeds={[item(photoUrl)]}
+    feeds={[item(photoUrl, path)]}
     events={[]}
     names={new Map([['friend', 'Dan']])}
     critterName="Mochi"
@@ -73,8 +75,27 @@ describe('a feed photo when a refetch brings a new link', () => {
   test('one deleted after its 30 days goes, whatever link it loaded with', () => {
     act(() => photo(tree).onLoad?.({ cacheType: 'disk' }));
 
-    act(() => tree.update(list(null)));
+    act(() => tree.update(list(null, null)));
 
     expect(tree.root.findAllByType(Image)).toHaveLength(0);
+  });
+});
+
+describe('a card with no link', () => {
+  const KEPT = 'Photos are kept for 30 days.';
+  const card = (photoUrl: string | null, path: string | null) => {
+    let tree!: ReactTestRenderer;
+    act(() => {
+      tree = create(list(photoUrl, path));
+    });
+    return JSON.stringify(tree.toJSON());
+  };
+
+  test('says why, once the photo was deleted', () => {
+    expect(card(null, null)).toContain(KEPT);
+  });
+
+  test('gives no reason when only the file is missing, at any age', () => {
+    expect(card(null, PATH)).not.toContain(KEPT);
   });
 });
