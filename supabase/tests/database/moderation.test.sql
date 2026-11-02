@@ -1,7 +1,7 @@
 -- Word filtering, reports on photos and on members, and the helpers of account deletion.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(36);
+select plan(44);
 
 select ok(public.is_clean('Leg day, done'), 'ordinary captions pass');
 select ok(not public.is_clean('what the fuuuck'), 'repeated letters don''t get around the filter');
@@ -102,6 +102,73 @@ select is(
   (select count(*) from public.reports where member_id = '00000000-0000-0000-0000-0000000000a7'), 1::bigint,
   'one report per person per member'
 );
+
+-- A name or a profile photo can change after a report, unlike a photo. After a day the same person
+-- can report the member again, and a new report is what reaches the developer.
+reset role;
+update public.reports set created_at = now() - interval '23 hours' where member_id = '00000000-0000-0000-0000-0000000000a7';
+create temp table first_report as select id from public.reports where member_id = '00000000-0000-0000-0000-0000000000a7';
+grant select on first_report to authenticated;
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000b7');
+insert into public.reports (member_id, reporter_id) values ('00000000-0000-0000-0000-0000000000a7', '00000000-0000-0000-0000-0000000000b7')
+  on conflict (member_id, reporter_id) do nothing;
+select is(
+  (select r.id from public.reports r where r.member_id = '00000000-0000-0000-0000-0000000000a7'),
+  (select id from first_report),
+  'within the day it stays the same report'
+);
+reset role;
+update public.reports set created_at = now() - interval '25 hours' where member_id = '00000000-0000-0000-0000-0000000000a7';
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000c7');
+select throws_ok(
+  $$ insert into public.reports (member_id, reporter_id) values ('00000000-0000-0000-0000-0000000000a7', '00000000-0000-0000-0000-0000000000b7')
+     on conflict (member_id, reporter_id) do nothing $$,
+  '42501', null, 'nobody else can renew it'
+);
+reset role;
+select is(
+  (select r.id from public.reports r where r.member_id = '00000000-0000-0000-0000-0000000000a7'),
+  (select id from first_report),
+  'which leaves the report where it was'
+);
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000b7');
+select lives_ok(
+  $$ insert into public.reports (member_id, reporter_id) values ('00000000-0000-0000-0000-0000000000a7', '00000000-0000-0000-0000-0000000000b7')
+     on conflict (member_id, reporter_id) do nothing $$,
+  'after a day the same person reports the member again'
+);
+select is(
+  (select count(*) from public.reports where member_id = '00000000-0000-0000-0000-0000000000a7'), 1::bigint,
+  'it stays one report per person per member'
+);
+select isnt(
+  (select r.id from public.reports r where r.member_id = '00000000-0000-0000-0000-0000000000a7'),
+  (select id from first_report),
+  'but a new one, so the developer hears of it'
+);
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000c7');
+select throws_ok(
+  $$ insert into public.reports (member_id, reporter_id, created_at)
+     values ('00000000-0000-0000-0000-0000000000a7', '00000000-0000-0000-0000-0000000000c7', now() - interval '2 days') $$,
+  '42501', null, 'a request can''t date a report back to get past the day'
+);
+reset role;
+update public.reports set created_at = now() - interval '25 hours' where reason = 'Not a workout';
+create temp table photo_report as select id from public.reports where reason = 'Not a workout';
+grant select on photo_report to authenticated;
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000b7');
+insert into public.reports (feed_id, reporter_id) select r.feed_id, r.reporter_id from public.reports r where r.id = (select id from photo_report)
+  on conflict (feed_id, reporter_id) do nothing;
+select is(
+  (select r.id from public.reports r where r.reporter_id = '00000000-0000-0000-0000-0000000000b7' and r.feed_id is not null),
+  (select id from photo_report),
+  'a report on a photo stands for good: a photo doesn''t change'
+);
+
 select throws_ok(
   $$ insert into public.reports (member_id, reporter_id) values ('00000000-0000-0000-0000-0000000000b7', '00000000-0000-0000-0000-0000000000b7') $$,
   '23514', null, 'nobody reports themselves'
