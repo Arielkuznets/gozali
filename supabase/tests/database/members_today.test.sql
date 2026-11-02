@@ -2,7 +2,7 @@
 -- the input of a day before today that still waits for its own close.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(11);
+select plan(13);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000d7', 'noa@test.local'),
@@ -87,6 +87,26 @@ select is(
    where m ? 'fedAtMinute'),
   0::bigint,
   'but not the minute anyone fed'
+);
+
+-- The close of an outage day excuses a miss, so the input says when that day is one.
+reset role;
+delete from public.outages;
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000d7');
+select is(
+  public.members_today('10000000-0000-0000-0000-000000000007') -> 'dayToClose' ->> 'outage', 'false',
+  'a day the service was up is not an outage'
+);
+reset role;
+insert into public.outages (starts_at, ends_at)
+select ((day - 1)::timestamp + interval '10 hours') at time zone 'UTC', ((day - 1)::timestamp + interval '12 hours') at time zone 'UTC'
+from today;
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000d7');
+select is(
+  public.members_today('10000000-0000-0000-0000-000000000007') -> 'dayToClose' ->> 'outage', 'true',
+  'two hours down on it make it one, as its close will find'
 );
 
 reset role;

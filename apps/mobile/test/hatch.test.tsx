@@ -98,9 +98,12 @@ describe('whether the day that ended hatches the egg at its close', () => {
     recentMisses: 0,
     ...facts,
   });
-  const ended = (eve: Partial<MemberDay>): MembersToday => ({
+  const ended = (eve: Partial<MemberDay>, outage?: boolean): MembersToday => ({
     ...known({}),
-    dayToClose: dayBefore([memberDay('noa', { fedToday: true }), memberDay('dan', { fedToday: true }), memberDay('eve', eve)]),
+    dayToClose: {
+      ...dayBefore([memberDay('noa', { fedToday: true }), memberDay('dan', { fedToday: true }), memberDay('eve', eve)]),
+      outage,
+    },
   });
 
   it('is so when two fed and the day succeeds', () => {
@@ -115,6 +118,11 @@ describe('whether the day that ended hatches the egg at its close', () => {
   it('is not so when a miss fails that day, or with fewer than two feeds', () => {
     expect(hatchesAtClose(ended({}))).toBe(false);
     expect(hatchesAtClose({ ...known({}), dayToClose: dayBefore([memberDay('noa', { fedToday: true })]) })).toBe(false);
+  });
+
+  it('is so on an outage day, whose close excuses the miss', () => {
+    expect(hatchesAtClose(ended({}, true))).toBe(true);
+    expect(hatchesAtClose(ended({}, false))).toBe(false);
   });
 
   it('is not so when nothing waits for a close, or the server says nothing of it', () => {
