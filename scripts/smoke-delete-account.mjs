@@ -1,8 +1,11 @@
 // Account deletion against the local stack (store requirement, spec section 11): the member
 // leaves every pack with admin passing on, their photo files go, their account and data go, and
 // a pack only they were in is left empty (close-days deletes it 30 days later). Last, the Sign in
-// with Apple revocation signs its client secret correctly and makes Apple's two calls.
+// with Apple revocation signs its client secret correctly, makes Apple's two calls, and gives up
+// when Apple stops answering.
 // Run with `npx supabase start` and `npx supabase functions serve` up: node scripts/smoke-delete-account.mjs
+import { createServer } from 'node:http';
+
 import { createClient } from '@supabase/supabase-js';
 
 import { appleClientSecret, revokeAppleSignIn } from '../supabase/functions/delete-account/apple.ts';
@@ -104,5 +107,27 @@ check(
     calls[1].url.endsWith('/auth/revoke') && calls[1].body.get('token') === 'refresh-456',
   'deleting revokes Sign in with Apple: the code becomes a token, and the token is revoked',
 );
+
+// The deletion waits for these calls, so Apple going silent may hold it for 10 seconds, the two
+// calls together. Real requests, to a stand-in that goes as far as the path says and no further.
+const silentApple = createServer((request, response) => {
+  if (request.url === '/stops-halfway/auth/token') response.write('{"refresh_');
+  if (request.url === '/slow-token/auth/token') setTimeout(() => response.end('{"refresh_token":"refresh-456"}'), 6_000);
+});
+await new Promise((resolve) => silentApple.listen(0, '127.0.0.1', resolve));
+const silentFor = (name) =>
+  Promise.race([
+    revokeAppleSignIn(key, 'code-123', (url, init) =>
+      fetch(`http://127.0.0.1:${silentApple.address().port}/${name}${new URL(url).pathname}`, init),
+    ).then(
+      () => 'answered',
+      (error) => error.name,
+    ),
+    new Promise((resolve) => setTimeout(resolve, 13_000, 'still waiting')),
+  ]);
+const [never, halfway, slowToken] = await Promise.all(['never', 'stops-halfway', 'slow-token'].map(silentFor));
+check(never === 'TimeoutError', 'a request Apple never answers is given up, so the deletion can go on');
+check(halfway === 'TimeoutError', 'and so is an answer that stops halfway');
+check(slowToken === 'TimeoutError', 'a token that took 6 seconds leaves the revoke only the 4 that remain');
 console.log('all good');
 process.exit(0);
