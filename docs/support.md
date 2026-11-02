@@ -11,4 +11,4 @@ Questions, problems or ideas: write to **hello@gozali.app** and we will answer w
 - **Reporting a photo:** tap ⋯ on the photo and choose Report photo. We look at every report within 24 hours. The photo reaches the developer by email, through a link that works for 7 days.
 - **Reporting someone:** for a name or a profile photo, press and hold them in the members row of the pack and choose Report. We look at every report within 24 hours. Their name and profile photo reach the developer the same way.
 - **Blocking someone:** press and hold them in the members row of the pack, or tap ⋯ on one of their photos. You can unblock people in the app's Settings.
-- **Deleting your account:** in the app, Settings → Delete account. Your account and your data are deleted right away.
+- **Deleting your account:** in the app, Settings → Delete account. Your account, your photos and the rest of your data are deleted right away. Copies in our daily backups last about 14 more days, and the privacy policy lists the little that stays.

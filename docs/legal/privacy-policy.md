@@ -33,7 +33,9 @@ We do **not** collect your location or contacts, we don't use advertising or tra
 - Photos are deleted automatically **30 days** after they were posted. A photo that appears in a weekly recap collage is kept 8 weeks after that week, so the recap can still show it, and then deleted too.
 - Records of sent notifications are deleted after 30 days, and a widget token that hasn't been used for 90 days is deleted.
 - Everything else stays while your account exists.
+- **Backups:** once a day the database is copied to the developer's own computer, outside the European Union. A copy holds accounts (email address and name) and everything else above except the photo files. The 14 newest copies are kept, so a copy normally lasts about 14 days.
 - **Deleting your account** (Settings → Delete account) deletes your account, your profile and profile photo, your photos (including those in recaps), your feeds, reactions, passes, tokens and reports right away. Your packs continue without you. A pack that no one has been in for 30 days is deleted, with its photos and recaps.
+- **What stays after you delete your account:** your data stays in the backups until those copies are replaced, about 14 days later, and if a backup ever has to be restored, accounts deleted since it was made are deleted again. Your packs' past day results and weekly recaps keep your account id, without your name or email. The sign-in service's security log can keep your email address and sign-in times, and report emails stay in the developer's mailbox.
 
 ## Services we use
 
@@ -47,7 +49,7 @@ They process data only to provide these services to Gozali.
 
 ## Your rights
 
-You can see and change your profile in the app, and delete your account and everything in it from Settings. You can also ask us at hello@gozali.app for a copy of your data or to correct it, and we will answer within 30 days. If you live in the European Union or the UK, you may also complain to your data protection authority. The data is stored in the European Union (Ireland).
+You can see and change your profile in the app, and delete your account from Settings ("How long we keep it" says what that removes and what stays for a while). You can also ask us at hello@gozali.app for a copy of your data or to correct it, and we will answer within 30 days. If you live in the European Union or the UK, you may also complain to your data protection authority. The data is stored in the European Union (Ireland), apart from the backups and report emails, which the developer keeps outside it.
 
 ## Age
 
