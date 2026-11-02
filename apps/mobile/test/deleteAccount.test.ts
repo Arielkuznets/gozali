@@ -86,10 +86,10 @@ describe('deleting while Apple gives no answer, with revocation on', () => {
     jest.useRealTimers();
   });
 
-  it('goes on without the code after 15 s when nothing covers the app', async () => {
+  it('goes on without the code 2 s after a check at 15 s finds nothing covering the app', async () => {
     answeredByHand();
     const removal = deleteAccount({ revokeApple: true });
-    await wait(14_999);
+    await wait(16_999);
     expect(mockInvoke).not.toHaveBeenCalled();
 
     await wait(1);
@@ -100,7 +100,7 @@ describe('deleting while Apple gives no answer, with revocation on', () => {
   it('takes no notice of an answer that comes after it went on', async () => {
     const request = answeredByHand();
     const removal = deleteAccount({ revokeApple: true });
-    await wait(15_000);
+    await wait(17_000);
     await removal;
 
     request.fail(cancelled);
@@ -119,6 +119,34 @@ describe('deleting while Apple gives no answer, with revocation on', () => {
     request.fail(cancelled);
     await failed;
     expect(mockInvoke).not.toHaveBeenCalled();
+  });
+
+  it('lets a close of the sheet that lands just after a check stop the deletion', async () => {
+    const request = answeredByHand();
+    AppState.currentState = 'inactive';
+    const removal = deleteAccount({ revokeApple: true });
+    const failed = expect(removal).rejects.toBe(cancelled);
+    await wait(29_990);
+    AppState.currentState = 'active';
+    await wait(310);
+
+    request.fail(cancelled);
+    await failed;
+    await wait(60_000);
+    expect(mockInvoke).not.toHaveBeenCalled();
+  });
+
+  it('keeps waiting when the app is covered again before the check is over', async () => {
+    const request = answeredByHand();
+    const removal = deleteAccount({ revokeApple: true });
+    await wait(16_000);
+    AppState.currentState = 'inactive';
+    await wait(60_000);
+    expect(mockInvoke).not.toHaveBeenCalled();
+
+    request.answer({ authorizationCode: 'fresh-code' });
+    await removal;
+    expect(mockInvoke).toHaveBeenCalledWith('delete-account', expect.objectContaining({ body: { appleAuthorizationCode: 'fresh-code' } }));
   });
 
   it("uses Apple's code however long someone took on the sheet", async () => {
@@ -145,10 +173,13 @@ describe('deleting while Apple gives no answer, with revocation on', () => {
     expect(mockInvoke).toHaveBeenCalledWith('delete-account', expect.objectContaining({ body: {} }));
   });
 
-  it('leaves no timer behind once Apple answered', async () => {
+  it.each([
+    ['the first 15 s', 1000],
+    ['the 2 s after a check', 16_000],
+  ])('leaves no timer behind once Apple answered in %s', async (_when, ms) => {
     const request = answeredByHand();
     const removal = deleteAccount({ revokeApple: true });
-    await wait(1000);
+    await wait(ms);
     request.answer({ authorizationCode: 'fresh-code' });
     await removal;
     expect(jest.getTimerCount()).toBe(0);

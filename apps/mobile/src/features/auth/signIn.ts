@@ -94,6 +94,9 @@ const SHEET_CLOSE_MS = 1000;
 /** Long enough for Apple's sheet to be up, and in front of the app, if it is ever coming. */
 export const NO_ANSWER_MS = 15_000;
 
+/** How long a close of Apple's sheet gets to reach the app once the app reads active again. */
+const CLOSE_ARRIVES_MS = 2000;
+
 export type SignInTrouble = 'cancelled' | 'not-opened' | 'failed';
 
 /**
@@ -119,11 +122,12 @@ export async function verifyDevCode(email: string, token: string): Promise<void>
 
 /**
  * A fresh Apple authorization code, so the server can revoke Sign in with Apple as the account
- * goes (Apple asks for this). Only on iPhones, for people who signed in with Apple. Closing
- * Apple's sheet cancels the deletion; any other trouble, a sheet that never opened included, lets
- * it go on without the code. Apple can also stay silent for good, so the wait ends, but only with
- * the app active: otherwise someone may be on the sheet, about to close it, and a deletion can't be
- * taken back.
+ * goes (Apple asks for this). Only on iPhones and iPads, for people who signed in with Apple.
+ * Closing Apple's sheet cancels the deletion; any other trouble, a sheet that never opened included,
+ * lets it go on without the code. Apple can also stay silent for good, so the wait ends, but only
+ * with the app active: otherwise someone may be on the sheet, about to close it, and a deletion
+ * can't be taken back. The close can reach the app after the app reads active again, so the app has
+ * to stay active for a moment before the wait ends.
  */
 async function appleCodeForRevocation(): Promise<string | undefined> {
   if (Platform.OS !== 'ios') return undefined;
@@ -132,8 +136,12 @@ async function appleCodeForRevocation(): Promise<string | undefined> {
   if (!providers.includes('apple')) return undefined;
   const started = Date.now();
   let timer: ReturnType<typeof setInterval> | undefined;
+  let lastLook: ReturnType<typeof setTimeout> | undefined;
   const silence = new Promise<null>((resolve) => {
-    timer = setInterval(() => AppState.currentState === 'active' && resolve(null), NO_ANSWER_MS);
+    timer = setInterval(() => {
+      if (AppState.currentState !== 'active') return;
+      lastLook = setTimeout(() => AppState.currentState === 'active' && resolve(null), CLOSE_ARRIVES_MS);
+    }, NO_ANSWER_MS);
   });
   try {
     const credential = await Promise.race([AppleAuthentication.signInAsync({ requestedScopes: [] }), silence]);
@@ -143,6 +151,7 @@ async function appleCodeForRevocation(): Promise<string | undefined> {
     return undefined;
   } finally {
     clearInterval(timer);
+    clearTimeout(lastLook);
   }
 }
 
@@ -157,8 +166,8 @@ async function accountIsGone(): Promise<boolean> {
 
 /**
  * Deletes the account and its data on the server (spec section 11), then forgets it here. With
- * `revokeApple` (app_config.apple_revocation), iPhone users who signed in with Apple confirm
- * with Apple first.
+ * `revokeApple` (app_config.apple_revocation), iPhone and iPad users who signed in with Apple
+ * confirm with Apple first.
  */
 export async function deleteAccount({ revokeApple }: { revokeApple: boolean }): Promise<void> {
   const supabase = requireSupabase();
