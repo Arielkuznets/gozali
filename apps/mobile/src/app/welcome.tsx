@@ -28,7 +28,7 @@ import { critterColors, radii, spacing } from '@/theme/tokens';
 
 type Provider = 'apple' | 'apple-web' | 'google';
 
-const SIGN_IN: Record<Provider, () => Promise<void>> = {
+const SIGN_IN: Record<Provider, (onAnswered: () => void) => Promise<void>> = {
   apple: signInWithApple,
   'apple-web': () => signInWithBrowser('apple'),
   google: () => signInWithBrowser('google'),
@@ -81,8 +81,17 @@ export default function WelcomeScreen() {
             release();
           }, NO_ANSWER_MS)
         : undefined;
+    // That wait is for Apple alone: the server's call has a limit of its own. An answer after the
+    // wait ran out takes the button back, or a tap would start a second sign-in over this one.
+    const answered = () => {
+      clearTimeout(noAnswer);
+      if (tap !== latestTap.current) return;
+      pending.current = true;
+      setBusy(provider);
+      setTrouble(null);
+    };
     try {
-      await SIGN_IN[provider]();
+      await SIGN_IN[provider](answered);
     } catch (error) {
       if (tap !== latestTap.current) return;
       // In development the log says what went wrong; the server hears about it either way.

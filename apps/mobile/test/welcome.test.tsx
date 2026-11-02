@@ -341,6 +341,57 @@ describe('a request Apple leaves unanswered', () => {
     expect(dimmed()).toBe(false);
   });
 
+  it('stops the clock once Apple answers, however long the server then takes', async () => {
+    mockSignInAsync.mockResolvedValue({ identityToken: 'token', fullName: null });
+    mockSignInWithIdToken.mockImplementation(unanswered);
+    await tap();
+    await wait(20_000);
+    expect(reports()).toEqual([]);
+    expect(shown()).not.toContain("Sign-in didn't finish");
+    expect(dimmed()).toBe(true);
+  });
+
+  it('takes the button back from a wait that ran out once the sheet answers', async () => {
+    const request = answeredByHand();
+    mockSignInWithIdToken.mockImplementation(unanswered);
+    await tap();
+    await wait(20_000);
+    expect(shown()).toContain("Sign-in didn't finish");
+    expect(dimmed()).toBe(false);
+
+    await act(async () => request.answer({ identityToken: 'token', fullName: null }));
+    expect(shown()).not.toContain("Sign-in didn't finish");
+    expect(dimmed()).toBe(true);
+
+    await tap();
+    expect(mockSignInAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it('gives the button back when the server turns down an answer that came late', async () => {
+    const request = answeredByHand();
+    mockSignInWithIdToken.mockResolvedValue({ error: new TypeError('Network request failed') });
+    await tap();
+    await wait(20_000);
+    await act(async () => request.answer({ identityToken: 'token', fullName: null }));
+    expect(alert).toHaveBeenCalledTimes(1);
+    expect(dimmed()).toBe(false);
+  });
+
+  it('leaves a newer tap on the browser page alone when the sheet answers after all', async () => {
+    await reopen(true);
+    const request = answeredByHand();
+    mockOpenAuthSession.mockImplementation(unanswered);
+    mockSignInWithIdToken.mockImplementation(unanswered);
+    await tap();
+    await wait(15_000);
+    const [button] = browserButtons();
+    await act(async () => void button.props.onPress());
+
+    await act(async () => request.answer({ identityToken: 'token', fullName: null }));
+    expect(browserButtons()[0].props.loading).toBe(true);
+    expect(dimmed()).toBe(false);
+  });
+
   it("keeps an older tap's late failure away from a newer tap", async () => {
     const first = answeredByHand();
     mockSignInAsync.mockImplementation(unanswered);

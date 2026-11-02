@@ -56,14 +56,18 @@ export async function isGoogleEnabled(): Promise<boolean> {
   return settings.external?.google === true;
 }
 
-/** Native Sign in with Apple on iOS; Supabase verifies the identity token Apple returns. */
-async function signInWithAppleNative(): Promise<void> {
+/**
+ * Native Sign in with Apple on iOS; Supabase verifies the identity token Apple returns. `onAnswered`
+ * is called when Apple's part is over and only the server's is left.
+ */
+async function signInWithAppleNative(onAnswered: () => void): Promise<void> {
   const credential = await AppleAuthentication.signInAsync({
     requestedScopes: [
       AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
       AppleAuthentication.AppleAuthenticationScope.EMAIL,
     ],
   });
+  onAnswered();
   if (!credential.identityToken) throw new Error('Apple returned no identity token');
   // Apple sends the name only the first time, so the try after a failed one comes without it.
   const name = [credential.fullName?.givenName, credential.fullName?.familyName].filter(Boolean).join(' ');
@@ -75,8 +79,8 @@ async function signInWithAppleNative(): Promise<void> {
   if (error) throw error;
 }
 
-export function signInWithApple(): Promise<void> {
-  return Platform.OS === 'ios' ? signInWithAppleNative() : signInWithBrowser('apple');
+export function signInWithApple(onAnswered: () => void): Promise<void> {
+  return Platform.OS === 'ios' ? signInWithAppleNative(onAnswered) : signInWithBrowser('apple');
 }
 
 /** The user closing Apple's sheet is not an error worth showing. */
