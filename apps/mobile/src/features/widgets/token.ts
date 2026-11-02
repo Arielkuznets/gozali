@@ -11,7 +11,8 @@ const OWNER_KEY = 'gozali.widget-token-owner';
  * This device's widget token, created on first use while signed in. It belongs to the account it
  * was made for, and it must be the signed-in one's: a session the server ended leaves its token
  * behind, and the next account's widgets would go on showing the packs of the last. A token from
- * before owners were kept goes the same way, since nothing says whose it is.
+ * before owners were kept is replaced too, since nothing says whose it is, but only once there is a
+ * new one: it is most likely this person's, and without a connection the widgets would go blank.
  */
 export async function widgetToken(): Promise<string | null> {
   const saved = await savedWidgetToken();
@@ -19,14 +20,16 @@ export async function widgetToken(): Promise<string | null> {
   const [owner, session] = await Promise.all([AsyncStorage.getItem(OWNER_KEY), storedSession()]);
   const account = session?.user.id;
   if (saved && owner === account) return saved;
-  if (saved) await forgetWidgetToken();
+  const unclaimed = account && owner === null ? saved : null;
+  if (saved && !unclaimed) await forgetWidgetToken();
   if (!account) return null;
   const { data, error } = await supabase.rpc('create_widget_token');
-  if (error) return null;
+  if (error) return unclaimed;
   await AsyncStorage.multiSet([
     [TOKEN_KEY, data],
     [OWNER_KEY, account],
   ]);
+  if (unclaimed) await supabase.rpc('revoke_widget_token', { token: unclaimed });
   return data;
 }
 

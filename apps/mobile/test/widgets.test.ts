@@ -176,6 +176,53 @@ describe('whose token it is', () => {
     expect(await AsyncStorage.getItem('gozali.widget-token-owner')).toBe('noa');
   });
 
+  it('makes the new token before it takes back one from before owners were kept', async () => {
+    await AsyncStorage.setItem('gozali.widget-token', 'old-token');
+
+    await refreshWidgets();
+
+    expect(mockRpc.mock.calls).toEqual([['create_widget_token'], ['revoke_widget_token', { token: 'old-token' }]]);
+    expect(mockFetch.mock.calls.map(([, init]) => init.headers['x-widget-token'])).toEqual(['new-token']);
+  });
+
+  it('keeps a token from before owners were kept, and what the widgets show, when no new one can be had', async () => {
+    await AsyncStorage.setItem('gozali.widget-token', 'old-token');
+    mockRpc.mockResolvedValue({ data: null, error: { message: 'TypeError: Network request failed' } });
+    mockFetch.mockRejectedValueOnce(new TypeError('Network request failed'));
+
+    await refreshWidgets();
+
+    expect(mockRpc.mock.calls).toEqual([['create_widget_token']]);
+    expect(await AsyncStorage.getItem('gozali.widget-token')).toBe('old-token');
+    expect(JSON.parse((await AsyncStorage.getItem('gozali.widget-snapshot'))!)).toEqual(left);
+    expect(mockAppGroup.get('snapshot')).toBe(JSON.stringify(left));
+  });
+
+  it('replaces that token on the next refresh with a connection', async () => {
+    await AsyncStorage.setItem('gozali.widget-token', 'old-token');
+    mockRpc.mockResolvedValueOnce({ data: null, error: { message: 'TypeError: Network request failed' } });
+    mockFetch.mockRejectedValueOnce(new TypeError('Network request failed'));
+    await refreshWidgets();
+
+    await refreshWidgets();
+
+    expect(await AsyncStorage.getItem('gozali.widget-token')).toBe('new-token');
+    expect(await AsyncStorage.getItem('gozali.widget-token-owner')).toBe('noa');
+    expect(mockAppGroup.get('token')).toBe('new-token');
+    expect(JSON.parse((await AsyncStorage.getItem('gozali.widget-snapshot'))!)).toMatchObject(snapshot);
+  });
+
+  it('forgets a token from before owners were kept with nobody signed in', async () => {
+    mockSignedIn = null;
+    await AsyncStorage.setItem('gozali.widget-token', 'old-token');
+
+    await refreshWidgets();
+
+    expect(mockRpc).not.toHaveBeenCalledWith('create_widget_token');
+    expect(await AsyncStorage.getItem('gozali.widget-token')).toBeNull();
+    expect(await AsyncStorage.getItem('gozali.widget-snapshot')).toBeNull();
+  });
+
   it("takes another account's packs off the widgets when no new token can be had", async () => {
     await saveToken('dans-token', 'dan');
     mockRpc.mockResolvedValue({ data: null, error: { message: 'TypeError: Network request failed' } });
