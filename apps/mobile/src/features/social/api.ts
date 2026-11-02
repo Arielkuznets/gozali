@@ -54,6 +54,7 @@ const EVENT_PAGE = 30;
 export function usePackEvents(packId: string, limit = EVENT_PAGE) {
   return useQuery({
     queryKey: [...feedsKey, 'events', packId, limit],
+    placeholderData: (previous, query) => (query?.queryKey[2] === packId ? previous : undefined),
     queryFn: async (): Promise<PackEvent[]> => {
       const { data, error } = await requireSupabase()
         .from('pack_events')

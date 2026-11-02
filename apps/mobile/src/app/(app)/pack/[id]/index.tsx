@@ -85,7 +85,8 @@ export default function PackScreen() {
   const admin = members.find((member) => member.role === 'admin');
   const isAdmin = admin?.user_id === userId;
   const fail = (error: unknown) => notify(t(socialErrorKey(error)));
-  const morePhotos = (feed.data?.length ?? 0) >= feedLimit;
+  // A longer page on its way counts: the button holds its place as a spinner.
+  const morePhotos = feed.isPlaceholderData || (feed.data?.length ?? 0) >= feedLimit;
   // While older photos remain unloaded, older events wait too, so the merged list has no gap.
   const oldestPhoto = feed.data?.at(-1)?.created_at;
   const shownEvents = (events.data ?? []).filter((event) => !morePhotos || !oldestPhoto || event.created_at >= oldestPhoto);
@@ -233,6 +234,7 @@ export default function PackScreen() {
             label={t('pack.showOlder')}
             variant="secondary"
             size="small"
+            loading={feed.isPlaceholderData}
             onPress={() => setFeedLimit((limit) => limit + FEED_PAGE)}
           />
         )}

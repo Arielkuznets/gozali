@@ -101,6 +101,9 @@ export async function refreshReactions(queryClient: QueryClient, feedId: string)
 export function usePackFeed(packId: string, limit = FEED_PAGE) {
   return useQuery({
     queryKey: [...packFeedsKey, packId, limit],
+    // The shorter page stays while a longer one loads, or the list would unmount and the reader lose
+    // their place. Never another pack's page: a link can change the pack on this same screen.
+    placeholderData: (previous, query) => (query?.queryKey[2] === packId ? previous : undefined),
     queryFn: async (): Promise<FeedItem[]> => {
       const supabase = requireSupabase();
       const { data, error } = await supabase
