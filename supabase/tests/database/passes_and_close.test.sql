@@ -1,7 +1,7 @@
 -- Rest days, jokers, pauses, and the guards of apply_day_result.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(31);
+select plan(40);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a3', 'noa@test.local'),
@@ -183,6 +183,100 @@ select public.apply_day_result(
 select is(
   (select count(*) from public.day_passes where user_id = '00000000-0000-0000-0000-0000000000b3'), 0::bigint,
   'so does the joker of a member who hasn''t started'
+);
+
+-- Days before a pack's first day never close, so nothing taken on them is spent. Tal is alone in a
+-- new pack, takes a joker and has an older rest; Gil joins the next day.
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000000c3', 'tal@test.local'),
+  ('00000000-0000-0000-0000-0000000000d3', 'gil@test.local'),
+  ('00000000-0000-0000-0000-0000000000e3', 'eve@test.local'),
+  ('00000000-0000-0000-0000-0000000000f3', 'ori@test.local');
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000c3');
+create temp table lonely as
+  select public.create_pack('Solo', 'running', 1::smallint, 'kit', 'Asia/Jerusalem') as id,
+    public.pack_day('Asia/Jerusalem') as today;
+create temp table lonely_code as select invite_code from public.packs where id = (select id from lonely);
+grant select on lonely, lonely_code to authenticated;
+select public.use_day_pass((select id from lonely), 'joker');
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000d3');
+select public.join_pack((select invite_code from lonely_code));
+reset role;
+update public.pack_members set joined_at = now() + interval '1 day'
+where pack_id = (select id from lonely) and user_id = '00000000-0000-0000-0000-0000000000d3';
+-- The week starts before the rest, so the count doesn't depend on the day this test runs.
+update public.packs set week_changed_on = (select today - 1 from lonely) where id = (select id from lonely);
+insert into public.day_passes (pack_id, user_id, day, kind)
+select id, '00000000-0000-0000-0000-0000000000c3', today - 1, 'rest' from lonely;
+select is(
+  public.rest_days_used((select id from lonely), '00000000-0000-0000-0000-0000000000c3', (select today + 2 from lonely)), 1,
+  'a rest taken alone counts until the first day closes'
+);
+select public.apply_day_result(
+  (select id from lonely), (select today + 1 from lonely), (select body from outcome)
+);
+select is(
+  (select count(*) from public.day_passes where pack_id = (select id from lonely)), 0::bigint,
+  'the first close gives back what was taken on the days before it'
+);
+select is(
+  public.rest_days_used((select id from lonely), '00000000-0000-0000-0000-0000000000c3', (select today + 2 from lonely)), 0,
+  'so the rest is free again'
+);
+select is(
+  (select count(*) from public.pack_events where pack_id = (select id from lonely) and kind = 'joker'), 0::bigint,
+  'and the feed stops saying the joker was taken'
+);
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000c3');
+select is(
+  (select public.my_day_status((select id from lonely)) ->> 'jokerAvailable'), 'true',
+  'and the joker is theirs for the month'
+);
+reset role;
+
+-- Eve fed once alone, so she counts from the first day on. Her older rest and joker must not cost
+-- her that day: it closes before a close could give them back.
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000e3');
+create temp table started as
+  select public.create_pack('Early', 'running', 1::smallint, 'kit', 'Asia/Jerusalem') as id,
+    public.pack_day('Asia/Jerusalem') as today;
+create temp table started_code as select invite_code from public.packs where id = (select id from started);
+grant select on started, started_code to authenticated;
+reset role;
+update public.packs set week_changed_on = (select today - 2 from started) where id = (select id from started);
+update public.pack_members set joined_at = now() - interval '3 days' where pack_id = (select id from started);
+insert into public.feeds (pack_id, user_id, day, created_at)
+select id, '00000000-0000-0000-0000-0000000000e3', today - 3, now() - interval '3 days' from started;
+insert into public.day_passes (pack_id, user_id, day, kind)
+select id, '00000000-0000-0000-0000-0000000000e3', today - taken.ago, taken.kind::public.day_pass_kind
+from started, (values (1, 'rest'), (2, 'joker')) as taken (ago, kind);
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000f3');
+select public.join_pack((select invite_code from started_code));
+reset role;
+select is(
+  public.pack_first_day((select id from started)), (select today from started),
+  'days start to close from the day Ori joins'
+);
+select is(
+  (select (m ->> 'hasStarted') || '/' || (m ->> 'restDaysUsedThisWeek')
+   from jsonb_array_elements(
+     public.day_close_input((select id from started), (select today from started)) -> 'members'
+   ) m
+   where m ->> 'userId' = '00000000-0000-0000-0000-0000000000e3'),
+  'true/0',
+  'and on that first day Eve has spent no rest'
+);
+select is(
+  (select count(*) from public.day_passes where pack_id = (select id from started)), 0::bigint,
+  'what she took alone came back when Ori joined'
+);
+select is(
+  (select count(*) from public.pack_events where pack_id = (select id from started) and kind = 'joker'), 0::bigint,
+  'the feed line about the joker with it'
 );
 
 select * from finish();

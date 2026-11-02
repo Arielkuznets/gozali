@@ -212,6 +212,7 @@ Examples: in a pack of 6 where one missed, the day is successful, health goes up
 - Activated manually, only for the current day and before the day ends (03:00, not in the grace window). It cannot be activated retroactively.
 - If the member feeds on the same day after activating a joker, the joker is canceled and returned to them.
 - A joker on a day the member wasn't counted anyway (asleep, or not started yet) covered nobody, and goes back to them when that day closes.
+- Days before the pack's first day never close, so a joker or declared rest taken on them, alone in a new pack, goes back when the second member joins.
 - Members see that a joker was activated ("Noa is taking a joker today").
 
 **Pause:**
