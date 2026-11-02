@@ -28,7 +28,7 @@ const list = (photoUrl: string | null) => (
     names={new Map([['friend', 'Dan']])}
     critterName="Mochi"
     emoji="🐾"
-    now={new Date('2026-11-01T11:00:00Z')}
+    today="Sun Nov 01 2026"
     userId="me"
     onReact={jest.fn()}
     onMore={jest.fn()}

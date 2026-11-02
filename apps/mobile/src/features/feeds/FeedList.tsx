@@ -1,6 +1,6 @@
 import { ACHIEVEMENTS, type AchievementKey } from '@gozali/game-engine';
 import { Image } from 'expo-image';
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -17,7 +17,8 @@ type Props = {
   names: Map<string, string | null>;
   critterName: string;
   emoji: string;
-  now: Date;
+  /** The current day as `Date.toDateString` gives it: a clock tick mustn't reach the rows. */
+  today: string;
   userId: string | undefined;
   onReact: (feed: FeedItem, emoji: ReactionKey | null) => void;
   onMore: (feed: FeedItem) => void;
@@ -28,7 +29,7 @@ type Props = {
  * reactions and a menu to report the photo or block the member who posted it. A tap on a photo
  * opens it on the whole screen.
  */
-export function FeedList({ feeds, events, names, critterName, emoji, now, userId, onReact, onMore }: Props) {
+export function FeedList({ feeds, events, names, critterName, emoji, today, userId, onReact, onMore }: Props) {
   const { t } = useTranslation();
   const [open, setOpen] = useState<ViewedPhoto | null>(null);
   const entries = [
@@ -40,6 +41,8 @@ export function FeedList({ feeds, events, names, critterName, emoji, now, userId
     return <AppText style={styles.empty}>{t('pack.feedEmpty')}</AppText>;
   }
   const nameOf = (id: string | null) => (id ? (names.get(id) ?? '…') : '…');
+  const onOpen = (feed: FeedItem) =>
+    setOpen({ id: feed.id, userId: feed.user_id, url: feed.photoUrl, caption: feed.caption, name: nameOf(feed.user_id) });
 
   return (
     <View style={styles.list}>
@@ -54,13 +57,11 @@ export function FeedList({ feeds, events, names, critterName, emoji, now, userId
             feed={entry.feed}
             name={nameOf(entry.feed.user_id)}
             emoji={emoji}
-            now={now}
+            today={today}
             own={entry.feed.user_id === userId}
             onReact={onReact}
             onMore={onMore}
-            onOpen={(feed) =>
-              setOpen({ id: feed.id, userId: feed.user_id, url: feed.photoUrl, caption: feed.caption, name: nameOf(feed.user_id) })
-            }
+            onOpen={onOpen}
           />
         ),
       )}
@@ -110,14 +111,14 @@ type CardProps = {
   feed: FeedItem;
   name: string;
   emoji: string;
-  now: Date;
+  today: string;
   own: boolean;
   onReact: (feed: FeedItem, emoji: ReactionKey | null) => void;
   onMore: (feed: FeedItem) => void;
   onOpen: (feed: FeedItem) => void;
 };
 
-function PhotoCard({ feed, name, emoji, now, own, onReact, onMore, onOpen }: CardProps) {
+const PhotoCard = memo(function PhotoCard({ feed, name, emoji, today, own, onReact, onMore, onOpen }: CardProps) {
   const { t } = useTranslation();
   // Every refetch brings a new link. A photo that has loaded stays on the link it loaded with, or it
   // would load from the disk again and fade in over itself. One that hasn't takes the new link.
@@ -132,7 +133,7 @@ function PhotoCard({ feed, name, emoji, now, own, onReact, onMore, onOpen }: Car
         </AppText>
         <View style={styles.metaRight}>
           <AppText variant="caption" style={styles.time}>
-            {formatMoment(feed.created_at, now)}
+            {formatMoment(feed.created_at, today)}
             {feed.is_extra ? ` · ${t('pack.extra')}` : ''}
           </AppText>
           {!own && (
@@ -189,7 +190,7 @@ function PhotoCard({ feed, name, emoji, now, own, onReact, onMore, onOpen }: Car
       )}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   list: { gap: spacing.md },

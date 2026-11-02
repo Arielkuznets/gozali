@@ -12,9 +12,11 @@ import { confirm, notify } from '@/lib/confirm';
 export function useModeration(onBlocked?: () => void) {
   const { t } = useTranslation();
   const { session } = useAuth();
-  const report = useReport();
-  const memberReport = useReportMember();
-  const blockMember = useBlock();
+  // Only mutate, which stays the same: the whole result is new on every render, and every row of the
+  // feed hangs on these menus.
+  const { mutate: sendReport } = useReport();
+  const { mutate: sendMemberReport } = useReportMember();
+  const { mutate: sendBlock } = useBlock();
   const userId = session?.user.id;
   const fail = (error: unknown) => notify(t(socialErrorKey(error)));
 
@@ -27,7 +29,7 @@ export function useModeration(onBlocked?: () => void) {
       cancel: t('social.cancel'),
       destructive: true,
       onConfirm: () =>
-        report.mutate(
+        sendReport(
           { feedId, reporterId: userId, reason: null },
           { onSuccess: () => notify(t('social.reported')), onError: fail },
         ),
@@ -43,7 +45,7 @@ export function useModeration(onBlocked?: () => void) {
       cancel: t('social.cancel'),
       destructive: true,
       onConfirm: () =>
-        memberReport.mutate(
+        sendMemberReport(
           { memberId, reporterId: userId },
           { onSuccess: () => notify(t('social.reported')), onError: fail },
         ),
@@ -59,7 +61,7 @@ export function useModeration(onBlocked?: () => void) {
       cancel: t('social.cancel'),
       destructive: true,
       onConfirm: () =>
-        blockMember.mutate(
+        sendBlock(
           { blockerId: userId, blockedId: memberId },
           {
             onSuccess: () => {

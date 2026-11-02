@@ -58,7 +58,7 @@ export default function PackScreen() {
   const events = usePackEvents(id, feedLimit);
   const avatars = useAvatarUrls(pack?.pack_members.map((member) => member.profiles?.avatar_path) ?? []);
   const blocked = useBlockedIds(session?.user.id);
-  const react = useReact();
+  const { mutate: sendReaction } = useReact();
   const nudge = useNudge(id);
   const { memberActions, photoMenu } = useModeration();
   usePackRealtime(id);
@@ -136,7 +136,7 @@ export default function PackScreen() {
 
   const onReact = (item: FeedItem, emoji: ReactionKey | null) => {
     haptics.tap();
-    react.mutate({ feedId: item.id, emoji }, { onError: fail });
+    sendReaction({ feedId: item.id, emoji }, { onError: fail });
   };
 
   const onMore = (item: FeedItem) => {
@@ -223,7 +223,7 @@ export default function PackScreen() {
             names={names}
             critterName={critterName}
             emoji={categoryInfo(pack.category).emoji}
-            now={now}
+            today={now.toDateString()}
             userId={userId}
             onReact={onReact}
             onMore={onMore}

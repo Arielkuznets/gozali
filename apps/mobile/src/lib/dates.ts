@@ -21,11 +21,11 @@ export function formatDay(day: string): string {
   return formatter({ weekday: 'short', month: 'short', day: 'numeric' }).format(new Date(`${day}T12:00:00`));
 }
 
-/** A moment as a time today, or with the date on other days. */
-export function formatMoment(at: string, now: Date): string {
+/** A moment as a time today, or with the date on other days. `today` is a `Date.toDateString`. */
+export function formatMoment(at: string, today: string): string {
   const date = new Date(at);
   const time = formatter({ hour: '2-digit', minute: '2-digit' }).format(date);
-  if (date.toDateString() === now.toDateString()) return time;
+  if (date.toDateString() === today) return time;
   return `${formatter({ month: 'short', day: 'numeric' }).format(date)}, ${time}`;
 }
 
