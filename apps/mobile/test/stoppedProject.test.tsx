@@ -402,6 +402,8 @@ describe.each([
       expect(await storedAccount()).toBe('noa');
       expect(shown().signedIn).toBe('noa');
       expect(await waiting()).toEqual(['waiting']);
+      expect(widgetsShow()).toEqual(['Before']);
+      expect(await AsyncStorage.getItem(WIDGET_TOKEN_KEY)).toBe('noa-widget-token');
     });
   });
 });

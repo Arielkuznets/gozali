@@ -1,11 +1,14 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AuthRetryableFetchError } from '@supabase/supabase-js';
 
 import { signOut } from '@/features/auth/signIn';
 import { suggestName, suggestedName } from '@/features/profile/suggestedName';
 
 // Taking back what the phone keeps for the account is a no-op here; the tests look at when it happens.
-jest.mock('@/lib/push', () => ({ unregisterPushToken: async () => undefined }));
-jest.mock('@/features/widgets/sync', () => ({ clearWidgets: async () => undefined, resumeWidgets: () => undefined }));
+const mockForgetPushToken = jest.fn(async () => undefined);
+const mockClearWidgets = jest.fn(async () => undefined);
+jest.mock('@/lib/push', () => ({ unregisterPushToken: () => mockForgetPushToken() }));
+jest.mock('@/features/widgets/sync', () => ({ clearWidgets: () => mockClearWidgets(), resumeWidgets: () => undefined }));
 const mockForgetFeedsOf = jest.fn(async (_userId: string) => undefined);
 const mockClearFocusSession = jest.fn(async () => undefined);
 const mockClearNotifications = jest.fn(async () => undefined);
@@ -21,14 +24,16 @@ jest.mock('@/lib/supabase', () => ({
 }));
 
 const offline = new TypeError('Network request failed');
+const signedIn = { data: { session: { access_token: 'good' } }, error: null };
 
 const keptUntilSignedOut = [mockForgetFeedsOf, mockClearFocusSession, mockClearNotifications];
+const whatTheServerKeeps = [mockForgetPushToken, mockClearWidgets];
 
 beforeEach(async () => {
   await AsyncStorage.clear();
-  for (const clear of keptUntilSignedOut) clear.mockClear();
+  for (const clear of [...keptUntilSignedOut, ...whatTheServerKeeps]) clear.mockClear();
   mockSignOut.mockReset();
-  mockGetSession.mockReset();
+  mockGetSession.mockReset().mockResolvedValue(signedIn);
   suggestName('Noa Levi');
 });
 
@@ -71,7 +76,7 @@ describe('signing out', () => {
 
   it('is done offline once the session is gone from the phone', async () => {
     mockSignOut.mockResolvedValue({ error: offline });
-    mockGetSession.mockResolvedValue({ data: { session: null }, error: null });
+    mockGetSession.mockResolvedValueOnce(signedIn).mockResolvedValue({ data: { session: null }, error: null });
     await expect(signOut()).resolves.toBeUndefined();
     for (const clear of keptUntilSignedOut) expect(clear).toHaveBeenCalledTimes(1);
   });
@@ -89,5 +94,25 @@ describe('signing out', () => {
     mockGetSession.mockResolvedValue({ data: { session: null }, error: offline });
     await expect(signOut()).rejects.toBe(offline);
     for (const clear of keptUntilSignedOut) expect(clear).not.toHaveBeenCalled();
+  });
+
+  it("takes nothing back when an expired session can't be refreshed, as it can't sign out either", async () => {
+    const noAnswer = new AuthRetryableFetchError('Network request failed', 0);
+    mockGetSession.mockResolvedValue({ data: { session: null }, error: noAnswer });
+    mockSignOut.mockResolvedValue({ error: noAnswer });
+
+    await expect(signOut()).rejects.toBe(noAnswer);
+
+    for (const taken of [...keptUntilSignedOut, ...whatTheServerKeeps]) expect(taken).not.toHaveBeenCalled();
+    expect(mockSignOut).not.toHaveBeenCalled();
+  });
+
+  it('goes on after a refresh the server refused: that session is over', async () => {
+    mockGetSession.mockResolvedValue({ data: { session: null }, error: Object.assign(new Error('Invalid Refresh Token'), { status: 400 }) });
+    mockSignOut.mockResolvedValue({ error: null });
+
+    await expect(signOut()).resolves.toBeUndefined();
+
+    for (const taken of [...keptUntilSignedOut, ...whatTheServerKeeps]) expect(taken).toHaveBeenCalledTimes(1);
   });
 });

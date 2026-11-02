@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { isAuthRetryableFetchError } from '@supabase/supabase-js';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
@@ -172,8 +173,12 @@ export async function deleteAccount({ revokeApple }: { revokeApple: boolean }): 
 
 export async function signOut(): Promise<void> {
   const leaving = (await storedSession())?.user.id;
-  await forgetTokens();
   const auth = requireSupabase().auth;
+  // An expired session that can't be refreshed can't sign out either, so nothing is taken back yet.
+  // A refresh the server refused goes on: that session is over.
+  const { error: unreachable } = await auth.getSession();
+  if (isAuthRetryableFetchError(unreachable)) throw unreachable;
+  await forgetTokens();
   // This phone only, like the tokens forgotten above: other phones keep their session, so they
   // don't sit signed out while their pushes and widgets still come.
   const { error } = await auth.signOut({ scope: 'local' });
