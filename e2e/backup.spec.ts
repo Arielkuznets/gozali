@@ -52,7 +52,7 @@ test('a backup keeps every row of a table longer than one page', async () => {
 
   run(`node scripts/backup.mjs --local --out "${out}"`);
 
-  // What the owners' daily summary reads to say how old the newest backup is.
+  // A run that saved its file leaves a heartbeat.
   expect(await heartbeat()).not.toBe(lastBeat);
 
   const file = readdirSync(out).find((name) => name.endsWith('.json'))!;
