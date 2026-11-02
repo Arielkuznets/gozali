@@ -1,11 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
-import type { ComponentType } from 'react';
+import { useEffect, type ComponentType } from 'react';
 import { act, create } from 'react-test-renderer';
 
 import '@/i18n';
-import { useFeedQueue } from '@/features/feeds/api';
-import { enqueue, pendingFeeds } from '@/features/feeds/queue';
+import { useFeedQueue, useSendFeed } from '@/features/feeds/api';
+import { enqueue, flushQueue, pendingFeeds } from '@/features/feeds/queue';
 import type { OutgoingFeed } from '@/features/feeds/send';
 
 // Files are just names here, as in the queue test.
@@ -44,6 +44,7 @@ jest.mock('@/features/feeds/send', () => ({
 type Connection = { isConnected: boolean; isInternetReachable?: boolean | null };
 let mockConnected: ((state: Connection) => void) | null = null;
 jest.mock('@react-native-community/netinfo', () => ({
+  fetch: async () => ({ isConnected: true, isInternetReachable: true }),
   addEventListener: (listener: (state: Connection) => void) => {
     mockConnected = listener;
     listener({ isConnected: true });
@@ -233,6 +234,65 @@ describe('the connection', () => {
     await connection({ isConnected: true });
     expect(mockLoadPacks).toHaveBeenCalledTimes(2);
     expect(client.getQueryData(['packs'])).toEqual(['Gym squad']);
+  });
+});
+
+describe('the Send button', () => {
+  const alreadyFed = { code: 'P0001', message: 'already_fed' };
+  const noAnswer = { message: 'TypeError: Network request failed', details: '', hint: '', code: '' };
+
+  async function tapSend(outgoing: OutgoingFeed): Promise<'sent' | 'queued'> {
+    let send: ReturnType<typeof useSendFeed>['mutateAsync'] | null = null;
+    function Screen() {
+      const { mutateAsync } = useSendFeed();
+      useEffect(() => {
+        send = mutateAsync;
+      }, [mutateAsync]);
+      return null;
+    }
+    const client = new QueryClient({ defaultOptions: { mutations: { gcTime: 0 } } });
+    await act(async () => {
+      create(
+        <QueryClientProvider client={client}>
+          <Screen />
+        </QueryClientProvider>,
+      );
+    });
+    let outcome: 'sent' | 'queued' | undefined;
+    await act(async () => {
+      outcome = await send!(outgoing);
+    });
+    return outcome!;
+  }
+
+  it('posts an extra when the day was fed from another phone', async () => {
+    mockSendFeed.mockRejectedValueOnce(alreadyFed).mockResolvedValueOnce('feed-id');
+    expect(await tapSend(feed('a'))).toBe('sent');
+    expect(mockSendFeed).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'a', extra: true }));
+    expect(await pendingFeeds()).toEqual([]);
+  });
+
+  it('keeps the feed as an extra when that second try gets no answer, and the queue sends it', async () => {
+    mockSendFeed.mockRejectedValueOnce(alreadyFed).mockRejectedValueOnce(noAnswer);
+    expect(await tapSend(feed('a'))).toBe('queued');
+    expect(await pendingFeeds()).toEqual([expect.objectContaining({ id: 'a', extra: true })]);
+
+    mockSendFeed.mockResolvedValueOnce('feed-id');
+    expect((await flushQueue()).handled).toBe(1);
+    expect(mockSendFeed).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'a', extra: true }));
+  });
+
+  it('keeps the feed as it was when the first try gets no answer', async () => {
+    mockSendFeed.mockRejectedValueOnce(noAnswer);
+    expect(await tapSend(feed('a'))).toBe('queued');
+    expect(await pendingFeeds()).toEqual([expect.objectContaining({ id: 'a', extra: false })]);
+  });
+
+  it('answers with the refusal when the second try is turned down for good', async () => {
+    const tooMany = { code: 'P0001', message: 'too_many_posts' };
+    mockSendFeed.mockRejectedValueOnce(alreadyFed).mockRejectedValueOnce(tooMany);
+    await expect(tapSend(feed('a'))).rejects.toBe(tooMany);
+    expect(await pendingFeeds()).toEqual([]);
   });
 });
 

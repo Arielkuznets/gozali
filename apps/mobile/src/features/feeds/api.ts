@@ -133,25 +133,27 @@ export function usePendingFeeds(packId: string) {
 }
 
 /**
- * Sends a feed, or keeps it for later when there is no connection. A second counted feed on
- * the same day (for example from another phone) goes out as an extra post instead.
+ * Sends a feed, or keeps it for a later try when the server didn't turn it down for good. A second
+ * counted feed on the same day (for example from another phone) goes out as an extra post instead.
  */
+async function sendOrKeep(feed: OutgoingFeed): Promise<'sent' | 'queued'> {
+  try {
+    await sendFeed(feed);
+    return 'sent';
+  } catch (error) {
+    if (feedErrorCode(error) === 'already_fed' && !feed.extra) return sendOrKeep({ ...feed, extra: true });
+    if (!isFinalRejection(error) && (await enqueue(feed))) return 'queued';
+    throw error;
+  }
+}
+
+/** Sends a feed, or keeps it for later when there is no connection. */
 export function useSendFeed() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (feed: OutgoingFeed): Promise<'sent' | 'queued'> => {
       if (!(await isOnline()) && (await enqueue(feed))) return 'queued';
-      try {
-        await sendFeed(feed);
-        return 'sent';
-      } catch (error) {
-        if (feedErrorCode(error) === 'already_fed') {
-          await sendFeed({ ...feed, extra: true });
-          return 'sent';
-        }
-        if (!isFinalRejection(error) && (await enqueue(feed))) return 'queued';
-        throw error;
-      }
+      return sendOrKeep(feed);
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: feedsKey }),
   });
