@@ -95,6 +95,7 @@ test.describe('a restore', () => {
   const target = 'gozali_restore_target';
   const allowedTime = 300_000;
   let dan: TestUser;
+  let others: TestUser[] = [];
 
   function copyToNewProject(dump: string) {
     const copy = `pg_dump -U supabase_admin -d postgres ${dump} | psql -U supabase_admin -d ${newProject} -q`;
@@ -152,7 +153,8 @@ test.describe('a restore', () => {
   });
 
   test.afterEach(async () => {
-    await removeUsers(dan);
+    await removeUsers(dan, ...others);
+    others = [];
   });
 
   test('a backup older than the schema leaves the newer columns their defaults', async () => {
@@ -233,6 +235,27 @@ test.describe('a restore', () => {
     expect(psql(target, 'select id from public.app_errors')).toBe(String(noasReport));
     expect(psql(target, `select name from public.packs where id = '${pack.id}'`)).toBe('Gym squad');
     expect(psql(target, `select count(*) from pg_trigger where tgenabled = 'D'`)).toBe('0');
+  });
+
+  test('a pack whose admin the backup missed passes to its longest-standing member', async () => {
+    const sam = await createUser('Sam');
+    const ana = await createUser('Ana');
+    others = [sam, ana];
+    // Sam joined first and left, so Noa has stood longest of those still in the pack.
+    const pack = await createPack(dan, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [sam, noa, ana]);
+    const left = await sam.client.rpc('leave_pack', { target: pack.id });
+    expect(left.error).toBeNull();
+    const settled = await createPack(ana, { name: 'Morning runs', habit: 'running', species: 'hoot' }, [noa]);
+    const backup = backUp([noa, dan, sam, ana], pack.id, settled.id);
+    // Dan deleted the account after the backup read the members, and before it read the profiles.
+    backup.tables['public.profiles'] = backup.tables['public.profiles']!.filter((row) => row.id !== dan.id);
+
+    restore(backup);
+
+    const admins = (id: string) => psql(target, `select user_id from public.pack_members where pack_id = '${id}' and role = 'admin'`);
+    expect(admins(pack.id)).toBe(noa.id);
+    expect(admins(settled.id)).toBe(ana.id);
+    expect(psql(target, 'select count(*) from public.pack_events')).toBe('0');
   });
 
   test('a pack the backup caught being made, without its critter, stays out with all it holds', async () => {

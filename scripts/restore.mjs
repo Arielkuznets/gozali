@@ -7,10 +7,10 @@
 // triggers off so nothing is queued or counted twice. A row the migrations seeded gives way to the
 // backup's, and one the backup doesn't hold stays. A backup reads one table after another while
 // people use the app, so a row can be in it without its parent: that row is skipped, and the run
-// says how many per table. A pack made in that time can be in it without its critter: it stays out,
-// and the run names it. Photo files aren't in backups, so the restored feeds and profiles forget
-// their photo paths. The Vault values (CRON_SECRET, functions_url) and the function secrets are set
-// again by hand (docs/setup.md, section 1).
+// says how many per table, and an admin skipped that way passes the role on. A pack made in that time
+// can be in it without its critter: it stays out, and the run names it. Photo files aren't in
+// backups, so the restored feeds and profiles forget their photo paths. The Vault values (CRON_SECRET,
+// functions_url) and the function secrets are set again by hand (docs/setup.md, section 1).
 import { readFileSync } from 'node:fs';
 
 import { query } from './backup.mjs';
@@ -154,6 +154,18 @@ end $restore$`);
   console.log(`${table}: ${restored}${skipped > 0 ? `, skipped ${skipped}` : ''}`);
   if (skipped > 0) leftOut.push({ table, skipped });
 }
+
+// A skipped membership can be a pack's admin. The database passes the role on when an admin goes, by
+// this same pick, and nothing in the app can hand it out afterwards.
+run(`update public.pack_members m set role = 'admin'
+     from (
+       select distinct on (x.pack_id) x.pack_id, x.user_id
+       from public.pack_members x
+       where x.status <> 'left'
+         and not exists (select 1 from public.pack_members a where a.pack_id = x.pack_id and a.role = 'admin')
+       order by x.pack_id, x.joined_at, x.user_id
+     ) next
+     where m.pack_id = next.pack_id and m.user_id = next.user_id`);
 
 run(`do $restore$ begin
 alter table public.feeds disable trigger user;
