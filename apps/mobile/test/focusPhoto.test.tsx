@@ -17,7 +17,7 @@ jest.mock('expo-router', () => ({
   router: { canGoBack: () => true, back: jest.fn(), replace: jest.fn() },
 }));
 jest.mock('@/features/auth/AuthProvider', () => ({ useAuth: () => ({ session: { user: { id: 'noa' } } }) }));
-jest.mock('@/features/days/api', () => ({ isPausedToday: () => false, useDayStatus: () => ({ data: undefined }) }));
+jest.mock('@/features/days/api', () => ({ pauseToday: () => null, useDayStatus: () => ({ data: undefined }) }));
 jest.mock('@/features/feeds/EatingMoment', () => ({ EatingMoment: () => null }));
 const mockSend = jest.fn();
 jest.mock('@/features/feeds/api', () => ({ useSendFeed: () => ({ mutateAsync: mockSend }) }));
@@ -27,11 +27,7 @@ jest.mock('@/features/feeds/send', () => ({
   isFinalRejection: () => false,
 }));
 jest.mock('@/features/packs/api', () => ({
-  usePack: () => ({
-    data: { name: 'Study group', category: 'study', critters: { name: 'Mochi', species: 'kit' } },
-    isLoading: false,
-    refetch: jest.fn(),
-  }),
+  usePack: () => ({ data: { name: 'Study group', category: 'study', critters: null }, isLoading: false, refetch: jest.fn() }),
 }));
 const mockNotify = jest.fn();
 jest.mock('@/lib/confirm', () => ({ notify: (message: string) => mockNotify(message) }));
@@ -65,6 +61,6 @@ describe('the photo that ends a focus session', () => {
 
     expect(mockSend).toHaveBeenCalledTimes(1);
     expect(mockNotify).not.toHaveBeenCalled();
-    expect(JSON.stringify(screen.toJSON())).not.toContain('Send');
+    expect(JSON.stringify(screen.toJSON())).toContain('Fed!');
   });
 });
