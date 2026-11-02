@@ -25,7 +25,7 @@ import {
 import { PACK_NAME_MAX, REST_DAYS_MAX, type WeekStart } from '@/features/packs/constants';
 import { confirm, notify } from '@/lib/confirm';
 import { formatDay, readableZone } from '@/lib/dates';
-import { goBack } from '@/lib/navigation';
+import { goBack, useBackHome } from '@/lib/navigation';
 import { useNow } from '@/lib/useNow';
 import { colors, radii, spacing } from '@/theme/tokens';
 
@@ -35,12 +35,13 @@ export default function PackSettingsScreen() {
   // Up here because leaving takes the pack, and so the form, away before it is done.
   const leavePack = useLeavePack();
   const left = leavePack.isSuccess;
+  const backHome = useBackHome();
 
   // Only from the front: whoever walked away during the wait keeps what they opened since.
   useFocusEffect(
     useCallback(() => {
-      if (left) router.dismissTo('/');
-    }, [left]),
+      if (left) backHome();
+    }, [left, backHome]),
   );
 
   if (isPending) return <LoadingScreen back />;

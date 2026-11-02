@@ -53,6 +53,20 @@ export function useBackToPack(): (packId: string) => void {
 }
 
 /**
+ * For a screen with nothing left to show: down to the home screen, or no further than a camera left
+ * underneath, whose photo would go with no word.
+ */
+export function useBackHome(): () => void {
+  const navigation = useNavigation();
+  return useCallback(() => {
+    const under = navigation.getState()?.routes.slice(0, -1) ?? [];
+    const camera = under.findLastIndex((route) => route.name === 'pack/[id]/feed');
+    if (camera === -1) router.dismissTo('/');
+    else router.dismiss(under.length - camera);
+  }, [navigation]);
+}
+
+/**
  * Leaves a route that opens over whatever is on screen, once `href` is known. A screen already
  * open underneath is gone back to, with what was typed there, and only with nothing there does
  * `href` open: a Redirect would open a second copy over it.

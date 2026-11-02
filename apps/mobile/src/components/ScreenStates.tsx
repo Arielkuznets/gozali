@@ -1,5 +1,4 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
@@ -8,7 +7,7 @@ import { Button } from '@/components/Button';
 import { HeaderButton } from '@/components/HeaderButton';
 import { Screen } from '@/components/Screen';
 import { packsKey } from '@/features/packs/api';
-import { goBack } from '@/lib/navigation';
+import { goBack, useBackHome } from '@/lib/navigation';
 import { colors, spacing } from '@/theme/tokens';
 
 /**
@@ -63,11 +62,12 @@ export function LoadFailedScreen({ onRetry }: { onRetry: () => void }) {
 export function PackMissingScreen() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const leave = useBackHome();
 
   // The home screen under this one reads nothing as it comes back, and may still list this pack.
   const backHome = () => {
     void queryClient.invalidateQueries({ queryKey: packsKey });
-    router.dismissTo('/');
+    leave();
   };
 
   return (

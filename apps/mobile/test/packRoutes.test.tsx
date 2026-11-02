@@ -333,6 +333,20 @@ describe('leaving a pack', () => {
       });
     });
 
+    it('stops at a camera left under the pack, with its photo', async () => {
+      await start('/pack/p2');
+      await open('/pack/p2/feed');
+      await open('/pack/p1');
+      await open('/pack/p1/settings');
+      await press('Leave pack');
+
+      await act(async () => answerLeave());
+      await settle();
+
+      expect(pathname()).toBe('/pack/p2/feed');
+      expect(shows(CAPTION)).toBe(true);
+    });
+
     it('leaves the person where they went, with the photo on the camera', async () => {
       await start('/pack/p1');
       await open('/pack/p1/settings');
@@ -424,6 +438,48 @@ describe('a pack that is gone', () => {
     expect(shows(MISSING)).toBe(true);
 
     await press('Back to your packs');
+
+    expect(pathname()).toBe('/');
+    expect(shows('Pack p2')).toBe(true);
+  });
+
+  it('stops at a camera left underneath, with its photo', async () => {
+    await start('/pack/p1');
+    await open('/pack/p1/feed');
+    await open('/pack/p9');
+    expect(shows(MISSING)).toBe(true);
+
+    await press('Back to your packs');
+
+    expect(appStack()).toEqual(['index', 'pack/[id]/index', 'pack/[id]/feed']);
+    expect(shows(CAPTION)).toBe(true);
+  });
+
+  it('stops at a camera further down, past what else stands over it', async () => {
+    mockPacks = [packNamed('p1'), packNamed('p2')];
+    await start('/pack/p1');
+    await open('/pack/p1/feed');
+    await open('/pack/p2');
+    mockPacks = [packNamed('p1')];
+    await open('/pack/p2/settings');
+    expect(shows(MISSING)).toBe(true);
+
+    await press('Back to your packs');
+
+    expect(pathname()).toBe('/pack/p1/feed');
+    expect(shows(CAPTION)).toBe(true);
+  });
+
+  it('still takes the pack off the home screen for the way back from that camera', async () => {
+    mockPacks = [packNamed('p1'), packNamed('p2')];
+    await start('/');
+    await open('/pack/p2/feed');
+    mockPacks = [packNamed('p2')];
+    await open('/pack/p1/settings');
+    expect(shows(MISSING)).toBe(true);
+
+    await press('Back to your packs');
+    await goBack();
 
     expect(pathname()).toBe('/');
     expect(shows('Pack p2')).toBe(true);
