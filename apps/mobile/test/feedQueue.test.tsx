@@ -272,6 +272,23 @@ describe('the Send button', () => {
     expect(await pendingFeeds()).toEqual([]);
   });
 
+  it('tries an extra once more when another phone got to the day first', async () => {
+    mockSendFeed.mockRejectedValueOnce(alreadyFed).mockResolvedValueOnce('feed-id');
+    expect(await tapSend({ ...feed('a'), extra: true })).toBe('sent');
+    expect(mockSendFeed).toHaveBeenCalledTimes(2);
+    expect(mockSendFeed).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'a', extra: true }));
+  });
+
+  it.each([
+    ['a feed', feed('a')],
+    ['an extra', { ...feed('a'), extra: true }],
+  ])('stops at one more try for %s when the answer stays the same', async (_name, outgoing) => {
+    mockSendFeed.mockRejectedValue(alreadyFed);
+    await expect(tapSend(outgoing)).rejects.toBe(alreadyFed);
+    expect(mockSendFeed).toHaveBeenCalledTimes(2);
+    expect(await pendingFeeds()).toEqual([]);
+  });
+
   it('keeps the feed as an extra when that second try gets no answer, and the queue sends it', async () => {
     mockSendFeed.mockRejectedValueOnce(alreadyFed).mockRejectedValueOnce(noAnswer);
     expect(await tapSend(feed('a'))).toBe('queued');

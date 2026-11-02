@@ -327,6 +327,25 @@ describe('offline feed queue', () => {
     expect(mockSendFeed).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'a', extra: true }));
   });
 
+  it('tries an extra once more when another phone got to the day first', async () => {
+    await enqueue({ ...feed('a'), extra: true });
+    mockSendFeed.mockRejectedValueOnce({ code: 'P0001', message: 'already_fed' }).mockResolvedValueOnce('feed-id');
+    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], stuck: [] });
+    expect(mockSendFeed).toHaveBeenCalledTimes(2);
+    expect(await pendingFeeds()).toEqual([]);
+  });
+
+  it.each([
+    ['a feed', feed('a')],
+    ['an extra', { ...feed('a'), extra: true }],
+  ])('stops at one more try for %s when the answer stays the same', async (_name, queued) => {
+    const alreadyFed = { code: 'P0001', message: 'already_fed' };
+    await enqueue(queued);
+    mockSendFeed.mockRejectedValue(alreadyFed);
+    expect(await flushQueue()).toEqual({ handled: 1, dropped: [alreadyFed], stuck: [] });
+    expect(mockSendFeed).toHaveBeenCalledTimes(2);
+  });
+
   it('still feeds when the word filter turns down the caption it was queued with', async () => {
     await enqueue({ ...feed('a'), caption: 'Kicked ass today' });
     mockSendFeed.mockRejectedValueOnce({ code: '22023', message: 'text_not_allowed' }).mockResolvedValueOnce('feed-id');

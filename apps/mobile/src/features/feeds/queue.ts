@@ -139,28 +139,28 @@ async function sendable(): Promise<QueuedFeed[]> {
 
 /**
  * The feed to send instead of one the server turned down for good, if there is one: fed from
- * another phone meanwhile, the photo still goes up as an extra post; and offline nobody checked
- * the caption, and nobody is there to fix it now, so the photo still feeds the pet without the
- * words the filter turned down.
+ * another phone meanwhile, the photo still goes up as an extra post, and an extra the server took
+ * for the day's feed gets the same one retry; and offline nobody checked the caption, and nobody
+ * is there to fix it now, so the photo still feeds the pet without the words the filter turned down.
  */
-function replacement(feed: QueuedFeed, error: unknown): QueuedFeed | null {
-  if (feedErrorCode(error) === 'already_fed' && !feed.extra) return { ...feed, extra: true };
+function replacement(feed: QueuedFeed, error: unknown, retried: boolean): QueuedFeed | null {
+  if (feedErrorCode(error) === 'already_fed' && !retried) return { ...feed, extra: true };
   if (isBlockedText(error) && feed.caption !== null) return { ...feed, caption: null };
   return null;
 }
 
 /** Sends a feed, then its replacements. */
-async function sendOrReplace(feed: QueuedFeed): Promise<Attempt> {
+async function sendOrReplace(feed: QueuedFeed, retried = false): Promise<Attempt> {
   try {
     await inTime((givenUp) => sendFeed(feed, givenUp));
     return { outcome: 'sent' };
   } catch (error) {
     if (!isFinalRejection(error)) return { outcome: 'waiting', error };
-    const next = replacement(feed, error);
+    const next = replacement(feed, error, retried);
     if (!next) return { outcome: 'dropped', error };
     // Kept as the replacement, so a later run doesn't meet the same refusal again.
     await update((queue) => queue.map((item) => (item.id === feed.id ? next : item)));
-    return sendOrReplace(next);
+    return sendOrReplace(next, retried || feedErrorCode(error) === 'already_fed');
   }
 }
 

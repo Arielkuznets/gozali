@@ -149,13 +149,15 @@ export function usePendingFeeds(packId: string) {
 /**
  * Sends a feed, or keeps it for a later try when the server didn't turn it down for good. A second
  * counted feed on the same day (for example from another phone) goes out as an extra post instead.
+ * An extra can hear the same, once: before the day's first feed the server counts it, and another
+ * phone can get there first.
  */
-async function sendOrKeep(feed: OutgoingFeed): Promise<'sent' | 'queued'> {
+async function sendOrKeep(feed: OutgoingFeed, retried = false): Promise<'sent' | 'queued'> {
   try {
     await inTime((givenUp) => sendFeed(feed, givenUp));
     return 'sent';
   } catch (error) {
-    if (feedErrorCode(error) === 'already_fed' && !feed.extra) return sendOrKeep({ ...feed, extra: true });
+    if (feedErrorCode(error) === 'already_fed' && !retried) return sendOrKeep({ ...feed, extra: true }, true);
     if (!isFinalRejection(error) && (await enqueue(feed))) return 'queued';
     throw error;
   }
