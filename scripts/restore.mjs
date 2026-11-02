@@ -80,8 +80,9 @@ for (const table of order) {
   // New accounts get a profile from a trigger; the backup's profiles replace them.
   if (table === 'public.profiles') run('delete from public.profiles');
   for (let start = 0; start < rows.length; start += BATCH) {
-    const data = JSON.stringify(rows.slice(start, start + BATCH));
-    if (data.includes('$gz$') || data.includes('$restore$')) throw new Error(`${table} holds text that ends the SQL quote`);
+    // A `$` only ever sits inside a JSON string, where $ means the same to jsonb, so no text in
+    // a backup can end the quotes below.
+    const data = JSON.stringify(rows.slice(start, start + BATCH)).replaceAll('$', '\\u0024');
     // One statement (the CLI sends one), so a DO block: all of it happens, or none. Row by row,
     // because an insert of them all would fail on the one without a parent.
     run(`do $restore$

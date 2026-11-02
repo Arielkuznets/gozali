@@ -216,4 +216,17 @@ test.describe('a restore', () => {
     expect(psql(target, `select name from public.packs where id = '${pack.id}'`)).toBe('Gym squad');
     expect(psql(target, `select count(*) from pg_trigger where tgenabled = 'D'`)).toBe('0');
   });
+
+  test('text that reads like the quotes of the script comes back as it was', async () => {
+    const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' });
+    const captions = ['nice run $gz$ today', 'and $restore$ again', 'a backslash \\$gz$ before it'];
+    const fed = await admin
+      .from('feeds')
+      .insert(captions.map((caption, n) => ({ pack_id: pack.id, user_id: noa.id, photo_path: `${n}.jpg`, day: `2026-10-2${n}`, caption })));
+    expect(fed.error).toBeNull();
+
+    restore(backUp([noa], pack.id));
+
+    expect(psql(target, 'select caption from public.feeds').split('\n').sort()).toEqual([...captions].sort());
+  });
 });
