@@ -69,7 +69,7 @@ To paste into App Store Connect → App Review Information → Notes, with the d
 ```text
 Gozali needs an account. You get one with Sign in with Apple, which has no user name or password to give here, so please use your own Apple ID: any Apple ID works.
 
-A new pack starts as an egg, which hatches at the end of the first day on which two members feed it and nobody misses (a feed is a photo taken in the app). With one account you can create a pack, feed it, use "Not today" (rest day, joker, pause), open the pet's Profile with the monthly board and achievements, and change the settings. The Focus button (focus timer) appears on Study, Reading, Meditation, Language and Music packs.
+A new pack starts as an egg, which hatches at the end of the first day on which two members feed it and nobody misses (a feed is a photo taken in the app). With one account you can create a pack, use "Not today" (rest day, joker, pause) before that day's feed, feed it, open the pet's Profile with the monthly board and achievements, and change the settings. The Focus button (focus timer) appears on Study, Reading, Meditation, Language and Music packs.
 
 To see a hatched pet, a friend's photos, the outfit shop and a weekly recap, tap "Join with a code" on the home screen and enter <invite code>. To hatch your own egg, a second account joins with the pack's code (Invite on the pack screen) and feeds the same day; the day closes around 04:00 in the pack's time zone.
 
