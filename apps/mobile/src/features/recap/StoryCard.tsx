@@ -1,11 +1,11 @@
 import { critterArtFor, renderCritter } from '@gozali/critter-art';
-import { Image } from 'expo-image';
 import { forwardRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 
 import { AppText } from '@/components/AppText';
+import { SignedPhoto } from '@/features/feeds/SignedPhoto';
 import type { RecapPhoto, RecapStats } from '@/features/recap/api';
 import type { Category } from '@/features/packs/constants';
 import { formatDay } from '@/lib/dates';
@@ -44,7 +44,7 @@ export const StoryCard = forwardRef<View, Props>(function StoryCard({ packName, 
       {photos.length > 0 && (
         <View style={styles.photos}>
           {photos.slice(0, 3).map((photo) => (
-            <Image key={photo.id} source={{ uri: photo.url, cacheKey: photo.id }} style={styles.photo} contentFit="cover" />
+            <SignedPhoto key={photo.id} id={photo.id} url={photo.url} style={styles.photo} contentFit="cover" />
           ))}
         </View>
       )}

@@ -47,7 +47,6 @@ export function useRecapPhotos(recap: Recap | undefined) {
   return useQuery({
     queryKey: ['feeds', 'recap-photos', recap?.week_start, recap?.feed_ids.join()],
     enabled: recap !== undefined && recap.feed_ids.length > 0,
-    staleTime: (PHOTO_LINK_SECONDS / 2) * 1000,
     queryFn: async (): Promise<RecapPhoto[]> => {
       const supabase = requireSupabase();
       const { data, error } = await supabase.from('feeds').select('id, user_id, photo_path').in('id', recap!.feed_ids);

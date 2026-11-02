@@ -1,5 +1,4 @@
 import { ACHIEVEMENTS, type AchievementKey } from '@gozali/game-engine';
-import { Image } from 'expo-image';
 import { memo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -7,6 +6,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/AppText';
 import type { FeedItem } from '@/features/feeds/api';
 import { PhotoViewer, type ViewedPhoto } from '@/features/feeds/PhotoViewer';
+import { SignedPhoto } from '@/features/feeds/SignedPhoto';
 import { REACTIONS, type PackEvent, type ReactionKey } from '@/features/social/api';
 import { formatMoment } from '@/lib/dates';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
@@ -123,9 +123,6 @@ type CardProps = {
 
 const PhotoCard = memo(function PhotoCard({ feed, name, emoji, today, own, onReact, onMore, onOpen }: CardProps) {
   const { t } = useTranslation();
-  // Every refetch brings a new link. A photo that has loaded stays on the link it loaded with, or it
-  // would load from the disk again and fade in over itself. One that hasn't takes the new link.
-  const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
   const totals = new Map(feed.reactions.map((reaction) => [reaction.emoji, reaction]));
   const reactedBy = feed.reactions.filter((reaction) => reaction.emoji !== 'suspicious').flatMap((reaction) => reaction.names);
   return (
@@ -148,9 +145,9 @@ const PhotoCard = memo(function PhotoCard({ feed, name, emoji, today, own, onRea
       </View>
       {feed.photoUrl ? (
         <Pressable accessibilityRole="imagebutton" accessibilityHint={t('feed.openPhoto')} onPress={() => onOpen(feed)}>
-          <Image
-            source={{ uri: loadedUrl ?? feed.photoUrl, cacheKey: feed.id }}
-            onLoad={() => setLoadedUrl((loaded) => loaded ?? feed.photoUrl)}
+          <SignedPhoto
+            id={feed.id}
+            url={feed.photoUrl}
             style={styles.photo}
             contentFit="cover"
             transition={150}

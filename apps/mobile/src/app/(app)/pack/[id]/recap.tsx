@@ -1,7 +1,6 @@
 import { ACHIEVEMENTS } from '@gozali/game-engine';
 import { critterArtFor } from '@gozali/critter-art';
 import * as Sharing from 'expo-sharing';
-import { Image } from 'expo-image';
 import { useLocalSearchParams } from 'expo-router';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -18,6 +17,7 @@ import { LoadFailed, LoadFailedScreen, LoadingScreen, PackMissingScreen } from '
 import { useAuth } from '@/features/auth/AuthProvider';
 import { Critter } from '@/features/critter/Critter';
 import { PhotoViewer, type ViewedPhoto } from '@/features/feeds/PhotoViewer';
+import { SignedPhoto } from '@/features/feeds/SignedPhoto';
 import { usePack } from '@/features/packs/api';
 import { StoryCard, STORY_HEIGHT, STORY_WIDTH } from '@/features/recap/StoryCard';
 import { useRecapPhotos, useRecaps, type Recap } from '@/features/recap/api';
@@ -153,7 +153,7 @@ function RecapView({ recap, packName, category, names }: ViewProps) {
                   accessibilityLabel={t('feed.photoBy', { name })}
                   accessibilityHint={t('feed.openPhoto')}
                   onPress={() => setOpen({ id: photo.id, userId: photo.userId, url: photo.url, caption: null, name })}>
-                  <Image source={{ uri: photo.url, cacheKey: photo.id }} style={styles.fill} contentFit="cover" transition={200} />
+                  <SignedPhoto id={photo.id} url={photo.url} style={styles.fill} contentFit="cover" transition={200} />
                 </Pressable>
               );
             })}
