@@ -72,6 +72,16 @@ export function fedToday(feeds: CountedFeed[] | undefined, pack: Pick<Pack, 'id'
   return new Set((feeds ?? []).filter((feed) => feed.pack_id === pack.id && feed.day === today).map((feed) => feed.user_id));
 }
 
+/**
+ * Whether the member's counted feed of the pack's current day waits on this phone to go out. Their
+ * part is done, so nothing asks for a second photo. How many fed stays the server's to say.
+ */
+export function feedWaitsToday(pending: OutgoingFeed[] | undefined, pack: Pick<Pack, 'timezone'>, userId: string | undefined, now: Date): boolean {
+  const zone = readableZone(pack.timezone);
+  const today = packDayOf(now, zone);
+  return (pending ?? []).some((feed) => feed.userId === userId && !feed.extra && packDayOf(new Date(feed.capturedAt), zone) === today);
+}
+
 async function fetchReactions(feedIds: string[]): Promise<Map<string, ReactionTotal[]>> {
   const byFeed = new Map<string, ReactionTotal[]>();
   if (feedIds.length === 0) return byFeed;

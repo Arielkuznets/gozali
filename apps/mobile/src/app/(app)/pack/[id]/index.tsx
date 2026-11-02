@@ -25,7 +25,7 @@ import { critterArt, stageProgress } from '@/features/critter/art';
 import { useCritterText } from '@/features/critter/useCritterText';
 import { isPausedToday, useDayStatus, useMembersToday, useTodayPasses, type TodayPasses } from '@/features/days/api';
 import { FeedList } from '@/features/feeds/FeedList';
-import { FEED_PAGE, fedToday, useCountedFeeds, usePackFeed, usePendingFeeds, type FeedItem } from '@/features/feeds/api';
+import { FEED_PAGE, feedWaitsToday, fedToday, useCountedFeeds, usePackFeed, usePendingFeeds, type FeedItem } from '@/features/feeds/api';
 import { countedToday, currentMembers, restDaysOn, usePack, type Pack, type PackCritter, type PackMember } from '@/features/packs/api';
 import { FOCUS_CATEGORIES, PACK_SIZE_MAX, categoryInfo } from '@/features/packs/constants';
 import { usePackRealtime } from '@/features/packs/realtime';
@@ -71,7 +71,9 @@ export default function PackScreen() {
   const members = currentMembers(pack);
   const habit = pack.custom_habit ?? t(`packs.categories.${pack.category}`);
   const fed = fedToday(counted.data, pack, now);
-  const iFed = members.some((member) => member.user_id === session?.user.id && fed.has(member.user_id));
+  const iFed =
+    members.some((member) => member.user_id === session?.user.id && fed.has(member.user_id)) ||
+    feedWaitsToday(pending.data, pack, session?.user.id, now);
   const today: TodayPasses = passes.data ?? { passes: new Map(), paused: new Set() };
   // Counted today: not asleep and not on a pause.
   const awake = countedToday(pack, today.paused);
