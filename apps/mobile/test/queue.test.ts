@@ -97,6 +97,9 @@ function afterRestart() {
   return queue!;
 }
 
+/** What supabase-js hands back when a request gets no answer. */
+const networkFailure = { message: 'TypeError: Network request failed', details: '', hint: '', code: '' };
+
 // Reading a file that isn't there throws, which is not a refusal from the server.
 const sendsWhatExists = async (sent: OutgoingFeed) => {
   if (mockMissing.has(sent.photoUri)) throw new Error('file not found');
@@ -161,7 +164,7 @@ describe('offline feed queue', () => {
   it('stays empty when a write was on its way as the queue was forgotten', async () => {
     await enqueue(feed('a'));
     await enqueue(feed('b'));
-    mockSendFeed.mockResolvedValueOnce('feed-id').mockRejectedValueOnce(new TypeError('Network request failed'));
+    mockSendFeed.mockResolvedValueOnce('feed-id').mockRejectedValueOnce(networkFailure);
     const write = holdNextWrite();
     const run = flushQueue();
     await write.started;
@@ -239,9 +242,52 @@ describe('offline feed queue', () => {
   it('stops at a network error and keeps the rest for later', async () => {
     await enqueue(feed('a'));
     await enqueue(feed('b'));
-    mockSendFeed.mockRejectedValueOnce(new TypeError('Network request failed'));
+    mockSendFeed.mockRejectedValueOnce(networkFailure);
     expect((await flushQueue()).handled).toBe(0);
     expect((await pendingFeeds()).map((item) => item.id)).toEqual(['a', 'b']);
+  });
+
+  it('goes on past a feed stuck on anything but the network, and keeps it', async () => {
+    await enqueue(feed('a'));
+    await enqueue(feed('b'));
+    mockSendFeed.mockRejectedValueOnce(new Error('Unable to read the file')).mockResolvedValueOnce('feed-id');
+    expect((await flushQueue()).handled).toBe(1);
+    expect(mockSendFeed.mock.calls.map(([sent]) => sent.id)).toEqual(['a', 'b']);
+    expect(await waiting()).toEqual(['a']);
+  });
+
+  it('tries each stuck feed once a run, and sends it when it can go', async () => {
+    await enqueue(feed('a'));
+    await enqueue(feed('b'));
+    mockSendFeed.mockRejectedValue(new Error('Unable to read the file'));
+    expect((await flushQueue()).handled).toBe(0);
+    expect(mockSendFeed.mock.calls.map(([sent]) => sent.id)).toEqual(['a', 'b']);
+    mockSendFeed.mockReset().mockResolvedValue('feed-id');
+    expect((await flushQueue()).handled).toBe(2);
+    expect(await waiting()).toEqual([]);
+  });
+
+  it('stops at a network error behind a stuck feed', async () => {
+    await enqueue(feed('a'));
+    await enqueue(feed('b'));
+    await enqueue(feed('c'));
+    mockSendFeed
+      .mockRejectedValueOnce(new Error('Unable to read the file'))
+      .mockRejectedValueOnce(networkFailure);
+    expect((await flushQueue()).handled).toBe(0);
+    expect(mockSendFeed.mock.calls.map(([sent]) => sent.id)).toEqual(['a', 'b']);
+    expect(await waiting()).toEqual(['a', 'b', 'c']);
+  });
+
+  it('sends a feed queued while the one before it was stuck', async () => {
+    await enqueue(feed('a'));
+    mockSendFeed.mockImplementationOnce(async () => {
+      await enqueue(feed('b'));
+      throw new Error('Unable to read the file');
+    });
+    mockSendFeed.mockResolvedValueOnce('feed-id');
+    expect((await flushQueue()).handled).toBe(1);
+    expect(await waiting()).toEqual(['a']);
   });
 
   it('keeps a feed through a refusal that can pass later', async () => {
@@ -279,7 +325,7 @@ describe('offline feed queue', () => {
     await enqueue({ ...feed('a'), caption: 'Kicked ass today' });
     mockSendFeed
       .mockRejectedValueOnce({ code: '22023', message: 'text_not_allowed' })
-      .mockRejectedValueOnce(new TypeError('Network request failed'));
+      .mockRejectedValueOnce(networkFailure);
     expect((await flushQueue()).handled).toBe(0);
     expect(await pendingFeeds()).toEqual([expect.objectContaining({ id: 'a', caption: null })]);
   });
@@ -328,7 +374,7 @@ describe('feeds of different accounts', () => {
     await enqueue(feed('b'));
     mockSendFeed.mockResolvedValue('feed-id');
 
-    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], stuck: null });
+    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], stuck: [] });
 
     expect(mockSendFeed.mock.calls.map(([sent]) => sent.id)).toEqual(['b']);
     expect(await waiting()).toEqual(['a']);
@@ -350,7 +396,7 @@ describe('feeds of different accounts', () => {
     mockSignedIn = null;
     await enqueue(feed('a'));
 
-    expect(await flushQueue()).toEqual({ handled: 0, dropped: [], stuck: null });
+    expect(await flushQueue()).toEqual({ handled: 0, dropped: [], stuck: [] });
 
     expect(mockSendFeed).not.toHaveBeenCalled();
     expect(await waiting()).toEqual(['a']);
@@ -392,48 +438,48 @@ describe('what a run tells its caller', () => {
     await enqueue(feed('c'));
     mockMissing.add('documents/feed-queue/b.jpg');
     mockSendFeed.mockRejectedValueOnce(refusal).mockResolvedValueOnce('feed-id');
-    expect(await flushQueue()).toEqual({ handled: 3, dropped: [refusal, expect.any(Error)], stuck: null });
+    expect(await flushQueue()).toEqual({ handled: 3, dropped: [refusal, expect.any(Error)], stuck: [] });
   });
 
   it('counts a feed that went out as its replacement as sent', async () => {
     await enqueue({ ...feed('a'), caption: 'Kicked ass today' });
     mockSendFeed.mockRejectedValueOnce({ code: '22023', message: 'text_not_allowed' }).mockResolvedValueOnce('feed-id');
-    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], stuck: null });
+    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], stuck: [] });
   });
 
   it("doesn't call a network failure stuck", async () => {
     await enqueue(feed('a'));
     for (const failure of noAnswer) {
       mockSendFeed.mockRejectedValueOnce(failure);
-      expect(await flushQueue()).toEqual({ handled: 0, dropped: [], stuck: null });
+      expect(await flushQueue()).toEqual({ handled: 0, dropped: [], stuck: [] });
     }
   });
 
-  it('says once what a feed is stuck on, also after the app starts again', async () => {
+  it('says once per feed what it is stuck on, also after the app starts again', async () => {
     await enqueue(feed('a'));
     await enqueue(feed('b'));
     mockSendFeed.mockRejectedValue(timeout);
-    expect((await flushQueue()).stuck).toBe(timeout);
-    expect((await flushQueue()).stuck).toBeNull();
-    expect((await afterRestart().flushQueue()).stuck).toBeNull();
+    expect((await flushQueue()).stuck).toEqual([timeout, timeout]);
+    expect((await flushQueue()).stuck).toEqual([]);
+    expect((await afterRestart().flushQueue()).stuck).toEqual([]);
     expect(await waiting()).toEqual(['a', 'b']);
   });
 
   it('says it again for the next feed that gets stuck', async () => {
     await enqueue(feed('a'));
-    await enqueue(feed('b'));
     mockSendFeed.mockRejectedValueOnce(timeout);
-    expect((await flushQueue()).stuck).toBe(timeout);
+    expect((await flushQueue()).stuck).toEqual([timeout]);
+    await enqueue(feed('b'));
     mockSendFeed.mockResolvedValueOnce('feed-id').mockRejectedValueOnce(timeout);
-    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], stuck: timeout });
+    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], stuck: [timeout] });
   });
 
   it('keeps quiet about a stuck feed through its replacement', async () => {
     await enqueue({ ...feed('a'), caption: 'Kicked ass today' });
     mockSendFeed.mockRejectedValueOnce(timeout);
-    expect((await flushQueue()).stuck).toBe(timeout);
+    expect((await flushQueue()).stuck).toEqual([timeout]);
     mockSendFeed.mockRejectedValueOnce({ code: '22023', message: 'text_not_allowed' }).mockRejectedValueOnce(timeout);
-    expect((await flushQueue()).stuck).toBeNull();
+    expect((await flushQueue()).stuck).toEqual([]);
     expect(await pendingFeeds()).toEqual([expect.objectContaining({ id: 'a', caption: null })]);
   });
 
@@ -441,8 +487,8 @@ describe('what a run tells its caller', () => {
     const restarted = afterRestart();
     const failure = new Error('disk I/O error');
     jest.mocked(AsyncStorage.getItem).mockRejectedValueOnce(failure).mockRejectedValueOnce(failure);
-    expect((await restarted.flushQueue()).stuck).toBe(failure);
-    expect((await restarted.flushQueue()).stuck).toBeNull();
+    expect((await restarted.flushQueue()).stuck).toEqual([failure]);
+    expect((await restarted.flushQueue()).stuck).toEqual([]);
   });
 
   it('tells only the caller that started the run', async () => {
@@ -450,8 +496,8 @@ describe('what a run tells its caller', () => {
     await enqueue(feed('a'));
     mockSendFeed.mockRejectedValueOnce(refusal);
     const [started, joined] = await Promise.all([flushQueue(), flushQueue()]);
-    expect(started).toEqual({ handled: 1, dropped: [refusal], stuck: null });
-    expect(joined).toEqual({ handled: 0, dropped: [], stuck: null });
+    expect(started).toEqual({ handled: 1, dropped: [refusal], stuck: [] });
+    expect(joined).toEqual({ handled: 0, dropped: [], stuck: [] });
   });
 
   it("doesn't call feeds dropped when the queue was forgotten during the run", async () => {
@@ -462,7 +508,7 @@ describe('what a run tells its caller', () => {
       mockMissing.add('documents/feed-queue/b.jpg');
       return 'feed-id';
     });
-    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], stuck: null });
+    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], stuck: [] });
     expect(mockSendFeed).toHaveBeenCalledTimes(1);
   });
 });

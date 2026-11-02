@@ -314,7 +314,7 @@ describe('another account finding what a session left behind', () => {
   });
 
   it("doesn't send the feed left there", async () => {
-    await expect(flushQueue()).resolves.toEqual({ handled: 0, dropped: [], stuck: null });
+    await expect(flushQueue()).resolves.toEqual({ handled: 0, dropped: [], stuck: [] });
     expect(requested('/storage/v1/object/')).toEqual([]);
     expect(await waiting()).toEqual(['waiting']);
   });

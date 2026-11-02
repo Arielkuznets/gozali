@@ -179,7 +179,7 @@ export function useFeedQueue() {
         if (handled > 0) void queryClient.invalidateQueries();
         if (dropped.length > 0) notify(t('feed.dropped', { count: dropped.length }));
         for (const error of dropped) reportError(queueError('Queued feed dropped', error));
-        if (stuck !== null) reportError(queueError('Feed queue stuck', stuck));
+        for (const error of stuck) reportError(queueError('Feed queue stuck', error));
       });
     };
     flush();

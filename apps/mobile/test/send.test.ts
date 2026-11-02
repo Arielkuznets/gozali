@@ -4,6 +4,7 @@ import { enqueue, flushQueue, pendingFeeds } from '@/features/feeds/queue';
 import type { OutgoingFeed } from '@/features/feeds/send';
 
 // Files are just names here, as in the queue test.
+const mockUnreadable = new Set<string>();
 jest.mock('expo-file-system', () => {
   class File {
     uri: string;
@@ -14,6 +15,7 @@ jest.mock('expo-file-system', () => {
     async copy() {}
     delete() {}
     async arrayBuffer() {
+      if (mockUnreadable.has(this.uri)) throw new Error('Unable to read the file');
       return new ArrayBuffer(8);
     }
   }
@@ -58,6 +60,7 @@ const feed: OutgoingFeed = {
 beforeEach(async () => {
   await AsyncStorage.clear();
   jest.clearAllMocks();
+  mockUnreadable.clear();
   mockUpload.mockResolvedValue({ error: { statusCode: '403', message: 'new row violates row-level security policy' } });
   mockRemove.mockResolvedValue({ error: null });
   mockRpc.mockResolvedValue({ data: 'feed-id', error: null });
@@ -82,5 +85,18 @@ describe('sending a queued feed', () => {
     expect((await flushQueue()).handled).toBe(1);
     expect(mockRpc).toHaveBeenCalledWith('submit_feed', expect.objectContaining({ photo: 'pack/noa/a.jpg' }));
     expect(await pendingFeeds()).toEqual([]);
+  });
+
+  it('sends the feeds behind a photo that is there but can not be read, and keeps that one', async () => {
+    mockGetSession.mockResolvedValue({ data: { session: { access_token: 'token' } }, error: null });
+    mockUpload.mockResolvedValue({ error: null });
+    await enqueue(feed);
+    await enqueue({ ...feed, id: 'b' });
+    mockUnreadable.add('documents/feed-queue/a.jpg');
+
+    expect((await flushQueue()).handled).toBe(1);
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+    expect(mockRpc).toHaveBeenCalledWith('submit_feed', expect.objectContaining({ photo: 'pack/noa/b.jpg' }));
+    expect((await pendingFeeds()).map((item) => item.id)).toEqual(['a']);
   });
 });

@@ -166,6 +166,22 @@ describe('a queue that is stuck', () => {
     expect((await pendingFeeds()).map((item) => item.id)).toEqual(['a']);
   });
 
+  it('reports each feed that is stuck, and sends the ones it can', async () => {
+    await enqueue(feed('a'));
+    await enqueue(feed('b'));
+    await enqueue(feed('c'));
+    mockSendFeed
+      .mockRejectedValueOnce(new Error('Unable to read the file'))
+      .mockRejectedValueOnce({ code: '57014', message: 'canceling statement due to statement timeout' })
+      .mockResolvedValue('feed-id');
+    await openApp();
+    expect(mockReport.mock.calls.flat()).toEqual([
+      'Feed queue stuck: Unable to read the file',
+      'Feed queue stuck: 57014 canceling statement due to statement timeout',
+    ]);
+    expect((await pendingFeeds()).map((item) => item.id)).toEqual(['a', 'b']);
+  });
+
   it("doesn't report a network failure", async () => {
     await enqueue(feed('a'));
     mockSendFeed.mockRejectedValue({ code: '', message: 'TypeError: Network request failed' });

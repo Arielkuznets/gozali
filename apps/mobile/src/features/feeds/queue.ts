@@ -101,8 +101,8 @@ export type FlushResult = {
   handled: number;
   /** Why each dropped feed won't go out. */
   dropped: unknown[];
-  /** What stopped the queue, other than the network, the first time it stops on that. */
-  stuck: unknown;
+  /** What keeps a feed waiting, other than the network, the first time that feed stops on it. */
+  stuck: unknown[];
 };
 
 /** How a try at a feed ended. */
@@ -149,14 +149,18 @@ async function sendOrReplace(feed: QueuedFeed): Promise<Attempt> {
 /**
  * Sends what the signed-in account has waiting, oldest first. A feed the server turns down for
  * good (already fed, or no longer a member) is dropped, except for its replacements above; so is
- * one whose photo is gone, since it can never go out and the ones behind it can. Any other error
- * stops the run and keeps the feed. The list is read again for each feed, so one queued meanwhile
- * goes out too, and nothing goes on after the queue was forgotten.
+ * one whose photo is gone, since it can never go out and the ones behind it can. No answer from
+ * the server stops the run and keeps the feed, as the ones behind it would meet the same. Any other
+ * error keeps the feed for the next run and goes on: it may be that one photo that can't be read,
+ * and the server takes feeds in any order. The list is read again for each feed, so one queued
+ * meanwhile goes out too, and nothing goes on after the queue was forgotten.
  */
 async function run(): Promise<FlushResult> {
-  const result: FlushResult = { handled: 0, dropped: [], stuck: null };
+  const result: FlushResult = { handled: 0, dropped: [], stuck: [] };
+  const passed = new Set<string>();
+  const untried = async () => (await sendable()).filter((feed) => !passed.has(feed.id));
   try {
-    for (let queue = await sendable(); queue.length > 0; queue = await sendable()) {
+    for (let queue = await untried(); queue.length > 0; queue = await untried()) {
       const feed = queue[0];
       // By name, not by the stored path: iOS moves the app's folder when the app updates.
       const photo = new File(queueDirectory(), `${feed.id}.jpg`);
@@ -164,12 +168,14 @@ async function run(): Promise<FlushResult> {
         ? await sendOrReplace({ ...feed, photoUri: photo.uri })
         : { outcome: 'dropped', error: PHOTO_GONE };
       if (attempt.outcome === 'waiting') {
+        if (isNetworkFailure(attempt.error)) break;
+        passed.add(feed.id);
         // Kept on the feed, so the runs after the next start stay quiet about it too.
-        if (!feed.stuckReported && !isNetworkFailure(attempt.error)) {
+        if (!feed.stuckReported) {
           await update((list) => list.map((item) => (item.id === feed.id ? { ...item, stuckReported: true } : item)));
-          result.stuck = attempt.error;
+          result.stuck.push(attempt.error);
         }
-        break;
+        continue;
       }
       await update((list) => list.filter((item) => item.id !== feed.id));
       result.handled += 1;
@@ -179,7 +185,7 @@ async function run(): Promise<FlushResult> {
   } catch (error) {
     // The phone's storage failed. Nothing is lost, and the next run tries again. There is nowhere
     // to keep a note of this one, so it is reported once per start of the app.
-    if (!storageFailureReported) result.stuck = error;
+    if (!storageFailureReported) result.stuck.push(error);
     storageFailureReported = true;
   }
   return result;
@@ -190,7 +196,7 @@ async function run(): Promise<FlushResult> {
  * can start one twice over, and the user should hear about a dropped feed once.
  */
 export function flushQueue(): Promise<FlushResult> {
-  if (flushing) return flushing.then(() => ({ handled: 0, dropped: [], stuck: null }));
+  if (flushing) return flushing.then(() => ({ handled: 0, dropped: [], stuck: [] }));
   flushing = run().finally(() => {
     flushing = null;
   });
