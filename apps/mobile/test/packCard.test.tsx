@@ -6,7 +6,7 @@ import type { Pack, PackCritter, PackMember } from '@/features/packs/api';
 
 jest.mock('@/features/critter/Critter', () => ({ Critter: () => null }));
 jest.mock('@/features/days/api', () => ({
-  keptToday: () => ({ passes: new Map(), paused: new Set() }),
+  keptToday: () => ({ passes: new Map(), paused: new Set(), pausedForSure: new Set() }),
   useTodayPasses: () => ({ data: undefined }),
 }));
 jest.mock('@/features/feeds/api', () => ({ feedWaitsToday: () => false, usePendingFeeds: () => ({ data: undefined }) }));

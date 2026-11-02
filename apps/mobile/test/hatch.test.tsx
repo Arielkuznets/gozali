@@ -1,11 +1,27 @@
-import type { DayInput, MemberDay } from '@gozali/game-engine';
+import { addDays, type DayInput, type MemberDay } from '@gozali/game-engine';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import '@/i18n';
 import { HatchSteps } from '@/features/critter/HatchSteps';
 import { hatchesAtClose, hatchesTonight } from '@/features/critter/hatch';
-import type { MembersToday, TodayPasses } from '@/features/days/api';
+import { keptToday, useTodayPasses, type MembersToday, type TodayPasses } from '@/features/days/api';
 import type { PackMember } from '@/features/packs/api';
+
+// What today's read of the pauses answers; nobody has a joker or a rest.
+let mockPauses: { user_id: string; starts_on: string }[] = [];
+jest.mock('@/lib/supabase', () => ({
+  requireSupabase: () => ({
+    from: (table: string) => {
+      const read: Record<string, unknown> = {
+        then: (done: (answer: unknown) => void) => done({ data: table === 'pauses' ? mockPauses : [], error: null }),
+      };
+      for (const step of ['select', 'eq', 'lte', 'gte']) read[step] = () => read;
+      return read;
+    },
+  }),
+}));
 
 const member = (user_id: string): PackMember => ({
   user_id,
@@ -16,7 +32,7 @@ const member = (user_id: string): PackMember => ({
 });
 const pack = [member('noa'), member('dan'), member('eve')];
 const fed = new Set(['noa', 'dan']);
-const noPasses: TodayPasses = { passes: new Map(), paused: new Set() };
+const noPasses: TodayPasses = { passes: new Map(), paused: new Set(), pausedForSure: new Set() };
 const known = (eve: Partial<MembersToday['members'][number]>): MembersToday => ({
   day: '2026-10-29',
   restDaysPerWeek: 0,
@@ -44,14 +60,14 @@ describe('whether the egg surely hatches tonight', () => {
   });
 
   it('is not sure while Eve could take back a joker or a pause with no rest days to cover her', () => {
-    const joker: TodayPasses = { passes: new Map([['eve', 'joker']]), paused: new Set() };
-    const paused: TodayPasses = { passes: new Map(), paused: new Set(['eve']) };
+    const joker: TodayPasses = { ...noPasses, passes: new Map([['eve', 'joker']]) };
+    const paused: TodayPasses = { ...noPasses, paused: new Set(['eve']) };
     expect(hatchesTonight(pack, fed, joker, known({}))).toBe(false);
     expect(hatchesTonight(pack, fed, paused, known({}))).toBe(false);
   });
 
   it('is sure on a joker when a rest day would still cover Eve', () => {
-    const joker: TodayPasses = { passes: new Map([['eve', 'joker']]), paused: new Set() };
+    const joker: TodayPasses = { ...noPasses, passes: new Map([['eve', 'joker']]) };
     expect(hatchesTonight(pack, fed, joker, { ...known({}), restDaysPerWeek: 1 })).toBe(true);
   });
 
@@ -82,6 +98,61 @@ describe('whether the egg surely hatches tonight', () => {
   it('goes by today alone on a server that says nothing of the day before', () => {
     const { day, dayToClose, ...older } = known({ hasStarted: false });
     expect(hatchesTonight(pack, fed, noPasses, older as MembersToday)).toBe(true);
+  });
+});
+
+describe('a pause Eve can or can not end', () => {
+  const NOW = new Date('2026-10-29T10:00:00Z');
+  const startedDaysAgo = (days: number) => addDays('2026-10-29', -days);
+
+  /** Today's passes, as the real hook reads them. */
+  async function readToday() {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
+    let today: TodayPasses | undefined;
+    function Reader() {
+      const { data } = useTodayPasses({ id: 'pack', timezone: 'UTC' }, NOW);
+      useEffect(() => {
+        today = data;
+      });
+      return null;
+    }
+    await act(async () => {
+      create(
+        <QueryClientProvider client={client}>
+          <Reader />
+        </QueryClientProvider>,
+      );
+    });
+    await act(() => new Promise<void>((resolve) => setTimeout(resolve, 20)));
+    return today!;
+  }
+
+  it.each([
+    ['its first day', 0],
+    ['its third day', 2],
+  ])('is sure on %s, as end_pause refuses then and the close leaves her out', async (_name, days) => {
+    mockPauses = [{ user_id: 'eve', starts_on: startedDaysAgo(days) }];
+    expect(hatchesTonight(pack, fed, await readToday(), known({}))).toBe(true);
+  });
+
+  it('is not sure from its fourth day, when she can end it and miss', async () => {
+    mockPauses = [{ user_id: 'eve', starts_on: startedDaysAgo(3) }];
+    expect(hatchesTonight(pack, fed, await readToday(), known({}))).toBe(false);
+  });
+
+  it('goes the same way by the pack the phone holds', () => {
+    const held = (days: number) =>
+      keptToday(
+        {
+          timezone: 'UTC',
+          pack_members: pack.map((one) =>
+            one.user_id === 'eve' ? { ...one, pauses: [{ starts_on: startedDaysAgo(days), ends_on: addDays('2026-10-29', 9) }] } : one,
+          ),
+        },
+        NOW,
+      );
+    expect(hatchesTonight(pack, fed, held(2), known({}))).toBe(true);
+    expect(hatchesTonight(pack, fed, held(3), known({}))).toBe(false);
   });
 });
 

@@ -26,6 +26,8 @@ export type TodayPasses = {
   passes: Map<string, 'joker' | 'rest'>;
   /** Members on a pause that covers today. */
   paused: Set<string>;
+  /** Those of them who can't end it today, so can't come back and miss. */
+  pausedForSure: Set<string>;
 };
 
 /** members_today: what the pack screen doesn't load of today's close. */
@@ -61,13 +63,21 @@ export function pauseToday(status: DayStatus | undefined, pack: Pack | null | un
   return pause ? { startsOn: pause.starts_on, endsOn: pause.ends_on } : null;
 }
 
+function pausedFrom(pauses: { user_id: string; starts_on: string }[], today: string): Pick<TodayPasses, 'paused' | 'pausedForSure'> {
+  return {
+    paused: new Set(pauses.map((pause) => pause.user_id)),
+    pausedForSure: new Set(pauses.filter((pause) => !canEndPause(pause.starts_on, today)).map((pause) => pause.user_id)),
+  };
+}
+
 /** What the pack the phone holds says of today, until the server's answer is in. It has no passes. */
 export function keptToday(pack: Pick<Pack, 'pack_members' | 'timezone'>, now: Date): TodayPasses {
   const today = packDayOf(now, readableZone(pack.timezone));
-  return {
-    passes: new Map(),
-    paused: new Set(pack.pack_members.filter((member) => pauseOn(member, today)).map((member) => member.user_id)),
-  };
+  const pauses = pack.pack_members.flatMap((member) => {
+    const pause = pauseOn(member, today);
+    return pause ? [{ user_id: member.user_id, starts_on: pause.starts_on }] : [];
+  });
+  return { passes: new Map(), ...pausedFrom(pauses, today) };
 }
 
 /** Keyed by the pack day, so a screen left open past 03:00 asks again instead of showing yesterday. */
@@ -121,14 +131,11 @@ export function useTodayPasses(pack: Pick<Pack, 'id' | 'timezone'> | undefined, 
       const supabase = requireSupabase();
       const [passes, pauses] = await Promise.all([
         supabase.from('day_passes').select('user_id, kind').eq('pack_id', pack!.id).eq('day', today),
-        supabase.from('pauses').select('user_id').eq('pack_id', pack!.id).lte('starts_on', today).gte('ends_on', today),
+        supabase.from('pauses').select('user_id, starts_on').eq('pack_id', pack!.id).lte('starts_on', today).gte('ends_on', today),
       ]);
       if (passes.error) throw passes.error;
       if (pauses.error) throw pauses.error;
-      return {
-        passes: new Map(passes.data.map((row) => [row.user_id, row.kind])),
-        paused: new Set(pauses.data.map((row) => row.user_id)),
-      };
+      return { passes: new Map(passes.data.map((row) => [row.user_id, row.kind])), ...pausedFrom(pauses.data, today) };
     },
   });
 }

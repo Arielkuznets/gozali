@@ -54,7 +54,9 @@ export function memberOutcome(member: MemberDay, restDaysPerWeek: number): Membe
  * Whether an egg hatches when today ends whatever the members who haven't fed yet do: two of them
  * fed, and the day succeeds even if every other member who could miss does, and those resting or
  * on a joker leave the pack (which lowers the misses allowed). A joker, a declared rest and a pause
- * can all be taken back before the day ends, so whoever would then miss counts as a miss already.
+ * past its first 3 days can be taken back before the day ends, so whoever would then miss counts as
+ * a miss already. A pause in those days can't, and the rules don't know its dates: the caller leaves
+ * that member out.
  */
 export function hatchIsCertain(members: readonly MemberDay[], restDaysPerWeek: number): boolean {
   const feeds = members.filter((member) => memberOutcome(member, restDaysPerWeek) === 'fed').length;

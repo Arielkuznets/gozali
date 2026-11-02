@@ -49,7 +49,7 @@ jest.mock('@/features/feeds/queue', () => ({ pendingFeeds: async () => [] }));
 jest.mock('@/features/feeds/send', () => ({ PHOTO_BUCKET: 'photos' }));
 jest.mock('@/features/days/api', () => ({
   daysKey: ['days'],
-  keptToday: () => ({ passes: new Map(), paused: new Set() }),
+  keptToday: () => ({ passes: new Map(), paused: new Set(), pausedForSure: new Set() }),
   pauseToday: () => null,
   useDayStatus: () => ({ data: undefined }),
   useMembersToday: () => ({ data: undefined }),
