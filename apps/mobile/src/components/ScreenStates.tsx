@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
@@ -5,6 +6,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
+import { packsKey } from '@/features/packs/api';
 import { colors, spacing } from '@/theme/tokens';
 
 export function LoadingScreen() {
@@ -42,6 +44,14 @@ export function LoadFailedScreen({ onRetry }: { onRetry: () => void }) {
  */
 export function PackMissingScreen() {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
+
+  // The home screen under this one reads nothing as it comes back, and may still list this pack.
+  const backHome = () => {
+    void queryClient.invalidateQueries({ queryKey: packsKey });
+    router.dismissTo('/');
+  };
+
   return (
     <Screen>
       <View style={styles.center}>
@@ -50,7 +60,7 @@ export function PackMissingScreen() {
         </AppText>
         <AppText style={[styles.text, styles.muted]}>{t('pack.missingBody')}</AppText>
       </View>
-      <Button label={t('pack.backHome')} onPress={() => router.dismissTo('/')} />
+      <Button label={t('pack.backHome')} onPress={backHome} />
     </Screen>
   );
 }

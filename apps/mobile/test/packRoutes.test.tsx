@@ -391,6 +391,20 @@ describe('a pack that is gone', () => {
     expect(appStack()).toEqual(['index']);
     expect(router.canGoBack()).toBe(false);
   });
+
+  it('comes off the home screen on the way back, which nothing else had told of it', async () => {
+    mockPacks = [packNamed('p1'), packNamed('p2')];
+    await start('/');
+    expect(shows('Pack p1,Pack p2')).toBe(true);
+    mockPacks = [packNamed('p2')];
+    await open('/pack/p1/settings');
+    expect(shows(MISSING)).toBe(true);
+
+    await press('Back to your packs');
+
+    expect(pathname()).toBe('/');
+    expect(shows('Pack p2')).toBe(true);
+  });
 });
 
 describe('a pack the phone has only on its list', () => {
