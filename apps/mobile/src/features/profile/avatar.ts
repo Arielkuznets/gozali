@@ -86,7 +86,11 @@ export function useAvatarUrls(paths: readonly (string | null | undefined)[]) {
     enabled: wanted.length > 0,
     staleTime: (LINK_SECONDS / 2) * 1000,
     queryFn: async (): Promise<Map<string, string>> => {
-      const { data, error } = await requireSupabase().storage.from(BUCKET).createSignedUrls(wanted, LINK_SECONDS);
+      const supabase = requireSupabase();
+      // Storage answers someone with no session as if the files weren't there. As a failure that keeps
+      // the links of before, and goes again when the session is back.
+      if (!(await supabase.auth.getSession()).data.session) throw new Error('not_signed_in');
+      const { data, error } = await supabase.storage.from(BUCKET).createSignedUrls(wanted, LINK_SECONDS);
       if (error) throw error;
       return new Map(data.flatMap((item) => (item.path && item.signedUrl ? [[item.path, item.signedUrl] as const] : [])));
     },

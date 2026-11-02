@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { QueryClient, QueryClientProvider, type QueryClientConfig } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, focusManager, type QueryClientConfig } from '@tanstack/react-query';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import '@/i18n';
@@ -266,10 +266,10 @@ describe('a connection back while auth-js waits after a failed refresh', () => {
     expect(shown().packs).toEqual(['From the server']);
   });
 
-  it('also loads again what the server answered as if to nobody', async () => {
+  it('keeps the pictures it has, which storage would answer for as if to nobody, and signs them after the refresh', async () => {
     const { shown } = await openAppOffline();
     await connectionBack();
-    expect(shown().avatar).toBeUndefined();
+    expect(shown().avatar).toBe('link from before');
     await refreshRuns();
     expect(shown().avatar).toContain('/object/sign/avatars/link');
   });
@@ -277,7 +277,7 @@ describe('a connection back while auth-js waits after a failed refresh', () => {
   it('does that too when the refused reads are still trying', async () => {
     const { shown } = await openAppOffline({ queries: { retry: 1, retryDelay: 300 } });
     await connectionBack();
-    expect(shown().avatar).toBeUndefined();
+    expect(shown().avatar).toBe('link from before');
     await refreshRuns(61_000, 10);
     expect(shown().avatar).toContain('/object/sign/avatars/link');
   });
@@ -290,6 +290,19 @@ describe('a connection back while auth-js waits after a failed refresh', () => {
     await refreshRuns();
     await run(100);
     expect(shown().packs).toEqual(['From the server']);
+    expect(shown().avatar).toContain('/object/sign/avatars/link');
+  });
+
+  it('does that too on a return to the app once the wait is over', async () => {
+    const { shown } = await openAppOffline();
+    await connectionBack();
+    await act(async () => {
+      focusManager.setFocused(false);
+      skip(61_000);
+      focusManager.setFocused(true);
+    });
+    await run(100);
+    focusManager.setFocused(undefined);
     expect(shown().avatar).toContain('/object/sign/avatars/link');
   });
 
