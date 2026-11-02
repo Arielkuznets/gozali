@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AppState, Linking, type AppStateStatus } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
@@ -61,7 +62,11 @@ let settleAlert: (permission: unknown) => void;
 
 async function open() {
   await act(async () => {
-    screen = create(<FeedScreen />);
+    screen = create(
+      <QueryClientProvider client={new QueryClient()}>
+        <FeedScreen />
+      </QueryClientProvider>,
+    );
   });
 }
 
