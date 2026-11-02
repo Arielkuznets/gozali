@@ -56,6 +56,22 @@ test('a profile that fails to load offers to try again, not the profile setup', 
   await expect(page.getByText('Your packs')).toBeVisible();
 });
 
+test('a profile read with no answer says so in seconds, and Try again asks again', async ({ page }) => {
+  // The first read is held and never answered, as on a connection that died quietly.
+  let reads = 0;
+  await page.route('**/rest/v1/profiles?**', (route) => {
+    reads += 1;
+    return reads === 1 ? undefined : route.continue();
+  });
+  await signIn(page, noa);
+  await page.goto('/');
+
+  await expect(page.getByText("This didn't load")).toBeVisible({ timeout: 15_000 });
+
+  await page.getByRole('button', { name: 'Try again' }).click();
+  await expect(page.getByText('Your packs')).toBeVisible();
+});
+
 /** Blocks every call to the server, as a phone without a connection would find it. */
 async function goOffline(page: import('@playwright/test').Page) {
   for (const path of ['rest', 'auth', 'storage', 'functions', 'realtime']) {

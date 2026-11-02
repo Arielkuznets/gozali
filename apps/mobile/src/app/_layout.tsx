@@ -2,7 +2,7 @@ import '@/i18n';
 
 import { Rubik_400Regular, Rubik_500Medium, Rubik_700Bold } from '@expo-google-fonts/rubik';
 import { useFonts, VarelaRound_400Regular } from '@expo-google-fonts/varela-round';
-import { QueryClient, useMutation } from '@tanstack/react-query';
+import { QueryClient, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -34,6 +34,14 @@ refetchWhenAppReturns();
 // A screen that throws while drawing shows this instead of a blank app.
 export { ErrorScreen as ErrorBoundary };
 
+/**
+ * How long the profile can keep someone on the splash or the spinner. A refused read gets through
+ * its retries in 7 s and says so itself. Past that the connection has stalled or the token refresh
+ * can't get through, and the read can take minutes to give up. It carries on behind the failure
+ * screen, and its answer still opens the app.
+ */
+const PROFILE_LIMIT_MS = 8000;
+
 export default function RootLayout() {
   // Queries stay in memory as long as the copy kept on the phone, which holds only what is in memory.
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { gcTime: KEEP_MS } } }));
@@ -55,9 +63,23 @@ function RootNavigator() {
   const signedIn = session !== null;
   const profile = useProfile();
   const config = useAppConfig();
+  const queryClient = useQueryClient();
   useSignedOutSync();
   useRefetchWhenClockMoves();
-  const ready = fontsDone && !loading && (!signedIn || !profile.isPending);
+  const waiting = signedIn && profile.isPending;
+  const [gaveUp, setGaveUp] = useState(false);
+  const [tries, setTries] = useState(0);
+  const ready = fontsDone && !loading && (!waiting || gaveUp);
+
+  // Each wait for the profile gets the whole limit, and so does each Try again.
+  useEffect(() => {
+    if (!waiting) return;
+    const timer = setTimeout(() => setGaveUp(true), PROFILE_LIMIT_MS);
+    return () => {
+      clearTimeout(timer);
+      setGaveUp(false);
+    };
+  }, [waiting, tries]);
 
   useEffect(() => {
     if (ready) SplashScreen.hide();
@@ -74,10 +96,18 @@ function RootNavigator() {
   if (config.data && isOlder(installedVersion(), config.data.min_version)) {
     return <UpdateRequired storeUrl={Platform.OS === 'android' ? config.data.android_url : config.data.ios_url} />;
   }
-  // A profile that didn't load (no connection at the start) is no reason to set it up again: the
-  // profile setup loads it again on opening, and fails the same way.
-  if (signedIn && profile.isError && !profile.data) {
-    return <ProfileLoadFailed onRetry={() => void profile.refetch()} />;
+  // A profile that didn't load in time (no connection at the start) is no reason to set it up
+  // again: the profile setup loads it again on opening, and fails the same way.
+  if (signedIn && !profile.data) {
+    return (
+      <ProfileLoadFailed
+        onRetry={() => {
+          // Past the limit a try may still be running, and with no data a refetch would only join it.
+          setTries((count) => count + 1);
+          void queryClient.resetQueries({ queryKey: ['profile'] });
+        }}
+      />
+    );
   }
 
   const profileComplete = isProfileComplete(profile.data);
