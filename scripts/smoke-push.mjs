@@ -206,7 +206,7 @@ check(
   'errors on tickets are counted by their code',
 );
 check(runFailed(ticketed), 'and a run with any of them failed, even with the rest out');
-check(JSON.stringify(gone.ticketErrors) === '{}' && JSON.stringify(midway.ticketErrors) === '{}', 'phones that are gone and refused requests are not among them');
+check(JSON.stringify(gone.ticketErrors) === '{}' && JSON.stringify(midway.ticketErrors) === '{}', 'phones that are gone are not among them');
 
 // The real function, with Deno and Expo stood in for: `expo` answers each request, `database` may
 // answer an RPC instead of the server, and the claim runs at `at` and returns only the given rows.
@@ -284,6 +284,17 @@ const refusedRun = await runFunction(refusalRows, (batch) =>
 check(refusedRun.report.sent === 1 && refusedRun.report.requeued === 1, 'a refused notification goes back while the rest go out');
 const { data: refusedAfter } = await admin.from('notifications').select('attempts').in('id', refusalRows).eq('user_id', dan);
 check(refusedAfter[0].attempts === 1, 'and it spends a try');
+check(
+  refusedRun.status === 502 && JSON.stringify(refusedRun.report.ticketErrors) === '{"RefusedRequest":1}',
+  'a run with a refusal failed, with the rest out, and says why',
+);
+check(refusedRun.logged.some((line) => line.startsWith('send-push failed')), 'in the log too');
+const loneRow = await addRows({ user_id: dan, type: 'new_user', payload: { name: 'Lior', number: 3 } });
+const loneRefused = await runFunction(loneRow, () => new Response('{}', { status: 400 }));
+check(
+  loneRefused.status === 502 && JSON.stringify(loneRefused.report.ticketErrors) === '{"RefusedRequest":1}',
+  'and so does one that had nothing else to send, so the two read alike',
+);
 check(JSON.stringify(refused.refused) === JSON.stringify(dans), 'Expo refusing a notification names it as refused');
 check([down, midway, refusedThenDown, outOfTime].every((result) => result.refused.length === 0), 'a service that is down or a run out of time names none');
 let oneByOne = 0;

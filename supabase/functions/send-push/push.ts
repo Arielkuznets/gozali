@@ -31,7 +31,10 @@ export interface SendResult {
   /** The part of `requeue` the service turned down; the rest was never answered and costs no try. */
   refused: string[];
   deadTokens: string[];
-  /** Messages Expo answered with an error, by its code, leaving out tokens that are gone. */
+  /**
+   * Messages Expo answered with an error, by its code, leaving out tokens that are gone. Notifications
+   * it wouldn't take are in here too, as RefusedRequest, so they read the same whatever else the run sent.
+   */
   ticketErrors: Record<string, number>;
 }
 
@@ -111,6 +114,7 @@ export async function sendAll(
       if (answer === 'refused' && (alone || ids.size === 1)) refused.add(id);
     }
   }
+  if (refused.size > 0) ticketErrors.RefusedRequest = refused.size;
   return { attempted, sent, requeue: [...requeue], refused: [...refused], deadTokens, ticketErrors };
 }
 
