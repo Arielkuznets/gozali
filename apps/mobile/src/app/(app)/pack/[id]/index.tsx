@@ -1,7 +1,7 @@
 import { dayEnd, packDayOf } from '@gozali/game-engine';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -26,6 +26,7 @@ import { useCritterText } from '@/features/critter/useCritterText';
 import { keptToday, pauseToday, useDayStatus, useMembersToday, useTodayPasses, type TodayPasses } from '@/features/days/api';
 import { FeedList } from '@/features/feeds/FeedList';
 import { FEED_PAGE, feedWaitsToday, fedToday, useCountedFeeds, usePackFeed, usePendingFeeds, type FeedItem } from '@/features/feeds/api';
+import { storedFocusSession } from '@/features/focus/session';
 import { countedToday, currentMembers, restDaysOn, usePack, type Pack, type PackCritter, type PackMember } from '@/features/packs/api';
 import { FOCUS_CATEGORIES, PACK_SIZE_MAX, categoryInfo } from '@/features/packs/constants';
 import { usePackRealtime } from '@/features/packs/realtime';
@@ -63,6 +64,12 @@ export default function PackScreen() {
   const { memberActions, photoMenu } = useModeration();
   usePackRealtime(id);
   const moment = useMilestone(pack?.id, pack?.critters, dataUpdatedAt);
+  const [inSession, setInSession] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      void storedFocusSession().then((session) => setInSession(session?.packId === id));
+    }, [id]),
+  );
 
   if (isPending) return <LoadingScreen />;
   if (!pack && isError) return <LoadFailedScreen onRetry={() => void refetch()} />;
@@ -283,7 +290,8 @@ export default function PackScreen() {
               />
             </View>
           )}
-          {focusable && !pausedToday && (
+          {/* A session a pause overtook still has to be ended, and an open timer has no other way. */}
+          {focusable && (!pausedToday || inSession) && (
             <View style={styles.fill}>
               <Button
                 label={t('pack.focus')}

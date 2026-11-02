@@ -25,7 +25,7 @@ const mockViewed = jest.fn();
 const mockMenu = jest.fn();
 const mockCompiled: { FeedList?: ComponentType<Record<string, unknown>>; useModeration?: (onBlocked?: () => void) => unknown } = {};
 
-jest.mock('expo-router', () => ({ useLocalSearchParams: () => ({ id: 'p' }), router: { push: () => undefined } }));
+jest.mock('expo-router', () => ({ useFocusEffect: () => undefined, useLocalSearchParams: () => ({ id: 'p' }), router: { push: () => undefined } }));
 jest.mock('expo-image', () => ({ Image: () => null }));
 jest.mock('expo-file-system', () => ({}));
 jest.mock('expo-image-manipulator', () => ({}));

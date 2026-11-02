@@ -337,6 +337,22 @@ test.describe('a member on a pause', () => {
     await expect(page.getByRole('button', { name: 'Feed', exact: true })).toBeHidden();
   });
 
+  test('keeps a way to a timer the pause overtook, until it is over', async ({ page }) => {
+    const pack = await pausedPack();
+    await signIn(page, noa);
+    const timer = { packId: pack.id, minutes: null, startedAt: Date.now() - 60_000, pausedAt: null, pausedMs: 0, notificationId: null };
+    await page.addInitScript((session) => window.localStorage.setItem('gozali.focus', session), JSON.stringify(timer));
+    page.on('dialog', (dialog) => void dialog.accept());
+    await page.goto(`/pack/${pack.id}`);
+
+    await page.getByRole('button', { name: 'Focus', exact: true }).click();
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await page.getByRole('button', { name: 'Back' }).click();
+
+    await expect(page.getByText(onPause, { exact: false })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Focus', exact: true })).toBeHidden();
+  });
+
   test('feeds again once the pause is over', async ({ page }) => {
     const pack = await pausedPack();
     const today = packDayOf(new Date(), 'Asia/Jerusalem');

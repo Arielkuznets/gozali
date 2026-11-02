@@ -14,6 +14,7 @@ const mockReacted = new Map<string, string>();
 const mockDelay = 100;
 
 jest.mock('expo-router', () => ({
+  useFocusEffect: () => undefined,
   useLocalSearchParams: () => ({ id: mockScreen.id }),
   router: { push: () => undefined },
 }));

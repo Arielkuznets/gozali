@@ -57,14 +57,23 @@ jest.mock('expo-camera', () => ({
 }));
 jest.mock('expo-image', () => ({ Image: () => null }));
 jest.mock('expo-image-manipulator', () => ({}));
-jest.mock('expo-notifications', () => ({}));
+const mockCancelled = jest.fn();
+jest.mock('expo-notifications', () => ({ cancelScheduledNotificationAsync: async (id: string) => mockCancelled(id) }));
 const mockDismissTo = jest.fn();
+let mockParams: Record<string, string>;
+/** What a screen runs when it comes back to the front, as long as it is mounted. */
+const mockOnFocus = new Set<() => void>();
 jest.mock('expo-router', () => {
   const { useEffect } = jest.requireActual('react');
   return {
-    useLocalSearchParams: () => ({ id: 'gym' }),
+    useLocalSearchParams: () => mockParams,
     useIsFocused: () => true,
-    useFocusEffect: (run: () => void) => useEffect(run, [run]),
+    useFocusEffect: (run: () => void) =>
+      useEffect(() => {
+        mockOnFocus.add(run);
+        run();
+        return () => void mockOnFocus.delete(run);
+      }, [run]),
     router: { push: jest.fn(), canGoBack: () => true, back: jest.fn(), replace: jest.fn(), dismissTo: (href: string) => mockDismissTo(href) },
   };
 });
@@ -193,6 +202,8 @@ function phone({ pack = PACK, fed = ['dan'] }: { pack?: Pack; fed?: string[] } =
 beforeEach(async () => {
   await AsyncStorage.clear();
   mockStatus = null;
+  mockParams = { id: PACK.id };
+  mockCancelled.mockReset();
   mockDismissTo.mockReset();
   phone();
 });
@@ -362,5 +373,72 @@ describe('a member who fell asleep', () => {
     expect(lines(pack).join()).toContain("You're on a pause until");
     expect(lines(pack).join()).not.toContain(ONE_PHOTO);
     expect(buttons(pack)).not.toContain('Feed');
+  });
+});
+
+describe('a focus session a pause overtakes', () => {
+  const STORED = 'gozali.focus';
+  const session = (packId: string, minutes: number | null = 25) =>
+    JSON.stringify({ packId, minutes, startedAt: Date.now() - 60_000, pausedAt: null, pausedMs: 0, notificationId: 'the-end' });
+
+  beforeEach(() => {
+    phone({ pack: onPause(running(), { ...PACK, category: 'study' }) });
+  });
+
+  it('ends with the link at its end, which goes to the pack', async () => {
+    await AsyncStorage.setItem(STORED, session(PACK.id));
+    mockParams = { id: PACK.id, focus: '25' };
+    await open(<FeedScreen />);
+    await settle();
+
+    expect(mockDismissTo).toHaveBeenCalledWith('/pack/gym');
+    expect(await AsyncStorage.getItem(STORED)).toBeNull();
+    expect(mockCancelled).toHaveBeenCalledWith('the-end');
+  });
+
+  it('runs on when the link to the camera is not the one at its end', async () => {
+    const running = session(PACK.id);
+    await AsyncStorage.setItem(STORED, running);
+    await open(<FeedScreen />);
+    await settle();
+
+    expect(mockDismissTo).toHaveBeenCalledWith('/pack/gym');
+    expect(await AsyncStorage.getItem(STORED)).toBe(running);
+  });
+
+  it('in another pack runs on, whichever old link was tapped here', async () => {
+    const elsewhere = session('other');
+    await AsyncStorage.setItem(STORED, elsewhere);
+    mockParams = { id: PACK.id, focus: '25' };
+    await open(<FeedScreen />);
+    await settle();
+
+    expect(await AsyncStorage.getItem(STORED)).toBe(elsewhere);
+    expect(mockCancelled).not.toHaveBeenCalled();
+  });
+
+  it('keeps Focus on the pack, the only way back to an open timer', async () => {
+    await AsyncStorage.setItem(STORED, session(PACK.id, null));
+    const pack = await open(<PackScreen />);
+
+    expect(buttons(pack)).toContain('Focus');
+    expect(buttons(pack)).not.toContain('Feed');
+  });
+
+  it('takes Focus off the pack once it is over', async () => {
+    await AsyncStorage.setItem(STORED, session(PACK.id, null));
+    const pack = await open(<PackScreen />);
+
+    await AsyncStorage.removeItem(STORED);
+    await act(async () => mockOnFocus.forEach((run) => run()));
+    await settle();
+
+    expect(buttons(pack)).not.toContain('Focus');
+  });
+
+  it('leaves no Focus here when it runs in another pack', async () => {
+    await AsyncStorage.setItem(STORED, session('other', null));
+
+    expect(buttons(await open(<PackScreen />))).not.toContain('Focus');
   });
 });

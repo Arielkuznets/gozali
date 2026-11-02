@@ -77,12 +77,15 @@ export default function FeedScreen() {
   const now = useNow(60_000);
 
   // A widget or a notification can link here during a pause, when no photo counts. The pack says
-  // why. A photo already taken stays: it was taken before the pause reached this screen.
+  // why. A photo already taken stays: it was taken before the pause reached this screen. The link at
+  // the end of a focus session ends it here, as no photo will.
   const paused = pauseToday(dayStatus.data, pack, session?.user.id, now) !== null && !shot && !result;
   useFocusEffect(
     useCallback(() => {
-      if (paused) router.dismissTo(`/pack/${packId}`);
-    }, [paused, packId]),
+      if (!paused) return;
+      if (focusMinutes !== null) void clearFocusSession(packId).catch(() => undefined);
+      router.dismissTo(`/pack/${packId}`);
+    }, [paused, packId, focusMinutes]),
   );
 
   // The tap on Feed gives the system alert its context and the purpose string its reason, so no
