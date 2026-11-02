@@ -209,8 +209,9 @@ async function run(): Promise<FlushResult> {
       if (attempt.outcome === 'waiting') {
         if (isNetworkFailure(attempt.error)) break;
         passed.add(feed.id);
-        // Kept on the feed, so the runs after the next start stay quiet about it too.
-        if (!feed.stuckReported) {
+        // Kept on the feed, so the runs after the next start stay quiet about it too. Not offline,
+        // where the report goes nowhere and the note would silence the one that could arrive.
+        if (!feed.stuckReported && (await isOnline())) {
           await update((list) => list.map((item) => (item.id === feed.id ? { ...item, stuckReported: true } : item)));
           result.stuck.push(attempt.error);
         }
@@ -228,9 +229,11 @@ async function run(): Promise<FlushResult> {
     if (AppState.currentState === 'active') result.dropped = await takeDropped();
   } catch (error) {
     // The phone's storage failed. Nothing is lost, and the next run tries again. There is nowhere
-    // to keep a note of this one, so it is reported once per start of the app.
-    if (!storageFailureReported) result.stuck.push(error);
-    storageFailureReported = true;
+    // to keep a note of this one, so it is reported once per start of the app, with a connection.
+    if (!storageFailureReported && (await isOnline())) {
+      result.stuck.push(error);
+      storageFailureReported = true;
+    }
   }
   return result;
 }

@@ -48,6 +48,11 @@ jest.mock('@/lib/supabase', () => ({
   storedSession: async () => (mockSignedIn ? { user: { id: mockSignedIn } } : null),
 }));
 
+let mockOnline: boolean;
+jest.mock('@react-native-community/netinfo', () => ({
+  fetch: async () => ({ isConnected: mockOnline, isInternetReachable: mockOnline }),
+}));
+
 const feed = (id: string): OutgoingFeed => ({
   id,
   packId: 'pack',
@@ -63,6 +68,7 @@ beforeEach(async () => {
   await AsyncStorage.clear();
   AppState.currentState = 'active';
   mockSignedIn = 'noa';
+  mockOnline = true;
   mockSendFeed.mockReset();
   mockCopy.mockReset().mockResolvedValue(undefined);
   mockMissing.clear();
@@ -605,6 +611,34 @@ describe('what a run tells its caller', () => {
     const restarted = afterRestart();
     const failure = new Error('disk I/O error');
     jest.mocked(AsyncStorage.getItem).mockRejectedValueOnce(failure).mockRejectedValueOnce(failure);
+    expect((await restarted.flushQueue()).stuck).toEqual([failure]);
+    expect((await restarted.flushQueue()).stuck).toEqual([]);
+  });
+
+  it('keeps what a stuck feed has to say for a run with a connection, where it can be heard', async () => {
+    const unreadable = new Error('Unable to read the file');
+    await enqueue(feed('a'));
+    mockSendFeed.mockRejectedValue(unreadable);
+
+    mockOnline = false;
+    expect((await flushQueue()).stuck).toEqual([]);
+    expect((await flushQueue()).stuck).toEqual([]);
+    expect(await waiting()).toEqual(['a']);
+
+    mockOnline = true;
+    expect((await flushQueue()).stuck).toEqual([unreadable]);
+    expect((await flushQueue()).stuck).toEqual([]);
+  });
+
+  it("keeps what the phone's storage has to say the same way", async () => {
+    const restarted = afterRestart();
+    const failure = new Error('disk I/O error');
+    jest.mocked(AsyncStorage.getItem).mockRejectedValueOnce(failure).mockRejectedValueOnce(failure);
+
+    mockOnline = false;
+    expect((await restarted.flushQueue()).stuck).toEqual([]);
+
+    mockOnline = true;
     expect((await restarted.flushQueue()).stuck).toEqual([failure]);
     expect((await restarted.flushQueue()).stuck).toEqual([]);
   });

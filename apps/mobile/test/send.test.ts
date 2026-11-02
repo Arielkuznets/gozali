@@ -30,6 +30,9 @@ jest.mock('expo-file-system', () => {
   return { File, Directory, Paths: { document: { uri: 'documents' } } };
 });
 jest.mock('expo-image-manipulator', () => ({}));
+jest.mock('@react-native-community/netinfo', () => ({
+  fetch: async () => ({ isConnected: true, isInternetReachable: true }),
+}));
 const mockSeed = jest.fn();
 jest.mock('expo-image', () => ({ Image: { writeToCacheAsync: (...args: unknown[]) => mockSeed(...args) } }));
 
