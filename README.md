@@ -180,7 +180,8 @@ npm run holidays                   # regenerate the holiday-hat dates from the H
 ```
 
 ```sh
-cd web && npx wrangler deploy      # publish gozali.app (after `node web/build.mjs`)
+node web/build.mjs --preview       # build the site into web/dist-preview to look at it
+cd web && npx wrangler deploy      # publish gozali.app (after `node web/build.mjs`, see docs/setup.md section 3)
 node scripts/backup.mjs            # back up the cloud database's data to ~/Gozali backups
 ```
 

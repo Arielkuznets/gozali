@@ -1,7 +1,9 @@
 // Builds the gozali.app site into web/dist: the landing page, the invite page, the privacy
 // policy, terms and support pages (from docs), and the files that let https://gozali.app/i/CODE
 // open the app. Run: APP_STORE_URL=... PLAY_STORE_URL=... ANDROID_SHA256=... node web/build.mjs
-// Missing values become placeholders or stay empty, with a warning, so a preview build still works.
+// A store link that isn't set stays empty, with a warning. The fingerprint has to be the real one,
+// because web/dist is what gets deployed. node web/build.mjs --preview needs none of the values and
+// builds into web/dist-preview, to look at the pages.
 import { createHash } from 'node:crypto';
 import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -10,11 +12,12 @@ import { fileURLToPath } from 'node:url';
 import { CREATURE_COLORS, CREATURES, renderCritter } from '../packages/critter-art/src/index.ts';
 
 const root = dirname(fileURLToPath(import.meta.url));
-const dist = join(root, 'dist');
+const preview = process.argv.includes('--preview');
+const dist = join(root, preview ? 'dist-preview' : 'dist');
 
 function setting(name, fallback) {
   const value = process.env[name];
-  if (!value) console.warn(`${name} is not set; using a placeholder.`);
+  if (!value) console.warn(`${name} is not set.`);
   return value || fallback;
 }
 
@@ -25,6 +28,13 @@ const playStoreUrl = setting('PLAY_STORE_URL', '');
 // The Apple team is public (it is in the association file anyway), so it has a real default.
 const teamId = process.env.APPLE_TEAM_ID || '3DYA8J45VJ';
 const androidFingerprint = setting('ANDROID_SHA256', 'SHA256:FINGERPRINT');
+// Android compares this with the app's signature before it lets the app open invite links, and a
+// mismatch shows up nowhere: the links just open the browser. It wants this exact form.
+if (!preview && !/^([0-9A-F]{2}:){31}[0-9A-F]{2}$/.test(androidFingerprint)) {
+  console.error('ANDROID_SHA256 must be the fingerprint of the key that signs the app, 32 pairs like AB:CD:...');
+  console.error('To only look at the pages: node web/build.mjs --preview');
+  process.exit(1);
+}
 
 rmSync(dist, { recursive: true, force: true });
 cpSync(join(root, 'src'), dist, { recursive: true });
