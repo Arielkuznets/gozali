@@ -90,12 +90,13 @@ export default function FeedScreen() {
     if (askNow) void requestPermission().finally(() => setAnswered(true));
   }, [askNow, requestPermission]);
 
-  // After a successful feed, the critter eats for a moment and the screen closes by itself.
+  // After a successful feed, the critter eats for a moment and the screen closes by itself. Under
+  // another screen it waits to be back in front, or going back would close that screen instead.
   useEffect(() => {
-    if (result !== 'sent') return;
+    if (result !== 'sent' || !focused) return;
     const timer = setTimeout(() => goBack(`/pack/${packId}`), 2800);
     return () => clearTimeout(timer);
-  }, [result, packId]);
+  }, [result, packId, focused]);
 
   const capture = async () => {
     if (!camera.current || !ready) return;

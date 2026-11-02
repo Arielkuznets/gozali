@@ -76,6 +76,14 @@ const cameras = () => app.root.findAll((node) => node.type === 'CameraView');
 const shutter = () =>
   app.root.findAll((node) => typeof node.type === 'string' && node.props.accessibilityLabel === 'Take photo')[0];
 const cameraReady = () => act(async () => cameras()[0]?.props.onCameraReady());
+const press = async (name: string) => {
+  await act(async () =>
+    app.root
+      .findAll((node) => (node.props.accessibilityLabel === name || node.props.label === name) && node.props.onPress)[0]
+      ?.props.onPress(),
+  );
+  await settle();
+};
 
 beforeEach(() => {
   jest.useFakeTimers();
@@ -119,5 +127,23 @@ describe('a screen opened over the camera', () => {
 
     await cameraReady();
     expect(shutter()?.props.accessibilityState.disabled).toBe(false);
+  });
+
+  it('waits for it to close before the sent screen closes itself', async () => {
+    await openCamera();
+    await cameraReady();
+    await press('Take photo');
+    await press('Send');
+
+    await go(() => router.push(OTHER_PACK as Href));
+    await settle();
+    expect(pathname()).toBe(OTHER_PACK);
+
+    await go(() => router.back());
+    expect(pathname()).toBe(CAMERA);
+
+    await settle();
+    await settle();
+    expect(pathname()).toBe('/');
   });
 });
