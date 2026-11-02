@@ -2,7 +2,7 @@ import { focusManager, QueryClient, QueryClientProvider, useQuery } from '@tanst
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import { useRefetchWhenClockMoves } from '@/lib/appFocus';
-import { noteServerDate, onServerClockChange, serverNow } from '@/lib/serverClock';
+import { clockedFetch, noteServerDate, onServerClockChange, serverNow } from '@/lib/serverClock';
 import { useNow } from '@/lib/useNow';
 
 const at = (iso: string) => Date.parse(iso);
@@ -242,6 +242,100 @@ describe("the server's clock", () => {
 
       await settle();
       expect(read).toHaveBeenCalledTimes(reads);
+    });
+  });
+});
+
+describe('how long a request waits for its answer', () => {
+  const READ = 'http://gozali.test/rest/v1/packs';
+  const PHOTO = 'http://gozali.test/storage/v1/object/feed-photos/pack/noa/a.jpg';
+  const FUNCTION = 'http://gozali.test/functions/v1/delete-account';
+  const realFetch = globalThis.fetch;
+
+  /** Ends only when it is aborted, as a request on a dead connection does. */
+  const noAnswer = (_input: unknown, init?: RequestInit) =>
+    new Promise((_resolve, reject) => {
+      if (init?.signal?.aborted) reject(new Error('aborted'));
+      init?.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+    });
+
+  async function secondsUntilItGivesUp(input: string, init?: RequestInit): Promise<number | null> {
+    const started = Date.now();
+    let gaveUp: number | null = null;
+    void clockedFetch(input, init).catch(() => {
+      gaveUp = (Date.now() - started) / 1000;
+    });
+    await jest.advanceTimersByTimeAsync(10 * 60_000);
+    return gaveUp;
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    globalThis.fetch = noAnswer as unknown as typeof fetch;
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    globalThis.fetch = realFetch;
+  });
+
+  it('is half a minute for a read or a write', async () => {
+    expect(await secondsUntilItGivesUp(READ)).toBe(30);
+    expect(await secondsUntilItGivesUp(`${READ}/rpc/submit_feed`, { method: 'POST', body: '{}' })).toBe(30);
+  });
+
+  it('is longer for a photo going up, as its answer comes after the whole photo', async () => {
+    expect(await secondsUntilItGivesUp(PHOTO, { method: 'POST', body: new ArrayBuffer(8) })).toBe(160);
+  });
+
+  it('is longer than a function can run, so a function that is still working keeps its answer', async () => {
+    expect(await secondsUntilItGivesUp(FUNCTION, { method: 'POST', body: '{}' })).toBe(160);
+  });
+
+  it('still ends when the caller aborts', async () => {
+    const caller = new AbortController();
+    const failed = jest.fn();
+    void clockedFetch(READ, { signal: caller.signal }).catch(failed);
+    await jest.advanceTimersByTimeAsync(1_000);
+    expect(failed).not.toHaveBeenCalled();
+
+    caller.abort();
+    await jest.advanceTimersByTimeAsync(0);
+    expect(failed).toHaveBeenCalledTimes(1);
+  });
+
+  it('ends at once for a caller who aborted before it started', async () => {
+    const caller = new AbortController();
+    caller.abort();
+    expect(await secondsUntilItGivesUp(READ, { signal: caller.signal })).toBe(0);
+  });
+
+  describe('once the answer has started', () => {
+    let signal: AbortSignal | null | undefined;
+
+    beforeEach(() => {
+      signal = undefined;
+      globalThis.fetch = (async (_input: unknown, init?: RequestInit) => {
+        signal = init?.signal;
+        return new Response('[]', { headers: { date: new Date().toUTCString() } });
+      }) as unknown as typeof fetch;
+    });
+
+    it('stops counting, as a body cut off halfway would read as a good answer with no data', async () => {
+      const before = jest.getTimerCount();
+      await clockedFetch(READ);
+      expect(signal).toBeDefined();
+      expect(jest.getTimerCount()).toBe(before);
+
+      await jest.advanceTimersByTimeAsync(10 * 60_000);
+      expect(signal?.aborted).toBe(false);
+    });
+
+    it('still lets the caller end the body', async () => {
+      const caller = new AbortController();
+      await clockedFetch(READ, { signal: caller.signal });
+      caller.abort();
+      expect(signal?.aborted).toBe(true);
     });
   });
 });

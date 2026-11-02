@@ -61,10 +61,35 @@ export function onServerClockChange(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
-/** A fetch that notes the server's time from every answer. */
+/**
+ * How long a request waits for its answer to start. Nothing else ends one: the phones' network
+ * clients have no time limit, so a connection that died quietly leaves a request open for as long
+ * as the phone keeps the socket, and a token refresh left open holds back every request behind it.
+ * The database ends a statement well before this, so an answer this late is one the connection
+ * lost. A photo's answer comes after the whole photo went up, and a function can run for 150 s and
+ * should get to say how it ended. The limit stops at the headers: cut off later, an empty body reads
+ * as a good answer with no data.
+ */
+const ANSWER_LIMIT_MS = 30_000;
+const LONG_ANSWER_LIMIT_MS = 160_000;
+
+function answerLimit(input: unknown, init: RequestInit | undefined): number {
+  const uploading = init?.body != null && typeof init.body !== 'string';
+  return uploading || String(input).includes('/functions/v1/') ? LONG_ANSWER_LIMIT_MS : ANSWER_LIMIT_MS;
+}
+
+/** A fetch that notes the server's time from every answer and gives up on one that doesn't come. */
 export const clockedFetch: typeof fetch = async (input, init) => {
+  const limit = new AbortController();
+  const timer = setTimeout(() => limit.abort(), answerLimit(input, init));
+  if (init?.signal?.aborted) limit.abort();
+  init?.signal?.addEventListener('abort', () => limit.abort());
   const sentAt = Date.now();
-  const response = await fetch(input, init);
-  noteServerDate(response.headers.get('date'), sentAt, Date.now());
-  return response;
+  try {
+    const response = await fetch(input, { ...init, signal: limit.signal });
+    noteServerDate(response.headers.get('date'), sentAt, Date.now());
+    return response;
+  } finally {
+    clearTimeout(timer);
+  }
 };
