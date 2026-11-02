@@ -504,7 +504,7 @@ Important: the widgets and some of the modules require a **development build**, 
 - **Cron:** scheduled runs of day closing, recaps and notification sending: pg\_cron calls the Edge Functions through pg\_net, with the function address and a shared secret kept in Vault (decision D13). A call waits up to 150 seconds, the longest a function can run, so a long run is judged by its own answer.
 - **User actions (Postgres functions):**
   - `submit_feed`: verifies pack membership, computes "the day" by the pack's time zone (including the offline rule), saves the feed (the database constraint prevents duplicates), wakes a sleeping member, and cancels a joker or declared rest for the same day.
-  - `create_pack`: creates the pack, its egg and the admin membership, with a random invite code; limited to 3 packs per user.
+  - `create_pack`: creates the pack, its egg and the admin membership, with a random invite code; limited to 3 packs per user. The day close reads a pack's time zone with Intl, which doesn't know every name Postgres lists, so the zone has to be one it can read.
   - `pack_preview`: what someone sees before joining (name, habit, the critter as it is now, and who is in the pack), by invite code.
   - `join_pack`: joining with an invite code, with locking and a check for a free spot; a member the admin removed can't rejoin this way.
   - `update_pack` (admin): the name changes right away; rest days and week start are stored as pending and apply from the next week start.
