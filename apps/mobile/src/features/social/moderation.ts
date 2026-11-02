@@ -7,16 +7,17 @@ import { confirm, notify } from '@/lib/confirm';
 
 /**
  * Reporting and blocking, asked and answered the same wherever a photo or a member is shown.
- * `onBlocked` runs once a block is saved, for a screen still showing what the block just hid.
+ * `onBlocked` runs once a block is saved, for a screen still showing what the block just hid, and
+ * `blocking` holds until the answer comes.
  */
 export function useModeration(onBlocked?: () => void) {
   const { t } = useTranslation();
   const { session } = useAuth();
   // Only mutate, which stays the same: the whole result is new on every render, and every row of the
-  // feed hangs on these menus.
+  // feed hangs on these menus. `blocking` is a plain value and leaves them alone.
   const { mutate: sendReport } = useReport();
   const { mutate: sendMemberReport } = useReportMember();
-  const { mutate: sendBlock } = useBlock();
+  const { mutate: sendBlock, isPending: blocking } = useBlock();
   const userId = session?.user.id;
   const fail = (error: unknown) => notify(t(socialErrorKey(error)));
 
@@ -93,5 +94,5 @@ export function useModeration(onBlocked?: () => void) {
     { label: t('social.block', { name }), destructive: true, onPress: () => block(memberId, name) },
   ];
 
-  return { memberActions, photoMenu };
+  return { memberActions, photoMenu, blocking };
 }

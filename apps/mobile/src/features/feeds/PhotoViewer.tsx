@@ -20,7 +20,7 @@ export function PhotoViewer({ photo, onClose }: { photo: ViewedPhoto | null; onC
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
-  const { photoMenu } = useModeration(onClose);
+  const { photoMenu, blocking } = useModeration(onClose);
   const [menu, setMenu] = useState<Menu | null>(null);
   return (
     <Modal visible={photo !== null} animationType="fade" onRequestClose={onClose} statusBarTranslucent>
@@ -49,7 +49,8 @@ export function PhotoViewer({ photo, onClose }: { photo: ViewedPhoto | null; onC
             {photo?.name}
           </AppText>
           <View style={styles.buttons}>
-            {photo && photo.userId !== session?.user.id && (
+            {/* A block's answer closes this viewer, and iOS can't close it under an open menu. */}
+            {photo && !blocking && photo.userId !== session?.user.id && (
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={t('social.more')}
