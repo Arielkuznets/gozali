@@ -258,7 +258,11 @@ test.describe('a restore', () => {
     const items = saved('public.pack_items', `pack_id = '${pack.id}'`);
     const dansItem = items.find((row) => row.bought_by === dan.id)!;
     // Other keys have no empty value to fall back on: these two rows are skipped.
-    backup.tables['public.pack_items'] = [...items, { ...dansItem, item: 'no_such_item' }, { ...dansItem, pack_id: '00000000-0000-4000-a000-000000000001' }];
+    backup.tables['public.pack_items'] = [
+      ...items,
+      { ...dansItem, item: 'no_such_item' },
+      { ...dansItem, pack_id: '00000000-0000-4000-a000-000000000001' },
+    ];
     backup.tables['public.pack_events'] = saved('public.pack_events', `pack_id = '${pack.id}'`);
     // Dan deleted the account after the backup read these tables, and before it read the profiles.
     backup.tables['public.profiles'] = backup.tables['public.profiles']!.filter((row) => row.id !== dan.id);
@@ -306,7 +310,9 @@ test.describe('a restore', () => {
     expect(reacted.error).toBeNull();
     const backup = backUp([noa, dan], older.id, newer.id);
     // The second pack was made after the backup, begun at 18:30, read critters.
-    for (const row of backup.tables['public.packs']!) row.created_at = row.id === newer.id ? '2026-10-29T18:31:00+00:00' : '2026-03-01T09:00:00+00:00';
+    for (const row of backup.tables['public.packs']!) {
+      row.created_at = row.id === newer.id ? '2026-10-29T18:31:00+00:00' : '2026-03-01T09:00:00+00:00';
+    }
     backup.tables['public.critters'] = backup.tables['public.critters']!.filter((row) => row.pack_id !== newer.id);
 
     const printed = restore(backup);
@@ -319,9 +325,8 @@ test.describe('a restore', () => {
     expect(printed).toContain('public.pack_members: 2, skipped 2');
     expect(printed).toContain('public.feeds: 1, skipped 1');
     expect(printed).toContain('public.reactions: 1, skipped 1');
-    expect(printed).toContain(
-      `Left out packs made after the backup began, which it holds without a critter, and their rows: ${newer.id} "Morning runs" (public.pack_members 2, public.feeds 1).`,
-    );
+    expect(printed).toContain('Left out packs made after the backup began, which it holds without a critter, and their rows: ');
+    expect(printed).toContain(`${newer.id} "Morning runs" (public.pack_members 2, public.feeds 1).`);
   });
 
   test('a pack older than the backup and held without its critter keeps its history, and the run says so', async () => {
