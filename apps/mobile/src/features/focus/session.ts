@@ -80,6 +80,9 @@ async function save(session: FocusSession | null) {
 /** The stored session, for a screen that only has to know about it. */
 export const storedFocusSession = load;
 
+/** The focus screens that are open: the camera can end a session over one of them. */
+const openScreens = new Set<() => void>();
+
 /**
  * Ends the stored session, or only the one of a pack, from outside the focus screen (the camera,
  * after a feed or on a link it can't take a photo for).
@@ -89,6 +92,7 @@ export async function clearFocusSession(packId?: string): Promise<void> {
   if (packId !== undefined && session?.packId !== packId) return;
   await cancelEnd(session);
   await save(null);
+  openScreens.forEach((forget) => forget());
 }
 
 /** The one running session (at most one at a time) and its controls. */
@@ -101,6 +105,11 @@ export function useFocusSession(text: { title: string; body: string }) {
       setSession(stored);
       setLoaded(true);
     });
+    const forget = () => setSession(null);
+    openScreens.add(forget);
+    return () => {
+      openScreens.delete(forget);
+    };
   }, []);
 
   const update = useCallback(async (next: FocusSession | null) => {
@@ -126,12 +135,10 @@ export function useFocusSession(text: { title: string; body: string }) {
     await update({ ...next, notificationId: await scheduleEnd(next, text) });
   };
 
-  /** Ends the session; returns the minutes focused. */
-  const stop = async (): Promise<number> => {
-    const minutes = session ? focusedMinutes(session, Date.now()) : 0;
+  /** Ends the session with no photo. */
+  const stop = async () => {
     await cancelEnd(session);
     await update(null);
-    return minutes;
   };
 
   return { session, loaded, start, pause, resume, stop };

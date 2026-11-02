@@ -12,7 +12,7 @@ import { LoadingScreen, LoadFailedScreen, PackMissingScreen } from '@/components
 import { Critter } from '@/features/critter/Critter';
 import { critterArt } from '@/features/critter/art';
 import { useCritterText } from '@/features/critter/useCritterText';
-import { FOCUS_LENGTHS, elapsedMs, remainingMs, useFocusSession } from '@/features/focus/session';
+import { FOCUS_LENGTHS, elapsedMs, focusedMinutes, remainingMs, useFocusSession } from '@/features/focus/session';
 import { usePack } from '@/features/packs/api';
 import { confirm } from '@/lib/confirm';
 import { allowNotifications } from '@/lib/notifications';
@@ -45,15 +45,22 @@ export default function FocusScreen() {
   const otherSession = focus.session !== null && session === null;
   const left = session ? remainingMs(session, now.getTime()) : null;
 
+  // The clock stops here and only the photo ends the session, so a camera left without one, refused
+  // or closed, gives these minutes back to this screen.
   const takePhoto = async () => {
-    const minutes = await focus.stop();
+    if (!session) return;
+    const minutes = focusedMinutes(session, Date.now());
+    await focus.pause().catch(() => undefined);
     router.replace(`/pack/${id}/feed?focus=${minutes}`);
   };
 
-  // When the time runs out with the screen open, go straight to the camera. A session that
-  // ended a while ago (the app was closed) waits for the Done button instead.
+  // When the time runs out with the screen open, go straight to the camera. A session that ended a
+  // while ago (the app was closed) or came back from the camera waits for the Done button instead.
   const justEnded =
-    session !== null && session.minutes !== null && elapsedMs(session, now.getTime()) - session.minutes * 60_000 < 60_000;
+    session !== null &&
+    session.pausedAt === null &&
+    session.minutes !== null &&
+    elapsedMs(session, now.getTime()) - session.minutes * 60_000 < 60_000;
   useEffect(() => {
     if (left === 0 && justEnded && !opened.current) {
       opened.current = true;

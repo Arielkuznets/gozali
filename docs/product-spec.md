@@ -271,6 +271,7 @@ A user feeds the creature with a photo taken inside the app right now; this is t
 - In packs of habits done in sittings (Study, Reading, Meditation, Language, Music practice), next to the Feed button there is also Focus: a timer of 15, 25, 45 or 60 minutes, or an open timer.
 - When the time is up a local notification is sent and the camera opens, and the feed shows the length of the session ("📖 45 min").
 - The timer is optional, and a photo is still required as proof. It keeps running while the app is in the background.
+- Done stops the clock at the camera, and the photo that goes out ends the session. A camera refused or closed without a photo leaves the session paused on the Focus screen, with its minutes.
 - During a pause no photo counts, so Focus is hidden like Feed. A session the pause overtook keeps Focus in reach until it is over, and the link at its end ends it and opens the pack.
 
 **No automatic photo check in version 1.** The protection against cheating is: live photos only, a timestamp, and exposure to the members in the feed. In a future version: on-device image classification (Vision on iOS, ML Kit on Android) that asks to retake the photo if it doesn't fit the category, without involving the members.
