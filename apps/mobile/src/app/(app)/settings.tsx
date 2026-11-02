@@ -10,6 +10,7 @@ import { Button } from '@/components/Button';
 import { Choice } from '@/components/Choice';
 import { PRIVACY_URL, TERMS_URL } from '@/components/LegalLinks';
 import { Screen } from '@/components/Screen';
+import { LoadFailed } from '@/components/ScreenStates';
 import { TextField } from '@/components/TextField';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useAppConfig } from '@/features/app/appConfig';
@@ -124,6 +125,7 @@ export default function SettingsScreen() {
 
         <View style={styles.section}>
           <AppText variant="caption">{t('settings.app.blocked')}</AppText>
+          {!blocked.data && blocked.isError && <LoadFailed onRetry={() => void blocked.refetch()} />}
           {blocked.data?.length === 0 && <AppText style={styles.muted}>{t('settings.app.noBlocked')}</AppText>}
           {blocked.data && blocked.data.length > 0 && (
             <View style={styles.list}>

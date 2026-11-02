@@ -104,6 +104,20 @@ test.describe('with someone blocked', () => {
     await expect.poll(() => alerts).toEqual(["Saving didn't work. Please try again."]);
     await expect(page.getByText('Dan')).toBeVisible();
   });
+
+  test("a list that doesn't load says so, and Try again brings it", async ({ page }) => {
+    await page.route('**/rest/v1/blocks?**', (route) => route.abort('internetdisconnected'));
+    await signIn(page, noa);
+    await page.goto('/settings');
+    await expect(page.getByText("This didn't load")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText("You haven't blocked anyone.")).toBeHidden();
+
+    await page.unroute('**/rest/v1/blocks?**');
+    await page.getByRole('button', { name: 'Try again' }).click();
+
+    await expect(page.getByText('Dan')).toBeVisible();
+    await expect(page.getByText("This didn't load")).toBeHidden();
+  });
 });
 
 async function createAPack(page: Page) {
