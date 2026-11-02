@@ -1,5 +1,5 @@
 import * as Clipboard from 'expo-clipboard';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, Share, StyleSheet, useWindowDimensions, View } from 'react-native';
@@ -13,6 +13,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { currentMembers, packErrorKey, usePack, useRenewInviteCode } from '@/features/packs/api';
 import { PACK_SIZE_MAX, inviteLink } from '@/features/packs/constants';
 import { confirm, notify } from '@/lib/confirm';
+import { useBackToPack } from '@/lib/navigation';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 export default function InviteScreen() {
@@ -23,6 +24,7 @@ export default function InviteScreen() {
   const [copied, setCopied] = useState(false);
   const { session } = useAuth();
   const renew = useRenewInviteCode(id);
+  const backToPack = useBackToPack();
 
   if (isPending) return <LoadingScreen back />;
   if (!pack && isError) return <LoadFailedScreen onRetry={() => void refetch()} />;
@@ -92,7 +94,7 @@ export default function InviteScreen() {
           variant="secondary"
           onPress={() => void onCopy()}
         />
-        <Button label={t('invite.done')} variant="secondary" onPress={() => router.dismissTo(`/pack/${id}`)} />
+        <Button label={t('invite.done')} variant="secondary" onPress={() => backToPack(id)} />
       </View>
     </Screen>
   );

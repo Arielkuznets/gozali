@@ -8,15 +8,17 @@ import { Text, TextInput } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import '@/i18n';
+import * as AppLayout from '@/app/(app)/_layout';
 import CreatePackScreen from '@/app/(app)/create-pack';
 import JoinScreen from '@/app/(app)/join';
 import InviteScreen from '@/app/(app)/pack/[id]/invite';
 import PackSettingsScreen from '@/app/(app)/pack/[id]/settings';
 import { LoadingScreen, PackMissingScreen } from '@/components/ScreenStates';
 import { packsKey, useMyPacks, usePack, type Pack, type PackPreview } from '@/features/packs/api';
+import { NEW_SCREEN } from '@/lib/navigation';
 
-// The real router and the real pack screens over a stand-in for the server, whose answers the
-// tests can hold back: the order they arrive in decides what a person sees.
+// The real router, the app's own stack and the real pack screens over a stand-in for the server,
+// whose answers the tests can hold back: the order they arrive in decides what a person sees.
 jest.mock('expo-linking', () => ({
   ...jest.requireActual('expo-linking'),
   createURL: (path: string) => `gozali://${path}`,
@@ -27,8 +29,13 @@ const USER = 'user-1';
 jest.mock('@/features/auth/AuthProvider', () => ({
   useAuth: () => ({ session: { user: { id: 'user-1' } }, loading: false }),
 }));
+jest.mock('@/components/OfflineBanner', () => ({ OfflineBanner: () => null }));
 jest.mock('@/features/days/PauseSection', () => ({ PauseSection: () => null }));
 jest.mock('@/features/critter/Critter', () => ({ Critter: () => null }));
+jest.mock('@/features/feeds/api', () => ({ useFeedQueue: () => undefined }));
+jest.mock('@/features/profile/useProfile', () => ({ useAccountSync: () => undefined }));
+jest.mock('@/features/widgets/sync', () => ({ useWidgetSync: () => undefined }));
+jest.mock('@/lib/notifications', () => ({ useNotificationRoutes: () => undefined }));
 jest.mock('react-native-qrcode-svg', () => ({ __esModule: true, default: () => null }));
 jest.mock('expo-clipboard', () => ({ getStringAsync: async () => '', setStringAsync: async () => undefined }));
 const mockNotify = jest.fn();
@@ -119,21 +126,14 @@ function Camera() {
 
 const routes = {
   _layout: { default: () => <Stack screenOptions={{ headerShown: false }} /> },
-  '(app)/_layout': {
-    default: () => (
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="pack/[id]/feed" options={{ presentation: 'fullScreenModal' }} />
-      </Stack>
-    ),
-    unstable_settings: { initialRouteName: 'index' },
-  },
+  '(app)/_layout': AppLayout,
   '(app)/index': { default: Home },
   '(app)/create-pack': { default: CreatePackScreen },
   '(app)/join': { default: JoinScreen },
   '(app)/pack/[id]/index': { default: PackStandIn },
   '(app)/pack/[id]/feed': { default: Camera },
   '(app)/pack/[id]/invite': { default: InviteScreen },
+  '(app)/pack/[id]/not-today': { default: () => <Text>not today</Text> },
   '(app)/pack/[id]/settings': { default: PackSettingsScreen },
 };
 
@@ -164,8 +164,9 @@ async function press(label: string) {
   await settle();
 }
 
+/** Opens a screen over the one in front, as a tapped notification does. */
 async function open(href: Href) {
-  await act(async () => router.push(href));
+  await act(async () => router.push(href, NEW_SCREEN));
   await settle();
 }
 
@@ -516,6 +517,20 @@ describe('Done on the invite screen', () => {
 
     expect(appStack()).toEqual(['index', 'pack/[id]/index']);
     expect(pathname()).toBe('/pack/p1');
+  });
+
+  it('stops at the pack it was opened from, with the photo on a camera under that', async () => {
+    await start('/pack/p1');
+    await open('/pack/p1/feed');
+    await open('/pack/p1');
+    await open('/pack/p1/invite');
+
+    await press('Done');
+
+    expect(appStack()).toEqual(['index', 'pack/[id]/index', 'pack/[id]/feed', 'pack/[id]/index']);
+    await goBack();
+    expect(pathname()).toBe('/pack/p1/feed');
+    expect(shows(CAPTION)).toBe(true);
   });
 
   it('opens the pack over the home screen when it has only just been created', async () => {

@@ -353,6 +353,23 @@ describe('a link to the camera that is open', () => {
   });
 });
 
+describe('a link to another pack', () => {
+  it('opens over the camera, and Back reaches the photo there', async () => {
+    await start('/');
+    await go(() => router.push('/pack/p1' as Href));
+    await go(() => router.push(CAMERA as Href));
+    await takePhoto('Leg day');
+
+    await followLink('gozali://pack/p2');
+
+    expect(appStack()).toEqual(['index', 'pack/[id]/index p1', 'pack/[id]/feed p1', 'pack/[id]/index p2']);
+
+    await go(() => router.back());
+    expect(pathname()).toBe(CAMERA);
+    expect(captions()).toEqual(['Leg day']);
+  });
+});
+
 describe('a link that opens the app', () => {
   it('opens the camera over the home screen', async () => {
     await start(CAMERA);

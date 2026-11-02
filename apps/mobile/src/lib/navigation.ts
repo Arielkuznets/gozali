@@ -17,6 +17,9 @@ export function goBack(fallback: Href = '/'): void {
   else router.replace(fallback);
 }
 
+const isPack = (route: { name: string; params?: object } | undefined, packId: string) =>
+  route?.name === 'pack/[id]/index' && (route.params as { id?: string } | undefined)?.id === packId;
+
 /**
  * Swaps the screen in front for a pack. Back to that pack if it is right underneath, so it isn't
  * open twice. Anything else underneath stays, or the way back through it and a photo on the camera
@@ -27,12 +30,26 @@ export function useOpenPack(): (packId: string) => void {
   return useCallback(
     (packId) => {
       if (!navigation.isFocused()) return;
-      const under = navigation.getState()?.routes.at(-2);
-      if (under?.name === 'pack/[id]/index' && (under.params as { id?: string })?.id === packId) router.back();
+      if (isPack(navigation.getState()?.routes.at(-2), packId)) router.back();
       else router.replace(`/pack/${packId}`);
     },
     [navigation],
   );
+}
+
+/**
+ * Back to the pack a screen was opened from, past what stands between them, or to that pack in its
+ * place when it isn't underneath. dismissTo goes to the lowest copy of a pack, past a camera left
+ * under a second copy.
+ */
+export function useBackToPack(): (packId: string) => void {
+  const navigation = useNavigation();
+  return (packId) => {
+    const routes = navigation.getState()?.routes ?? [];
+    const pack = routes.findLastIndex((route) => isPack(route, packId));
+    if (pack === -1) router.replace(`/pack/${packId}`);
+    else router.dismiss(routes.length - 1 - pack);
+  };
 }
 
 /**
