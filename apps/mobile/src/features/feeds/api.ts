@@ -10,8 +10,7 @@ import { enqueue, flushQueue, hasConnection, isOnline, pendingFeeds } from '@/fe
 import { PHOTO_BUCKET, feedErrorCode, isFinalRejection, sendFeed, type OutgoingFeed } from '@/features/feeds/send';
 import type { ReactionTotal } from '@/features/social/api';
 import { notify } from '@/lib/confirm';
-import { errorMessage } from '@/lib/errors';
-import { errorCode, reportError } from '@/lib/reportError';
+import { errorText, reportError } from '@/lib/reportError';
 import { requireSupabase } from '@/lib/supabase';
 import { serverNow } from '@/lib/serverClock';
 
@@ -159,9 +158,9 @@ export function useSendFeed() {
   });
 }
 
-/** A refusal from the server is a plain object, which a report couldn't name on its own. */
+/** The error alone doesn't say which of the queue's troubles it was. */
 function queueError(what: string, error: unknown): Error {
-  return new Error(`${what}: ${[errorCode(error), errorMessage(error)].filter(Boolean).join(' ')}`);
+  return new Error(`${what}: ${errorText(error)}`);
 }
 
 /**

@@ -3,6 +3,7 @@ import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
 import { Platform } from 'react-native';
 
+import { errorMessage } from '@/lib/errors';
 import { supabase } from '@/lib/supabase';
 
 const PENDING_KEY = 'gozali.pending-error';
@@ -12,7 +13,7 @@ type ErrorReport = { message: string; stack: string | null; screen: string | nul
 function describe(error: unknown, screen: string | null, fatal: boolean): ErrorReport {
   const known = error instanceof Error;
   return {
-    message: known ? `${error.name}: ${error.message}` : String(error),
+    message: known ? `${error.name}: ${error.message}` : errorText(error),
     stack: known ? (error.stack ?? null) : null,
     screen,
     fatal,
@@ -52,6 +53,15 @@ export function errorCode(error: unknown): string | null {
 }
 
 /**
+ * What a report can say about anything thrown. A refusal from the server is a plain object: its
+ * details and hint stay out, because they can quote a row with someone's words in it.
+ */
+export function errorText(error: unknown): string {
+  if (typeof error !== 'object' || error === null) return String(error);
+  return [errorCode(error), errorMessage(error)].filter(Boolean).join(' ') || 'An object without a message';
+}
+
+/**
  * Tells the developer why a sign-in didn't finish, cancellations included: Apple's own failures can
  * look like the user closing the sheet, and a failure before anyone is signed in leaves no other
  * trace (App Review once couldn't sign in on an iPad and the server saw nothing). The same code
@@ -60,7 +70,7 @@ export function errorCode(error: unknown): string | null {
  */
 export function reportSignInProblem(provider: string, error: unknown, elapsedMs: number): void {
   if (!supabase) return;
-  const message = error instanceof Error ? error.message : String(error);
+  const message = errorMessage(error) || errorText(error);
   const { systemName, osVersion } = Platform.constants as { systemName?: string; osVersion?: string };
   const system = `${systemName ?? Platform.OS} ${osVersion ?? Platform.Version}`;
   void supabase
