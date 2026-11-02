@@ -10,8 +10,8 @@ import { EXPO_PUSH_URL, RefusedRequest, runFailed, sendAll, type PushMessage, ty
 // A worker's 150 seconds are shared by every request it serves, so a run may have only 75 of them
 // left. A request to Expo that hangs is given up after 20, and no new one starts after 50, which
 // leaves time to put back what wasn't sent.
-const REQUEST_TIMEOUT_MS = 20_000;
-const SEND_BUDGET_MS = 50_000;
+export const REQUEST_TIMEOUT_MS = 20_000;
+export const SEND_BUDGET_MS = 50_000;
 
 async function expoSend(batch: PushMessage[]): Promise<PushTicket[]> {
   const token = Deno.env.get('EXPO_ACCESS_TOKEN');

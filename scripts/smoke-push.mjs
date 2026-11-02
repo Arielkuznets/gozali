@@ -1,9 +1,10 @@
 // Notifications end to end against the local stack, with a stand-in for Expo Push: feeds queue
 // merged "friend fed" and "last one" notifications, claim_notifications releases them, the
-// send-push code renders the critter's lines, dead tokens and failed batches are handled, and
-// the owner hears about a new sign-up.
+// send-push code renders the critter's lines, dead tokens and failed batches are handled, the
+// function answers so that trouble reaches the owners, and the owner hears about a new sign-up.
 // Run with `npx supabase start` up: node scripts/smoke-push.mjs
 import { registerHooks } from 'node:module';
+import { format } from 'node:util';
 
 import { createClient } from '@supabase/supabase-js';
 
@@ -215,15 +216,15 @@ const cronSecret = 'smoke-push';
 const functionEnv = { SUPABASE_URL: url, SUPABASE_SERVICE_ROLE_KEY: secretKey, CRON_SECRET: cronSecret };
 let sendPush;
 globalThis.Deno = { env: { get: (name) => functionEnv[name] }, serve: (handler) => (sendPush = handler) };
-await import('../supabase/functions/send-push/index.ts');
+const { REQUEST_TIMEOUT_MS, SEND_BUDGET_MS } = await import('../supabase/functions/send-push/index.ts');
 
 const realFetch = globalThis.fetch;
 const realConsoleError = console.error;
 async function runFunction(rowIds, expo, database = () => null) {
   const logged = [];
-  console.error = (...line) => logged.push(line.join(' '));
+  console.error = (...line) => logged.push(format(...line));
   globalThis.fetch = async (target, init) => {
-    if (String(target) === EXPO_PUSH_URL) return expo(JSON.parse(init.body));
+    if (String(target) === EXPO_PUSH_URL) return expo(JSON.parse(init.body), init);
     const rpc = /\/rpc\/(\w+)$/.exec(String(target))?.[1];
     const answered = rpc ? database(rpc, JSON.parse(init.body)) : null;
     if (answered) return answered;
@@ -243,13 +244,23 @@ const expoTakes = (seen = []) => (batch) => {
   seen.push(...batch);
   return Response.json({ data: batch.map(() => ({ status: 'ok' })) });
 };
-const expoFails = () => new Response('{}', { status: 401 });
+const expoFails = (status = 401) => new Response('{}', { status });
+const firstBatchOnly = () => {
+  let requests = 0;
+  return (batch) => {
+    requests += 1;
+    return requests === 1 ? expoTakes()(batch) : expoFails();
+  };
+};
+const databaseFails = (name) => (rpc) => (rpc === name ? Response.json({ code: 'XX000', message: 'database down' }, { status: 500 }) : null);
 const addRows = async (rows) => {
   const added = await admin.from('notifications').insert(rows).select('id');
   if (added.error) throw added.error;
   return added.data.map((row) => row.id);
 };
 const queueRows = async (ids) => (await admin.from('notifications').select('status, attempts, send_after').in('id', ids)).data;
+const signUpFor = (id) => ({ user_id: id, type: 'new_user', payload: { name: 'Lior', number: 3 } });
+const twoBatches = Array.from({ length: 101 }, () => signUpFor(dan));
 
 // An outage says nothing about the rows it sends back. They spend no try and don't wait longer each
 // time, however long it lasts, and go out when it ends, the owners' summary of it with the rest.
@@ -258,9 +269,9 @@ const outageRows = await addRows([
   { user_id: dan, pack_id: pack.id, type: 'evolution', payload: { event: 'hatched' } },
 ]);
 const outage = [];
-for (let round = 0; round < 9; round += 1) {
+for (const status of [401, 403, 429, 500, 502, 503, 504, 401, 503]) {
   await admin.from('notifications').update({ send_after: new Date().toISOString() }).in('id', outageRows);
-  outage.push(await runFunction(outageRows, expoFails));
+  outage.push(await runFunction(outageRows, () => expoFails(status)));
 }
 check(
   outage.every(({ status, report }) => status === 502 && report.attempted === 2 && report.requeued === 2),
@@ -277,7 +288,7 @@ check((await queueRows(outageRows)).every((row) => row.status === 'sent'), 'and 
 
 // A refusal is about the row, so it spends a try and waits longer, while the rows beside it in the
 // run don't pay for it.
-const refusalRows = await addRows([noa, dan].map((id) => ({ user_id: id, type: 'new_user', payload: { name: 'Lior', number: 3 } })));
+const refusalRows = await addRows([signUpFor(noa), signUpFor(dan)]);
 const refusedRun = await runFunction(refusalRows, (batch) =>
   batch.some((message) => message.to.includes('Dan')) ? new Response('{}', { status: 400 }) : expoTakes()(batch),
 );
@@ -289,7 +300,7 @@ check(
   'a run with a refusal failed, with the rest out, and says why',
 );
 check(refusedRun.logged.some((line) => line.startsWith('send-push failed')), 'in the log too');
-const loneRow = await addRows({ user_id: dan, type: 'new_user', payload: { name: 'Lior', number: 3 } });
+const loneRow = await addRows(signUpFor(noa));
 const loneRefused = await runFunction(loneRow, () => new Response('{}', { status: 400 }));
 check(
   loneRefused.status === 502 && JSON.stringify(loneRefused.report.ticketErrors) === '{"RefusedRequest":1}',
@@ -310,22 +321,74 @@ check(
 
 // A function on a server without the `refused` argument still gets the rows back, at the old price
 // of a try each, and answers 502 even if the rest of the run went fine, so that it is seen.
-const behindRows = await addRows(Array.from({ length: 101 }, () => ({ user_id: dan, type: 'new_user', payload: { name: 'Lior', number: 3 } })));
-let behindBatches = 0;
+const behindRows = await addRows(twoBatches);
 const noArgument = () =>
   Response.json({ code: 'PGRST202', message: 'Could not find the function public.requeue_notifications(ids, refused)' }, { status: 404 });
-const behind = await runFunction(
-  behindRows,
-  (batch) => {
-    behindBatches += 1;
-    return behindBatches === 1 ? expoTakes()(batch) : expoFails();
-  },
-  (rpc, args) => (rpc === 'requeue_notifications' && args.refused ? noArgument() : null),
-);
+const behind = await runFunction(behindRows, firstBatchOnly(), (rpc, args) => (rpc === 'requeue_notifications' && args.refused ? noArgument() : null));
 check(behind.status === 502 && behind.report.sent === 100 && behind.report.requeued === 1, 'a server without the migration makes the run answer 502');
 check(behind.logged.some((line) => line.includes('requeue_notifications')), 'and it says so in the log');
 const behindAfter = (await queueRows(behindRows)).filter((row) => row.status === 'pending');
 check(behindAfter.length === 1 && behindAfter[0].attempts === 1, 'and the rows go back all the same');
+
+// The status is what reaches the owners, through collect_service_errors, and the body and the log
+// are what they read then.
+const forbidden = await sendPush(new Request('http://send-push', { method: 'POST', headers: { 'x-cron-secret': 'wrong' } }));
+check(forbidden.status === 403, 'a caller without the secret is turned away');
+const noClaim = await runFunction([], () => expoFails(), databaseFails('claim_notifications'));
+check(noClaim.status === 500 && noClaim.report.error === 'database down', 'a run that can claim nothing answers 500 and says why');
+const idle = await runFunction([], () => expoFails());
+check(idle.status === 200 && JSON.stringify(idle.report) === '{"claimed":0,"attempted":0,"sent":0,"requeued":0,"ticketErrors":{}}', 'a run with nothing due answers 200');
+
+const ticketRows = await addRows([signUpFor(noa), signUpFor(dan)]);
+const ticketRun = await runFunction(ticketRows, (batch) =>
+  Response.json({ data: batch.map((_, index) => (index === 0 ? { status: 'error', details: { error: 'InvalidCredentials' } } : { status: 'ok' })) }),
+);
+check(
+  ticketRun.status === 502 && ticketRun.report.sent === 1 && JSON.stringify(ticketRun.report.ticketErrors) === '{"InvalidCredentials":1}',
+  'a run with an error on a ticket answers 502 with the code in its body, even with the rest out',
+);
+check(ticketRun.logged.some((line) => line.startsWith('send-push failed') && line.includes('InvalidCredentials')), 'and in the log');
+
+const strandedRows = await addRows(twoBatches);
+const stranded = await runFunction(strandedRows, firstBatchOnly(), databaseFails('requeue_notifications'));
+check(stranded.status === 502 && stranded.report.sent === 100 && stranded.report.requeued === 0, "rows that can't go back make a run with deliveries answer 502");
+const strandedLog = stranded.logged.find((line) => line.startsWith('requeue failed')) ?? '';
+check(strandedLog.includes('database down') && strandedRows.filter((id) => strandedLog.includes(id)).length === 1, 'and the log names them, all that is left of them');
+
+const goneTicket = (batch) => Response.json({ data: batch.map(() => ({ status: 'error', details: { error: 'DeviceNotRegistered' } })) });
+await admin.from('push_tokens').insert({ token: `ExponentPushToken[Maya-again-${run}]`, user_id: maya, platform: 'ios' });
+const unforgotten = await runFunction(await addRows(signUpFor(maya)), goneTicket, databaseFails('forget_push_tokens'));
+check(unforgotten.status === 200 && unforgotten.logged.some((line) => line.startsWith('forgetting dead tokens failed')), "a dead token that can't be forgotten is logged");
+const forgotten = await runFunction(await addRows(signUpFor(maya)), goneTicket);
+const { data: mayaAgain } = await admin.from('push_tokens').select('token').eq('user_id', maya);
+check(forgotten.status === 200 && mayaAgain.length === 0, 'and one that can be is forgotten');
+
+// A worker may have only 75 seconds left for a run, so it has to stop in time to put rows back.
+check(REQUEST_TIMEOUT_MS + SEND_BUDGET_MS <= 75_000, "the last request can't hang past the 75 seconds a run may have");
+const realNow = Date.now;
+const lateClock = await addRows(twoBatches);
+let clockRequests = 0;
+const overBudget = await runFunction(lateClock, (batch) => {
+  clockRequests += 1;
+  Date.now = () => realNow() + SEND_BUDGET_MS + 1;
+  return expoTakes()(batch);
+});
+Date.now = realNow;
+check(clockRequests === 1 && overBudget.report.sent === 100 && overBudget.report.requeued === 1, 'a run past its budget starts no other request and puts the rest back');
+check((await queueRows(lateClock)).every((row) => row.attempts === 0), 'at no cost to the rows');
+
+const realTimeout = AbortSignal.timeout;
+const waits = [];
+AbortSignal.timeout = (ms) => {
+  waits.push(ms);
+  const timeout = new AbortController();
+  setTimeout(() => timeout.abort(new Error('timed out')), 1);
+  return timeout.signal;
+};
+const hungRows = await addRows(signUpFor(dan));
+const hung = await runFunction(hungRows, (_, init) => new Promise((_, reject) => init.signal.addEventListener('abort', () => reject(init.signal.reason))));
+AbortSignal.timeout = realTimeout;
+check(hung.status === 502 && hung.report.requeued === 1 && waits[0] === REQUEST_TIMEOUT_MS, 'a request that hangs is given up on time, and its rows go back');
 
 // Owner alerts: someone finishing the profile setup tells the owner, in plain words.
 const owned = await admin.from('app_owners').insert({ user_id: noa });
