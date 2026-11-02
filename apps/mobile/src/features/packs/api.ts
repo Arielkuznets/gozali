@@ -112,8 +112,13 @@ export function useMyPacks() {
 }
 
 export function usePack(id: string) {
+  const queryClient = useQueryClient();
   return useQuery({
     queryKey: packKey(id),
+    // The home list holds the pack, so a first open draws at once, also offline. It keeps the
+    // list's time: a screen must not take this for what the server has just answered.
+    initialData: () => queryClient.getQueryData<Pack[]>(packsKey)?.find((pack) => pack.id === id),
+    initialDataUpdatedAt: () => queryClient.getQueryState(packsKey)?.dataUpdatedAt,
     // Null once the pack isn't visible (left or removed), so screens can say so instead of
     // keeping the last copy on screen.
     queryFn: async (): Promise<Pack | null> => {

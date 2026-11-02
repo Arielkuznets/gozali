@@ -79,7 +79,7 @@ export default function FeedScreen() {
 
   // The tap on Feed gives the system alert its context and the purpose string its reason, so no
   // screen of ours comes first. A link to a pack that is gone has no use for the camera; offline
-  // the pack never loads, and the camera still works.
+  // a pack the phone doesn't hold never loads, and the camera still works.
   const askNow = toAsk && pack !== null && !packLoading && !paused;
   useEffect(() => {
     if (askNow) void requestPermission().finally(() => setAnswered(true));
@@ -169,8 +169,8 @@ export default function FeedScreen() {
   }
 
   // A link from a pack the user isn't in any more (an old notification, a widget, another
-  // account's link) has nothing to feed. Offline the pack doesn't load at all, and the camera
-  // still works so the feed can wait in the queue.
+  // account's link) has nothing to feed. Offline a pack the phone doesn't hold never loads, and the
+  // camera still works so the feed can wait in the queue.
   if (pack === null) return <PackMissingScreen />;
 
   if (!permission || toAsk || paused) {

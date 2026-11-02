@@ -11,7 +11,7 @@ import CreatePackScreen from '@/app/(app)/create-pack';
 import JoinScreen from '@/app/(app)/join';
 import InviteScreen from '@/app/(app)/pack/[id]/invite';
 import PackSettingsScreen from '@/app/(app)/pack/[id]/settings';
-import { useMyPacks, type Pack, type PackPreview } from '@/features/packs/api';
+import { packsKey, useMyPacks, type Pack, type PackPreview } from '@/features/packs/api';
 
 // The real router and the real pack screens over a stand-in for the server, whose answers the
 // tests can hold back: the order they arrive in decides what a person sees.
@@ -37,13 +37,17 @@ jest.mock('@/lib/confirm', () => ({
 
 let mockPacks: Pack[] = [];
 let mockListAnswered: Promise<void> = Promise.resolve();
+let mockOwnReadFails = false;
 const mockRpc = jest.fn();
 jest.mock('@/lib/supabase', () => ({
   requireSupabase: () => ({
     from: () => ({
       select: () => ({
         eq: (_column: string, id: string) => ({
-          maybeSingle: async () => ({ data: mockPacks.find((pack) => pack.id === id) ?? null, error: null }),
+          maybeSingle: async () =>
+            mockOwnReadFails
+              ? { data: null, error: new TypeError('Network request failed') }
+              : { data: mockPacks.find((pack) => pack.id === id) ?? null, error: null },
         }),
         order: async () => {
           await mockListAnswered;
@@ -150,6 +154,7 @@ beforeEach(() => {
   process.env.EXPO_ROUTER_IMPORT_MODE = 'sync';
   mockPacks = [packNamed('p1')];
   mockListAnswered = Promise.resolve();
+  mockOwnReadFails = false;
   mockNotify.mockClear();
   mockRpc.mockReset();
   mockRpc.mockImplementation(async (name: string) => {
@@ -281,6 +286,76 @@ describe('a pack that is gone', () => {
 
     expect(appStack()).toEqual(['index']);
     expect(router.canGoBack()).toBe(false);
+  });
+});
+
+describe('a pack the phone has only on its list', () => {
+  const FAILED = "This didn't load. Check the connection and try again.";
+  const LIST_TIME = 1_000_000;
+
+  beforeEach(() => {
+    client.setQueryData(packsKey, [packNamed('p1')], { updatedAt: LIST_TIME });
+  });
+
+  describe('without a connection', () => {
+    beforeEach(() => {
+      mockOwnReadFails = true;
+      // The list has no answer either, and what the phone holds stays.
+      mockListAnswered = new Promise(() => undefined);
+    });
+
+    it('opens its settings', async () => {
+      await start('/pack/p1/settings');
+
+      expect(shows(FAILED)).toBe(false);
+      expect(shows('Pack settings')).toBe(true);
+    });
+
+    it('opens its invite', async () => {
+      await start('/pack/p1/invite');
+
+      expect(shows(FAILED)).toBe(false);
+      expect(shows('ABCD2345')).toBe(true);
+    });
+
+    it('offers to try again for a pack that is not on the list', async () => {
+      await start('/pack/p2/settings');
+
+      expect(shows(FAILED)).toBe(true);
+    });
+  });
+
+  it('says it is missing once the server says it is gone', async () => {
+    mockPacks = [];
+    await start('/pack/p1/settings');
+
+    expect(shows(MISSING)).toBe(true);
+    expect(shows('Pack settings')).toBe(false);
+  });
+
+  describe('its settings, opened on what the phone holds', () => {
+    const asAdmin = (pack: Pack): Pack => ({
+      ...pack,
+      pack_members: pack.pack_members.map((member) => ({ ...member, role: 'admin' })),
+    });
+    const nameField = () => app.root.findByType(TextInput);
+
+    beforeEach(() => {
+      client.setQueryData(packsKey, [asAdmin(packNamed('p1'))], { updatedAt: LIST_TIME });
+      mockPacks = [{ ...asAdmin(packNamed('p1')), name: 'Renamed on another phone' }];
+    });
+
+    it.each([
+      ['the list', () => undefined],
+      ['a kept copy of the pack', () => client.setQueryData(['packs', 'p1'], asAdmin(packNamed('p1')), { updatedAt: LIST_TIME })],
+    ])('stay as they opened from %s when the answer differs, and save nothing by themselves', async (_from, keep) => {
+      keep();
+      await start('/pack/p1/settings');
+
+      expect(client.getQueryData<Pack>(['packs', 'p1'])?.name).toBe('Renamed on another phone');
+      expect(nameField().props.value).toBe('Pack p1');
+      expect(mockRpc).not.toHaveBeenCalledWith('update_pack', expect.anything());
+    });
   });
 });
 

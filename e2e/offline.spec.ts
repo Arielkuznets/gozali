@@ -125,6 +125,42 @@ test('opening the app without a connection still says who fed today', async ({ p
   await removeUsers(dan);
 });
 
+test('a pack on the home list that was never opened draws at once, with its own read on the way', async ({ page }) => {
+  await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' });
+  await signIn(page, noa);
+  await page.goto('/');
+  await expect(page.getByText('Gym squad')).toBeVisible();
+
+  // Held and never answered, as on a slow connection.
+  await page.route('**/rest/v1/packs?**id=eq.**', () => undefined);
+  await page.getByText('Gym squad').click();
+
+  await expect(page.getByRole('button', { name: 'Feed', exact: true })).toBeVisible();
+});
+
+test('a pack on the home list that was never opened opens without a connection', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' });
+  await signIn(page, noa);
+  await page.goto('/');
+  await expect(page.getByText('Gym squad')).toBeVisible();
+  await page.waitForTimeout(1500);
+  expect(await keptCopy(page)).not.toContain(`"packs","${pack.id}"`);
+
+  await goOffline(page);
+  await page.reload();
+  await page.getByText('Gym squad').click();
+  const feedButton = page.getByRole('button', { name: 'Feed', exact: true });
+  await expect(feedButton).toBeVisible();
+
+  // The pack's own read gives up after its retries; what the list held stays on screen.
+  await page.waitForTimeout(12_000);
+  await expect(feedButton).toBeVisible();
+  await expect(page.getByText("This didn't load")).toBeHidden();
+
+  await page.reload();
+  await expect(feedButton).toBeVisible();
+});
+
 test("another account on the phone never gets the last one's packs", async ({ page }) => {
   const dan = await createUser('Dan');
   await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' });
