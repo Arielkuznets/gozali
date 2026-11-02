@@ -1,4 +1,5 @@
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
+import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -18,14 +19,23 @@ export default function NotTodayScreen() {
   const dayPass = useDayPass(id);
   const cancelPass = useCancelDayPass(id);
   const navigation = useNavigation();
+  // The mutation's pending state reaches the buttons a moment after a tap; the server would refuse
+  // a second tap in between, on a day that has its pass from the first.
+  const choosing = useRef(false);
 
-  const choose = (pass: 'rest' | 'joker') =>
+  const choose = (pass: 'rest' | 'joker') => {
+    if (choosing.current) return;
+    choosing.current = true;
     dayPass.mutate(pass, {
       onSuccess: () => {
         // Back closes the top screen, which may be one opened over this sheet while the reads ran.
         if (navigation.isFocused()) goBack(`/pack/${id}`);
       },
+      onSettled: () => {
+        choosing.current = false;
+      },
     });
+  };
 
   if (!status.data) {
     return (

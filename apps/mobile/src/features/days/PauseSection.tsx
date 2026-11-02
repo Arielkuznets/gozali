@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
@@ -20,6 +20,9 @@ export function PauseSection({ packId }: { packId: string }) {
   const startPause = useStartPause(packId);
   const endPause = useEndPause(packId);
   const [menu, setMenu] = useState<Menu | null>(null);
+  // The mutation's pending state reaches the button a moment after a tap; the server would refuse a
+  // second tap in between, with the pause already over.
+  const ending = useRef(false);
   const day = status.data;
   if (!day) return null;
 
@@ -36,7 +39,15 @@ export function PauseSection({ packId }: { packId: string }) {
       title: t('days.pauseHowLong'),
       actions: PAUSE_LENGTHS.map((days) => ({ label: lengthLabel(days, t), onPress: () => onStart(days) })),
     });
-  const onEnd = () => endPause.mutate();
+  const onEnd = () => {
+    if (ending.current) return;
+    ending.current = true;
+    endPause.mutate(undefined, {
+      onSettled: () => {
+        ending.current = false;
+      },
+    });
+  };
 
   const pause = day.pause;
   const upcoming = pause !== null && pause.startsOn > day.day;

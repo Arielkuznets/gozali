@@ -4,12 +4,14 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import '@/i18n';
 import NotTodayScreen from '@/app/(app)/pack/[id]/not-today';
 import { Button } from '@/components/Button';
+import { PauseSection } from '@/features/days/PauseSection';
 import { notify } from '@/lib/confirm';
 
 // The real screen, hooks and query client; only the server stands in, and takes a moment to answer.
 const mockGoBack = jest.fn();
 const mockRpc = jest.fn();
 
+jest.mock('@/components/ActionMenu', () => ({ ActionMenu: () => null }));
 jest.mock('expo-router', () => ({
   router: { replace: jest.fn() },
   useLocalSearchParams: () => ({ id: 'pack' }),
@@ -24,6 +26,7 @@ const ANSWER_MS = 100;
 const later = <T,>(value: T) => new Promise<T>((done) => setTimeout(() => done(value), ANSWER_MS));
 
 let pass: 'rest' | 'joker' | null;
+let pause: { startsOn: string; endsOn: string } | null;
 let tree: ReactTestRenderer;
 let client: QueryClient;
 
@@ -38,6 +41,7 @@ async function advance(ms: number) {
 beforeEach(async () => {
   jest.useFakeTimers({ now: new Date('2026-11-01T10:00:00Z') });
   pass = null;
+  pause = null;
   jest.mocked(notify).mockReset();
   mockGoBack.mockReset();
   mockRpc.mockReset().mockImplementation((name: string) => {
@@ -52,7 +56,7 @@ beforeEach(async () => {
         jokerAvailable: true,
         passToday: pass,
         fedToday: false,
-        pause: null,
+        pause,
         pauseAvailableFrom: null,
       },
       error: null,
@@ -69,16 +73,36 @@ afterEach(async () => {
   jest.useRealTimers();
 });
 
-async function open() {
+async function open(screen = <NotTodayScreen />) {
   await act(async () => {
-    tree = create(
-      <QueryClientProvider client={client}>
-        <NotTodayScreen />
-      </QueryClientProvider>,
-    );
+    tree = create(<QueryClientProvider client={client}>{screen}</QueryClientProvider>);
   });
   await advance(ANSWER_MS + 1);
 }
+
+describe('End pause tapped twice before the button can turn off', () => {
+  it('ends the pause once, with no refusal', async () => {
+    pause = { startsOn: '2026-10-20', endsOn: '2026-12-01' };
+    await open(<PauseSection packId="pack" />);
+    const answer = mockRpc.getMockImplementation()!;
+    mockRpc.mockImplementation((name: string, ...args: unknown[]) => {
+      if (name !== 'end_pause') return answer(name, ...args);
+      const ended = pause === null;
+      pause = null;
+      return later({ data: null, error: ended ? { message: 'not_paused' } : null });
+    });
+
+    await act(async () => {
+      const [end] = buttons('End pause');
+      end!.props.onPress();
+      end!.props.onPress();
+    });
+    await advance(ANSWER_MS * 2 + 1);
+
+    expect(mockRpc.mock.calls.filter(([name]) => name === 'end_pause')).toHaveLength(1);
+    expect(notify).not.toHaveBeenCalled();
+  });
+});
 
 describe('Not today', () => {
   it('shows a spinner on the Use that was tapped until the screen closes', async () => {
@@ -119,6 +143,33 @@ describe('Not today', () => {
     expect(buttons('Use')).toHaveLength(2);
   });
 
+  describe('tapped twice before the button can turn off', () => {
+    const useCalls = () => mockRpc.mock.calls.filter(([name]) => name === 'use_day_pass');
+
+    beforeEach(async () => {
+      await open();
+      const answer = mockRpc.getMockImplementation()!;
+      mockRpc.mockImplementation((name: string, ...args: unknown[]) =>
+        name === 'use_day_pass' && pass !== null
+          ? later({ data: null, error: { message: 'already_passed' } })
+          : answer(name, ...args),
+      );
+      await act(async () => {
+        const [use] = buttons('Use');
+        use!.props.onPress();
+        use!.props.onPress();
+      });
+    });
+
+    it('saves the rest day once, and closes the screen with no refusal', async () => {
+      await advance(ANSWER_MS * 2 + 1);
+
+      expect(useCalls()).toHaveLength(1);
+      expect(notify).not.toHaveBeenCalled();
+      expect(mockGoBack).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('when the server refuses', () => {
     const REFUSED = 'No rest days left this week.';
 
@@ -142,6 +193,16 @@ describe('Not today', () => {
       await advance(ANSWER_MS + 1);
 
       expect(jest.mocked(notify).mock.calls).toEqual([[REFUSED]]);
+    });
+
+    it('takes a tap on the other Use after that', async () => {
+      await tapUseAndRefuse();
+      await advance(ANSWER_MS * 2 + 1);
+      mockRpc.mockClear();
+
+      await act(async () => buttons('Use')[1]!.props.onPress());
+
+      expect(mockRpc).toHaveBeenCalledWith('use_day_pass', { target: 'pack', pass: 'joker' });
     });
   });
 });
