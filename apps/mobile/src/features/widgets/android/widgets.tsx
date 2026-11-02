@@ -1,3 +1,6 @@
+// The widget library calls these components as plain functions, outside any React render.
+'use no memo';
+
 import { renderCritter } from '@gozali/critter-art';
 import { FlexWidget, SvgWidget, TextWidget } from 'react-native-android-widget';
 
