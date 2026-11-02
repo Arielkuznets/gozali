@@ -205,9 +205,9 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   meta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.sm },
-  // ⋯ is the only way to report a photo, so it stays on the card: a long name gives way to it, and
-  // at the largest text sizes the time wraps.
-  metaRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, maxWidth: '100%' },
+  // ⋯ is the only way to report a photo, so it stays on the card: a long name gives way to it. At
+  // the largest text sizes the time wraps, and the quarter of the row left over keeps a short name.
+  metaRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, maxWidth: '75%' },
   name: { fontFamily: fonts.bodyMedium, flexShrink: 1 },
   time: { flexShrink: 1 },
   more: { fontSize: 20, lineHeight: 22, color: colors.inkMuted },

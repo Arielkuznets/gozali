@@ -26,6 +26,17 @@ function answerDialogs(page: Page): string[] {
   return dialogs;
 }
 
+/** Text at twice its size, about what the largest accessibility settings of a phone give. */
+async function doubleTheText(page: Page) {
+  await page.evaluate(() => {
+    for (const text of document.querySelectorAll<HTMLElement>('div[dir=auto]')) {
+      const { fontSize, lineHeight } = getComputedStyle(text);
+      text.style.fontSize = `${parseFloat(fontSize) * 2}px`;
+      text.style.lineHeight = `${parseFloat(lineHeight) * 2}px`;
+    }
+  });
+}
+
 test('members nudge, report and block from the pack screen', async ({ page }) => {
   const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' }, [dan, maya]);
   await admin.from('critters').update({ status: 'active', stage: 'baby', xp: 2, health: 70 }).eq('pack_id', pack.id);
@@ -129,6 +140,35 @@ test('the menu of a photo stays on the screen beside a long name', async ({ page
 
   await more.click();
   await expect(page.getByRole('menuitem')).toHaveText(['Report photo', 'Block Bartholomew Montgomery-Smithso']);
+});
+
+test('a photo keeps its name and its menu at the largest text', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' }, [dan]);
+  await feed(dan, pack.id, await photo(page, '🏋️'), 'Leg day');
+  // An extra from another day shows the longest time a photo has.
+  await admin
+    .from('feeds')
+    .update({ is_extra: true, created_at: new Date(Date.now() - 3 * 86_400_000).toISOString() })
+    .eq('pack_id', pack.id);
+
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+  const more = page.getByRole('button', { name: 'More' });
+  await expect(more).toBeVisible();
+  await layOutTextLikeAPhone(page);
+  await doubleTheText(page);
+
+  const meta = more.locator('../..');
+  const name = meta.locator('> div').first();
+  await expect(name).toHaveText('Dan');
+  for (const width of [390, 375, 360]) {
+    await page.setViewportSize({ width, height: 844 });
+    const nameBox = (await name.boundingBox())!;
+    const moreBox = (await more.boundingBox())!;
+    const cardBox = (await meta.locator('..').boundingBox())!;
+    expect.soft(nameBox.width, `the name at ${width}`).toBeGreaterThan(50);
+    expect.soft(moreBox.x + moreBox.width, `the menu at ${width}`).toBeLessThanOrEqual(cardBox.x + cardBox.width);
+  }
 });
 
 test('a photo on the whole screen has the same menu', async ({ page }) => {
