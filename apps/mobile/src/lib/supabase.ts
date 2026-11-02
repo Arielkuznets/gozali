@@ -59,6 +59,7 @@ const authStorage = {
 };
 
 let tokenlessRequest = false;
+let tokenlessCount = 0;
 
 /**
  * Whether a request went out without the user's token since the last time this was asked: during
@@ -68,6 +69,11 @@ export function tookTokenlessRequest(): boolean {
   const took = tokenlessRequest;
   tokenlessRequest = false;
   return took;
+}
+
+/** How many such requests have gone out so far, for someone who asks twice around a piece of work. */
+export function tokenlessRequests(): number {
+  return tokenlessCount;
 }
 
 /**
@@ -86,6 +92,7 @@ const appFetch: typeof fetch = async (input, init) => {
   // auth-js's own calls always carry the key.
   if (!String(input).includes('/auth/v1/') && new Headers(init?.headers).get('authorization') === `Bearer ${publishableKey}`) {
     tokenlessRequest = true;
+    tokenlessCount += 1;
   }
   const response = await clockedFetch(input, init);
   if (!NOT_ABOUT_THE_TOKEN.has(response.status)) return response;

@@ -25,12 +25,15 @@ describe('feed errors', () => {
     expect(isFinalRejection({ statusCode: '429' })).toBe(false);
     // The photo is still on the phone, and the next try uploads it again.
     expect(isFinalRejection({ code: 'P0001', message: 'photo_missing' })).toBe(false);
+    // Members hold EXECUTE, so this request went out with no token.
+    expect(isFinalRejection({ code: '42501', message: 'permission denied for function submit_feed' })).toBe(false);
   });
 
   it('treats a refusal the same feed can never pass as final', () => {
     for (const code of ['P0002', '22023', '22P02', '23505', '42501']) {
       expect(isFinalRejection({ code, message: 'refused' })).toBe(true);
     }
+    expect(isFinalRejection({ code: '42501', message: 'not_a_member' })).toBe(true);
     for (const statusCode of ['404', '413', '415']) {
       expect(isFinalRejection({ statusCode, message: 'refused' })).toBe(true);
     }

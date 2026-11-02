@@ -4,13 +4,14 @@ import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { Platform } from 'react-native';
 
 import { errorMessage, isBlockedText } from '@/lib/errors';
-import { requireSupabase } from '@/lib/supabase';
+import { requireSupabase, tokenlessRequests } from '@/lib/supabase';
 
 export const PHOTO_BUCKET = 'feed-photos';
 const MAX_WIDTH = 1080;
 const JPEG_QUALITY = 0.7;
 const SEND_LIMIT_MS = 30_000;
 const SEND_TIMED_OUT = 'send_timed_out';
+const NOT_SIGNED_IN = 'not_signed_in';
 
 /** A feed waiting to be sent: the compressed photo on the device plus what goes with it. */
 export type OutgoingFeed = {
@@ -45,7 +46,7 @@ async function photoBytes(uri: string): Promise<ArrayBuffer> {
  * feed waits for the next try.
  */
 async function requireSession(): Promise<void> {
-  if (!(await requireSupabase().auth.getSession()).data.session) throw new Error('not_signed_in');
+  if (!(await requireSupabase().auth.getSession()).data.session) throw new Error(NOT_SIGNED_IN);
 }
 
 /**
@@ -55,12 +56,16 @@ async function requireSession(): Promise<void> {
 export async function sendFeed(feed: OutgoingFeed, givenUp: () => boolean = () => false): Promise<string> {
   const supabase = requireSupabase();
   await requireSession();
+  const tokenlessBefore = tokenlessRequests();
   const path = `${feed.packId}/${feed.userId}/${feed.id}.jpg`;
   const upload = await supabase.storage
     .from(PHOTO_BUCKET)
     .upload(path, await photoBytes(feed.photoUri), { contentType: 'image/jpeg' });
   if (upload.error && !isAlreadyUploaded(upload.error)) {
     await requireSession();
+    // Storage's words for a request with no token are the same as for a member who can't post, and
+    // the session can be back by the time they land.
+    if (tokenlessRequests() !== tokenlessBefore) throw new Error(NOT_SIGNED_IN);
     throw upload.error;
   }
 
@@ -119,11 +124,13 @@ export async function inTime<T>(send: (givenUp: () => boolean) => Promise<T>): P
  * constraint or a missing privilege (SQLSTATE); storage refuses with row-level security, or a
  * missing bucket or a file it won't take. A timeout, a lock or an expired token passes on a later
  * try, and storage answers that last one with a 403 too. A photo the server doesn't have passes as
- * well: the phone has it, and the next try uploads it again.
+ * well: the phone has it, and the next try uploads it again. So does a request that went out with
+ * no token, which alone hears "permission denied": every member may call submit_feed, and what the
+ * server turns a member down for has a name of its own, like not_a_member.
  */
 export function isFinalRejection(error: unknown): boolean {
   if (typeof error !== 'object' || error === null) return false;
-  if (errorMessage(error).includes('photo_missing')) return false;
+  if (/photo_missing|permission denied/.test(errorMessage(error))) return false;
   if ('code' in error && /^(P0[0-9A-Z]{3}|2[23][0-9A-Z]{3}|42501)$/.test(String(error.code))) return true;
   if (!('statusCode' in error)) return false;
   const status = String(error.statusCode);
@@ -140,7 +147,7 @@ export function isNetworkFailure(error: unknown): boolean {
   if (typeof error !== 'object' || error === null) return false;
   if ('name' in error && error.name === 'StorageUnknownError') return true;
   if ('code' in error && error.code === '') return true;
-  return errorMessage(error) === 'not_signed_in' || errorMessage(error) === SEND_TIMED_OUT;
+  return errorMessage(error) === NOT_SIGNED_IN || errorMessage(error) === SEND_TIMED_OUT;
 }
 
 export function feedErrorCode(error: unknown): 'already_fed' | 'not_a_member' | 'other' {

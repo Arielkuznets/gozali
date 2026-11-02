@@ -42,8 +42,10 @@ const mockGetSession = jest.fn();
 const mockUpload = jest.fn();
 const mockRemove = jest.fn();
 const mockRpc = jest.fn();
+let mockTokenless = 0;
 jest.mock('@/lib/supabase', () => ({
   storedSession: async () => ({ user: { id: 'noa' } }),
+  tokenlessRequests: () => mockTokenless,
   requireSupabase: () => ({
     auth: { getSession: () => mockGetSession() },
     storage: { from: () => ({ upload: mockUpload, remove: mockRemove }) },
@@ -133,6 +135,28 @@ describe('a token that runs out inside the send', () => {
     expect(await flushQueue()).toEqual({ handled: 0, dropped: [], stuck: [] });
     expect(mockRemove).not.toHaveBeenCalled();
     expect((await pendingFeeds()).map((item) => item.id)).toEqual(['a']);
+  });
+
+  it('keeps the feed when a request went out with no token during the send, though the session is back', async () => {
+    mockGetSession.mockReset().mockResolvedValue({ data: { session: { access_token: 'token' } }, error: null });
+    mockUpload.mockImplementation(async () => {
+      mockTokenless += 1;
+      return { error: { statusCode: '403', message: 'new row violates row-level security policy' } };
+    });
+    await enqueue(feed);
+
+    expect(await flushQueue()).toEqual({ handled: 0, dropped: [], stuck: [] });
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect((await pendingFeeds()).map((item) => item.id)).toEqual(['a']);
+  });
+
+  it('counts a refused photo when what went out with no token was before the send', async () => {
+    mockTokenless += 1;
+    mockGetSession.mockReset().mockResolvedValue({ data: { session: { access_token: 'token' } }, error: null });
+    await enqueue(feed);
+
+    expect(await flushQueue()).toMatchObject({ handled: 1 });
+    expect(await pendingFeeds()).toEqual([]);
   });
 
   it('counts a refusal once the session is known to be there', async () => {

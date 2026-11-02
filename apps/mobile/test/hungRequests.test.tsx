@@ -13,6 +13,8 @@ import type { OutgoingFeed } from '@/features/feeds/send';
 process.env.EXPO_PUBLIC_SUPABASE_URL = 'http://gozali.test';
 process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'publishable';
 
+/** How long reading a photo takes, if it isn't at once. */
+let mockReadTakes = 0;
 jest.mock('expo-file-system', () => {
   class File {
     uri: string;
@@ -23,6 +25,7 @@ jest.mock('expo-file-system', () => {
     async copy() {}
     delete() {}
     async arrayBuffer() {
+      if (mockReadTakes > 0) await new Promise((resolve) => setTimeout(resolve, mockReadTakes));
       return new ArrayBuffer(8);
     }
   }
@@ -125,13 +128,19 @@ const refusal = (message: string, code = 'P0001') => reply(400, { code, details:
 
 function server(url: URL, init: RequestInit | undefined, caller: string | null) {
   const path = url.pathname;
-  if (path === '/auth/v1/token') return reply(200, sessionOf(nowSeconds() + 3600));
+  if (path === '/auth/v1/token') {
+    if (accountGone) return reply(400, { code: 400, error_code: 'refresh_token_not_found', msg: 'Invalid Refresh Token: Refresh Token Not Found' });
+    return reply(200, sessionOf(nowSeconds() + 3600));
+  }
   if (path === '/auth/v1/user') {
     return accountGone ? reply(404, { error_code: 'user_not_found', msg: 'User from sub claim in JWT does not exist' }) : reply(200, sessionOf(0).user);
   }
   if (path === '/auth/v1/logout') return reply(204);
-  // What the API says to a request that went out without the user's token.
-  if (caller === null) return reply(401, { code: '42501', details: null, hint: null, message: 'permission denied' });
+  // What the API and storage say to a request that went out without the user's token.
+  if ((caller === null || accountGone) && path.startsWith(UPLOAD)) {
+    return reply(400, { statusCode: '403', code: 'AccessDenied', error: 'Unauthorized', message: 'new row violates row-level security policy' });
+  }
+  if (caller === null) return reply(401, { code: '42501', details: null, hint: null, message: 'permission denied for function submit_feed' });
   if (path === '/functions/v1/delete-account') {
     // The function turns down the token of an account that is gone.
     if (accountGone) return new Response('not signed in', { status: 401 });
@@ -236,6 +245,7 @@ beforeEach(async () => {
   lateBy = () => 0;
   losesTheRace = false;
   noConnection = () => false;
+  mockReadTakes = 0;
 });
 
 afterEach(async () => {
@@ -375,6 +385,81 @@ describe('a queued feed', () => {
     expect(await run()).toBe(1);
     expect(await pendingFeeds()).toEqual([]);
     expect(feeds.size).toBe(1);
+  });
+
+  describe('refused for going out with no token, with the session back when the answer lands', () => {
+    /** The token ends a minute from now, and auth-js holds the next refresh until about 85 s from now. */
+    async function refreshFails() {
+      await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(sessionOf(nowSeconds() + 60)));
+      await enqueue(feed('a'));
+      noConnection = (url) => url.pathname === '/auth/v1/token';
+      void requireSupabase().auth.getSession();
+    }
+
+    it('keeps the feed and its photo when the save was refused', async () => {
+      await refreshFails();
+      await advance(58_000);
+      lateBy = (url) => (url.pathname.startsWith(UPLOAD) ? 27_000 : url.pathname === SUBMIT ? 2_000 : 0);
+
+      void flushQueue();
+      await advance(27_100);
+      expect(requested(`POST ${SUBMIT} by null`)).toBe(1);
+      noConnection = () => false;
+      await advance(10_000);
+
+      expect(await pendingFeeds()).toHaveLength(1);
+      expect(photos.size).toBe(1);
+      expect(requested('DELETE')).toBe(0);
+
+      lateBy = () => 0;
+      expect(await run()).toBe(1);
+      expect(await pendingFeeds()).toEqual([]);
+      expect(feeds.size).toBe(1);
+    });
+
+    it('keeps the feed when the photo was refused', async () => {
+      await refreshFails();
+      await advance(59_900);
+      mockReadTakes = 200;
+      lateBy = (url) => (url.pathname.startsWith(UPLOAD) ? 27_000 : 0);
+
+      void flushQueue();
+      await advance(1_000);
+      expect(requested(`POST ${UPLOAD}pack/noa/a.jpg by null`)).toBe(1);
+      noConnection = () => false;
+      await advance(30_000);
+
+      expect(await pendingFeeds()).toHaveLength(1);
+
+      lateBy = () => 0;
+      expect(await run()).toBe(1);
+      expect(await pendingFeeds()).toEqual([]);
+      expect(feeds.size).toBe(1);
+    });
+  });
+
+  describe('of an account deleted on another phone', () => {
+    it('is dropped while its token still works, and the member hears why', async () => {
+      AppState.currentState = 'active';
+      await enqueue(feed('a'));
+      accountGone = true;
+
+      expect(await flushQueue()).toEqual({ handled: 1, dropped: ['AccessDenied new row violates row-level security policy'], stuck: [] });
+      expect(await pendingFeeds()).toEqual([]);
+    });
+
+    it('sends nothing more once its token ran out, and waits on the phone for the next account to clear it', async () => {
+      await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(sessionOf(nowSeconds() - 60)));
+      await enqueue(feed('a'));
+      accountGone = true;
+
+      expect(await run()).toBe(0);
+      expect(await AsyncStorage.getItem(AUTH_STORAGE_KEY)).toBeNull();
+      expect(await pendingFeeds()).toHaveLength(1);
+
+      expect(await run()).toBe(0);
+      expect(requests).toEqual(['POST /auth/v1/token by null']);
+    });
   });
 
   it('uploads its photo again when the server no longer has it', async () => {
