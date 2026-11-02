@@ -1117,7 +1117,6 @@ export type Database = {
         }[];
       };
       clean_up_auth_log: { Args: { at_time?: string }; Returns: undefined };
-      clean_up_auth_tokens: { Args: { at_time?: string }; Returns: undefined };
       clean_up_old_rows: { Args: { at_time?: string }; Returns: undefined };
       collect_service_errors: { Args: Record<PropertyKey, never>; Returns: number };
       counted_feeds: {
