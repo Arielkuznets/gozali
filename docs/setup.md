@@ -76,12 +76,11 @@ Everything runs locally without accounts (see the README). This is the one-time 
 2. Build the site with the real values and deploy it. `web/wrangler.jsonc` serves `web/dist` as Cloudflare static assets (they read `_redirects` and `_headers`) on the gozali.app domain, which has to be in the same Cloudflare account:
 
    ```sh
-   APP_STORE_URL=<app store link> PLAY_STORE_URL=<play store link> ANDROID_SHA256=<release key fingerprint> node web/build.mjs
    npx wrangler login
-   cd web && npx wrangler deploy
+   APP_STORE_URL=<app store link> PLAY_STORE_URL=<play store link> ANDROID_SHA256=<release key fingerprint> node web/build.mjs && cd web && npx wrangler deploy
    ```
 
-   The Android fingerprint is in `eas credentials` (Android → keystore). Once the app is on Google Play, use the one under the app signing key in the Play Console's App signing page instead: Play signs what it delivers with its own key, and the upload key's fingerprint doesn't match the app on people's phones. Without a real fingerprint the build refuses to run, because the invite links would open the browser instead of the app. `node web/build.mjs --preview` needs none of these values and builds into `web/dist-preview`, which is never deployed, to look at the pages. The landing page shows a store button only for the store URLs that are set. Until the app is in the App Store, `APP_STORE_URL` can be the TestFlight invite link.
+   The Android fingerprint is in `eas credentials` (Android → keystore). Once the app is on Google Play, use the one under the app signing key in the Play Console's App signing page instead: Play signs what it delivers with its own key, and the upload key's fingerprint doesn't match the app on people's phones. Without a real fingerprint the build refuses to run, because the invite links would open the browser instead of the app. Keep the build and the deploy on one line: after a refused build the `&&` stops there, where a separate line would publish the old `web/dist` again. `node web/build.mjs --preview` needs none of these values and builds into `web/dist-preview`, which is never deployed, to look at the pages. The landing page shows a store button only for the store URLs that are set. Until the app is in the App Store, `APP_STORE_URL` can be the TestFlight invite link.
 3. The site has the privacy policy (/privacy), the terms (/terms) and the support page (/support) that App Store Connect asks for. Mail to hello@gozali.app is forwarded by Cloudflare Email Routing.
 4. Check `https://gozali.app/.well-known/apple-app-site-association` and `https://gozali.app/.well-known/assetlinks.json` load, then an invite link opens the installed app.
 
@@ -132,8 +131,8 @@ A release goes out in this order:
 
 1. `npx supabase db push`, at about :05 or :20 past the hour. Day closes run at :00, :15, :30 and :45, and a close or a settings save caught inside a migration's commit carries on with the old function.
 2. `npx supabase functions deploy close-days send-push widget-state on-report delete-account`. The functions call what the migrations add, so deployed first they fail until the schema catches up.
-3. The build. People get the new app last, so it finds the server it was made for.
-4. The site, when `web/`, `docs/legal` or `docs/support.md` changed (section 3). Nothing else publishes them, so the live pages stay behind the repo until this runs.
+3. The site, when `web/`, `docs/legal` or `docs/support.md` changed (section 3). Nothing else publishes them, so the live pages stay behind the repo until this runs. It comes before the build because App Review reads the privacy policy and the terms along with it, and they have to match the App Privacy answers.
+4. The build. People get the new app last, so it finds the server it was made for.
 
 A fix that touches only JavaScript reaches the installed apps without a new build or a store review, through EAS Update. Each build profile has its own channel, and the runtime version is the app version in `app.json`, so an update only goes to builds of that version:
 

@@ -81,6 +81,7 @@ The "Sign-in required" box stays unticked, though by Apple's wording it applies:
 
 Before submitting:
 
+- `https://gozali.app/privacy` and `https://gozali.app/terms` open with no draft line and with the "Last updated" dates in `docs/legal`. The site goes out ahead of the build (`docs/setup.md` section 5).
 - The demo pack has everything the notes promise: a hatched pet, a few days of feeds, a weekly recap, and room for one more (a pack holds 8). Use Demo Friend's pack once it has all that, or a pack from TestFlight testing. If it falls short, take what is missing out of the notes.
 - Post fresh Demo Friend photos within 30 days of submitting. A feed photo is deleted 30 days after it was posted, and the reviewer would find a line in its place.
 - Tell the pack a reviewer may join.
