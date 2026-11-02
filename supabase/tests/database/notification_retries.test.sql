@@ -1,7 +1,8 @@
--- A notification the push service won't take comes back later each time, and not forever.
+-- A notification the push service won't take comes back later each time, and not forever. One that
+-- goes back for any other reason spends none of that.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(7);
+select plan(19);
 
 -- The queue is one for everybody, so this test runs alone (all rolled back at the end).
 delete from public.notifications;
@@ -75,6 +76,100 @@ select ok(
   exists (select 1 from next_run where id = '50000000-0000-0000-0000-000000000001'),
   'and a fresh notification behind 200 refused ones is among them'
 );
+
+-- A run that gets nothing through because the service is down names nothing as refused.
+create function pg_temp.down_run(at_time timestamptz) returns integer language plpgsql as $$
+declare
+  ids uuid[];
+begin
+  select array_agg(c.id) into ids from public.claim_notifications(at_time) c;
+  perform public.requeue_notifications(ids, '{}');
+  return coalesce(cardinality(ids), 0);
+end;
+$$;
+
+delete from public.notifications;
+insert into public.notifications (user_id, type, payload, day, send_after)
+values ('00000000-0000-0000-0000-0000000000e1', 'daily_summary', '{"serverErrors": 600}', (select at from noon)::date, timestamptz '2000-01-01');
+
+delete from runs;
+do $$
+declare
+  claimed integer;
+begin
+  for try in 1..9 loop
+    claimed := pg_temp.down_run((select at from noon));
+    insert into runs
+    select try, claimed, extract(epoch from n.send_after - now()) / 60 from public.notifications n;
+  end loop;
+end;
+$$;
+select is(
+  (select array_agg(claimed order by try) from runs),
+  array[1, 1, 1, 1, 1, 1, 1, 1, 1],
+  'a service that is down costs no tries: the ninth run still finds the row'
+);
+select is(
+  (select array_agg(distinct wait_minutes) from runs),
+  array[1]::numeric[],
+  'and the row never waits more than a minute'
+);
+select is((select attempts from public.notifications), 0, 'it has spent no try');
+
+select is(
+  pg_temp.down_run((((select at from noon) at time zone 'Asia/Jerusalem')::date + time '23:30') at time zone 'Asia/Jerusalem'),
+  0,
+  'through the night nothing goes out'
+);
+select is(
+  (select status::text || ' ' || to_char(send_after at time zone 'Asia/Jerusalem', 'HH24:MI') from public.notifications),
+  'pending 07:00',
+  'and the summary waits for the morning, however long it has been around'
+);
+update public.notifications set send_after = timestamptz '2000-01-01';
+select is((select count(*) from public.claim_notifications((select at from noon))), 1::bigint, 'it goes out once the service is back');
+
+-- A run can do both: only the rows it names as refused spend a try and wait longer.
+delete from public.notifications;
+insert into public.notifications (id, user_id, type, payload, send_after, attempts) values
+  ('50000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-0000000000e1', 'friend_fed', '{"feeders": ["00000000-0000-0000-0000-0000000000e1"]}', timestamptz '2000-01-01', 3),
+  ('50000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-0000000000e1', 'friend_fed', '{"feeders": ["00000000-0000-0000-0000-0000000000e1"]}', timestamptz '2000-01-01', 3),
+  ('50000000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-0000000000e1', 'friend_fed', '{"feeders": ["00000000-0000-0000-0000-0000000000e1"]}', timestamptz '2000-01-01', 0);
+select public.requeue_notifications(
+  array['50000000-0000-0000-0000-000000000002', '50000000-0000-0000-0000-000000000003', '50000000-0000-0000-0000-000000000004']::uuid[],
+  array['50000000-0000-0000-0000-000000000002']::uuid[]
+);
+select is(
+  (select attempts || ' ' || round(extract(epoch from send_after - now()) / 60) from public.notifications where id = '50000000-0000-0000-0000-000000000002'),
+  '4 8',
+  'a refused row spends a try and waits twice as long as the last time'
+);
+select is(
+  (select attempts || ' ' || round(extract(epoch from send_after - now()) / 60) from public.notifications where id = '50000000-0000-0000-0000-000000000003'),
+  '3 1',
+  'one beside it that was never answered keeps its tries and waits a minute'
+);
+select is(
+  (select attempts || ' ' || round(extract(epoch from send_after - now()) / 60) from public.notifications where id = '50000000-0000-0000-0000-000000000004'),
+  '0 1',
+  'and so does a fresh one'
+);
+
+-- Leaving the second argument out still means every row was refused.
+select public.requeue_notifications(array['50000000-0000-0000-0000-000000000004']::uuid[]);
+select is((select attempts from public.notifications where id = '50000000-0000-0000-0000-000000000004'), 1, 'with no list of refusals, every row spends a try');
+select public.requeue_notifications(array['50000000-0000-0000-0000-000000000004']::uuid[], null);
+select is((select attempts from public.notifications where id = '50000000-0000-0000-0000-000000000004'), 2, 'and so with null');
+
+-- Only the function that sends may touch the queue.
+set local role authenticated;
+select throws_ok(
+  'select public.requeue_notifications(array[]::uuid[], array[]::uuid[])',
+  '42501',
+  null,
+  'signed-in users can''t put notifications back'
+);
+reset role;
 
 select * from finish();
 rollback;

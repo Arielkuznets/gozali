@@ -3,11 +3,13 @@
 // send-push code renders the critter's lines, dead tokens and failed batches are handled, and
 // the owner hears about a new sign-up.
 // Run with `npx supabase start` up: node scripts/smoke-push.mjs
+import { registerHooks } from 'node:module';
+
 import { createClient } from '@supabase/supabase-js';
 
 import { addDays, packDayOf, wallClock, zonedTimeToUtc } from '../packages/game-engine/src/index.ts';
 import { render } from '../supabase/functions/send-push/messages.ts';
-import { RefusedRequest, runFailed, sendAll } from '../supabase/functions/send-push/push.ts';
+import { EXPO_PUSH_URL, RefusedRequest, runFailed, sendAll } from '../supabase/functions/send-push/push.ts';
 
 const url = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const secretKey = process.env.SUPABASE_SECRET_KEY;
@@ -205,6 +207,114 @@ check(
 );
 check(runFailed(ticketed), 'and a run with any of them failed, even with the rest out');
 check(JSON.stringify(gone.ticketErrors) === '{}' && JSON.stringify(midway.ticketErrors) === '{}', 'phones that are gone and refused requests are not among them');
+
+// The real function, with Deno and Expo stood in for: `expo` answers each request, `database` may
+// answer an RPC instead of the server, and the claim runs at `at` and returns only the given rows.
+registerHooks({ resolve: (specifier, context, next) => next(specifier.replace(/^npm:(.+)@\d+$/, '$1'), context) });
+const cronSecret = 'smoke-push';
+const functionEnv = { SUPABASE_URL: url, SUPABASE_SERVICE_ROLE_KEY: secretKey, CRON_SECRET: cronSecret };
+let sendPush;
+globalThis.Deno = { env: { get: (name) => functionEnv[name] }, serve: (handler) => (sendPush = handler) };
+await import('../supabase/functions/send-push/index.ts');
+
+const realFetch = globalThis.fetch;
+const realConsoleError = console.error;
+async function runFunction(rowIds, expo, database = () => null) {
+  const logged = [];
+  console.error = (...line) => logged.push(line.join(' '));
+  globalThis.fetch = async (target, init) => {
+    if (String(target) === EXPO_PUSH_URL) return expo(JSON.parse(init.body));
+    const rpc = /\/rpc\/(\w+)$/.exec(String(target))?.[1];
+    const answered = rpc ? database(rpc, JSON.parse(init.body)) : null;
+    if (answered) return answered;
+    if (rpc !== 'claim_notifications') return realFetch(target, init);
+    const claimed = await realFetch(target, { ...init, body: JSON.stringify({ at_time: at.toISOString() }) });
+    return Response.json((await claimed.json()).filter((row) => rowIds.includes(row.id)));
+  };
+  try {
+    const answer = await sendPush(new Request('http://send-push', { method: 'POST', headers: { 'x-cron-secret': cronSecret } }));
+    return { status: answer.status, report: await answer.json(), logged };
+  } finally {
+    globalThis.fetch = realFetch;
+    console.error = realConsoleError;
+  }
+}
+const expoTakes = (seen = []) => (batch) => {
+  seen.push(...batch);
+  return Response.json({ data: batch.map(() => ({ status: 'ok' })) });
+};
+const expoFails = () => new Response('{}', { status: 401 });
+const addRows = async (rows) => {
+  const added = await admin.from('notifications').insert(rows).select('id');
+  if (added.error) throw added.error;
+  return added.data.map((row) => row.id);
+};
+const queueRows = async (ids) => (await admin.from('notifications').select('status, attempts, send_after').in('id', ids)).data;
+
+// An outage says nothing about the rows it sends back. They spend no try and don't wait longer each
+// time, however long it lasts, and go out when it ends, the owners' summary of it with the rest.
+const outageRows = await addRows([
+  { user_id: noa, type: 'daily_summary', day: today, payload: { newUsers: 0, users: 41, feeders: 0, packs: 0, serverErrors: 600 } },
+  { user_id: dan, pack_id: pack.id, type: 'evolution', payload: { event: 'hatched' } },
+]);
+const outage = [];
+for (let round = 0; round < 9; round += 1) {
+  await admin.from('notifications').update({ send_after: new Date().toISOString() }).in('id', outageRows);
+  outage.push(await runFunction(outageRows, expoFails));
+}
+check(
+  outage.every(({ status, report }) => status === 502 && report.attempted === 2 && report.requeued === 2),
+  'nine failed runs in a row each find the rows, answer 502 and put them back',
+);
+const afterOutage = await queueRows(outageRows);
+check(afterOutage.every((row) => row.status === 'pending' && row.attempts === 0), 'and the rows have spent no try');
+check(afterOutage.every((row) => new Date(row.send_after) - Date.now() < 90_000), 'and wait a minute, no longer than after the first run');
+const recovery = [];
+const recovered = await runFunction(outageRows, expoTakes(recovery));
+check(recovered.status === 200 && recovered.report.sent === 2, 'when Expo is back they go out');
+check(recovery.some((message) => message.to.includes('Noa') && message.body.includes('600 server errors')), 'and the owner hears about the outage');
+check((await queueRows(outageRows)).every((row) => row.status === 'sent'), 'and they leave the queue');
+
+// A refusal is about the row, so it spends a try and waits longer, while the rows beside it in the
+// run don't pay for it.
+const refusalRows = await addRows([noa, dan].map((id) => ({ user_id: id, type: 'new_user', payload: { name: 'Lior', number: 3 } })));
+const refusedRun = await runFunction(refusalRows, (batch) =>
+  batch.some((message) => message.to.includes('Dan')) ? new Response('{}', { status: 400 }) : expoTakes()(batch),
+);
+check(refusedRun.report.sent === 1 && refusedRun.report.requeued === 1, 'a refused notification goes back while the rest go out');
+const { data: refusedAfter } = await admin.from('notifications').select('attempts').in('id', refusalRows).eq('user_id', dan);
+check(refusedAfter[0].attempts === 1, 'and it spends a try');
+check(JSON.stringify(refused.refused) === JSON.stringify(dans), 'Expo refusing a notification names it as refused');
+check([down, midway, refusedThenDown, outOfTime].every((result) => result.refused.length === 0), 'a service that is down or a run out of time names none');
+let oneByOne = 0;
+const refusedOneThenDown = await sendAll(lots.slice(0, 3), async () => {
+  oneByOne += 1;
+  if (oneByOne > 2) throw new Error('push service down');
+  throw new RefusedRequest('expo push 400');
+});
+check(
+  refusedOneThenDown.requeue.length === 3 && refusedOneThenDown.refused.join() === lots[0].id,
+  'only what it refused alone counts, not what it never got to',
+);
+
+// A function on a server without the `refused` argument still gets the rows back, at the old price
+// of a try each, and answers 502 even if the rest of the run went fine, so that it is seen.
+const behindRows = await addRows(Array.from({ length: 101 }, () => ({ user_id: dan, type: 'new_user', payload: { name: 'Lior', number: 3 } })));
+let behindBatches = 0;
+const noArgument = () =>
+  Response.json({ code: 'PGRST202', message: 'Could not find the function public.requeue_notifications(ids, refused)' }, { status: 404 });
+const behind = await runFunction(
+  behindRows,
+  (batch) => {
+    behindBatches += 1;
+    return behindBatches === 1 ? expoTakes()(batch) : expoFails();
+  },
+  (rpc, args) => (rpc === 'requeue_notifications' && args.refused ? noArgument() : null),
+);
+check(behind.status === 502 && behind.report.sent === 100 && behind.report.requeued === 1, 'a server without the migration makes the run answer 502');
+check(behind.logged.some((line) => line.includes('requeue_notifications')), 'and it says so in the log');
+const behindAfter = (await queueRows(behindRows)).filter((row) => row.status === 'pending');
+check(behindAfter.length === 1 && behindAfter[0].attempts === 1, 'and the rows go back all the same');
 
 // Owner alerts: someone finishing the profile setup tells the owner, in plain words.
 const owned = await admin.from('app_owners').insert({ user_id: noa });

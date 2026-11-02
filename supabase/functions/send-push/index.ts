@@ -46,7 +46,14 @@ Deno.serve(async (request) => {
   const rows = claimed.data as ClaimedRow[];
   const started = Date.now();
   const result = await sendAll(rows, expoSend, () => Date.now() - started > SEND_BUDGET_MS);
-  const requeued = result.requeue.length > 0 ? await client.rpc('requeue_notifications', { ids: result.requeue }) : null;
+  let requeued = result.requeue.length > 0 ? await client.rpc('requeue_notifications', { ids: result.requeue, refused: result.refused }) : null;
+  // A server behind this function takes the rows back without the list, each spending a try. The
+  // run still answers 502, so the missing migration gets noticed.
+  const serverBehind = requeued?.error?.code === 'PGRST202';
+  if (serverBehind) {
+    console.error('requeue_notifications has no refused argument on this server', requeued?.error?.message);
+    requeued = await client.rpc('requeue_notifications', { ids: result.requeue });
+  }
   // These rows stay marked as sent with nothing delivered, so the log is what is left of them.
   if (requeued?.error) console.error('requeue failed', requeued.error.message, result.requeue.join(' '));
   if (result.deadTokens.length > 0) {
@@ -61,7 +68,7 @@ Deno.serve(async (request) => {
     ticketErrors: result.ticketErrors,
   };
   // Any answer but 200 reaches the owners' daily summary, through collect_service_errors.
-  const failed = Boolean(requeued?.error) || runFailed(result);
+  const failed = serverBehind || Boolean(requeued?.error) || runFailed(result);
   if (failed) console.error('send-push failed', report);
   return Response.json(report, { status: failed ? 502 : 200 });
 });

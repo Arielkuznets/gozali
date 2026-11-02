@@ -28,6 +28,8 @@ export interface SendResult {
   attempted: number;
   sent: number;
   requeue: string[];
+  /** The part of `requeue` the service turned down; the rest was never answered and costs no try. */
+  refused: string[];
   deadTokens: string[];
   /** Messages Expo answered with an error, by its code, leaving out tokens that are gone. */
   ticketErrors: Record<string, number>;
@@ -49,10 +51,10 @@ export function toMessages(rows: readonly ClaimedRow[]): PushMessage[] {
 
 /**
  * Sends every message. A batch the service refuses is sent again one notification at a time, and
- * the notifications it still refuses go back in the queue; tokens Expo reports as no longer
- * registered are returned so they can be forgotten. After a request that fails, or once `outOfTime`
- * says so, what is left isn't sent but goes back in the queue: the claimed rows already count as
- * sent, and a run cut off by the function's time limit would lose them.
+ * the notifications it still refuses go back in the queue, named in `refused`; tokens Expo reports
+ * as no longer registered are returned so they can be forgotten. After a request that fails, or
+ * once `outOfTime` says so, what is left isn't sent but goes back in the queue: the claimed rows
+ * already count as sent, and a run cut off by the function's time limit would lose them.
  */
 export async function sendAll(
   rows: readonly ClaimedRow[],
@@ -61,6 +63,7 @@ export async function sendAll(
 ): Promise<SendResult> {
   const messages = toMessages(rows);
   const requeue = new Set<string>();
+  const refused = new Set<string>();
   const deadTokens: string[] = [];
   const ticketErrors: Record<string, number> = {};
   let attempted = 0;
@@ -102,10 +105,13 @@ export async function sendAll(
     // service that is down or busy gets no more requests: the run has to requeue before it ends.
     for (const id of ids) {
       const alone = outcome === 'refused' && ids.size > 1 && !stopped();
-      if (!alone || (await deliver(batch.filter((message) => message.data.notificationId === id))) !== 'sent') requeue.add(id);
+      const answer = alone ? await deliver(batch.filter((message) => message.data.notificationId === id)) : outcome;
+      if (answer !== 'sent') requeue.add(id);
+      // A batch turned down as a whole says nothing about a row unless the row is all there is.
+      if (answer === 'refused' && (alone || ids.size === 1)) refused.add(id);
     }
   }
-  return { attempted, sent, requeue: [...requeue], deadTokens, ticketErrors };
+  return { attempted, sent, requeue: [...requeue], refused: [...refused], deadTokens, ticketErrors };
 }
 
 /**
