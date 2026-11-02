@@ -13,7 +13,7 @@ import { Coins } from '@/components/Coins';
 import { HealthBar } from '@/components/HealthBar';
 import { MemberCircles, type MemberState } from '@/components/MemberCircles';
 import { Screen } from '@/components/Screen';
-import { LoadingScreen, LoadFailedScreen, PackMissingScreen } from '@/components/ScreenStates';
+import { LoadFailed, LoadingScreen, LoadFailedScreen, PackMissingScreen } from '@/components/ScreenStates';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useAvatarUrls } from '@/features/profile/avatar';
 import { Critter } from '@/features/critter/Critter';
@@ -48,6 +48,7 @@ export default function PackScreen() {
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const [feedLimit, setFeedLimit] = useState(FEED_PAGE);
+  const [olderFailed, setOlderFailed] = useState<string | null>(null);
   const [menu, setMenu] = useState<Menu | null>(null);
   const counted = useCountedFeeds();
   const feed = usePackFeed(id, feedLimit);
@@ -71,7 +72,14 @@ export default function PackScreen() {
     }, [id]),
   );
 
-  if (isPending) return <LoadingScreen />;
+  // A longer page that failed for good has no data and no placeholder, so the page before it comes
+  // back before anything is drawn, and the list and the reader's place stay.
+  if (feed.isError && !feed.data && feedLimit > FEED_PAGE) {
+    setFeedLimit(feedLimit - FEED_PAGE);
+    setOlderFailed(id);
+  }
+
+  if (isPending) return <LoadingScreen back />;
   if (!pack && isError) return <LoadFailedScreen onRetry={() => void refetch()} />;
   if (!pack) return <PackMissingScreen />;
 
@@ -107,6 +115,11 @@ export default function PackScreen() {
     member.profiles?.avatar_path && blocked.data && !blocked.data.has(member.user_id)
       ? avatars.data?.get(member.profiles.avatar_path)
       : undefined;
+
+  const showOlder = () => {
+    setOlderFailed(null);
+    setFeedLimit((limit) => limit + FEED_PAGE);
+  };
 
   const refresh = async () => {
     setRefreshing(true);
@@ -240,14 +253,18 @@ export default function PackScreen() {
             onMore={onMore}
           />
         )}
-        {morePhotos && (
-          <Button
-            label={t('pack.showOlder')}
-            variant="secondary"
-            size="small"
-            loading={feed.isPlaceholderData}
-            onPress={() => setFeedLimit((limit) => limit + FEED_PAGE)}
-          />
+        {olderFailed === id ? (
+          <LoadFailed onRetry={showOlder} />
+        ) : (
+          morePhotos && (
+            <Button
+              label={t('pack.showOlder')}
+              variant="secondary"
+              size="small"
+              loading={feed.isPlaceholderData}
+              onPress={showOlder}
+            />
+          )
         )}
       </ScrollView>
 

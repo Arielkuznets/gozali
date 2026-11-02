@@ -95,3 +95,20 @@ test('a reaction tapped while the longer page loads ends up on the longer page',
   await expect(chips(page).nth(FIRST_PAGE - 1)).toContainText('1');
   await expect(page.getByRole('progressbar')).toHaveCount(0);
 });
+
+test('a longer page that fails keeps the list and the place, and can be tried again', async ({ page }) => {
+  const older = await openAtTheEnd(page);
+  const before = await place(page);
+  let failing = true;
+  await page.route(/\/rest\/v1\/feeds\?.*limit=60/, (route) => (failing ? route.abort() : route.continue()));
+
+  await older.click();
+  await expect(page.getByText("This didn't load.", { exact: false })).toBeVisible({ timeout: 15_000 });
+  await expect(chips(page)).toHaveCount(FIRST_PAGE);
+  expect(await place(page)).toBe(before);
+
+  failing = false;
+  await page.getByRole('button', { name: 'Try again' }).click();
+  await expect(chips(page)).toHaveCount(POSTS);
+  await expect(page.getByText("This didn't load.", { exact: false })).toHaveCount(0);
+});

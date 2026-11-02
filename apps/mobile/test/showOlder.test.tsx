@@ -7,7 +7,7 @@ import PackScreen from '@/app/(app)/pack/[id]/index';
 
 // The real pack screen, feed list, hooks and QueryClient over a stand-in for the server that takes
 // its time, because what counts here is what stays on screen while it does.
-const mockScreen = { id: 'a' };
+const mockScreen = { id: 'a', olderFails: false };
 const mockLists: { photos: number; events: number; first: string }[] = [];
 const mockMounts = { unmounts: 0 };
 const mockReacted = new Map<string, string>();
@@ -26,7 +26,7 @@ jest.mock('@/components/HealthBar', () => ({ HealthBar: () => null }));
 jest.mock('@/components/HeaderButton', () => ({ HeaderButton: () => null }));
 jest.mock('@/components/MemberCircles', () => ({ MemberCircles: () => null }));
 jest.mock('@/components/Screen', () => ({ Screen: ({ children }: { children: ReactNode }) => children }));
-jest.mock('@/components/ScreenStates', () => ({ LoadingScreen: () => null, LoadFailedScreen: () => null, PackMissingScreen: () => null }));
+jest.mock('@/components/ScreenStates', () => ({ LoadFailed: () => null, LoadingScreen: () => null, LoadFailedScreen: () => null, PackMissingScreen: () => null }));
 jest.mock('@/features/auth/AuthProvider', () => ({ useAuth: () => ({ session: { user: { id: 'me' } } }) }));
 jest.mock('@/features/profile/avatar', () => ({ useAvatarUrls: () => ({ data: new Map() }) }));
 jest.mock('@/features/critter/Critter', () => ({ Critter: () => null }));
@@ -114,6 +114,7 @@ function mockRead(table: string) {
       return read;
     },
     then: (done: (answer: unknown) => unknown, failed: (error: unknown) => unknown) => {
+      if (mockScreen.olderFails && limit > 30) return Promise.resolve({ data: null, error: new Error('offline') }).then(done, failed);
       const rows =
         table === 'feeds'
           ? Array.from({ length: 95 }, (_, index) => ({
@@ -168,6 +169,7 @@ const screen = () => (
   </QueryClientProvider>
 );
 const button = () => tree.root.findAll((node) => node.props.label === 'Show older')[0];
+const loadFailed = () => tree.root.findAll((node) => typeof node.props.onRetry === 'function')[0];
 const chips = () => tree.root.findAll((node) => node.props.accessibilityLabel === 'React with 🔥' && typeof node.props.onPress === 'function');
 /** What the list went through, leaving out renders that changed nothing in it. */
 const sizes = () => mockLists.map((list) => `${list.photos}p+${list.events}e`).filter((size, index, all) => size !== all[index - 1]);
@@ -188,6 +190,7 @@ beforeEach(() => {
   jest.useFakeTimers({ now: Date.parse('2026-10-31T12:00:10Z') });
   client = new QueryClient({ defaultOptions: { queries: { gcTime: Infinity } } });
   mockScreen.id = 'a';
+  mockScreen.olderFails = false;
   mockLists.length = 0;
   mockMounts.unmounts = 0;
   mockReacted.clear();
@@ -227,6 +230,28 @@ describe('Show older', () => {
     expect(button()?.props.loading).toBeFalsy();
     expect(mockReacted.get('a29')).toBe('fire');
     expect(chips()[29]?.props.accessibilityState).toEqual({ selected: true });
+  });
+
+  it('keeps the list when the longer page fails for good, says so, and can try again', async () => {
+    await open();
+    mockScreen.olderFails = true;
+
+    await showOlder();
+    await advance(10_000);
+    expect(mockMounts.unmounts).toBe(0);
+    expect(sizes().at(-1)).toBe('30p+2e');
+    expect(button()).toBeUndefined();
+    expect(loadFailed()).toBeDefined();
+
+    mockScreen.olderFails = false;
+    await act(async () => loadFailed()?.props.onRetry());
+    await advance(50);
+    expect(button()?.props.loading).toBe(true);
+    expect(loadFailed()).toBeUndefined();
+
+    await advance(3000);
+    expect(mockMounts.unmounts).toBe(0);
+    expect(sizes().at(-1)).toBe('60p+3e');
   });
 
   it('never shows one pack under the name of another when a link changes the pack on this screen', async () => {
