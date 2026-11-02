@@ -11,8 +11,8 @@
 // On a key the database empties when the parent goes, the row stays with the key empty. A pack made
 // in that time can be in it without its critter: it stays out, and the run names it. Photo files
 // aren't in backups, so the restored feeds and profiles forget their photo paths. The Vault values
-// (CRON_SECRET, functions_url) and the function secrets are set again by hand (docs/setup.md,
-// section 1).
+// (CRON_SECRET, functions_url), the function secrets and the Apple setup are set again by hand
+// (docs/setup.md, sections 1, 6 and 8).
 import { readFileSync } from 'node:fs';
 
 import { query } from './backup.mjs';
