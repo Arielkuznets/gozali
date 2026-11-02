@@ -118,8 +118,8 @@ export async function inTime<T>(send: (givenUp: () => boolean) => Promise<T>): P
  * photo, so anything else waits. The database refuses with a raised error, bad data, a broken
  * constraint or a missing privilege (SQLSTATE); storage refuses with row-level security, or a
  * missing bucket or a file it won't take. A timeout, a lock or an expired token passes on a later
- * try, and storage answers that last one with a 403 too. So does a photo the server doesn't have:
- * the phone has it, and the next try uploads it again.
+ * try, and storage answers that last one with a 403 too. A photo the server doesn't have passes as
+ * well: the phone has it, and the next try uploads it again.
  */
 export function isFinalRejection(error: unknown): boolean {
   if (typeof error !== 'object' || error === null) return false;
