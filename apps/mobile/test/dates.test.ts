@@ -1,9 +1,11 @@
 import { packDayOf } from '@gozali/game-engine';
 import { getCalendars, type Calendar } from 'expo-localization';
 
-import { deviceTimeZone, shiftMonth } from '@/lib/dates';
+import { deviceTimeZone, readableZone, shiftMonth } from '@/lib/dates';
+import { reportError } from '@/lib/reportError';
 
 jest.mock('expo-localization', () => ({ ...jest.requireActual('expo-localization'), getCalendars: jest.fn() }));
+jest.mock('@/lib/reportError', () => ({ reportError: jest.fn() }));
 
 const phoneSetTo = (timeZone: string | null) => {
   jest.mocked(getCalendars).mockReturnValue([{ timeZone } as Calendar]);
@@ -60,6 +62,38 @@ describe('deviceTimeZone', () => {
   it('falls back to UTC for a name Intl on this phone can not read', () => {
     phoneSetTo('Etc/Unknown');
     expect(deviceTimeZone()).toBe('UTC');
+  });
+});
+
+describe('readableZone', () => {
+  beforeEach(() => {
+    jest.mocked(reportError).mockClear();
+    phoneSetTo('Asia/Jerusalem');
+  });
+
+  it("is the pack's own zone when this phone reads it", () => {
+    expect(readableZone('Asia/Tokyo')).toBe('Asia/Tokyo');
+    expect(reportError).not.toHaveBeenCalled();
+  });
+
+  it("is the phone's zone for a name this phone can not read", () => {
+    expect(readableZone('Mars/Olympus')).toBe('Asia/Jerusalem');
+  });
+
+  it('gives a zone the rules can read, so a screen can draw the pack day', () => {
+    expect(() => packDayOf(new Date(), 'Mars/Hellas')).toThrow(RangeError);
+    expect(packDayOf(new Date('2026-11-01T01:00:00Z'), readableZone('Mars/Hellas'))).toBe('2026-11-01');
+  });
+
+  it('tells the developer of each such zone once, for it comes up on every draw', () => {
+    readableZone('Venus/Maxwell');
+    readableZone('Venus/Maxwell');
+    readableZone('Venus/Alpha');
+
+    expect(jest.mocked(reportError).mock.calls.map(([error]) => (error as Error).message)).toEqual([
+      expect.stringContaining('Venus/Maxwell'),
+      expect.stringContaining('Venus/Alpha'),
+    ]);
   });
 });
 

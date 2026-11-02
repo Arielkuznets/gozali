@@ -24,7 +24,7 @@ import {
 } from '@/features/packs/api';
 import { PACK_NAME_MAX, REST_DAYS_MAX, type WeekStart } from '@/features/packs/constants';
 import { confirm, notify } from '@/lib/confirm';
-import { formatDay } from '@/lib/dates';
+import { formatDay, readableZone } from '@/lib/dates';
 import { goBack } from '@/lib/navigation';
 import { useNow } from '@/lib/useNow';
 import { colors, radii, spacing } from '@/theme/tokens';
@@ -143,7 +143,7 @@ function SettingsForm({ pack, leavePack }: { pack: Pack; leavePack: ReturnType<t
         </View>
 
         {/* Only a day close clears a change, so a pack that closes no days keeps it past its date. */}
-        {pack.pending_from && pack.pending_from > packDayOf(now, pack.timezone) && (
+        {pack.pending_from && pack.pending_from > packDayOf(now, readableZone(pack.timezone)) && (
           <AppText variant="caption">{t('settings.pending', { date: formatDay(pack.pending_from) })}</AppText>
         )}
 

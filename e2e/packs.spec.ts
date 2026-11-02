@@ -166,6 +166,27 @@ test('the buttons at the top of a pack stay on the screen at the largest text', 
   await expect(page.getByRole('button', { name: 'Leave pack' })).toBeVisible();
 });
 
+test('a pack in a zone this phone can not read still opens, and the developer hears of it', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
+  // As with a zone newer than an old phone's list.
+  await admin.from('packs').update({ timezone: 'Mars/Olympus' }).eq('id', pack.id);
+  await signIn(page, noa);
+
+  await page.goto('/');
+  await page.getByText('Gym squad').click();
+  await expect(page.getByText(/^Day ends in/)).toBeVisible();
+
+  await page.getByRole('link', { name: /Kit/ }).click();
+  await expect(page.getByLabel('Noa: 0 fed, 0 rest or joker, 0 paused or asleep, 0 missed')).toBeVisible();
+  await page.getByRole('button', { name: 'Back', exact: true }).last().click();
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await expect(page.getByRole('button', { name: 'Leave pack' })).toBeVisible();
+
+  await expect
+    .poll(async () => (await admin.from('app_errors').select('message').eq('user_id', noa.id)).data)
+    .toEqual([{ message: expect.stringContaining('Mars/Olympus') }]);
+});
+
 test('leaving a pack ends on the home screen', async ({ page }) => {
   const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
   page.on('dialog', (dialog) => void dialog.accept());

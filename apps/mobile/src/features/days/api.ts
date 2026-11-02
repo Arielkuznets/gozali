@@ -2,6 +2,7 @@ import { packDayOf, type DayInput } from '@gozali/game-engine';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { usePack, type Pack } from '@/features/packs/api';
+import { readableZone } from '@/lib/dates';
 import { isBlockedText } from '@/lib/errors';
 import { requireSupabase } from '@/lib/supabase';
 import { useNow } from '@/lib/useNow';
@@ -50,7 +51,7 @@ export function isPausedToday(status: DayStatus | undefined): boolean {
 export function useDayStatus(packId: string) {
   const { data: pack } = usePack(packId);
   const now = useNow(60_000);
-  const today = pack ? packDayOf(now, pack.timezone) : null;
+  const today = pack ? packDayOf(now, readableZone(pack.timezone)) : null;
   return useQuery({
     queryKey: [...daysKey, 'status', packId, today],
     // Once the pack is known, or known to be gone: then the server's refusal shows, not a spinner.
@@ -68,7 +69,7 @@ export function useDayStatus(packId: string) {
 
 /** Whether each member has started and the rest days they used, for the hatch steps. */
 export function useMembersToday(pack: Pick<Pack, 'id' | 'timezone'> | undefined, now: Date, enabled: boolean) {
-  const today = pack ? packDayOf(now, pack.timezone) : '';
+  const today = pack ? packDayOf(now, readableZone(pack.timezone)) : '';
   return useQuery({
     queryKey: [...daysKey, 'members', pack?.id, today],
     enabled: pack !== undefined && enabled,
@@ -89,7 +90,7 @@ export function useMembersToday(pack: Pick<Pack, 'id' | 'timezone'> | undefined,
 
 /** Today's passes and pauses of every member, for the circles on the pack screen. */
 export function useTodayPasses(pack: Pick<Pack, 'id' | 'timezone'> | undefined, now: Date) {
-  const today = pack ? packDayOf(now, pack.timezone) : '';
+  const today = pack ? packDayOf(now, readableZone(pack.timezone)) : '';
   return useQuery({
     queryKey: [...daysKey, 'passes', pack?.id, today],
     enabled: pack !== undefined,

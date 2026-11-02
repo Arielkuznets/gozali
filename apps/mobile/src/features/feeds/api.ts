@@ -11,6 +11,7 @@ import { enqueue, flushQueue, hasConnection, isOnline, pendingFeeds } from '@/fe
 import { PHOTO_BUCKET, feedErrorCode, inTime, isFinalRejection, sendFeed, type OutgoingFeed } from '@/features/feeds/send';
 import type { ReactionTotal } from '@/features/social/api';
 import { notify } from '@/lib/confirm';
+import { readableZone } from '@/lib/dates';
 import { errorText, reportError } from '@/lib/reportError';
 import { requireSupabase } from '@/lib/supabase';
 import { serverNow } from '@/lib/serverClock';
@@ -67,7 +68,7 @@ export function useCountedFeeds() {
 
 /** Members of the pack who fed on the pack's current day. */
 export function fedToday(feeds: CountedFeed[] | undefined, pack: Pick<Pack, 'id' | 'timezone'>, now: Date): Set<string> {
-  const today = packDayOf(now, pack.timezone);
+  const today = packDayOf(now, readableZone(pack.timezone));
   return new Set((feeds ?? []).filter((feed) => feed.pack_id === pack.id && feed.day === today).map((feed) => feed.user_id));
 }
 

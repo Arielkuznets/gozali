@@ -19,7 +19,7 @@ import { usePackRealtime } from '@/features/packs/realtime';
 import { MonthlyBoard } from '@/features/social/MonthlyBoard';
 import { socialErrorKey, useAchievements, useBuy, useDress, useMonthResults, usePackItems, useShop, type ShopItem } from '@/features/social/api';
 import { confirm, notify } from '@/lib/confirm';
-import { formatDay, formatMonth, shiftMonth } from '@/lib/dates';
+import { formatDay, formatMonth, readableZone, shiftMonth } from '@/lib/dates';
 import { haptics } from '@/lib/haptics';
 import { goBack } from '@/lib/navigation';
 import { useNow } from '@/lib/useNow';
@@ -42,7 +42,7 @@ export default function CritterProfileScreen() {
 function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
   const { t } = useTranslation();
   const now = useNow(60_000);
-  const today = packDayOf(now, pack.timezone);
+  const today = packDayOf(now, readableZone(pack.timezone));
   const [month, setMonth] = useState(today.slice(0, 7));
   const results = useMonthResults(pack.id, month);
   const achievements = useAchievements(pack.id);

@@ -33,7 +33,7 @@ import { NameMeCard } from '@/features/social/NameMeCard';
 import { socialErrorKey, useBlockedIds, useNudge, usePackEvents, useReact, type ReactionKey } from '@/features/social/api';
 import { useModeration } from '@/features/social/moderation';
 import { confirm, notify } from '@/lib/confirm';
-import { formatDay } from '@/lib/dates';
+import { formatDay, readableZone } from '@/lib/dates';
 import { haptics } from '@/lib/haptics';
 import { goBack } from '@/lib/navigation';
 import { useNow } from '@/lib/useNow';
@@ -164,7 +164,7 @@ export default function PackScreen() {
           {pack.name}
         </AppText>
         <AppText variant="caption" style={styles.centerText}>
-          {categoryInfo(pack.category).emoji} {habit} · {t('packs.restDays', { count: restDaysOn(pack, packDayOf(now, pack.timezone)) })}
+          {categoryInfo(pack.category).emoji} {habit} · {t('packs.restDays', { count: restDaysOn(pack, packDayOf(now, readableZone(pack.timezone))) })}
         </AppText>
 
         {pack.critters && (
@@ -380,7 +380,7 @@ function CritterPanel({ pack, critter, memberCount, fedCount, hatchCertain, hatc
         </View>
       )}
 
-      {daysRun && <DayCountdown timeZone={pack.timezone} now={now} />}
+      {daysRun && <DayCountdown timeZone={readableZone(pack.timezone)} now={now} />}
     </View>
   );
 }
