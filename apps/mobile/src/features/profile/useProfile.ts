@@ -7,6 +7,7 @@ import { AppState } from 'react-native';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { forgetOtherAccounts } from '@/features/auth/signIn';
 import { renameMember } from '@/features/packs/api';
+import { clearWidgetsLeftBehind } from '@/features/widgets/sync';
 import { deviceTimeZone } from '@/lib/dates';
 import { askForNotificationsOnce } from '@/lib/notifications';
 import { registerPushToken, unregisterWhileSignedOut } from '@/lib/push';
@@ -190,9 +191,9 @@ export function useAccountSync() {
 }
 
 /**
- * Nobody signed in means nobody's pushes. A sign-out without a connection can't tell the server,
- * and a session the server ends never signs out here at all, so each start, each return to the app
- * and each time the connection comes back try until the server has forgotten the token.
+ * Nobody signed in means nobody's pushes and widgets. A sign-out without a connection can't tell the
+ * server, and a session the server ends never signs out here at all, so each start, each return to
+ * the app and each time the connection comes back try until the server has forgotten the token.
  */
 export function useSignedOutSync() {
   const { session, loading } = useAuth();
@@ -201,6 +202,7 @@ export function useSignedOutSync() {
   useEffect(() => {
     if (!signedOut) return;
     void unregisterWhileSignedOut();
+    void clearWidgetsLeftBehind().catch(() => undefined);
     const appState = AppState.addEventListener('change', (state) => {
       if (state === 'active') void unregisterWhileSignedOut();
     });

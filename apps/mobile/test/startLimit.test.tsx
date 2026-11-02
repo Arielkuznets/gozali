@@ -20,7 +20,7 @@ jest.mock('@/components/UpdateRequired', () => ({ UpdateRequired: () => null }))
 jest.mock('@/features/auth/signIn', () => ({ forgetNotificationsOfOthers: async () => undefined, signOut: async () => undefined }));
 jest.mock('@/features/packs/invites', () => ({ readInstallReferrer: async () => undefined }));
 jest.mock('@react-native-community/netinfo', () => ({ addEventListener: () => () => undefined }));
-jest.mock('@/features/widgets/sync', () => ({ clearWidgets: async () => undefined }));
+jest.mock('@/features/widgets/sync', () => ({ clearWidgets: async () => undefined, clearWidgetsLeftBehind: async () => undefined }));
 jest.mock('@/lib/push', () => ({ registerPushToken: async () => undefined, unregisterWhileSignedOut: async () => undefined }));
 jest.mock('@/lib/reportError', () => ({ sendPendingCrash: async () => undefined, watchForCrashes: () => undefined }));
 

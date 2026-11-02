@@ -10,6 +10,7 @@ import {
   fetchSnapshot,
   loadSnapshot,
   saveSnapshot,
+  savedWidgetToken,
   type WidgetSnapshot,
 } from '@/features/widgets/data';
 import { forgetWidgetToken, widgetToken } from '@/features/widgets/token';
@@ -67,6 +68,16 @@ export async function clearWidgets(): Promise<void> {
   departures += 1;
   await forgetWidgetToken();
   await publish(null, null);
+}
+
+/**
+ * For a phone nobody is signed in on. The app hears a session end only while it runs, so it can
+ * start signed out with a token still here: left by build 4 when the server ended a session, or by
+ * a run killed during the revoke. The widgets would go on fetching that account's packs, and each
+ * fetch would keep the token alive on the server.
+ */
+export async function clearWidgetsLeftBehind(): Promise<void> {
+  if ((await savedWidgetToken()) || (await loadSnapshot())) await clearWidgets();
 }
 
 // What the widgets show: the critter and the members (packs), who fed (feeds) and who rests (days).
