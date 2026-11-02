@@ -208,6 +208,62 @@ test('leaving a pack ends on the home screen', async ({ page }) => {
   expect(packs).toEqual([]);
 });
 
+test('a leave whose answer was lost is done on the second try', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
+  const alerts: string[] = [];
+  page.on('dialog', (dialog) => {
+    if (dialog.type() === 'alert') alerts.push(dialog.message());
+    void dialog.accept();
+  });
+  await signIn(page, dan);
+  await page.goto(`/pack/${pack.id}/settings`);
+  await expect(page.getByRole('button', { name: 'Leave pack' })).toBeVisible();
+  // The server takes the leave and the answer never reaches the phone.
+  await page.route(
+    '**/rest/v1/rpc/leave_pack',
+    async (route) => {
+      await route.fetch();
+      await route.abort('connectionfailed');
+    },
+    { times: 1 },
+  );
+
+  await page.getByRole('button', { name: 'Leave pack' }).click();
+  await expect.poll(() => alerts).toEqual(["Saving didn't work. Please try again."]);
+  const { data: left } = await dan.client.from('packs').select('id');
+  expect(left).toEqual([]);
+
+  await page.getByRole('button', { name: 'Leave pack' }).click();
+
+  await expect(page).toHaveURL('/');
+  await expect(page.getByRole('button', { name: 'Create a pack' })).toBeVisible();
+  expect(alerts).toHaveLength(1);
+});
+
+test('joining a pack again after leaving it opens the pack, not its missing screen', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
+  page.on('dialog', (dialog) => void dialog.accept());
+  await signIn(page, dan);
+  await page.goto(`/pack/${pack.id}/settings`);
+  await page.getByRole('button', { name: 'Leave pack' }).click();
+  await expect(page.getByRole('button', { name: 'Create a pack' })).toBeVisible();
+  await page.getByRole('button', { name: 'Join with a code' }).click();
+  await page.getByLabel('Invite code').fill(pack.inviteCode);
+  await expect(page.getByText('Gym squad')).toBeVisible();
+  // Time for a pack screen to say what it holds, before the pack comes back from the server.
+  await page.route(/\/rest\/v1\/packs\?/, async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await route.continue();
+  });
+
+  await page.getByRole('button', { name: 'Join pack' }).click();
+
+  await expect(page).toHaveURL(new RegExp(`/pack/${pack.id}$`));
+  expect(await page.getByText("This pack isn't here").isVisible()).toBe(false);
+  await expect(page.getByRole('button', { name: 'Settings' })).toBeVisible();
+  await expect(page.getByText("This pack isn't here")).toBeHidden();
+});
+
 test('a member who dozed off is told how to come back', async ({ page }) => {
   const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
   await admin.from('critters').update({ status: 'active', stage: 'baby', xp: 2, health: 70 }).eq('pack_id', pack.id);
