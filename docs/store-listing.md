@@ -84,7 +84,7 @@ Before submitting:
 
 - `https://gozali.app/privacy` and `https://gozali.app/terms` open with no draft line and with the "Last updated" dates in `docs/legal`. The site goes out ahead of the build (`docs/setup.md` section 5).
 - The demo pack has everything the notes promise: a hatched pet, a few days of feeds, a weekly recap, and room for one more (a pack holds 8). Use Demo Friend's pack once it has all that, or a pack from TestFlight testing. If it falls short, take what is missing out of the notes.
-- Post fresh Demo Friend photos within 30 days of submitting. A feed photo is deleted 30 days after it was posted, and the reviewer would find a line in its place.
+- Post fresh Demo Friend photos the day you submit, and keep the pack fed until the review ends. Build 4 waited 13 days for its review. A feed photo is deleted 30 days after it was posted, and the reviewer would find a line in its place. A pack of three or more that stops feeding can lose its pet within a week.
 - Tell the pack a reviewer may join.
 
 Once the app is approved, the admin removes the reviewer's account from Pack settings → Members. A removed member can't join again, so not before.
