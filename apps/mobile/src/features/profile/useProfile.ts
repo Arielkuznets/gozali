@@ -147,9 +147,10 @@ export function useUpdateProfile() {
       if (before) queryClient.setQueryData<Profile>(profileKey(userId), (profile) => profile && withoutChange(profile, settings, before));
     },
     // The server's copy only once nothing else waits: it would overwrite the changes still queued.
+    // Not returned: a failed change is told at once, not after reads that may be failing too.
     onSettled: () => {
       if (queryClient.isMutating({ mutationKey: settingsKey }) === 1) {
-        return queryClient.invalidateQueries({ queryKey: profileKey(userId) });
+        void queryClient.invalidateQueries({ queryKey: profileKey(userId) });
       }
     },
   });

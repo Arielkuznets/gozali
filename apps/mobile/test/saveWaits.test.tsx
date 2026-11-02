@@ -14,6 +14,7 @@ import {
   useRenewInviteCode,
   useUpdatePack,
 } from '@/features/packs/api';
+import { useUpdateProfile } from '@/features/profile/useProfile';
 import { useBlock, useReact, useSuggestName } from '@/features/social/api';
 
 // Saves against reads that keep failing or never answer: what a save tells the member can't wait
@@ -25,12 +26,14 @@ const mockSave = jest.fn();
 jest.mock('expo-file-system', () => ({ File: class {}, Directory: class {}, Paths: {} }));
 jest.mock('expo-image-manipulator', () => ({}));
 jest.mock('@react-native-community/netinfo', () => ({ fetch: jest.fn(), addEventListener: () => () => undefined }));
+jest.mock('@/features/auth/AuthProvider', () => ({ useAuth: () => ({ session: { user: { id: 'noa' } }, loading: false }) }));
+jest.mock('@/lib/push', () => ({}));
 jest.mock('@/lib/supabase', () => ({
   supabase: null,
   storedSession: async () => null,
   requireSupabase: () => ({
     rpc: () => mockSave(),
-    from: () => ({ upsert: () => mockSave() }),
+    from: () => ({ upsert: () => mockSave(), update: () => ({ eq: () => mockSave() }) }),
   }),
 }));
 const mockSendFeed = jest.fn();
@@ -73,6 +76,7 @@ let hooks: {
   renew: ReturnType<typeof useRenewInviteCode>;
   remove: ReturnType<typeof useRemoveMember>;
   suggest: ReturnType<typeof useSuggestName>;
+  profile: ReturnType<typeof useUpdateProfile>;
 };
 
 function Screen() {
@@ -82,6 +86,7 @@ function Screen() {
   useQuery({ queryKey: packsKey, queryFn: mockRead });
   useQuery({ queryKey: [...packsKey, 'pack'], queryFn: mockRead });
   useQuery({ queryKey: ['social', 'read'], queryFn: mockRead });
+  useQuery({ queryKey: ['profile', 'noa'], queryFn: mockRead });
   const current = {
     send: useSendFeed(),
     rest: useDayPass('pack'),
@@ -97,6 +102,7 @@ function Screen() {
     renew: useRenewInviteCode('pack'),
     remove: useRemoveMember('pack'),
     suggest: useSuggestName('pack'),
+    profile: useUpdateProfile(),
   };
   useEffect(() => {
     hooks = current;
@@ -166,6 +172,7 @@ describe('a save while the reads fail', () => {
     ['a reaction', (onError: () => void) => hooks.react.mutate({ feedId: 'f', emoji: 'fire' }, { onError })],
     ['a block', (onError: () => void) => hooks.block.mutate({ blockerId: 'noa', blockedId: 'dan' }, { onError })],
     ['a suggested name', (onError: () => void) => hooks.suggest.mutate('Mochi', { onError })],
+    ['a changed setting', (onError: () => void) => hooks.profile.mutate({ display_name: 'Noa K' }, { onError })],
   ])('reports %s that failed at once, and the reads still run', async (_name, save) => {
     const onError = jest.fn();
     await act(async () => save(onError));
@@ -230,6 +237,7 @@ describe('a save the server took while the reads never answer', () => {
     ['a new invite code', (onSuccess: () => void) => hooks.renew.mutate(undefined, { onSuccess })],
     ['a removed member', (onSuccess: () => void) => hooks.remove.mutate('dan', { onSuccess })],
     ['a suggested name', (onSuccess: () => void) => hooks.suggest.mutate('Mochi', { onSuccess })],
+    ['a changed setting', (onSuccess: () => void) => hooks.profile.mutate({ display_name: 'Noa K' }, { onSuccess })],
   ])('is done with %s, and the reads still run', async (_name, save) => {
     const onSuccess = jest.fn();
     await act(async () => save(onSuccess));
