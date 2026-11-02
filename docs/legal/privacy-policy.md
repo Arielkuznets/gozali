@@ -1,7 +1,5 @@
 # Gozali Privacy Policy
 
-> Draft for the pilot. It describes what the app does today and must be reviewed before the public launch. Published at gozali.app/privacy.
-
 Last updated: November 2, 2026
 
 Gozali is an app where a small group of friends (a "pack") raises a shared pet by doing a habit every day and proving it with a photo. This policy explains what we collect, why, who can see it, and how to delete it. Questions: hello@gozali.app.

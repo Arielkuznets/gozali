@@ -57,7 +57,7 @@ for (const page of ['index.html', 'invite/index.html']) {
 }
 
 // The legal and support pages come from Markdown in docs, which uses headings, paragraphs,
-// lists, a quote and bold text only.
+// lists and bold text only.
 const escape = (text) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const inline = (text) => escape(text).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
 
@@ -71,7 +71,6 @@ function markdown(source) {
     }
     if (line.startsWith('# ')) html.push(`<h1>${inline(line.slice(2))}</h1>`);
     else if (line.startsWith('## ')) html.push(`<h2>${inline(line.slice(3))}</h2>`);
-    else if (line.startsWith('> ')) html.push(`<blockquote>${inline(line.slice(2))}</blockquote>`);
     else if (line.startsWith('- ')) {
       if (!list) html.push('<ul>');
       list = true;

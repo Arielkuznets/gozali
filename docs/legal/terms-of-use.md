@@ -1,7 +1,5 @@
 # Gozali Terms of Use
 
-> Draft for the pilot. It must be reviewed before the public launch. Published at gozali.app/terms.
-
 Last updated: November 1, 2026
 
 By using Gozali you agree to these terms. If you don't agree, please don't use the app. Contact: hello@gozali.app.

@@ -112,10 +112,3 @@ footer a,
 article a {
   color: var(--accent-text);
 }
-
-article blockquote {
-  margin: 0;
-  padding: 8px 16px;
-  border-left: 3px solid var(--border);
-  color: var(--muted);
-}
