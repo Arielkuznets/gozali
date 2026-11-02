@@ -228,6 +228,10 @@ const unnamed = render({ type: 'friend_fed', payload: {}, names: [], critter_nam
 check(unnamed.body === 'Someone fed Pixel 🍽️', 'a friend-fed notice with no feeder left reads "Someone fed Pixel"');
 const trouble = render({ type: 'daily_summary', payload: { newUsers: 0, users: 41, feeders: 0, packs: 0, serverErrors: 3, downHours: 2 } });
 check(trouble.body.endsWith('· 🛠️ 3 server errors · 📴 down 2h'), 'and says when the server had trouble');
+const files = render({ type: 'daily_summary', payload: { newUsers: 0, users: 41, feeders: 0, packs: 0, fileMB: 500 } });
+check(files.body.endsWith('· 📦 500 MB of files (free plan: 1 GB)'), 'and when the stored files reach half of the plan');
+const fewFiles = render({ type: 'daily_summary', payload: { newUsers: 0, users: 41, feeders: 0, packs: 0, fileMB: 499 } });
+check(!fewFiles.body.includes('MB'), 'and says nothing about them below that');
 
 await admin.from('packs').delete().eq('id', pack.id);
 for (const id of [noa, dan, maya, lior]) await admin.auth.admin.deleteUser(id);

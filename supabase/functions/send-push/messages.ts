@@ -172,5 +172,8 @@ function summaryLine(payload: Record<string, unknown>): string {
   if (count('failedJobs') > 0) parts.push(`🛠️ ${amount(count('failedJobs'), 'failed job', 'failed jobs')}`);
   if (count('downHours') > 0) parts.push(`📴 down ${count('downHours')}h`);
   if (count('packsBehind') > 0) parts.push(`⏰ ${amount(count('packsBehind'), 'pack', 'packs')} behind on closing days`);
+  // Half of the free plan's 1 GB, early on purpose: it also stands in for the plan's 5 GB of egress,
+  // which nothing can read and which grows with the files, up to the 8 members of a pack.
+  if (count('fileMB') >= 500) parts.push(`📦 ${count('fileMB')} MB of files (free plan: 1 GB)`);
   return parts.join(' · ');
 }

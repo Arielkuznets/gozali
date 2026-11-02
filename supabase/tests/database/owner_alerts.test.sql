@@ -1,7 +1,7 @@
 -- Owner alerts: a push when someone finishes signing up, and the day's summary at 21:00.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(23);
+select plan(24);
 
 delete from public.notifications;
 
@@ -69,7 +69,7 @@ select is(public.queue_daily_summaries(pg_temp.at_local('20:50')), 0, 'no summar
 select is(public.queue_daily_summaries(pg_temp.at_local('21:05')), 1, 'the summary is queued after 21:00');
 select is(public.queue_daily_summaries(pg_temp.at_local('21:15')), 0, 'once a day');
 select is(
-  (select payload - 'failedJobs' - 'serverErrors' - 'packsBehind' from public.notifications where type = 'daily_summary'),
+  (select payload - 'failedJobs' - 'serverErrors' - 'packsBehind' - 'fileMB' from public.notifications where type = 'daily_summary'),
   jsonb_build_object(
     'newUsers', (select count(*) from public.profiles p where p.terms_accepted_at >= pg_temp.at_local('00:00') and p.terms_accepted_at < pg_temp.at_local('00:00') + interval '1 day'),
     'users', (select count(*) from public.profiles p where p.terms_accepted_at is not null),
@@ -78,7 +78,7 @@ select is(
   'with the day''s numbers'
 );
 select ok(
-  (select payload ?& array['failedJobs', 'serverErrors', 'packsBehind'] from public.notifications where type = 'daily_summary'),
+  (select payload ?& array['failedJobs', 'serverErrors', 'packsBehind', 'fileMB'] from public.notifications where type = 'daily_summary'),
   'and the server''s health'
 );
 select ok(
@@ -102,6 +102,22 @@ select is(
   'a run still in progress is not a failed job'
 );
 update today set day = day - 1;
+
+-- The size of the stored files, in MB: every bucket counts toward the plan, and a row with no size
+-- adds nothing.
+create temp table files_before as select coalesce(sum((metadata ->> 'size')::bigint), 0) as bytes from storage.objects;
+insert into storage.objects (bucket_id, name, metadata) values
+  ('feed-photos', 'owner-alerts/a.jpg', '{"size": 300000000}'),
+  ('avatars', 'owner-alerts/b.jpg', '{"size": 200000000}'),
+  ('feed-photos', 'owner-alerts/c.jpg', null);
+update today set day = day + 2;
+select public.queue_daily_summaries(pg_temp.at_local('21:05'));
+select is(
+  (select (payload ->> 'fileMB')::numeric from public.notifications where type = 'daily_summary' and day = (select day from today)),
+  round(((select bytes from files_before) + 500000000) / 1e6),
+  'the summary says how much the stored files weigh'
+);
+update today set day = day - 2;
 
 -- Calls from the database to the functions that failed are kept for the summary.
 insert into net._http_response (id, status_code, content, created)
