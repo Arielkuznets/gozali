@@ -499,7 +499,7 @@ Important: the widgets and some of the modules require a **development build**, 
 - **Postgres + RLS:** all the tables from section 13, including the constraints that prevent race conditions.
 - **Storage:** a private bucket for photos, signed links.
 - **Realtime:** updating the circles and the feed on the pack screen in real time, subject to RLS.
-- **Cron:** scheduled runs of day closing, recaps and notification sending: pg\_cron calls the Edge Functions through pg\_net, with the function address and a shared secret kept in Vault (decision D13).
+- **Cron:** scheduled runs of day closing, recaps and notification sending: pg\_cron calls the Edge Functions through pg\_net, with the function address and a shared secret kept in Vault (decision D13). A call waits up to 150 seconds, the longest a function can run, so a long run is judged by its own answer.
 - **User actions (Postgres functions):**
   - `submit_feed`: verifies pack membership, computes "the day" by the pack's time zone (including the offline rule), saves the feed (the database constraint prevents duplicates), wakes a sleeping member, and cancels a joker or declared rest for the same day.
   - `create_pack`: creates the pack, its egg and the admin membership, with a random invite code; limited to 3 packs per user.
