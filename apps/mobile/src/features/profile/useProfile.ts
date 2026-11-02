@@ -1,3 +1,4 @@
+import NetInfo from '@react-native-community/netinfo';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getLocales } from 'expo-localization';
 import { useEffect, useRef } from 'react';
@@ -190,8 +191,8 @@ export function useAccountSync() {
 
 /**
  * Nobody signed in means nobody's pushes. A sign-out without a connection can't tell the server,
- * and a session the server ends never signs out here at all, so each start and each return to the
- * app try until the server has forgotten the token.
+ * and a session the server ends never signs out here at all, so each start, each return to the app
+ * and each time the connection comes back try until the server has forgotten the token.
  */
 export function useSignedOutSync() {
   const { session, loading } = useAuth();
@@ -200,9 +201,15 @@ export function useSignedOutSync() {
   useEffect(() => {
     if (!signedOut) return;
     void unregisterPushToken();
-    const subscription = AppState.addEventListener('change', (state) => {
+    const appState = AppState.addEventListener('change', (state) => {
       if (state === 'active') void unregisterPushToken();
     });
-    return () => subscription.remove();
+    const network = NetInfo.addEventListener((state) => {
+      if (state.isConnected) void unregisterPushToken();
+    });
+    return () => {
+      appState.remove();
+      network();
+    };
   }, [signedOut]);
 }

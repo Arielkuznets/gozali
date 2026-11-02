@@ -31,6 +31,15 @@ jest.mock('@/lib/supabase', () => ({
 let mockAuth: { session: object | null; loading: boolean };
 jest.mock('@/features/auth/AuthProvider', () => ({ useAuth: () => mockAuth }));
 
+type Connection = { isConnected: boolean | null };
+const mockNetwork = new Set<(state: Connection) => void>();
+jest.mock('@react-native-community/netinfo', () => ({
+  addEventListener: (listener: (state: Connection) => void) => {
+    mockNetwork.add(listener);
+    return () => mockNetwork.delete(listener);
+  },
+}));
+
 const offline = { code: '', message: 'TypeError: Network request failed' };
 const refused = { code: 'PGRST301', message: 'No suitable key or wrong key type' };
 const noFunction = { code: 'PGRST202', message: 'Could not find the function public.forget_push_token(device_token)' };
@@ -67,6 +76,13 @@ async function comeBackToApp() {
   });
 }
 
+async function connectionChanges(isConnected: boolean) {
+  await act(async () => {
+    mockNetwork.forEach((listener) => listener({ isConnected }));
+    await settle();
+  });
+}
+
 /** Registered, then signed out without a connection. */
 async function signOutOffline() {
   await registerPushToken();
@@ -81,6 +97,7 @@ beforeEach(async () => {
   answer({});
   mockTableDelete.mockReset().mockResolvedValue({ error: null });
   appStates.clear();
+  mockNetwork.clear();
   jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
     appStates.add(listener);
     return { remove: () => appStates.delete(listener) };
@@ -161,6 +178,29 @@ describe('while signed out', () => {
     expect(forgotten()).toHaveLength(3);
   });
 
+  it('tries again when the connection comes back with the app left open', async () => {
+    await signOutOffline();
+    await startApp();
+    expect(await kept()).toBe(TOKEN);
+
+    answer({});
+    await connectionChanges(true);
+
+    expect(forgotten()).toHaveLength(3);
+    expect(await kept()).toBeNull();
+  });
+
+  it('asks nothing of the server when the connection goes', async () => {
+    await signOutOffline();
+    await startApp();
+    mockRpc.mockClear();
+
+    await connectionChanges(false);
+
+    expect(forgotten()).toEqual([]);
+    expect(await kept()).toBe(TOKEN);
+  });
+
   it('forgets a token whose session ended without the app signing out', async () => {
     await registerPushToken();
     await startApp();
@@ -190,6 +230,7 @@ describe('while signed out', () => {
     mockAuth = { session: { access_token: 'token' }, loading: false };
     await act(async () => app.update(<SignedOutSync />));
     await comeBackToApp();
+    await connectionChanges(true);
 
     expect(forgotten()).toEqual([]);
   });
