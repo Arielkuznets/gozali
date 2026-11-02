@@ -70,7 +70,6 @@ jest.mock('@/lib/notifications', () => ({
   clearNotifications: () => mockClearNotifications(),
 }));
 jest.mock('@/lib/push', () => ({ registerPushToken: async () => undefined, unregisterPushToken: async () => undefined }));
-jest.mock('@/lib/reportError', () => ({ errorText: String, sendPendingCrash: async () => undefined }));
 
 type Supabase = typeof import('@/lib/supabase');
 
