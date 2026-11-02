@@ -30,10 +30,20 @@ describe('whether the egg surely hatches tonight', () => {
     expect(hatchesTonight(pack, fed, noPasses, known({}))).toBe(false);
   });
 
-  it('is sure once Eve is on a joker, or when Eve has never fed', () => {
-    const joker: TodayPasses = { passes: new Map([['eve', 'joker']]), paused: new Set() };
-    expect(hatchesTonight(pack, fed, joker, known({}))).toBe(true);
+  it('is sure when Eve has never fed', () => {
     expect(hatchesTonight(pack, fed, noPasses, known({ hasStarted: false }))).toBe(true);
+  });
+
+  it('is not sure while Eve could take back a joker or a pause with no rest days to cover her', () => {
+    const joker: TodayPasses = { passes: new Map([['eve', 'joker']]), paused: new Set() };
+    const paused: TodayPasses = { passes: new Map(), paused: new Set(['eve']) };
+    expect(hatchesTonight(pack, fed, joker, known({}))).toBe(false);
+    expect(hatchesTonight(pack, fed, paused, known({}))).toBe(false);
+  });
+
+  it('is sure on a joker when a rest day would still cover Eve', () => {
+    const joker: TodayPasses = { passes: new Map([['eve', 'joker']]), paused: new Set() };
+    expect(hatchesTonight(pack, fed, joker, { ...known({}), restDaysPerWeek: 1 })).toBe(true);
   });
 
   it('is not sure before the server said who has started', () => {

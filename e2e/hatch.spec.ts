@@ -40,9 +40,15 @@ test('the egg promises to hatch tonight only once nobody can stop it', async ({ 
   await expect(page.getByText('It hatches tonight if no one else misses today')).toBeVisible();
   await expect(page.getByText('It hatches tonight, when today ends 🎉')).toBeHidden();
 
-  // With a joker Eve can't miss today, so nothing can stop the hatch any more.
+  // Eve can take her joker back until the day ends, and she has no rest days, so it proves nothing.
   const joker = await eve.client.rpc('use_day_pass', { target: pack.id, pass: 'joker' });
   if (joker.error) throw joker.error;
+  await expect(page.getByLabel('Eve, resting today')).toBeVisible();
+  await expect(page.getByText('It hatches tonight if no one else misses today')).toBeVisible();
+  await expect(page.getByText('It hatches tonight, when today ends 🎉')).toBeHidden();
+
+  // Once Eve fed, nobody is left who could stop it.
+  await feed(eve, pack.id, image, 'Stairs');
   await expect(page.getByText('It hatches tonight, when today ends 🎉')).toBeVisible();
 });
 
