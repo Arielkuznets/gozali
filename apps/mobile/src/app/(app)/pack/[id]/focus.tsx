@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, View } from 'react-native';
@@ -39,6 +39,7 @@ export default function FocusScreen() {
   const focus = useFocusSession({ title: t('focus.doneTitle'), body: t('focus.doneBody') });
   // The session's times are the phone's own (Date.now), and so is its notification.
   const now = useNow(1000, 'phone');
+  const inFront = useIsFocused();
   const opened = useRef(false);
 
   const session = focus.session?.packId === id ? focus.session : null;
@@ -54,7 +55,8 @@ export default function FocusScreen() {
     router.replace(`/pack/${id}/feed?focus=${minutes}`);
   };
 
-  // When the time runs out with the screen open, go straight to the camera. A session that ended a
+  // When the time runs out with the screen in front, go straight to the camera. It takes the place
+  // of whatever is in front, so a screen opened over this one holds it back. A session that ended a
   // while ago (the app was closed) or came back from the camera waits for the Done button instead.
   const justEnded =
     session !== null &&
@@ -62,7 +64,7 @@ export default function FocusScreen() {
     session.minutes !== null &&
     elapsedMs(session, now.getTime()) - session.minutes * 60_000 < 60_000;
   useEffect(() => {
-    if (left === 0 && justEnded && !opened.current) {
+    if (left === 0 && justEnded && inFront && !opened.current) {
       opened.current = true;
       void takePhoto();
     }

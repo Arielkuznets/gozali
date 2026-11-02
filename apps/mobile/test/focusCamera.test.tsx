@@ -219,6 +219,55 @@ describe('a session whose time ran out with the screen open', () => {
   });
 });
 
+describe('a session whose time runs out under another screen', () => {
+  const OTHER_PACK = '/pack/p2';
+
+  beforeEach(async () => {
+    await keepSession(24.8);
+    await openPack();
+    await go(() => router.push(FOCUS as Href));
+  });
+
+  it('leaves the photo on a camera over it', async () => {
+    await go(() => router.push(CAMERA as Href));
+    await act(async () => cameras()[0]?.props.onCameraReady());
+    await press('Take photo');
+
+    await go(() => jest.advanceTimersByTime(MINUTE));
+
+    expect(shown()).toContain('Retake');
+    expect(store.getRouteInfo().params.focus).toBeUndefined();
+  });
+
+  it('leaves a pack opened over it', async () => {
+    await go(() => router.push(OTHER_PACK as Href));
+
+    await go(() => jest.advanceTimersByTime(MINUTE));
+
+    expect(pathname()).toBe(OTHER_PACK);
+  });
+
+  it('goes to the camera on the way back, within the minute after it ended', async () => {
+    await go(() => router.push(OTHER_PACK as Href));
+    await go(() => jest.advanceTimersByTime(30_000));
+
+    await go(() => router.back());
+
+    expect(pathname()).toBe(CAMERA);
+    expect(shown()).toContain('25 min');
+  });
+
+  it('waits for Done on the way back after that', async () => {
+    await go(() => router.push(OTHER_PACK as Href));
+    await go(() => jest.advanceTimersByTime(2 * MINUTE));
+
+    await go(() => router.back());
+
+    expect(pathname()).toBe(FOCUS);
+    expect(shown()).toContain(DONE);
+  });
+});
+
 describe('Done, on a session that still has time', () => {
   it('stops the clock and the notice at the camera, and keeps both stopped when it is left', async () => {
     await keepSession(10, { notificationId: 'time-is-up' });
