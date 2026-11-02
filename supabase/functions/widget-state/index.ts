@@ -10,6 +10,21 @@ import { artSvg, artVersion, dayIn, widgetPack, type WidgetPackRow } from './sta
 const RESVG_WASM = 'https://cdn.jsdelivr.net/npm/@resvg/resvg-wasm@2.6.2/index_bg.wasm';
 let resvgReady: Promise<void> | null = null;
 
+/**
+ * The wasm as bytes: from the deployed bundle, or from the CDN if that read fails. Bytes and not a
+ * Response, because the event loop spins while a streaming compile waits for the network, and that
+ * spin counts against the CPU limit.
+ */
+async function resvgWasm(): Promise<Uint8Array> {
+  try {
+    return await Deno.readFile(new URL('index_bg.wasm', import.meta.resolve('npm:@resvg/resvg-wasm@2.6.2')));
+  } catch (error) {
+    console.warn('widget-state: no bundled wasm, using the CDN', error);
+    const response = await fetch(RESVG_WASM, { signal: AbortSignal.timeout(5_000) });
+    return new Uint8Array(await response.arrayBuffer());
+  }
+}
+
 function png(svg: string, size: number): Uint8Array {
   return new Resvg(svg, { fitTo: { mode: 'width', value: size } }).render().asPng();
 }
@@ -38,7 +53,7 @@ Deno.serve(async (request) => {
     const asked = Number(url.searchParams.get('size'));
     const size = Number.isFinite(asked) && asked > 0 ? Math.min(600, Math.max(64, asked)) : 300;
     // Loaded once per instance; a failed load is forgotten so the next request tries again.
-    resvgReady ??= initWasm(fetch(RESVG_WASM)).catch((error) => {
+    resvgReady ??= initWasm(resvgWasm()).catch((error) => {
       resvgReady = null;
       throw error;
     });

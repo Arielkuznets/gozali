@@ -29,7 +29,8 @@
     "store:shots": "playwright test -c e2e/store shots",
     "ui:gallery": "playwright test -c e2e/store gallery && node e2e/store/sheets.mjs e2e/store/output/gallery e2e/store/output/sheets",
     "typecheck:e2e": "npx -y -p typescript@5 tsc -p e2e",
-    "functions:bundle": "node scripts/bundle-functions.mjs"
+    "functions:bundle": "node scripts/bundle-functions.mjs",
+    "functions:image": "node scripts/check-widget-image.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

@@ -145,6 +145,7 @@ npm run smoke:push       # friend-fed merging, "last one", the critter's lines, 
 npm run smoke:widgets    # the widget token and endpoint (needs `npx supabase functions serve`)
 npm run smoke:delete-account  # account deletion end to end, and Sign in with Apple revocation (needs `npx supabase functions serve`)
 npm run functions:bundle       # bundle every Edge Function with the deploy bundler (Docker)
+npm run functions:image        # draw a widget picture from that bundle with the network off (Docker)
 ```
 
 ```sh

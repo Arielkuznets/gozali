@@ -49,6 +49,8 @@ jobs:
         run: supabase test db
       - name: Bundle the Edge Functions the way a deploy does
         run: npm run functions:bundle
+      - name: Draw a widget picture with the network off
+        run: npm run functions:image
       - name: Run the smoke tests against the local API
         run: |
           eval "$(supabase status -o env | grep -E '^(PUBLISHABLE_KEY|SECRET_KEY)=')"
