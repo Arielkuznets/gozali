@@ -96,4 +96,29 @@ describe("a stored session that can't be read", () => {
     await expect(clearFocusSession()).resolves.toBeUndefined();
     expect(await AsyncStorage.getItem(STORAGE_KEY)).toBeNull();
   });
+
+  describe('when the phone fails to remove it', () => {
+    const full = new Error('database or disk is full');
+
+    it("doesn't fail the photo that ends a session", async () => {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(session()));
+      jest.mocked(AsyncStorage.removeItem).mockRejectedValueOnce(full);
+
+      await expect(clearFocusSession()).resolves.toBeUndefined();
+    });
+
+    it('still ends the session on the timer, so Take photo reaches the camera', async () => {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(session({ startedAt: Date.now() - 10 * minute })));
+      await open();
+      jest.mocked(AsyncStorage.removeItem).mockRejectedValueOnce(full);
+
+      let focused: number | undefined;
+      await act(async () => {
+        focused = await focus.stop();
+      });
+
+      expect(focused).toBe(10);
+      expect(focus.session).toBeNull();
+    });
+  });
 });

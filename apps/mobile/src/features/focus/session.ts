@@ -71,9 +71,10 @@ async function load(): Promise<FocusSession | null> {
   }
 }
 
+/** A failed removal stays quiet: what ended the session went through, a sent feed included. */
 async function save(session: FocusSession | null) {
   if (session) await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-  else await AsyncStorage.removeItem(STORAGE_KEY);
+  else await AsyncStorage.removeItem(STORAGE_KEY).catch(() => undefined);
 }
 
 /** The stored session, for a screen that only has to know about it. */
