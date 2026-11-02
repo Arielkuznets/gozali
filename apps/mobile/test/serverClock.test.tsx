@@ -1,9 +1,13 @@
 import { focusManager, QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import { useRefetchWhenClockMoves } from '@/lib/appFocus';
+import { persistOptions } from '@/lib/queryCache';
 import { clockedFetch, noteServerDate, onServerClockChange, serverNow } from '@/lib/serverClock';
 import { useNow } from '@/lib/useNow';
+
+jest.mock('@/lib/supabase', () => ({ storedSession: async () => ({ user: { id: 'noa' } }) }));
 
 const at = (iso: string) => Date.parse(iso);
 
@@ -132,6 +136,8 @@ describe("the server's clock", () => {
 
   describe("what was read before the phone's clock moved", () => {
     const HOUR = 60 * 60_000;
+    /** Past the second the persister can hold a save back. */
+    const SAVE_MS = 1500;
     const machineNow = Date.now.bind(Date);
     let phoneAhead = 0;
     let app: ReactTestRenderer | undefined;
@@ -140,7 +146,7 @@ describe("the server's clock", () => {
     const hearServer = () => noteServerDate(new Date(machineNow()).toUTCString(), Date.now(), Date.now());
 
     function Reader({ read }: { read: () => Promise<string> }) {
-      useQuery({ queryKey: ['read'], queryFn: read });
+      useQuery({ queryKey: ['packs'], queryFn: read });
       return null;
     }
 
@@ -161,6 +167,18 @@ describe("the server's clock", () => {
     async function open(client: QueryClient, read: () => Promise<string>) {
       await act(async () => {
         app = create(<App client={client} read={read} />);
+      });
+      await settle();
+    }
+
+    /** A start of the app on the copy kept on the phone. */
+    async function openOnCopy(read: () => Promise<string>) {
+      await act(async () => {
+        app = create(
+          <PersistQueryClientProvider client={newClient()} persistOptions={persistOptions}>
+            <Root read={read} />
+          </PersistQueryClientProvider>,
+        );
       });
       await settle();
     }
@@ -213,6 +231,23 @@ describe("the server's clock", () => {
 
       await act(async () => app?.update(<App client={client} read={read} />));
       await settle();
+      expect(read).toHaveBeenCalledTimes(2);
+    });
+
+    it('is read again from the copy kept on the phone, when the app heard of no move', async () => {
+      const read = jest.fn(async () => 'from the server');
+      phoneAhead = 3 * HOUR;
+      hearServer();
+      await openOnCopy(read);
+      await act(() => new Promise((resolve) => setTimeout(resolve, SAVE_MS)));
+      await act(async () => app?.unmount());
+      expect(read).toHaveBeenCalledTimes(1);
+
+      // Android's widget refresh runs with no app open, and it learns of the move first.
+      phoneAhead = 0;
+      hearServer();
+
+      await openOnCopy(read);
       expect(read).toHaveBeenCalledTimes(2);
     });
 
