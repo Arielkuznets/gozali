@@ -78,10 +78,13 @@ export function widgetPack(row: WidgetPackRow, day?: string): WidgetPack {
   };
 }
 
-/** A short, stable id for a drawing, so widgets can cache images by URL. */
+/**
+ * A short, stable id for a drawing, so widgets can cache images by URL. It hashes the SVG and not
+ * the art, whose mood moves with every feed while the picture changes at only a few of them.
+ */
 export function artVersion(art: CritterArt): string {
   let hash = 0x811c9dc5;
-  for (const char of JSON.stringify(art)) {
+  for (const char of renderCritter(art)) {
     hash ^= char.charCodeAt(0);
     hash = Math.imul(hash, 0x01000193) >>> 0;
   }
