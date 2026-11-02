@@ -349,6 +349,25 @@ describe('a pause, with only the pack copy to go by', () => {
   });
 });
 
+describe('the pause line on the pack', () => {
+  const END_EARLY = 'You can end it early in Settings';
+  const line = async (days: number) => {
+    phone({ pack: onPause({ starts_on: packDay(), ends_on: addDays(packDay(), days - 1) }) });
+    return lines(await open(<PackScreen />)).join();
+  };
+
+  it('promises no early end on the shortest pause, which is over before one is allowed', async () => {
+    const text = await line(3);
+
+    expect(text).toContain("You're on a pause until");
+    expect(text).not.toContain(END_EARLY);
+  });
+
+  it('says it can end early on any longer one', async () => {
+    expect(await line(7)).toContain(END_EARLY);
+  });
+});
+
 describe('a member who fell asleep', () => {
   const ONE_PHOTO = 'One photo and you';
   const asleep = (pack = PACK): Pack => ({

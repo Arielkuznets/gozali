@@ -1,4 +1,4 @@
-import { packDayOf, type DayInput } from '@gozali/game-engine';
+import { addDays, packDayOf, type DayInput } from '@gozali/game-engine';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { packsKey, usePack, type Pack, type PackMember } from '@/features/packs/api';
@@ -43,6 +43,9 @@ export type MembersToday = {
 
 export const daysKey = ['days'] as const;
 export const PAUSE_LENGTHS = [3, 7, 14, 30, 60] as const;
+
+/** Whether a running pause can end on a day: not before its first 3 days are over (end_pause). */
+export const canEndPause = (startsOn: string, day: string) => addDays(startsOn, 3) <= day;
 
 const pauseOn = (member: PackMember, day: string) => member.pauses?.find((pause) => pause.starts_on <= day && day <= pause.ends_on);
 

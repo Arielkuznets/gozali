@@ -23,7 +23,7 @@ import { MilestoneMoment } from '@/features/critter/MilestoneMoment';
 import { useMilestone } from '@/features/critter/milestones';
 import { critterArt, stageProgress } from '@/features/critter/art';
 import { useCritterText } from '@/features/critter/useCritterText';
-import { keptToday, pauseToday, useDayStatus, useMembersToday, useTodayPasses, type TodayPasses } from '@/features/days/api';
+import { canEndPause, keptToday, pauseToday, useDayStatus, useMembersToday, useTodayPasses, type TodayPasses } from '@/features/days/api';
 import { FeedList } from '@/features/feeds/FeedList';
 import { FEED_PAGE, feedWaitsToday, fedToday, useCountedFeeds, usePackFeed, usePendingFeeds, type FeedItem } from '@/features/feeds/api';
 import { storedFocusSession } from '@/features/focus/session';
@@ -255,6 +255,7 @@ export default function PackScreen() {
         {pause && (
           <AppText variant="caption" style={styles.centerText}>
             {t('pack.pausedToday', { date: formatDay(pause.endsOn), name: critterName })}
+            {canEndPause(pause.startsOn, pause.endsOn) && ` ${t('pack.pausedEndEarly')}`}
           </AppText>
         )}
         {!iFed && !pausedToday && dayStatus.data?.passToday && (

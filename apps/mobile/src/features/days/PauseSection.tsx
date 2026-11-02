@@ -1,4 +1,3 @@
-import { addDays } from '@gozali/game-engine';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
@@ -6,7 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { ActionMenu, type Menu } from '@/components/ActionMenu';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
-import { PAUSE_LENGTHS, dayErrorKey, useDayStatus, useEndPause, useStartPause } from '@/features/days/api';
+import { PAUSE_LENGTHS, canEndPause, dayErrorKey, useDayStatus, useEndPause, useStartPause } from '@/features/days/api';
 import { confirm, notify } from '@/lib/confirm';
 import { formatDay } from '@/lib/dates';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
@@ -41,8 +40,7 @@ export function PauseSection({ packId }: { packId: string }) {
 
   const pause = day.pause;
   const upcoming = pause !== null && pause.startsOn > day.day;
-  // A running pause can end after 3 paused days.
-  const canEnd = pause !== null && (upcoming || addDays(pause.startsOn, 3) <= day.day);
+  const canEnd = pause !== null && (upcoming || canEndPause(pause.startsOn, day.day));
 
   return (
     <View style={styles.card}>
