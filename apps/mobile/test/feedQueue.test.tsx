@@ -44,8 +44,9 @@ jest.mock('@/features/feeds/send', () => ({
 // The real listener hears the current state as soon as it subscribes, so a mount flushes twice.
 type Connection = { isConnected: boolean; isInternetReachable?: boolean | null };
 let mockConnected: ((state: Connection) => void) | null = null;
+let mockOnline = true;
 jest.mock('@react-native-community/netinfo', () => ({
-  fetch: async () => ({ isConnected: true, isInternetReachable: true }),
+  fetch: async () => ({ isConnected: mockOnline, isInternetReachable: mockOnline }),
   addEventListener: (listener: (state: Connection) => void) => {
     mockConnected = listener;
     listener({ isConnected: true });
@@ -133,6 +134,7 @@ beforeEach(async () => {
   mockNotify.mockReset();
   mockReport.mockReset();
   mockMissing.clear();
+  mockOnline = true;
   mockLoadPacks.mockReset().mockResolvedValue(['Gym squad']);
 });
 
@@ -196,6 +198,40 @@ describe('queued feeds that were dropped', () => {
     await comeBackToApp();
     expect(mockNotify.mock.calls).toEqual([["A saved feed couldn't go out and was removed.", whatToDo]]);
     expect(mockReport.mock.calls).toEqual([['Queued feed dropped: 42501 not_a_member']]);
+  });
+
+  it('tells the member without a connection, and reports once on a run with one', async () => {
+    AppState.currentState = 'background';
+    await enqueue(feed('a'));
+    mockSendFeed.mockRejectedValue({ code: '42501', message: 'not_a_member' });
+    await openApp();
+
+    mockOnline = false;
+    await comeBackToApp();
+    await comeBackToApp();
+    expect(mockNotify.mock.calls).toEqual([["A saved feed couldn't go out and was removed.", whatToDo]]);
+    expect(mockReport).not.toHaveBeenCalled();
+    expect(await pendingFeeds()).toEqual([]);
+
+    mockOnline = true;
+    await comeBackToApp();
+    await comeBackToApp();
+    expect(mockReport.mock.calls).toEqual([['Queued feed dropped: 42501 not_a_member']]);
+    expect(mockNotify).toHaveBeenCalledTimes(1);
+  });
+
+  it('does the same for a run with no connection that finds a photo gone', async () => {
+    await enqueue(feed('a'));
+    mockMissing.add('documents/feed-queue/a.jpg');
+    mockOnline = false;
+    await openApp();
+    expect(mockNotify.mock.calls).toEqual([["A saved feed couldn't go out and was removed.", whatToDo]]);
+    expect(mockReport).not.toHaveBeenCalled();
+
+    mockOnline = true;
+    await comeBackToApp();
+    expect(mockReport.mock.calls).toEqual([['Queued feed dropped: queued_photo_gone']]);
+    expect(mockNotify).toHaveBeenCalledTimes(1);
   });
 });
 

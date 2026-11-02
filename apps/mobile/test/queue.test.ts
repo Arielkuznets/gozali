@@ -328,11 +328,11 @@ describe('offline feed queue', () => {
     await enqueue(feed('a'));
     await enqueue(feed('b'));
     mockSendFeed.mockRejectedValueOnce(missing).mockResolvedValue('feed-id');
-    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], stuck: [missing] });
+    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], unreported: [], stuck: [missing] });
     expect(await waiting()).toEqual(['a']);
     expect(mockDeleted).toEqual(['documents/feed-queue/b.jpg']);
 
-    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], stuck: [] });
+    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], unreported: [], stuck: [] });
     expect(await waiting()).toEqual([]);
   });
 
@@ -346,7 +346,7 @@ describe('offline feed queue', () => {
   it('tries an extra once more when another phone got to the day first', async () => {
     await enqueue({ ...feed('a'), extra: true });
     mockSendFeed.mockRejectedValueOnce({ code: 'P0001', message: 'already_fed' }).mockResolvedValueOnce('feed-id');
-    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], stuck: [] });
+    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], unreported: [], stuck: [] });
     expect(mockSendFeed).toHaveBeenCalledTimes(2);
     expect(await pendingFeeds()).toEqual([]);
   });
@@ -357,7 +357,7 @@ describe('offline feed queue', () => {
   ])('stops at one more try for %s when the answer stays the same', async (_name, queued) => {
     await enqueue(queued);
     mockSendFeed.mockRejectedValue({ code: 'P0001', message: 'already_fed' });
-    expect(await flushQueue()).toEqual({ handled: 1, dropped: ['P0001 already_fed'], stuck: [] });
+    expect(await flushQueue()).toEqual({ handled: 1, dropped: ['P0001 already_fed'], unreported: ['P0001 already_fed'], stuck: [] });
     expect(mockSendFeed).toHaveBeenCalledTimes(2);
   });
 
@@ -430,7 +430,7 @@ describe('feeds of different accounts', () => {
     await enqueue(feed('b'));
     mockSendFeed.mockResolvedValue('feed-id');
 
-    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], stuck: [] });
+    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], unreported: [], stuck: [] });
 
     expect(mockSendFeed.mock.calls.map(([sent]) => sent.id)).toEqual(['b']);
     expect(await waiting()).toEqual(['a']);
@@ -452,7 +452,7 @@ describe('feeds of different accounts', () => {
     mockSignedIn = null;
     await enqueue(feed('a'));
 
-    expect(await flushQueue()).toEqual({ handled: 0, dropped: [], stuck: [] });
+    expect(await flushQueue()).toEqual({ handled: 0, dropped: [], unreported: [], stuck: [] });
 
     expect(mockSendFeed).not.toHaveBeenCalled();
     expect(await waiting()).toEqual(['a']);
@@ -495,7 +495,7 @@ describe('what a run tells its caller', () => {
     await enqueue(feed('c'));
     mockMissing.add('documents/feed-queue/b.jpg');
     mockSendFeed.mockRejectedValueOnce(notAMember).mockResolvedValueOnce('feed-id');
-    expect(await flushQueue()).toEqual({ handled: 3, dropped: [why, 'queued_photo_gone'], stuck: [] });
+    expect(await flushQueue()).toEqual({ handled: 3, dropped: [why, 'queued_photo_gone'], unreported: [why, 'queued_photo_gone'], stuck: [] });
   });
 
   it('leaves out what the server wrote beside its refusal, which can quote a row', async () => {
@@ -517,8 +517,8 @@ describe('what a run tells its caller', () => {
     await until(() => mockSendFeed.mock.calls.length === 2);
 
     mockSendFeed.mockResolvedValue('feed-id');
-    expect(await afterRestart().flushQueue()).toEqual({ handled: 1, dropped: [why], stuck: [] });
-    expect(await afterRestart().flushQueue()).toEqual({ handled: 0, dropped: [], stuck: [] });
+    expect(await afterRestart().flushQueue()).toEqual({ handled: 1, dropped: [why], unreported: [why], stuck: [] });
+    expect(await afterRestart().flushQueue()).toEqual({ handled: 0, dropped: [], unreported: [], stuck: [] });
     cut(networkFailure);
     await killed;
   });
@@ -527,15 +527,29 @@ describe('what a run tells its caller', () => {
     await enqueue(feed('a'));
     mockSendFeed.mockRejectedValueOnce(notAMember);
     AppState.currentState = 'background';
-    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], stuck: [] });
+    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], unreported: [], stuck: [] });
     expect(await pendingFeeds()).toEqual([]);
     expect(mockDeleted).toEqual(['documents/feed-queue/a.jpg']);
     expect((await flushQueue()).dropped).toEqual([]);
 
     AppState.currentState = 'active';
-    expect(await flushQueue()).toEqual({ handled: 0, dropped: [why], stuck: [] });
+    expect(await flushQueue()).toEqual({ handled: 0, dropped: [why], unreported: [why], stuck: [] });
     expect((await flushQueue()).dropped).toEqual([]);
     expect(mockSendFeed).toHaveBeenCalledTimes(1);
+  });
+
+  it('tells the member with no connection, and keeps the report for a run with one, also after the app starts again', async () => {
+    await enqueue(feed('a'));
+    mockSendFeed.mockRejectedValueOnce(notAMember);
+
+    mockOnline = false;
+    expect(await flushQueue()).toEqual({ handled: 1, dropped: [why], unreported: [], stuck: [] });
+    expect(await flushQueue()).toEqual({ handled: 0, dropped: [], unreported: [], stuck: [] });
+    expect(await pendingFeeds()).toEqual([]);
+
+    mockOnline = true;
+    expect(await afterRestart().flushQueue()).toEqual({ handled: 0, dropped: [], unreported: [why], stuck: [] });
+    expect(await afterRestart().flushQueue()).toEqual({ handled: 0, dropped: [], unreported: [], stuck: [] });
   });
 
   it('keeps it through a phone that fails to read the list, and says it once', async () => {
@@ -579,14 +593,14 @@ describe('what a run tells its caller', () => {
   it('counts a feed that went out as its replacement as sent', async () => {
     await enqueue({ ...feed('a'), caption: 'Kicked ass today' });
     mockSendFeed.mockRejectedValueOnce({ code: '22023', message: 'text_not_allowed' }).mockResolvedValueOnce('feed-id');
-    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], stuck: [] });
+    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], unreported: [], stuck: [] });
   });
 
   it("doesn't call a network failure stuck", async () => {
     await enqueue(feed('a'));
     for (const failure of noAnswer) {
       mockSendFeed.mockRejectedValueOnce(failure);
-      expect(await flushQueue()).toEqual({ handled: 0, dropped: [], stuck: [] });
+      expect(await flushQueue()).toEqual({ handled: 0, dropped: [], unreported: [], stuck: [] });
     }
   });
 
@@ -606,7 +620,7 @@ describe('what a run tells its caller', () => {
     expect((await flushQueue()).stuck).toEqual([timeout]);
     await enqueue(feed('b'));
     mockSendFeed.mockResolvedValueOnce('feed-id').mockRejectedValueOnce(timeout);
-    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], stuck: [timeout] });
+    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], unreported: [], stuck: [timeout] });
   });
 
   it('keeps quiet about a stuck feed through its replacement', async () => {
@@ -658,8 +672,8 @@ describe('what a run tells its caller', () => {
     await enqueue(feed('a'));
     mockSendFeed.mockRejectedValueOnce(notAMember);
     const [started, joined] = await Promise.all([flushQueue(), flushQueue()]);
-    expect(started).toEqual({ handled: 1, dropped: [why], stuck: [] });
-    expect(joined).toEqual({ handled: 0, dropped: [], stuck: [] });
+    expect(started).toEqual({ handled: 1, dropped: [why], unreported: [why], stuck: [] });
+    expect(joined).toEqual({ handled: 0, dropped: [], unreported: [], stuck: [] });
   });
 
   it("doesn't call feeds dropped when the queue was forgotten during the run", async () => {
@@ -670,7 +684,7 @@ describe('what a run tells its caller', () => {
       mockMissing.add('documents/feed-queue/b.jpg');
       return 'feed-id';
     });
-    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], stuck: [] });
+    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], unreported: [], stuck: [] });
     expect(mockSendFeed).toHaveBeenCalledTimes(1);
   });
 });

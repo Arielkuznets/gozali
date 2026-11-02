@@ -14,9 +14,10 @@ const STORAGE_KEY = 'gozali.feed-queue';
 
 /**
  * A waiting feed; stuckReported says the developer already heard that it can't go out. One with
- * droppedFor waits for nothing any more: it stays only for the member to hear why it was dropped.
+ * droppedFor waits for nothing any more: it stays only for the member to hear why it was dropped,
+ * and once droppedTold says they did, for the developer to.
  */
-type QueuedFeed = OutgoingFeed & { stuckReported?: boolean; droppedFor?: string };
+type QueuedFeed = OutgoingFeed & { stuckReported?: boolean; droppedFor?: string; droppedTold?: boolean };
 
 /** A list that can't be read rejects: taken for empty, the next write would forget it. */
 async function read(): Promise<QueuedFeed[]> {
@@ -135,8 +136,10 @@ export async function pendingFeeds(packId?: string): Promise<OutgoingFeed[]> {
 export type FlushResult = {
   /** Feeds that left the queue, the dropped ones included. */
   handled: number;
-  /** Why each dropped feed won't go out, for all that nobody heard about yet. */
+  /** Why each dropped feed won't go out, for all the member didn't hear about yet. */
   dropped: string[];
+  /** The same for the developer, from a run with a connection, where a report can get through. */
+  unreported: string[];
   /** What keeps a feed waiting, other than the network, the first time that feed stops on it. */
   stuck: unknown[];
 };
@@ -156,18 +159,23 @@ async function sendable(): Promise<QueuedFeed[]> {
 }
 
 /**
- * Takes the signed-in account's dropped feeds off the list and says why each went. They wait there
+ * Says why the signed-in account's dropped feeds went, and takes them off the list. They wait there
  * because the member has to hear of a drop that is already done: the app can be killed before the
- * run ends, and Android loses an alert made while the app is paused.
+ * run ends, and Android loses an alert made while the app is paused. With no connection a report
+ * goes nowhere, so the member hears and the feed stays, marked, for a run with one.
  */
-async function takeDropped(): Promise<string[]> {
+async function takeDropped(): Promise<Pick<FlushResult, 'dropped' | 'unreported'>> {
   const userId = (await storedSession())?.user.id;
+  const online = await isOnline();
   return inTurn(async () => {
     const queue = await read();
     const dropped = queue.filter((feed) => feed.droppedFor && feed.userId === userId);
-    if (dropped.length === 0) return [];
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(queue.filter((feed) => !dropped.includes(feed))));
-    return dropped.map((feed) => feed.droppedFor ?? '');
+    if (dropped.length === 0) return { dropped: [], unreported: [] };
+    const kept = queue.filter((feed) => !dropped.includes(feed));
+    const told = dropped.map((feed) => ({ ...feed, droppedTold: true }));
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(online ? kept : [...kept, ...told]));
+    const reasons = (feeds: QueuedFeed[]) => feeds.map((feed) => feed.droppedFor ?? '');
+    return { dropped: reasons(dropped.filter((feed) => !feed.droppedTold)), unreported: online ? reasons(dropped) : [] };
   });
 }
 
@@ -210,10 +218,11 @@ async function sendOrReplace(feed: QueuedFeed, retried = false): Promise<Attempt
  * other error keeps the feed for the next run and goes on: it may be that one photo that can't be
  * read, and the server takes feeds in any order. The list is read again for each feed, so one
  * queued meanwhile goes out too, and nothing goes on after the queue was forgotten. Drops are told
- * at the end of a run with the app in front, this run's and what earlier ones left.
+ * at the end of a run with the app in front, this run's and what earlier ones left, and reported at
+ * the end of the first such run with a connection.
  */
 async function run(): Promise<FlushResult> {
-  const result: FlushResult = { handled: 0, dropped: [], stuck: [] };
+  const result: FlushResult = { handled: 0, dropped: [], unreported: [], stuck: [] };
   const passed = new Set<string>();
   const untried = async () => (await sendable()).filter((feed) => !passed.has(feed.id));
   try {
@@ -244,7 +253,7 @@ async function run(): Promise<FlushResult> {
       result.handled += 1;
       if (photo.exists) photo.delete();
     }
-    if (AppState.currentState === 'active') result.dropped = await takeDropped();
+    if (AppState.currentState === 'active') Object.assign(result, await takeDropped());
   } catch (error) {
     // The phone's storage failed. Nothing is lost, and the next run tries again. There is nowhere
     // to keep a note of this one, so it is reported once per start of the app, with a connection.
@@ -261,7 +270,7 @@ async function run(): Promise<FlushResult> {
  * can start one twice over, and the user should hear about a dropped feed once.
  */
 export function flushQueue(): Promise<FlushResult> {
-  if (flushing) return flushing.then(() => ({ handled: 0, dropped: [], stuck: [] }));
+  if (flushing) return flushing.then(() => ({ handled: 0, dropped: [], unreported: [], stuck: [] }));
   flushing = run().finally(() => {
     flushing = null;
   });

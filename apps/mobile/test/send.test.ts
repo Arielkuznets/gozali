@@ -125,7 +125,7 @@ describe('a token that runs out inside the send', () => {
   it('keeps the feed when the photo is refused', async () => {
     await enqueue(feed);
 
-    expect(await flushQueue()).toEqual({ handled: 0, dropped: [], stuck: [] });
+    expect(await flushQueue()).toEqual({ handled: 0, dropped: [], unreported: [], stuck: [] });
     expect(mockRpc).not.toHaveBeenCalled();
     expect((await pendingFeeds()).map((item) => item.id)).toEqual(['a']);
   });
@@ -134,7 +134,7 @@ describe('a token that runs out inside the send', () => {
     mockUpload.mockResolvedValue({ error: null });
     await enqueue(feed);
 
-    expect(await flushQueue()).toEqual({ handled: 0, dropped: [], stuck: [] });
+    expect(await flushQueue()).toEqual({ handled: 0, dropped: [], unreported: [], stuck: [] });
     expect(mockRemove).not.toHaveBeenCalled();
     expect((await pendingFeeds()).map((item) => item.id)).toEqual(['a']);
   });
@@ -147,7 +147,7 @@ describe('a token that runs out inside the send', () => {
     });
     await enqueue(feed);
 
-    expect(await flushQueue()).toEqual({ handled: 0, dropped: [], stuck: [] });
+    expect(await flushQueue()).toEqual({ handled: 0, dropped: [], unreported: [], stuck: [] });
     expect(mockRpc).not.toHaveBeenCalled();
     expect((await pendingFeeds()).map((item) => item.id)).toEqual(['a']);
   });

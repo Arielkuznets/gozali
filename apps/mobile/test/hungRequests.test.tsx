@@ -451,7 +451,7 @@ describe('a queued feed', () => {
       await enqueue(feed('a'));
       accountGone = true;
 
-      expect(await flushQueue()).toEqual({ handled: 1, dropped: ['AccessDenied new row violates row-level security policy'], stuck: [] });
+      expect(await flushQueue()).toEqual({ handled: 1, dropped: ['AccessDenied new row violates row-level security policy'], unreported: ['AccessDenied new row violates row-level security policy'], stuck: [] });
       expect(await pendingFeeds()).toEqual([]);
     });
 
@@ -512,10 +512,10 @@ describe('a queued feed', () => {
     photos.clear();
     await advance(1_000);
 
-    expect(outcome.result).toEqual({ handled: 0, dropped: [], stuck: [expect.objectContaining({ message: 'photo_missing' })] });
+    expect(outcome.result).toEqual({ handled: 0, dropped: [], unreported: [], stuck: [expect.objectContaining({ message: 'photo_missing' })] });
     expect(await pendingFeeds()).toHaveLength(1);
 
-    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], stuck: [] });
+    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], unreported: [], stuck: [] });
     expect(await pendingFeeds()).toEqual([]);
     expect(photos.size).toBe(1);
     expect(feeds.size).toBe(1);
@@ -557,7 +557,7 @@ describe('a send given up on, beside the queue try at the same feed', () => {
     fedOnAnotherPhone = true;
     await tapAndGiveUp(feed('a'));
 
-    expect(await runBesideIt()).toEqual({ handled: 1, dropped: [], stuck: [] });
+    expect(await runBesideIt()).toEqual({ handled: 1, dropped: [], unreported: [], stuck: [] });
 
     expect(await pendingFeeds()).toEqual([]);
     expect(feeds.size).toBe(1);
@@ -567,7 +567,7 @@ describe('a send given up on, beside the queue try at the same feed', () => {
   it('leaves the photo to the queue when the filter turns down the caption, and it goes up without it', async () => {
     await tapAndGiveUp({ ...feed('a'), caption: BLOCKED });
 
-    expect(await runBesideIt()).toEqual({ handled: 1, dropped: [], stuck: [] });
+    expect(await runBesideIt()).toEqual({ handled: 1, dropped: [], unreported: [], stuck: [] });
 
     expect(await pendingFeeds()).toEqual([]);
     expect(feeds.size).toBe(1);
@@ -605,10 +605,10 @@ describe('a queue run on a dead connection', () => {
     await enqueue(feed('a'));
     die();
 
-    expect(await runFor(170)).toEqual({ handled: 0, dropped: [], stuck: [] });
+    expect(await runFor(170)).toEqual({ handled: 0, dropped: [], unreported: [], stuck: [] });
     expect(await pendingFeeds()).toHaveLength(1);
 
-    expect(await runFor(1)).toEqual({ handled: 1, dropped: [], stuck: [] });
+    expect(await runFor(1)).toEqual({ handled: 1, dropped: [], unreported: [], stuck: [] });
     expect(await pendingFeeds()).toEqual([]);
     expect(feeds.size).toBe(1);
   });
