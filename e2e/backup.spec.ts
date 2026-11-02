@@ -246,4 +246,34 @@ test.describe('a restore', () => {
 
     expect(psql(target, 'select caption from public.feeds').split('\n').sort()).toEqual([...captions].sort());
   });
+
+  test('a restored account looks up no time zone', async () => {
+    const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' });
+    psql('postgres', `alter database ${target} set track_functions = 'pl'`);
+
+    restore(backUp([noa], pack.id));
+
+    // The account's own trigger shows the count works; the lookup is behind the profile it makes.
+    const ran = `select funcname, calls from pg_stat_user_functions where funcname in ('handle_new_user', 'clean_profile_settings')`;
+    expect(psql(target, ran)).toBe('handle_new_user|1');
+    expect(psql(target, `select count(*) from pg_trigger where tgenabled = 'D'`)).toBe('0');
+  });
+
+  test('a table goes by size: short rows share a few calls, and wide ones split', async () => {
+    const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' });
+    const reported = await admin.from('app_errors').insert({ user_id: noa.id, message: 'test', platform: 'ios' });
+    expect(reported.error).toBeNull();
+    const backup = backUp([noa], pack.id);
+    const report = backup.tables['public.app_errors']![0]!;
+    const stack = 'x'.repeat(20_000);
+    backup.tables['public.app_errors'] = Array.from({ length: 5000 }, (_, n) => ({ ...report, id: n + 1, stack: n < 4960 ? null : stack }));
+
+    const printed = restore(backup);
+
+    expect(printed).toContain('public.app_errors: 5000');
+    const [, calls, largest] = /in (\d+) calls, at most (\d+) KB each/.exec(printed)!;
+    // 25 calls for this table alone at 200 rows a call, and about 25 for everything else.
+    expect(Number(calls)).toBeLessThan(40);
+    expect(Number(largest)).toBeLessThan(260);
+  });
 });

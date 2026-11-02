@@ -22,14 +22,39 @@ if (database && !local) throw new Error('--database names a database of the loca
 const localDatabase = `--db-url postgresql://postgres:postgres@127.0.0.1:54322/${database}`;
 const where = database ? localDatabase : local ? '--local' : '--linked';
 const backup = JSON.parse(readFileSync(file, 'utf8'));
-const BATCH = 200;
+// The most of a table one call carries. The Management API documents no limit on a request, so this
+// goes up only after a rehearsal on a spare project.
+const CALL_BYTES = 250_000;
 // The tables the migrations seed, with their keys.
 const SEEDED = new Map([
   ['public.app_config', 'id'],
   ['public.blocked_words', 'word'],
   ['public.shop_items', 'item'],
 ]);
-const run = (sql) => query(sql, where);
+let calls = 0;
+let largest = 0;
+const run = (sql) => {
+  calls += 1;
+  largest = Math.max(largest, Buffer.byteLength(sql));
+  return query(sql, where);
+};
+
+/** The rows in lists of at most CALL_BYTES of JSON; a row longer than that goes alone. */
+function* inCalls(rows) {
+  let part = [];
+  let bytes = 0;
+  for (const row of rows) {
+    const size = Buffer.byteLength(JSON.stringify(row));
+    if (part.length > 0 && bytes + size > CALL_BYTES) {
+      yield part;
+      part = [];
+      bytes = 0;
+    }
+    part.push(row);
+    bytes += size;
+  }
+  if (part.length > 0) yield part;
+}
 
 if (Number(run('select count(*) as c from public.profiles')[0].c) > 0) {
   throw new Error('The target already has data; restore only into an empty project.');
@@ -76,20 +101,22 @@ for (const table of order) {
   const key = SEEDED.get(table);
   const updates = cols.split(', ').filter((col) => col !== key).map((col) => `${col} = excluded.${col}`);
   const onConflict = key ? `(${key}) do update set ${updates.join(', ')}` : 'do nothing';
-  const own = table.startsWith('public.');
+  // A new account's profile looks its time zone up in pg_timezone_names, the slowest step of a
+  // restore, for a row the backup's profiles replace anyway.
+  const quiet = table === 'auth.users' ? 'public.profiles' : table.startsWith('public.') ? table : '';
   // New accounts get a profile from a trigger; the backup's profiles replace them.
   if (table === 'public.profiles') run('delete from public.profiles');
-  for (let start = 0; start < rows.length; start += BATCH) {
+  for (const part of inCalls(rows)) {
     // A `$` only ever sits inside a JSON string, where $ means the same to jsonb, so no text in
     // a backup can end the quotes below.
-    const data = JSON.stringify(rows.slice(start, start + BATCH)).replaceAll('$', '\\u0024');
+    const data = JSON.stringify(part).replaceAll('$', '\\u0024');
     // One statement (the CLI sends one), so a DO block: all of it happens, or none. Row by row,
     // because an insert of them all would fail on the one without a parent.
     run(`do $restore$
 declare
   backup_row jsonb;
 begin
-${own ? `alter table ${table} disable trigger user;` : ''}
+${quiet ? `alter table ${quiet} disable trigger user;` : ''}
 for backup_row in select jsonb_array_elements($gz$${data}$gz$::jsonb) loop
   begin
     insert into ${table} (${cols}) ${identity ? 'overriding system value' : ''}
@@ -99,7 +126,7 @@ for backup_row in select jsonb_array_elements($gz$${data}$gz$::jsonb) loop
     null;
   end;
 end loop;
-${own ? `alter table ${table} enable trigger user;` : ''}
+${quiet ? `alter table ${quiet} enable trigger user;` : ''}
 end $restore$`);
   }
   if (identity) {
@@ -125,7 +152,7 @@ update public.profiles set avatar_path = null where avatar_path is not null;
 alter table public.feeds enable trigger user;
 alter table public.profiles enable trigger user;
 end $restore$`);
-console.log(`Restored the backup from ${backup.takenAt}.`);
+console.log(`Restored the backup from ${backup.takenAt} in ${calls} calls, at most ${Math.ceil(largest / 1000)} KB each.`);
 if (leftOut.length > 0) {
   const total = leftOut.reduce((sum, { skipped }) => sum + skipped, 0);
   const tables = leftOut.map(({ table, skipped }) => `${table} ${skipped}`).join(', ');
