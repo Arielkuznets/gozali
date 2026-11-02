@@ -259,7 +259,7 @@ const addRows = async (rows) => {
   return added.data.map((row) => row.id);
 };
 const queueRows = async (ids) => (await admin.from('notifications').select('status, attempts, send_after').in('id', ids)).data;
-const signUpFor = (id) => ({ user_id: id, type: 'new_user', payload: { name: 'Lior', number: 3 } });
+const signUpFor = (id) => ({ user_id: id, type: 'new_user', payload: { name: 'Tal', number: 3 } });
 const twoBatches = Array.from({ length: 101 }, () => signUpFor(dan));
 
 // An outage says nothing about the rows it sends back. They spend no try and don't wait longer each
@@ -397,9 +397,11 @@ const lior = await user('Lior');
 await admin.from('profiles').update({ terms_accepted_at: new Date().toISOString() }).eq('id', lior);
 const alerts = await admin.rpc('claim_notifications', { at_time: at.toISOString() });
 if (alerts.error) throw alerts.error;
+// While Noa is an owner every sign-up on this database tells her, tests running beside this one too.
+await admin.from('app_owners').delete().eq('user_id', noa);
 const alertMessages = [];
 await sendAll(
-  alerts.data.filter((row) => row.type === 'new_user' && row.user_id === noa),
+  alerts.data.filter((row) => row.type === 'new_user' && row.user_id === noa && row.payload.name === 'Lior'),
   async (batch) => {
     alertMessages.push(...batch);
     return batch.map(() => ({ status: 'ok' }));
