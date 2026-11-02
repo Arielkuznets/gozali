@@ -11,10 +11,10 @@ if (!publishableKey || !secretKey) {
 }
 
 const PACK_FIELDS = `
-  id, name, category, custom_habit, rest_days_per_week, week_start, invite_code,
+  id, name, category, custom_habit, rest_days_per_week, week_start, timezone, invite_code,
   pending_rest_days_per_week, pending_week_start, pending_from,
-  critters ( species, name, health, stage, status, streak ),
-  pack_members ( user_id, role, status, joined_at, profiles ( display_name ) )
+  critters ( species, name, health, xp, stage, status, streak, coins, marks, outfit ),
+  pack_members ( user_id, role, status, joined_at, profiles ( display_name, avatar_path ) )
 `;
 
 const admin = createClient(url, secretKey, { auth: { persistSession: false } });
@@ -90,6 +90,28 @@ check(danMember?.role === 'admin', 'Dan becomes the admin');
 const noaView = await noa.client.from('packs').select('id');
 check(noaView.data.length === 0, 'the pack disappears from Noa\'s list');
 
-await admin.auth.admin.deleteUser(noa.id);
-await admin.auth.admin.deleteUser(dan.id);
+const sam = await signedInUser('Sam');
+const rob = await signedInUser('Rob');
+const eve = await signedInUser('Eve');
+await sam.client.rpc('join_pack', { code: pack.invite_code });
+await rob.client.rpc('join_pack', { code: pack.invite_code });
+const asleep = await admin.from('pack_members').update({ status: 'sleeping' }).eq('pack_id', packId).eq('user_id', sam.id);
+check(!asleep.error, 'Sam falls asleep');
+const removed = await dan.client.rpc('remove_member', { target: packId, member: rob.id });
+check(!removed.error, 'Dan removes Rob');
+
+for (const [person, sees, who] of [
+  [dan, true, 'a member'],
+  [sam, true, 'a sleeping member'],
+  [noa, false, 'someone who left'],
+  [rob, false, 'someone the admin removed'],
+  [eve, false, 'someone who never joined'],
+]) {
+  const list = await person.client.from('packs').select(PACK_FIELDS).order('created_at');
+  const one = await person.client.from('packs').select(PACK_FIELDS).eq('id', packId).maybeSingle();
+  check(!list.error && list.data.length === (sees ? 1 : 0), `${who} ${sees ? 'sees' : 'does not see'} the pack in the list`);
+  check(!one.error && (one.data?.id === packId) === sees, `${who} ${sees ? 'gets' : 'does not get'} the pack by its id`);
+}
+
+for (const person of [noa, dan, sam, rob, eve]) await admin.auth.admin.deleteUser(person.id);
 console.log('all good');
