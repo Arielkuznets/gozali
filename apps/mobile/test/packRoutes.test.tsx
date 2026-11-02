@@ -192,21 +192,40 @@ describe('leaving a pack', () => {
     expect(mockNotify).not.toHaveBeenCalled();
   });
 
+  it('reaches the home screen without the pack, with the list still on its way', async () => {
+    mockPacks = [packNamed('p1'), packNamed('p2')];
+    await start('/pack/p1/settings');
+    mockListAnswered = new Promise(() => undefined);
+
+    await press('Leave pack');
+
+    expect(pathname()).toBe('/');
+    expect(shows('Pack p2')).toBe(true);
+  });
+
   it("doesn't say the pack is missing to the person who is leaving it", async () => {
     await start('/pack/p1/settings');
-    let answerList = () => {};
-    mockListAnswered = new Promise((resolve) => {
-      answerList = resolve;
+    let answerLeave = () => {};
+    mockRpc.mockImplementationOnce(async () => {
+      mockPacks = [];
+      await new Promise<void>((resolve) => {
+        answerLeave = resolve;
+      });
+      return { error: null };
     });
 
     await press('Leave pack');
+    // Word of the leave can come in over Realtime ahead of its own answer.
+    await act(async () => void client.invalidateQueries({ queryKey: packsKey }));
+    await settle();
 
     expect(pathname()).toBe('/pack/p1/settings');
     expect(shows(MISSING)).toBe(false);
     expect(spinners()).toHaveLength(1);
 
-    await act(async () => answerList());
+    await act(async () => answerLeave());
     await settle();
+    expect(pathname()).toBe('/');
     expect(shows(MISSING)).toBe(false);
   });
 

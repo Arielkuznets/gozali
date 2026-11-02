@@ -202,7 +202,11 @@ export function useLeavePack() {
       // Already out: an earlier try got through and only its answer was lost.
       if (error && !error.message.includes('not_a_member')) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: packsKey }),
+    // Not returned: the person is out, and the way home shouldn't wait for reads that may be stalling.
+    onSuccess: (_data, packId) => {
+      queryClient.setQueryData<Pack[]>(packsKey, (packs) => packs?.filter((pack) => pack.id !== packId));
+      void queryClient.invalidateQueries({ queryKey: packsKey });
+    },
   });
 }
 
