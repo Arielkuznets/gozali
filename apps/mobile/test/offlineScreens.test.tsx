@@ -275,13 +275,14 @@ describe('a feed waiting on this phone', () => {
   });
 });
 
+const running = (): PackPause => ({ starts_on: addDays(packDay(), -1), ends_on: addDays(packDay(), 5) });
+const onPause = (pause: PackPause, pack = PACK): Pack => ({
+  ...pack,
+  pack_members: pack.pack_members.map((member) => (member.user_id === 'noa' ? { ...member, pauses: [pause] } : member)),
+});
+
 describe('a pause, with only the pack copy to go by', () => {
   const STUDY: Pack = { ...PACK, category: 'study' };
-  const running = (): PackPause => ({ starts_on: addDays(packDay(), -1), ends_on: addDays(packDay(), 5) });
-  const onPause = (pause: PackPause, pack = PACK): Pack => ({
-    ...pack,
-    pack_members: pack.pack_members.map((member) => (member.user_id === 'noa' ? { ...member, pauses: [pause] } : member)),
-  });
   const hasLabel = (screen: ReactTestRenderer, label: string) =>
     screen.root.findAll((node) => node.props.accessibilityLabel === label && typeof node.type === 'string').length > 0;
 
@@ -334,5 +335,32 @@ describe('a pause, with only the pack copy to go by', () => {
 
     expect(buttons(pack)).toContain('Feed');
     expect(lines(pack).join()).not.toContain("You're on a pause until");
+  });
+});
+
+describe('a member who fell asleep', () => {
+  const ONE_PHOTO = 'One photo and you';
+  const asleep = (pack = PACK): Pack => ({
+    ...pack,
+    pack_members: pack.pack_members.map((member) => (member.user_id === 'noa' ? { ...member, status: 'sleeping' } : member)),
+  });
+
+  it('hears that one photo brings them back, and has Feed for it', async () => {
+    phone({ pack: asleep() });
+    const pack = await open(<PackScreen />);
+
+    expect(lines(pack).join()).toContain(ONE_PHOTO);
+    expect(buttons(pack)).toContain('Feed');
+  });
+
+  it('hears only of the pause while one runs, which has no Feed', async () => {
+    const pause = running();
+    phone({ pack: asleep(onPause(pause)) });
+    mockStatus = { day: packDay(), passToday: null, fedToday: false, pause: { startsOn: pause.starts_on, endsOn: pause.ends_on } };
+    const pack = await open(<PackScreen />);
+
+    expect(lines(pack).join()).toContain("You're on a pause until");
+    expect(lines(pack).join()).not.toContain(ONE_PHOTO);
+    expect(buttons(pack)).not.toContain('Feed');
   });
 });

@@ -260,7 +260,7 @@ export default function PackScreen() {
             {t('pack.doneToday')}
           </AppText>
         )}
-        {!iFed && members.some((member) => member.user_id === userId && member.status === 'sleeping') && (
+        {!iFed && !pausedToday && members.some((member) => member.user_id === userId && member.status === 'sleeping') && (
           <AppText variant="caption" style={styles.centerText}>
             {t('pack.asleepYou', { name: critterName })}
           </AppText>
