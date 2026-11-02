@@ -1,10 +1,11 @@
 import { addDays, packDayOf } from '@gozali/game-engine';
 import NetInfo from '@react-native-community/netinfo';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppState } from 'react-native';
 
+import { useAuth } from '@/features/auth/AuthProvider';
 import type { Pack } from '@/features/packs/api';
 import { enqueue, flushQueue, hasConnection, isOnline, pendingFeeds } from '@/features/feeds/queue';
 import { PHOTO_BUCKET, feedErrorCode, inTime, isFinalRejection, sendFeed, type OutgoingFeed } from '@/features/feeds/send';
@@ -170,26 +171,28 @@ function queueError(what: string, error: unknown): Error {
 }
 
 /**
- * Sends queued feeds when the app starts, comes back to the foreground or gets online. The member
- * was told a queued feed is safe, so they hear about one that was dropped. Getting online also
- * reloads what is on screen: Realtime replays nothing it missed, and nothing else hears about the
- * network (lib/appFocus.ts).
+ * Sends queued feeds when the app starts, comes back to the foreground, gets online or gets a new
+ * token: online during auth-js's wait after a failed refresh there is no session to send with, and
+ * nothing else says when there is one. The member was told a queued feed is safe, so they hear
+ * about one that was dropped. Getting online also reloads what is on screen: Realtime replays
+ * nothing it missed, and nothing else hears about the network (lib/appFocus.ts).
  */
 export function useFeedQueue() {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
+  const token = useAuth().session?.access_token;
+  const flush = useCallback(() => {
+    void flushQueue().then(({ handled, dropped, stuck }) => {
+      // Not only the feeds: one going out also wakes its sender and takes back their pass. Realtime
+      // never sends the second, and may not be back yet for the first.
+      if (handled > 0) void queryClient.invalidateQueries();
+      if (dropped.length > 0) notify(t('feed.dropped', { count: dropped.length }));
+      for (const error of dropped) reportError(queueError('Queued feed dropped', error));
+      for (const error of stuck) reportError(queueError('Feed queue stuck', error));
+    });
+  }, [queryClient, t]);
+  useEffect(() => flush(), [flush, token]);
   useEffect(() => {
-    const flush = () => {
-      void flushQueue().then(({ handled, dropped, stuck }) => {
-        // Not only the feeds: one going out also wakes its sender and takes back their pass. Realtime
-        // never sends the second, and may not be back yet for the first.
-        if (handled > 0) void queryClient.invalidateQueries();
-        if (dropped.length > 0) notify(t('feed.dropped', { count: dropped.length }));
-        for (const error of dropped) reportError(queueError('Queued feed dropped', error));
-        for (const error of stuck) reportError(queueError('Feed queue stuck', error));
-      });
-    };
-    flush();
     const appState = AppState.addEventListener('change', (state) => state === 'active' && flush());
     let offline = false;
     const network = NetInfo.addEventListener((state) => {
@@ -201,5 +204,5 @@ export function useFeedQueue() {
       appState.remove();
       network();
     };
-  }, [queryClient, t]);
+  }, [flush, queryClient]);
 }

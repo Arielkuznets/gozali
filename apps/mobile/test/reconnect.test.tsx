@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider, type QueryClientConfig } from '@tanst
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import '@/i18n';
+import type { OutgoingFeed } from '@/features/feeds/send';
 import type { Pack } from '@/features/packs/api';
 
 // The real auth-js and the app's own client, auth provider and reads, against a stand-in for the
@@ -10,7 +11,31 @@ import type { Pack } from '@/features/packs/api';
 process.env.EXPO_PUBLIC_SUPABASE_URL = 'http://gozali.test';
 process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'publishable';
 
-jest.mock('expo-file-system', () => ({}));
+// Files are just names here, as in the queue test.
+jest.mock('expo-file-system', () => {
+  class File {
+    uri: string;
+    exists = true;
+    constructor(...parts: (string | { uri: string })[]) {
+      this.uri = parts.map((part) => (typeof part === 'string' ? part : part.uri)).join('/');
+    }
+    async copy() {}
+    delete() {}
+    async arrayBuffer() {
+      return new ArrayBuffer(8);
+    }
+  }
+  class Directory {
+    uri: string;
+    exists = true;
+    constructor(...parts: (string | { uri: string })[]) {
+      this.uri = parts.map((part) => (typeof part === 'string' ? part : part.uri)).join('/');
+    }
+    create() {}
+  }
+  return { File, Directory, Paths: { document: { uri: 'documents' } } };
+});
+jest.mock('expo-image', () => ({ Image: { writeToCacheAsync: async () => undefined } }));
 jest.mock('expo-image-manipulator', () => ({}));
 jest.mock('expo-image-picker', () => ({}));
 jest.mock('@/lib/push', () => ({}));
@@ -36,6 +61,7 @@ type Supabase = typeof import('@/lib/supabase');
 const { AUTH_STORAGE_KEY, requireSupabase } = jest.requireActual<Supabase>('@/lib/supabase');
 const { AuthProvider } = jest.requireActual<typeof import('@/features/auth/AuthProvider')>('@/features/auth/AuthProvider');
 const { useFeedQueue } = jest.requireActual<typeof import('@/features/feeds/api')>('@/features/feeds/api');
+const { enqueue, pendingFeeds } = jest.requireActual<typeof import('@/features/feeds/queue')>('@/features/feeds/queue');
 const { packsKey, useMyPacks } = jest.requireActual<typeof import('@/features/packs/api')>('@/features/packs/api');
 const { useAvatarUrls } = jest.requireActual<typeof import('@/features/profile/avatar')>('@/features/profile/avatar');
 
@@ -56,6 +82,7 @@ const liveTokens = new Set<string>();
 const requests: string[] = [];
 const tokenCalls = () => requests.filter((path) => path === '/auth/v1/token').length;
 const packReads = () => requests.filter((path) => path === '/rest/v1/packs').length;
+const feedsSent = () => requests.filter((path) => path === '/rest/v1/rpc/submit_feed').length;
 
 function answer(status: number, body: unknown) {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -86,6 +113,11 @@ function server(url: URL, bearer: string | null) {
 }
 
 const settle = (ms = 50) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** Waits for what the app does in its own time after a render. */
+async function until(check: () => Promise<boolean>) {
+  for (let tries = 0; tries < 100 && !(await check()); tries += 1) await act(() => settle(20));
+}
 
 let sessions = 0;
 
@@ -243,6 +275,41 @@ describe('a connection back while auth-js waits after a failed refresh', () => {
     expect(packReads()).toBe(reads);
     expect(tokenCalls()).toBe(2);
     expect(shown().packs).toEqual(['From the copy']);
+  });
+});
+
+describe('a feed waiting in the queue', () => {
+  const waiting: OutgoingFeed = {
+    id: 'a',
+    packId: 'pack',
+    userId: USER.id,
+    photoUri: 'cache/a.jpg',
+    caption: null,
+    capturedAt: '2026-10-01T10:00:00Z',
+    focusMinutes: null,
+    extra: false,
+  };
+  const queueIsEmpty = async () => (await pendingFeeds()).length === 0;
+
+  it('goes out as soon as the refresh works, when the connection came back during the wait', async () => {
+    await enqueue(waiting);
+    await openAppOffline();
+    await connectionBack();
+    expect(feedsSent()).toBe(0);
+
+    await refreshRuns();
+    await until(queueIsEmpty);
+    expect(await pendingFeeds()).toEqual([]);
+    expect(feedsSent()).toBe(1);
+  });
+
+  it('stays in the queue through a refresh that fails again', async () => {
+    await enqueue(waiting);
+    await openAppOffline();
+    await refreshRuns();
+    expect(tokenCalls()).toBe(2);
+    expect(feedsSent()).toBe(0);
+    expect(await pendingFeeds()).toHaveLength(1);
   });
 });
 
