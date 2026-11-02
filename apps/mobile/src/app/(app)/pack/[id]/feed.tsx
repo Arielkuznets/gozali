@@ -1,6 +1,6 @@
 import { CameraView, useCameraPermissions, type CameraType } from 'expo-camera';
 import { Image } from 'expo-image';
-import { router, useFocusEffect, useIsFocused, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useIsFocused, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -31,7 +31,7 @@ import { categoryInfo } from '@/features/packs/constants';
 import { notify } from '@/lib/confirm';
 import { isBlockedText } from '@/lib/errors';
 import { haptics } from '@/lib/haptics';
-import { goBack } from '@/lib/navigation';
+import { goBack, useOpenPack } from '@/lib/navigation';
 import { serverNow } from '@/lib/serverClock';
 import { useNow } from '@/lib/useNow';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
@@ -50,8 +50,12 @@ export default function FeedScreen() {
   const { t } = useTranslation();
   const params = useLocalSearchParams<{ id: string; extra?: string; focus?: string }>();
   const packId = params.id;
-  const extra = params.extra === '1';
-  const focusMinutes = params.focus && /^[0-9]{1,3}$/.test(params.focus) ? Number(params.focus) : null;
+  // A link to this pack reaches the camera that is open and clears these on its route. What the
+  // photo is for doesn't change with that.
+  const [{ extra, focusMinutes }] = useState(() => ({
+    extra: params.extra === '1',
+    focusMinutes: params.focus && /^[0-9]{1,3}$/.test(params.focus) ? Number(params.focus) : null,
+  }));
   const { session } = useAuth();
   const { data: pack, isLoading: packLoading, refetch: refetchPack } = usePack(packId);
   const [permission, requestPermission, readPermission] = useCameraPermissions();
@@ -81,12 +85,13 @@ export default function FeedScreen() {
   // why. A photo already taken stays: it was taken before the pause reached this screen. The link at
   // the end of a focus session ends it here, as no photo will.
   const paused = pauseToday(dayStatus.data, pack, session?.user.id, now) !== null && !shot && !result;
+  const openPack = useOpenPack();
   useFocusEffect(
     useCallback(() => {
       if (!paused) return;
       if (focusMinutes !== null) void clearFocusSession(packId).catch(() => undefined);
-      router.dismissTo(`/pack/${packId}`);
-    }, [paused, packId, focusMinutes]),
+      openPack(packId);
+    }, [paused, packId, focusMinutes, openPack]),
   );
 
   // The tap on Feed gives the system alert its context and the purpose string its reason, so no

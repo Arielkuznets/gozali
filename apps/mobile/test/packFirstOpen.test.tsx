@@ -50,6 +50,7 @@ const mockId = 'gym-squad';
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: mockId }),
   useIsFocused: () => true,
+  useNavigation: jest.fn(),
   router: { canGoBack: () => true, back: jest.fn(), replace: jest.fn(), dismissTo: jest.fn() },
   useFocusEffect: jest.fn(),
 }));

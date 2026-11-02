@@ -17,13 +17,14 @@ jest.mock('expo-camera', () => ({
 }));
 jest.mock('expo-image', () => ({ Image: 'Image' }));
 const mockBack = jest.fn();
-const mockDismissTo = jest.fn();
+const mockReplace = jest.fn();
 jest.mock('expo-router', () => {
   const { useEffect } = jest.requireActual('react');
   return {
     useLocalSearchParams: () => ({ id: 'pack-1' }),
     useIsFocused: () => true,
-    router: { canGoBack: () => true, back: () => mockBack(), replace: jest.fn(), dismissTo: (href: string) => mockDismissTo(href) },
+    useNavigation: () => ({ isFocused: () => true, getState: () => ({ routes: [] }) }),
+    router: { canGoBack: () => true, back: () => mockBack(), replace: (href: string) => mockReplace(href) },
     useFocusEffect: (run: () => void) => useEffect(run, [run]),
   };
 });
@@ -110,7 +111,7 @@ beforeEach(() => {
   mockGet.mockReset();
   mockRequest.mockReset();
   mockBack.mockReset();
-  mockDismissTo.mockReset();
+  mockReplace.mockReset();
   mockSend.mockReset();
   mockPause = null;
   appStates.clear();
@@ -329,7 +330,7 @@ describe('a pause reaching the camera', () => {
 
     await pauseArrives();
 
-    expect(mockDismissTo).toHaveBeenCalledWith('/pack/pack-1');
+    expect(mockReplace).toHaveBeenCalledWith('/pack/pack-1');
     expect(hasCamera()).toBe(false);
   });
 
@@ -337,13 +338,13 @@ describe('a pause reaching the camera', () => {
     await takePhoto();
     await pauseArrives();
 
-    expect(mockDismissTo).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
     expect(shown()).toContain('Send');
 
     await press('Send');
 
     expect(mockSend).toHaveBeenCalledTimes(1);
-    expect(mockDismissTo).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 
   it('leaves for the pack on Retake, as that photo was the reason to stay', async () => {
@@ -352,6 +353,6 @@ describe('a pause reaching the camera', () => {
 
     await press('Retake');
 
-    expect(mockDismissTo).toHaveBeenCalledWith('/pack/pack-1');
+    expect(mockReplace).toHaveBeenCalledWith('/pack/pack-1');
   });
 });

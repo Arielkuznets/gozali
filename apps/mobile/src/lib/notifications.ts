@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 
 import { FOCUS_CHANNEL } from '@/lib/channels';
+import { NEW_SCREEN } from '@/lib/navigation';
 import { registerPushToken } from '@/lib/push';
 
 /** Set once the app has opened the one prompt it opens by itself. */
@@ -110,7 +111,7 @@ export function useNotificationRoutes() {
       const url: unknown = response?.notification.request.content.data?.url;
       // A tap for the screen already on top would stack a second copy of it. The path has no
       // query (the focus-end notice opens the camera with ?focus=).
-      if (typeof url === 'string' && url.split('?')[0] !== current.current) router.push(url as Href);
+      if (typeof url === 'string' && url.split('?')[0] !== current.current) router.push(url as Href, NEW_SCREEN);
     };
     void Notifications.getLastNotificationResponseAsync().then((response) => {
       open(response);

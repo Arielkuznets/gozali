@@ -7,11 +7,12 @@ import { AppState, Text, type AppStateStatus } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import '@/i18n';
+import * as AppLayout from '@/app/(app)/_layout';
 import FeedScreen from '@/app/(app)/pack/[id]/feed';
 import FocusScreen from '@/app/(app)/pack/[id]/focus';
 import type { FocusSession } from '@/features/focus/session';
 
-// The real router, focus timer and camera screen, in a stack set up like the app's.
+// The real router, focus timer and camera screen, in the app's own stack.
 jest.mock('expo-linking', () => ({
   ...jest.requireActual('expo-linking'),
   createURL: (path: string) => `gozali://${path}`,
@@ -31,11 +32,12 @@ const mockCancelNotification = jest.fn();
 jest.mock('expo-notifications', () => ({
   cancelScheduledNotificationAsync: async (id: string) => mockCancelNotification(id),
 }));
+jest.mock('@/components/OfflineBanner', () => ({ OfflineBanner: () => null }));
 jest.mock('@/features/auth/AuthProvider', () => ({ useAuth: () => ({ session: { user: { id: 'noa' } } }) }));
 jest.mock('@/features/critter/Critter', () => ({ Critter: () => null }));
 jest.mock('@/features/days/api', () => ({ pauseToday: () => null, useDayStatus: () => ({ data: undefined }) }));
 jest.mock('@/features/feeds/EatingMoment', () => ({ EatingMoment: () => null }));
-jest.mock('@/features/feeds/api', () => ({ useSendFeed: () => ({ mutateAsync: async () => 'sent' }) }));
+jest.mock('@/features/feeds/api', () => ({ useFeedQueue: () => undefined, useSendFeed: () => ({ mutateAsync: async () => 'sent' }) }));
 jest.mock('@/features/feeds/send', () => ({ compressPhoto: async (uri: string) => uri }));
 jest.mock('@/features/packs/api', () => ({
   usePack: () => ({
@@ -46,24 +48,19 @@ jest.mock('@/features/packs/api', () => ({
     refetch: jest.fn(),
   }),
 }));
+jest.mock('@/features/profile/useProfile', () => ({ useAccountSync: () => undefined }));
+jest.mock('@/features/widgets/sync', () => ({ useWidgetSync: () => undefined }));
 jest.mock('@/lib/haptics', () => ({ haptics: { bump: jest.fn(), success: jest.fn() } }));
-jest.mock('@/lib/notifications', () => ({ allowNotifications: async () => true }));
+jest.mock('@/lib/notifications', () => ({ allowNotifications: async () => true, useNotificationRoutes: () => undefined }));
 
 const routes = {
   _layout: { default: () => <Stack screenOptions={{ headerShown: false }} /> },
-  '(app)/_layout': {
-    default: () => (
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="pack/[id]/feed" options={{ presentation: 'fullScreenModal' }} />
-      </Stack>
-    ),
-    unstable_settings: { initialRouteName: 'index' },
-  },
+  '(app)/_layout': AppLayout,
   '(app)/index': { default: () => <Text>home</Text> },
   '(app)/pack/[id]/index': { default: () => <Text>pack</Text> },
   '(app)/pack/[id]/focus': { default: FocusScreen },
   '(app)/pack/[id]/feed': { default: FeedScreen },
+  '(app)/pack/[id]/not-today': { default: () => <Text>not today</Text> },
 };
 
 const PACK = '/pack/p1';
@@ -168,6 +165,25 @@ describe('a session whose time ran out with the screen open', () => {
     expect(pathname()).toBe(CAMERA);
     expect(cameras()).toHaveLength(1);
     expect(shown()).toContain('25 min');
+  });
+
+  it('opens its own camera over one of the same pack, whose photo stays', async () => {
+    await openPack();
+    await go(() => router.push(CAMERA as Href));
+    await act(async () => cameras()[0]?.props.onCameraReady());
+    await press('Take photo');
+    await go(() => router.push(PACK as Href));
+    await go(() => router.push(FOCUS as Href));
+
+    expect(pathname()).toBe(CAMERA);
+    expect(cameras()).toHaveLength(1);
+    expect(shown()).toContain('25 min');
+
+    await go(() => router.back());
+    await go(() => router.back());
+    expect(pathname()).toBe(CAMERA);
+    expect(cameras()).toHaveLength(0);
+    expect(shown()).toContain('Retake');
   });
 
   it('keeps its minutes when the camera is refused and left', async () => {

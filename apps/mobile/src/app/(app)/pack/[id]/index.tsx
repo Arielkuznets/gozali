@@ -36,7 +36,7 @@ import { useModeration } from '@/features/social/moderation';
 import { confirm, notify } from '@/lib/confirm';
 import { formatDay, readableZone } from '@/lib/dates';
 import { haptics } from '@/lib/haptics';
-import { goBack } from '@/lib/navigation';
+import { NEW_SCREEN, goBack } from '@/lib/navigation';
 import { useNow } from '@/lib/useNow';
 import { colors, critterAccents, fonts, spacing } from '@/theme/tokens';
 
@@ -293,9 +293,9 @@ export default function PackScreen() {
         {/* The day close doesn't count a paused member, whatever they send. */}
         {!pausedToday &&
           (iFed ? (
-            <Button label={t('pack.postExtra')} variant="secondary" onPress={() => router.push(`/pack/${id}/feed?extra=1`)} />
+            <Button label={t('pack.postExtra')} variant="secondary" onPress={() => router.push(`/pack/${id}/feed?extra=1`, NEW_SCREEN)} />
           ) : (
-            <Button label={t('pack.feed')} onPress={() => router.push(`/pack/${id}/feed`)} />
+            <Button label={t('pack.feed')} onPress={() => router.push(`/pack/${id}/feed`, NEW_SCREEN)} />
           ))}
         <View style={styles.row}>
           {!iFed && !pausedToday && (

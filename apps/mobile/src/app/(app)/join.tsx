@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
-import { router, useLocalSearchParams, useNavigation } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
@@ -15,7 +15,7 @@ import { packErrorKey, refreshJoinedPack, useJoinPack, usePackPreview } from '@/
 import { INVITE_CODE_LENGTH, categoryInfo, inviteCodeFrom, normalizeInviteCode } from '@/features/packs/constants';
 import { notify } from '@/lib/confirm';
 import { haptics } from '@/lib/haptics';
-import { goBack } from '@/lib/navigation';
+import { goBack, useOpenPack } from '@/lib/navigation';
 import { serverNow } from '@/lib/serverClock';
 import { colors, radii, spacing } from '@/theme/tokens';
 
@@ -31,22 +31,12 @@ function JoinForm({ linkCode }: { linkCode: string }) {
   const [code, setCode] = useState(normalizeInviteCode(linkCode));
   const preview = usePackPreview(code);
   const joinPack = useJoinPack();
-  const navigation = useNavigation();
+  const openPack = useOpenPack();
   const queryClient = useQueryClient();
   const body = useRef<ScrollView>(null);
 
   const onPaste = async () => {
     setCode(inviteCodeFrom(await Clipboard.getStringAsync()));
-  };
-
-  // Back to that pack if it is right underneath, so it isn't open twice. Anything else underneath
-  // stays, or the way back through it and a photo on the camera would go.
-  const openPack = (packId: string) => {
-    // A second tap, or an answer arriving with another screen in front, moves nothing.
-    if (!navigation.isFocused()) return;
-    const under = navigation.getState()?.routes.at(-2);
-    if (under?.name === 'pack/[id]/index' && (under.params as { id?: string })?.id === packId) router.back();
-    else router.replace(`/pack/${packId}`);
   };
 
   const onOpen = (packId: string) => {

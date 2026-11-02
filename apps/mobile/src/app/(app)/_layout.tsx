@@ -24,7 +24,12 @@ export default function AppLayout() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
         {/* First, because finishing the profile setup opens the first screen listed here. */}
         <Stack.Screen name="index" />
-        <Stack.Screen name="pack/[id]/feed" options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }} />
+        {/* One for each pack. It holds a photo, and a link that reused it would send the photo to the link's pack. */}
+        <Stack.Screen
+          name="pack/[id]/feed"
+          dangerouslySingular={(_name, params) => params.id as string}
+          options={{ presentation: 'fullScreenModal', animation: 'slide_from_bottom' }}
+        />
         <Stack.Screen name="pack/[id]/not-today" options={{ presentation: 'modal' }} />
       </Stack>
       <OfflineBanner />

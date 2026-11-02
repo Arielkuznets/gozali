@@ -1,5 +1,12 @@
-import { router, useFocusEffect, type Href } from 'expo-router';
+import { router, useFocusEffect, useNavigation, type Href } from 'expo-router';
 import { useCallback } from 'react';
+
+/**
+ * For a push of a route that is one per pack, which opens a new screen as any push does. The rule
+ * is there for links. A push that went by it would pull a copy from under other screens to the
+ * top, which the native stack can't be trusted with when one of them is a modal.
+ */
+export const NEW_SCREEN = { dangerouslySingular: () => undefined };
 
 /**
  * Back, or to `fallback` when there is nothing to go back to: a screen opened from a
@@ -8,6 +15,24 @@ import { useCallback } from 'react';
 export function goBack(fallback: Href = '/'): void {
   if (router.canGoBack()) router.back();
   else router.replace(fallback);
+}
+
+/**
+ * Swaps the screen in front for a pack. Back to that pack if it is right underneath, so it isn't
+ * open twice. Anything else underneath stays, or the way back through it and a photo on the camera
+ * would go. A second tap, or an answer arriving with another screen in front, moves nothing.
+ */
+export function useOpenPack(): (packId: string) => void {
+  const navigation = useNavigation();
+  return useCallback(
+    (packId) => {
+      if (!navigation.isFocused()) return;
+      const under = navigation.getState()?.routes.at(-2);
+      if (under?.name === 'pack/[id]/index' && (under.params as { id?: string })?.id === packId) router.back();
+      else router.replace(`/pack/${packId}`);
+    },
+    [navigation],
+  );
 }
 
 /**
