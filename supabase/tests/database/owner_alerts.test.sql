@@ -1,7 +1,7 @@
 -- Owner alerts: a push when someone finishes signing up, and the day's summary at 21:00.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(27);
+select plan(31);
 
 delete from public.notifications;
 
@@ -87,9 +87,9 @@ select ok(
 );
 
 -- Only runs that ended in failure count, with or without an end time: a restart leaves none. A run
--- still going is not one, and the run that queues the summary is always still going. A later day,
--- so the real jobs' runs can't land in it.
-update today set day = day + 1;
+-- still going is not one, and the run that queues the summary is always still going. Later days,
+-- so the real jobs' runs can't land in them.
+update today set day = day + 2;
 insert into cron.job_run_details (jobid, runid, status, start_time, end_time) values
   (0, -1, 'succeeded', pg_temp.at_local('04:00'), pg_temp.at_local('04:00')),
   (0, -2, 'failed', pg_temp.at_local('05:00'), pg_temp.at_local('05:00')),
@@ -101,7 +101,7 @@ select is(
   2,
   'a run still in progress is not a failed job'
 );
-update today set day = day - 1;
+update today set day = day - 2;
 
 -- The size of the stored files, in MB: every bucket counts toward the plan, and a row with no size
 -- adds nothing.
@@ -110,14 +110,14 @@ insert into storage.objects (bucket_id, name, metadata) values
   ('feed-photos', 'owner-alerts/a.jpg', '{"size": 300000000}'),
   ('avatars', 'owner-alerts/b.jpg', '{"size": 200000000}'),
   ('feed-photos', 'owner-alerts/c.jpg', null);
-update today set day = day + 2;
+update today set day = day + 3;
 select public.queue_daily_summaries(pg_temp.at_local('21:05'));
 select is(
   (select (payload ->> 'fileMB')::numeric from public.notifications where type = 'daily_summary' and day = (select day from today)),
   round(((select bytes from files_before) + 500000000) / 1e6),
   'the summary says how much the stored files weigh'
 );
-update today set day = day - 2;
+update today set day = day - 3;
 
 -- How old the newest backup is, in whole days: a run from the night before is about 23.5 hours old
 -- at 21:05, and one night missed adds a day. With none on record the key is there and null.
@@ -147,6 +147,50 @@ select is(
   array[503],
   'calls that didn''t answer 200 are kept'
 );
+
+-- What goes wrong counts from one 21:00 on the owner's clock to the next, so the evening after a
+-- summary is in the one after it. Days ahead, so that nothing real lands in them.
+create function pg_temp.trouble() returns jsonb language sql as $$
+  select payload - 'newUsers' - 'users' - 'feeders' - 'packs' - 'packsBehind' - 'fileMB' - 'backupDays'
+  from public.notifications where type = 'daily_summary' and day = (select day from today);
+$$;
+update today set day = day + 5;
+insert into public.service_errors (response_id, status, detail, at) values (-11, 502, 'in time', pg_temp.at_local('20:30'));
+-- Collected every five minutes, so a call just before 21:00 isn't in the table yet.
+insert into net._http_response (id, status_code, content, created) values (-12, 502, 'not collected yet', pg_temp.at_local('20:58'));
+select public.queue_daily_summaries(pg_temp.at_local('21:00'));
+select is(pg_temp.trouble() ->> 'serverErrors', '2', 'a summary counts the failed calls up to 21:00, collected or not');
+
+insert into public.service_errors (response_id, status, detail, at) values
+  (-13, 502, 'evening', pg_temp.at_local('21:30')),
+  (-14, 502, 'evening', pg_temp.at_local('23:30'));
+insert into cron.job_run_details (jobid, runid, status, start_time, end_time)
+values (0, -5, 'failed', pg_temp.at_local('22:00'), pg_temp.at_local('22:00'));
+insert into public.outages (starts_at, ends_at) values (pg_temp.at_local('21:30'), pg_temp.at_local('23:30'));
+insert into public.app_errors (created_at, message, platform) values (pg_temp.at_local('22:00'), 'evening', 'ios');
+insert into public.reports (created_at, reporter_id, member_id) values
+  (pg_temp.at_local('22:00'), '00000000-0000-0000-0000-0000000000b9', '00000000-0000-0000-0000-0000000000c9');
+update today set day = day + 1;
+insert into public.service_errors (response_id, status, detail, at) values
+  (-15, 502, 'night', pg_temp.at_local('00:30')),
+  (-16, 502, 'too late for this one', pg_temp.at_local('21:01'));
+select public.queue_daily_summaries(pg_temp.at_local('21:05'));
+select is(
+  pg_temp.trouble(),
+  jsonb_build_object('reports', 1, 'errors', 1, 'serverErrors', 3, 'failedJobs', 1, 'downHours', 2),
+  'what went wrong after one summary is in the next'
+);
+update today set day = day + 1;
+select public.queue_daily_summaries(pg_temp.at_local('21:05'));
+select is(pg_temp.trouble() ->> 'serverErrors', '1', 'what comes after 21:00 waits for the next, however late the summary is made');
+
+-- The clocks go back here, so from one 21:00 to the next is 25 hours.
+update today set day = date '2027-10-31';
+insert into public.service_errors (response_id, status, detail, at)
+values (-17, 502, 'first hour', (date '2027-10-30' + time '21:30') at time zone 'Asia/Jerusalem');
+select public.queue_daily_summaries(pg_temp.at_local('21:05'));
+select is(pg_temp.trouble() ->> 'serverErrors', '1', 'a day with an extra hour leaves no hour out');
+update today set day = (now() at time zone 'Asia/Jerusalem')::date;
 
 -- Sending: no cap for the owner alerts, and nothing at night.
 update public.notifications set send_after = pg_temp.at_local('11:00') where type = 'new_user';
