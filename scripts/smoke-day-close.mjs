@@ -78,6 +78,8 @@ await admin.from('day_passes').insert({ pack_id: packId, user_id: dan.id, day: d
 await feed(noa, 5, 7);
 await feed(noa, 6, 7);
 await feed(dan, 6, 23);
+// Asleep by then, so a joker covers nobody.
+await admin.from('day_passes').insert({ pack_id: packId, user_id: maya.id, day: day(6), kind: 'joker' });
 
 const now = new Date(closesAt(day(6), tz).getTime() + 60_000);
 const { closed, failed } = await closeDueDays(admin, now, [packId]);
@@ -95,6 +97,8 @@ check(
   closed[5].result.outcomes.find((o) => o.userId === maya.id).outcome === 'sleeping' && closed[5].result.counted === 2,
   'on day 6 Maya is not counted and the day succeeds',
 );
+const { data: jokers } = await admin.from('day_passes').select('user_id').eq('pack_id', packId).eq('kind', 'joker');
+check(jokers.length === 1 && jokers[0].user_id === dan.id, "Dan's joker stays spent, and Maya's goes back to her");
 
 const { data: critter } = await admin.from('critters').select('*').eq('pack_id', packId).single();
 check(

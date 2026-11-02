@@ -1,7 +1,7 @@
 -- Rest days, jokers, pauses, and the guards of apply_day_result.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(28);
+select plan(31);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a3', 'noa@test.local'),
@@ -147,6 +147,42 @@ select is(
 select is(
   public.apply_day_result((select id from pack), public.pack_day('Asia/Jerusalem'), (select body from outcome)), false,
   'closing it again changes nothing'
+);
+
+-- A joker covers a member the day counts. Anyone else had no use for it and gets it back.
+create temp table closing as select public.pack_day('Asia/Jerusalem') + 1 as day;
+insert into public.day_passes (pack_id, user_id, day, kind)
+select id, member::uuid, (select day from closing), 'joker'
+from pack, unnest(array['00000000-0000-0000-0000-0000000000a3', '00000000-0000-0000-0000-0000000000b3']) member;
+select public.apply_day_result(
+  (select id from pack), (select day from closing),
+  (select body || jsonb_build_object('outcomes', jsonb_build_array(
+    jsonb_build_object('userId', '00000000-0000-0000-0000-0000000000a3', 'outcome', 'joker'),
+    jsonb_build_object('userId', '00000000-0000-0000-0000-0000000000b3', 'outcome', 'sleeping')
+  )) from outcome)
+);
+select is(
+  (select array_agg(user_id) from public.day_passes where kind = 'joker'),
+  array['00000000-0000-0000-0000-0000000000a3'::uuid],
+  'a joker that covered its member stays spent, and a sleeping member''s goes back'
+);
+select is(
+  (select array_agg(actor_id) from public.pack_events where kind = 'joker'),
+  array['00000000-0000-0000-0000-0000000000a3'::uuid],
+  'and the feed stops saying that member took one'
+);
+
+insert into public.day_passes (pack_id, user_id, day, kind)
+select id, '00000000-0000-0000-0000-0000000000b3', (select day + 1 from closing), 'joker' from pack;
+select public.apply_day_result(
+  (select id from pack), (select day + 1 from closing),
+  (select body || jsonb_build_object('outcomes', jsonb_build_array(
+    jsonb_build_object('userId', '00000000-0000-0000-0000-0000000000b3', 'outcome', 'not_started')
+  )) from outcome)
+);
+select is(
+  (select count(*) from public.day_passes where user_id = '00000000-0000-0000-0000-0000000000b3'), 0::bigint,
+  'so does the joker of a member who hasn''t started'
 );
 
 select * from finish();
