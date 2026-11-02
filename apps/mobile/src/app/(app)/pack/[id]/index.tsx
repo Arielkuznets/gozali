@@ -395,8 +395,9 @@ function DayCountdown({ timeZone, now }: { timeZone: string; now: Date }) {
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.md },
-  headerLinks: { flexDirection: 'row', gap: spacing.lg },
+  header: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: spacing.sm, paddingVertical: spacing.md },
+  // On a line of its own at the largest text, it still keeps to the right.
+  headerLinks: { flexDirection: 'row', flexWrap: 'wrap', flexShrink: 1, justifyContent: 'flex-end', marginLeft: 'auto', rowGap: spacing.sm, columnGap: spacing.lg },
   membersHeader: { flexDirection: 'row', justifyContent: 'space-between' },
   actions: { gap: spacing.sm, paddingTop: spacing.sm },
   row: { flexDirection: 'row', gap: spacing.sm },

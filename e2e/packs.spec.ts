@@ -1,7 +1,7 @@
 import { addDays, packDayOf } from '@gozali/game-engine';
 import { expect, test } from '@playwright/test';
 
-import { admin, createPack, createUser, feed, photo, removeUsers, signIn, type TestUser } from './support';
+import { admin, createPack, createUser, doubleButtonText, feed, layOutTextLikeAPhone, photo, removeUsers, signIn, type TestUser } from './support';
 
 let noa: TestUser;
 let dan: TestUser;
@@ -146,6 +146,24 @@ test("a member who isn't the admin is told the settings are the admin's", async 
   await expect(page.getByText('Only the admin, Noa, can change', { exact: false })).toBeVisible();
   await expect(page.getByRole('radio', { name: '2 rest days a week' })).toBeDisabled();
   await expect(page.getByRole('radio', { name: 'Monday' })).toBeDisabled();
+});
+
+test('the buttons at the top of a pack stay on the screen at the largest text', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+  const buttons = ['Back', 'Invite', 'Settings'].map((name) => page.getByRole('button', { name, exact: true }));
+  await expect(buttons[2]!).toBeVisible();
+  await layOutTextLikeAPhone(page);
+  await doubleButtonText(page);
+
+  for (const width of [390, 375, 320]) {
+    await page.setViewportSize({ width, height: 844 });
+    for (const button of buttons) await expect(button).toBeInViewport({ ratio: 1 });
+  }
+
+  await buttons[2]!.click();
+  await expect(page.getByRole('button', { name: 'Leave pack' })).toBeVisible();
 });
 
 test('leaving a pack ends on the home screen', async ({ page }) => {

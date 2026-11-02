@@ -88,6 +88,14 @@ export async function layOutTextLikeAPhone(page: Page): Promise<void> {
 }
 
 /**
+ * Doubles the text of the buttons, which is as far as the app lets a phone's largest text setting
+ * take it. A browser has no such setting.
+ */
+export async function doubleButtonText(page: Page): Promise<void> {
+  await page.addStyleTag({ content: '[role=button] div[dir=auto]{zoom:2}' });
+}
+
+/**
  * Scrolls down the way a finger does, which moves only what really scrolls. Playwright's own
  * scrolling also moves boxes that clip their overflow, where nobody could reach what it finds.
  */
