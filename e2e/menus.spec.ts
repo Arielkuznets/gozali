@@ -29,11 +29,11 @@ function answerDialogs(page: Page): string[] {
 /** Text at twice its size, about what the largest accessibility settings of a phone give. */
 async function doubleTheText(page: Page) {
   await page.evaluate(() => {
-    for (const text of document.querySelectorAll<HTMLElement>('div[dir=auto]')) {
+    document.querySelectorAll<HTMLElement>('div[dir=auto]').forEach((text) => {
       const { fontSize, lineHeight } = getComputedStyle(text);
       text.style.fontSize = `${parseFloat(fontSize) * 2}px`;
       text.style.lineHeight = `${parseFloat(lineHeight) * 2}px`;
-    }
+    });
   });
 }
 
