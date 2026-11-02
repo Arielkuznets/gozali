@@ -29,6 +29,7 @@ const list = (photoUrl: string | null) => (
     critterName="Mochi"
     emoji="🐾"
     today="Sun Nov 01 2026"
+    someoneFed={false}
     userId="me"
     onReact={jest.fn()}
     onMore={jest.fn()}

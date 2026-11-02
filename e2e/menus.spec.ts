@@ -373,6 +373,46 @@ test('a photo hidden by reports still counts for the day', async ({ page }) => {
   await expect(page.getByLabel('Fed today')).toBeVisible();
 });
 
+test.describe('an empty pack feed', () => {
+  const NOBODY_FED = 'No feeds yet. Be the first today!';
+  const OUT_OF_SIGHT = 'Nothing to show here yet.';
+
+  test('asks to be first while nobody fed', async ({ page }) => {
+    const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' });
+
+    await signIn(page, noa);
+    await page.goto(`/pack/${pack.id}`);
+    await expect(page.getByText(NOBODY_FED)).toBeVisible();
+    await expect(page.getByText(OUT_OF_SIGHT)).toBeHidden();
+  });
+
+  test('does not ask beside a member who fed and is blocked', async ({ page }) => {
+    const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' }, [dan]);
+    await feed(dan, pack.id, await photo(page, '🏋️'), 'Leg day');
+    const blocked = await noa.client.from('blocks').insert({ blocker_id: noa.id, blocked_id: dan.id });
+    if (blocked.error) throw blocked.error;
+
+    await signIn(page, noa);
+    await page.goto(`/pack/${pack.id}`);
+    await expect(page.getByRole('button', { name: 'Dan, fed today' })).toBeVisible();
+    await expect(page.getByText(OUT_OF_SIGHT)).toBeVisible();
+    await expect(page.getByText(NOBODY_FED)).toBeHidden();
+  });
+
+  test('does not ask someone whose own post reports hid', async ({ page }) => {
+    const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' });
+    await feed(noa, pack.id, await photo(page, '🏋️'), 'Leg day');
+    const hidden = await admin.from('feeds').update({ hidden_at: new Date().toISOString() }).eq('pack_id', pack.id);
+    if (hidden.error) throw hidden.error;
+
+    await signIn(page, noa);
+    await page.goto(`/pack/${pack.id}`);
+    await expect(page.getByText('Your part is done for today ✓')).toBeVisible();
+    await expect(page.getByText(OUT_OF_SIGHT)).toBeVisible();
+    await expect(page.getByText(NOBODY_FED)).toBeHidden();
+  });
+});
+
 test('a nudge refused because they fed brings the circle up to date', async ({ page }) => {
   const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' }, [dan]);
   const image = await photo(page, '🏋️');

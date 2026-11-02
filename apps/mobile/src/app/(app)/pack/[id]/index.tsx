@@ -224,6 +224,7 @@ export default function PackScreen() {
             critterName={critterName}
             emoji={categoryInfo(pack.category).emoji}
             today={now.toDateString()}
+            someoneFed={fed.size > 0}
             userId={userId}
             onReact={onReact}
             onMore={onMore}

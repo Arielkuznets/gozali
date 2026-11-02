@@ -170,6 +170,7 @@
     "focus": "Focus",
     "feedTitle": "Pack feed",
     "feedEmpty": "No feeds yet. Be the first today!",
+    "feedOutOfSight": "Nothing to show here yet.",
     "pending_one": "{{count}} feed waiting to go out",
     "pending_other": "{{count}} feeds waiting to go out",
     "extra": "extra",

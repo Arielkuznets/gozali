@@ -19,6 +19,8 @@ type Props = {
   emoji: string;
   /** The current day as `Date.toDateString` gives it: a clock tick mustn't reach the rows. */
   today: string;
+  /** Someone in the pack fed today, whether or not their post is in `feeds`. */
+  someoneFed: boolean;
   userId: string | undefined;
   onReact: (feed: FeedItem, emoji: ReactionKey | null) => void;
   onMore: (feed: FeedItem) => void;
@@ -29,7 +31,7 @@ type Props = {
  * reactions and a menu to report the photo or block the member who posted it. A tap on a photo
  * opens it on the whole screen.
  */
-export function FeedList({ feeds, events, names, critterName, emoji, today, userId, onReact, onMore }: Props) {
+export function FeedList({ feeds, events, names, critterName, emoji, today, someoneFed, userId, onReact, onMore }: Props) {
   const { t } = useTranslation();
   const [open, setOpen] = useState<ViewedPhoto | null>(null);
   const entries = [
@@ -38,7 +40,8 @@ export function FeedList({ feeds, events, names, critterName, emoji, today, user
   ].sort((a, b) => b.at.localeCompare(a.at));
 
   if (entries.length === 0) {
-    return <AppText style={styles.empty}>{t('pack.feedEmpty')}</AppText>;
+    // A block or a report takes a post out of this list and leaves its member fed on the same screen.
+    return <AppText style={styles.empty}>{t(someoneFed ? 'pack.feedOutOfSight' : 'pack.feedEmpty')}</AppText>;
   }
   const nameOf = (id: string | null) => (id ? (names.get(id) ?? '…') : '…');
   const onOpen = (feed: FeedItem) =>
