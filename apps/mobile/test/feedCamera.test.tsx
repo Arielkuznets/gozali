@@ -16,18 +16,25 @@ jest.mock('expo-camera', () => ({
 }));
 jest.mock('expo-image', () => ({ Image: 'Image' }));
 const mockBack = jest.fn();
-jest.mock('expo-router', () => ({
-  useLocalSearchParams: () => ({ id: 'pack-1' }),
-  useIsFocused: () => true,
-  router: { canGoBack: () => true, back: () => mockBack(), replace: jest.fn() },
-  useFocusEffect: jest.fn(),
-}));
+const mockDismissTo = jest.fn();
+jest.mock('expo-router', () => {
+  const { useEffect } = jest.requireActual('react');
+  return {
+    useLocalSearchParams: () => ({ id: 'pack-1' }),
+    useIsFocused: () => true,
+    router: { canGoBack: () => true, back: () => mockBack(), replace: jest.fn(), dismissTo: (href: string) => mockDismissTo(href) },
+    useFocusEffect: (run: () => void) => useEffect(run, [run]),
+  };
+});
 jest.mock('@/features/auth/AuthProvider', () => ({ useAuth: () => ({ session: { user: { id: 'noa' } } }) }));
-jest.mock('@/features/days/api', () => ({ pauseToday: () => null, useDayStatus: () => ({ data: undefined }) }));
+let mockPause: { startsOn: string; endsOn: string } | null;
+jest.mock('@/features/days/api', () => ({ pauseToday: () => mockPause, useDayStatus: () => ({ data: undefined }) }));
 jest.mock('@/features/feeds/EatingMoment', () => ({ EatingMoment: () => null }));
-jest.mock('@/features/feeds/api', () => ({ useSendFeed: () => ({ mutateAsync: jest.fn() }) }));
+const mockSend = jest.fn();
+jest.mock('@/features/feeds/api', () => ({ useSendFeed: () => ({ mutateAsync: (feed: unknown) => mockSend(feed) }) }));
 jest.mock('@/features/feeds/send', () => ({ compressPhoto: jest.fn(), isFinalRejection: () => false }));
 jest.mock('@/features/focus/session', () => ({ clearFocusSession: jest.fn() }));
+jest.mock('@/lib/haptics', () => ({ haptics: { bump: jest.fn(), success: jest.fn() } }));
 let mockPack: { data: unknown; isLoading: boolean; refetch: () => void };
 jest.mock('@/features/packs/api', () => ({ usePack: () => mockPack }));
 
@@ -44,6 +51,7 @@ const refused = answer('denied', false);
 const refusedOnce = answer('denied', true);
 
 const PACK = { name: 'Gym squad', category: 'gym', critters: { name: 'Mochi' } };
+const PAUSE = { startsOn: '2026-11-02', endsOn: '2026-11-08' };
 const CAMERA_NEEDED = 'Camera needed';
 
 const appStates = new Set<(state: AppStateStatus) => void>();
@@ -55,6 +63,18 @@ async function open() {
   await act(async () => {
     screen = create(<FeedScreen />);
   });
+}
+
+/** Opens the camera and takes a photo, which then waits for Send or Retake. */
+async function takePhoto() {
+  await act(async () => {
+    screen = create(<FeedScreen />, {
+      createNodeMock: (element) =>
+        element.type === 'CameraView' ? { takePictureAsync: async () => ({ uri: 'file:/photo.jpg', width: 1000 }) } : null,
+    });
+  });
+  await act(async () => screen.root.findByType('CameraView' as never).props.onCameraReady());
+  await press('Take photo');
 }
 
 async function answerAlert(permission: unknown) {
@@ -71,11 +91,18 @@ const buttons = () =>
     .findAll((node) => node.props.accessibilityRole === 'button' && typeof node.type === 'string')
     .map((node) => node.props.accessibilityLabel ?? JSON.stringify(node.props.children));
 const hasCamera = () => screen.root.findAll((node) => node.type === 'CameraView').length === 1;
+const press = (label: string) =>
+  act(async () => {
+    await screen.root.findAll((node) => (node.props.label === label || node.props.accessibilityLabel === label) && node.props.onPress)[0]?.props.onPress();
+  });
 
 beforeEach(() => {
   mockGet.mockReset();
   mockRequest.mockReset();
   mockBack.mockReset();
+  mockDismissTo.mockReset();
+  mockSend.mockReset();
+  mockPause = null;
   appStates.clear();
   jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
     appStates.add(listener);
@@ -234,5 +261,50 @@ describe('coming back to the app', () => {
     await answerAlert(allowed);
     expect(hasCamera()).toBe(true);
     expect(mockRequest).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('a pause reaching the camera', () => {
+  beforeEach(() => {
+    mockGet.mockResolvedValue(allowed);
+    mockPack = { data: { ...PACK, critters: null }, isLoading: false, refetch: jest.fn() };
+    mockSend.mockResolvedValue('sent');
+  });
+
+  const pauseArrives = async () => {
+    mockPause = PAUSE;
+    await act(async () => screen.update(<FeedScreen />));
+  };
+
+  it('leaves for the pack when there is no photo yet', async () => {
+    await open();
+    expect(hasCamera()).toBe(true);
+
+    await pauseArrives();
+
+    expect(mockDismissTo).toHaveBeenCalledWith('/pack/pack-1');
+    expect(hasCamera()).toBe(false);
+  });
+
+  it('leaves a photo already taken on screen, and Send still sends it', async () => {
+    await takePhoto();
+    await pauseArrives();
+
+    expect(mockDismissTo).not.toHaveBeenCalled();
+    expect(shown()).toContain('Send');
+
+    await press('Send');
+
+    expect(mockSend).toHaveBeenCalledTimes(1);
+    expect(mockDismissTo).not.toHaveBeenCalled();
+  });
+
+  it('leaves for the pack on Retake, as that photo was the reason to stay', async () => {
+    await takePhoto();
+    await pauseArrives();
+
+    await press('Retake');
+
+    expect(mockDismissTo).toHaveBeenCalledWith('/pack/pack-1');
   });
 });
