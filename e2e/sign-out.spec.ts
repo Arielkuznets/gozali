@@ -106,6 +106,41 @@ test('signing out on one phone leaves the other phone signed in', async ({ page 
   expect(error).toBeNull();
 });
 
+test.describe('when the profile will not load', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => window.localStorage.setItem('gozali.onboarded', '1'));
+    await signIn(page, noa);
+  });
+
+  test('an account deleted elsewhere can leave, with its token still good', async ({ page }) => {
+    await admin.auth.admin.deleteUser(noa.id);
+    await page.goto('/');
+    // The query retries a few times before it gives up.
+    await expect(page.getByText("This didn't load")).toBeVisible({ timeout: 30_000 });
+
+    await page.getByRole('button', { name: 'Sign out' }).click();
+
+    await expect(page.getByRole('button', { name: 'Continue with Apple' })).toBeVisible();
+    expect(await page.evaluate(() => window.localStorage.getItem('sb-127-auth-token'))).toBeNull();
+  });
+
+  test('signing out without a connection signs out, without saying it failed', async ({ page }) => {
+    const alerts: string[] = [];
+    page.on('dialog', (dialog) => {
+      alerts.push(dialog.message());
+      void dialog.dismiss();
+    });
+    await page.route(/\/(rest|auth)\/v1\//, (route) => route.abort('internetdisconnected'));
+    await page.goto('/');
+    await expect(page.getByText("This didn't load")).toBeVisible({ timeout: 30_000 });
+
+    await page.getByRole('button', { name: 'Sign out' }).click();
+
+    await expect(page.getByRole('button', { name: 'Continue with Apple' })).toBeVisible();
+    expect(alerts).toEqual([]);
+  });
+});
+
 test.describe('on the profile setup', () => {
   let maya: TestUser;
 
