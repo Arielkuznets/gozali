@@ -3,12 +3,14 @@ import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
-import { requireSupabase } from '@/lib/supabase';
+import { requireSupabase, storedSession } from '@/lib/supabase';
 
 const TOKEN_KEY = 'gozali.push-token';
 const REGISTERED_KEY = 'gozali.push-registered';
 /** A token that left with its account, until the server has answered that it forgot it. */
 const FORGET_KEY = 'gozali.push-forget';
+/** Set once this install knows its token, so none can have been lost. */
+const TOKEN_KNOWN_KEY = 'gozali.push-token-known';
 /** The app comes to the foreground often; the server hears about the same token twice a day. */
 const REFRESH_MS = 12 * 60 * 60 * 1000;
 
@@ -53,6 +55,7 @@ export async function registerPushToken(): Promise<void> {
     await AsyncStorage.removeItem(FORGET_KEY);
     await AsyncStorage.setItem(TOKEN_KEY, token);
     await AsyncStorage.setItem(REGISTERED_KEY, `${stamp}@${Date.now()}`);
+    await AsyncStorage.setItem(TOKEN_KNOWN_KEY, '1');
   } catch {
     // No token (simulator, no network): the next app start tries again.
   }
@@ -88,4 +91,35 @@ async function forgetToken(): Promise<void> {
 export function unregisterPushToken(): Promise<void> {
   forgetting = forgetToken();
   return forgetting;
+}
+
+/**
+ * Forgets a token build 4 lost track of: a sign-out the server never heard about dropped its copy,
+ * so a phone that updated while signed out still gets that account's pushes. The token can be read
+ * again, and reading one shows no prompt. Once per install, with the permission already there.
+ */
+async function forgetLostToken(): Promise<void> {
+  const id = projectId();
+  if (Platform.OS === 'web' || !id) return;
+  try {
+    const held = await AsyncStorage.multiGet([TOKEN_KNOWN_KEY, TOKEN_KEY, FORGET_KEY]);
+    if (held.some(([, value]) => value)) return;
+    if (!(await Notifications.getPermissionsAsync()).granted) return;
+    const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId: id });
+    // Signed in meanwhile: this is the new account's token now.
+    if (await storedSession()) return;
+    await AsyncStorage.multiSet([
+      [FORGET_KEY, token],
+      [TOKEN_KNOWN_KEY, '1'],
+    ]);
+    await unregisterPushToken();
+  } catch {
+    // No token (simulator, no network): the next try reads it.
+  }
+}
+
+/** Nobody is signed in, so the server should hold no token for this phone. */
+export async function unregisterWhileSignedOut(): Promise<void> {
+  await unregisterPushToken();
+  await forgetLostToken();
 }

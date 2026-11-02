@@ -21,7 +21,7 @@ jest.mock('@/features/auth/signIn', () => ({ forgetNotificationsOfOthers: async 
 jest.mock('@/features/packs/invites', () => ({ readInstallReferrer: async () => undefined }));
 jest.mock('@react-native-community/netinfo', () => ({ addEventListener: () => () => undefined }));
 jest.mock('@/features/widgets/sync', () => ({ clearWidgets: async () => undefined }));
-jest.mock('@/lib/push', () => ({ registerPushToken: async () => undefined, unregisterPushToken: async () => undefined }));
+jest.mock('@/lib/push', () => ({ registerPushToken: async () => undefined, unregisterWhileSignedOut: async () => undefined }));
 jest.mock('@/lib/reportError', () => ({ sendPendingCrash: async () => undefined, watchForCrashes: () => undefined }));
 
 // Required here, for the environment above to be in place first.

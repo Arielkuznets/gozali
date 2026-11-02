@@ -9,7 +9,7 @@ import { forgetOtherAccounts } from '@/features/auth/signIn';
 import { renameMember } from '@/features/packs/api';
 import { deviceTimeZone } from '@/lib/dates';
 import { askForNotificationsOnce } from '@/lib/notifications';
-import { registerPushToken, unregisterPushToken } from '@/lib/push';
+import { registerPushToken, unregisterWhileSignedOut } from '@/lib/push';
 import { sendPendingCrash } from '@/lib/reportError';
 import { requireSupabase } from '@/lib/supabase';
 
@@ -200,12 +200,12 @@ export function useSignedOutSync() {
 
   useEffect(() => {
     if (!signedOut) return;
-    void unregisterPushToken();
+    void unregisterWhileSignedOut();
     const appState = AppState.addEventListener('change', (state) => {
-      if (state === 'active') void unregisterPushToken();
+      if (state === 'active') void unregisterWhileSignedOut();
     });
     const network = NetInfo.addEventListener((state) => {
-      if (state.isConnected) void unregisterPushToken();
+      if (state.isConnected) void unregisterWhileSignedOut();
     });
     return () => {
       appState.remove();

@@ -11,14 +11,19 @@ jest.mock('expo-constants', () => ({
   __esModule: true,
   default: { expoConfig: { extra: { eas: { projectId: 'project' } } } },
 }));
+let mockGranted: boolean;
+const mockReadToken = jest.fn();
+const mockPrompt = jest.fn();
 jest.mock('expo-notifications', () => ({
   setNotificationHandler: () => undefined,
-  getPermissionsAsync: async () => ({ granted: true }),
-  getExpoPushTokenAsync: async () => ({ data: 'ExponentPushToken[phone]' }),
+  getPermissionsAsync: async () => ({ granted: mockGranted, canAskAgain: true }),
+  requestPermissionsAsync: () => mockPrompt(),
+  getExpoPushTokenAsync: () => mockReadToken(),
 }));
 
 const mockRpc = jest.fn();
 const mockTableDelete = jest.fn();
+let mockStoredSession: object | null;
 jest.mock('@/lib/supabase', () => ({
   supabase: null,
   requireSupabase: () => ({
@@ -26,6 +31,7 @@ jest.mock('@/lib/supabase', () => ({
     from: (table: string) => ({ delete: () => ({ eq: (_column: string, value: string) => mockTableDelete(table, value) }) }),
     auth: { getSession: async () => ({ data: { session: { user: { id: 'noa' } } } }) },
   }),
+  storedSession: async () => mockStoredSession,
 }));
 
 let mockAuth: { session: object | null; loading: boolean };
@@ -93,6 +99,10 @@ async function signOutOffline() {
 beforeEach(async () => {
   await AsyncStorage.clear();
   mockAuth = { session: null, loading: false };
+  mockGranted = true;
+  mockStoredSession = null;
+  mockReadToken.mockReset().mockResolvedValue({ data: TOKEN });
+  mockPrompt.mockReset();
   mockRpc.mockReset();
   answer({});
   mockTableDelete.mockReset().mockResolvedValue({ error: null });
@@ -232,6 +242,107 @@ describe('while signed out', () => {
     await comeBackToApp();
     await connectionChanges(true);
 
+    expect(forgotten()).toEqual([]);
+  });
+});
+
+describe('a phone that signed out offline on a build that kept no copy of its token', () => {
+  it('reads the token once and has the server forget it, with no prompt', async () => {
+    await startApp();
+
+    expect(forgotten()).toEqual([TOKEN]);
+    expect(await kept()).toBeNull();
+    expect(mockPrompt).not.toHaveBeenCalled();
+
+    await startApp();
+    await comeBackToApp();
+    await connectionChanges(true);
+
+    expect(forgotten()).toEqual([TOKEN]);
+    expect(mockReadToken).toHaveBeenCalledTimes(1);
+  });
+
+  it('reads nothing without permission already there, and never asks for it', async () => {
+    mockGranted = false;
+
+    await startApp();
+    await comeBackToApp();
+    await connectionChanges(true);
+
+    expect(mockReadToken).not.toHaveBeenCalled();
+    expect(mockPrompt).not.toHaveBeenCalled();
+    expect(forgotten()).toEqual([]);
+  });
+
+  it('looks again if the permission comes later', async () => {
+    mockGranted = false;
+    await startApp();
+
+    mockGranted = true;
+    await comeBackToApp();
+
+    expect(forgotten()).toEqual([TOKEN]);
+    expect(mockPrompt).not.toHaveBeenCalled();
+  });
+
+  it('tries again when the token could not be read without a connection', async () => {
+    mockReadToken.mockRejectedValueOnce(new Error('Error encountered while fetching Expo token'));
+    await startApp();
+    expect(forgotten()).toEqual([]);
+
+    await connectionChanges(true);
+
+    expect(forgotten()).toEqual([TOKEN]);
+  });
+
+  it('keeps the token for the next try when the server gets no word of it', async () => {
+    answer({ forget_push_token: offline });
+    await startApp();
+    expect(await kept()).toBe(TOKEN);
+
+    answer({});
+    await comeBackToApp();
+
+    expect(forgotten()).toEqual([TOKEN, TOKEN]);
+    expect(await kept()).toBeNull();
+    expect(mockReadToken).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the token alone when someone signed in while it was being read', async () => {
+    let read: (token: { data: string }) => void = () => undefined;
+    mockReadToken.mockImplementation(() => new Promise((resolve) => (read = resolve)));
+    await startApp();
+
+    mockStoredSession = { user: { id: 'noa' } };
+    await act(async () => {
+      read({ data: TOKEN });
+      await settle();
+    });
+
+    expect(forgotten()).toEqual([]);
+    expect(await kept()).toBeNull();
+  });
+
+  it("doesn't replace a token it already holds", async () => {
+    await AsyncStorage.setItem('gozali.push-forget', 'ExponentPushToken[older]');
+    answer({ forget_push_token: offline });
+    mockReadToken.mockResolvedValue({ data: 'ExponentPushToken[newer]' });
+
+    await startApp();
+
+    expect(await kept()).toBe('ExponentPushToken[older]');
+    expect(mockReadToken).not.toHaveBeenCalled();
+  });
+
+  it('has nothing to look for once the phone registered here', async () => {
+    await registerPushToken();
+    await unregisterPushToken();
+    mockRpc.mockClear();
+    mockReadToken.mockClear();
+
+    await startApp();
+
+    expect(mockReadToken).not.toHaveBeenCalled();
     expect(forgotten()).toEqual([]);
   });
 });
