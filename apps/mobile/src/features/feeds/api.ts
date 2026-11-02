@@ -199,7 +199,8 @@ export function useFeedQueue() {
       // Not only the feeds: one going out also wakes its sender and takes back their pass. Realtime
       // never sends the second, and may not be back yet for the first.
       if (handled > 0) void queryClient.invalidateQueries();
-      if (dropped.length > 0) notify(t('feed.dropped', { count: dropped.length }));
+      // Android cuts an alert's title after two lines, so what to do goes under it.
+      if (dropped.length > 0) notify(t('feed.dropped', { count: dropped.length }), t('feed.droppedDetail'));
       for (const error of dropped) reportError(queueError('Queued feed dropped', error));
       for (const error of stuck) reportError(queueError('Feed queue stuck', error));
     });

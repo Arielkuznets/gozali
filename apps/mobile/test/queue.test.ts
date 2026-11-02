@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppState } from 'react-native';
 
 import { clearQueue, enqueue, flushQueue, forgetFeedsOfOthers, pendingFeeds } from '@/features/feeds/queue';
 import type { OutgoingFeed } from '@/features/feeds/send';
@@ -60,6 +61,7 @@ const feed = (id: string): OutgoingFeed => ({
 
 beforeEach(async () => {
   await AsyncStorage.clear();
+  AppState.currentState = 'active';
   mockSignedIn = 'noa';
   mockSendFeed.mockReset();
   mockCopy.mockReset().mockResolvedValue(undefined);
@@ -92,9 +94,15 @@ function afterRestart() {
   type Queue = typeof import('@/features/feeds/queue');
   let queue: Queue | undefined;
   jest.isolateModules(() => {
+    jest.requireActual<typeof import('react-native')>('react-native').AppState.currentState = 'active';
     queue = jest.requireActual<Queue>('@/features/feeds/queue');
   });
   return queue!;
+}
+
+/** Waits for what a run does in its own time. */
+async function until(check: () => boolean) {
+  for (let tries = 0; tries < 100 && !check(); tries += 1) await new Promise((resolve) => setTimeout(resolve));
 }
 
 /** What supabase-js hands back when a request gets no answer. */
@@ -339,10 +347,9 @@ describe('offline feed queue', () => {
     ['a feed', feed('a')],
     ['an extra', { ...feed('a'), extra: true }],
   ])('stops at one more try for %s when the answer stays the same', async (_name, queued) => {
-    const alreadyFed = { code: 'P0001', message: 'already_fed' };
     await enqueue(queued);
-    mockSendFeed.mockRejectedValue(alreadyFed);
-    expect(await flushQueue()).toEqual({ handled: 1, dropped: [alreadyFed], stuck: [] });
+    mockSendFeed.mockRejectedValue({ code: 'P0001', message: 'already_fed' });
+    expect(await flushQueue()).toEqual({ handled: 1, dropped: ['P0001 already_fed'], stuck: [] });
     expect(mockSendFeed).toHaveBeenCalledTimes(2);
   });
 
@@ -456,6 +463,8 @@ describe('feeds of different accounts', () => {
 });
 
 describe('what a run tells its caller', () => {
+  const notAMember = { code: '42501', message: 'not_a_member' };
+  const why = '42501 not_a_member';
   const timeout = { code: '57014', message: 'canceling statement due to statement timeout' };
   const noAnswer = [
     { message: 'TypeError: Network request failed', details: '', hint: '', code: '' },
@@ -464,13 +473,90 @@ describe('what a run tells its caller', () => {
   ];
 
   it('says what it dropped: a final refusal, and a photo that is gone', async () => {
-    const refusal = { code: '42501', message: 'not_a_member' };
     await enqueue(feed('a'));
     await enqueue(feed('b'));
     await enqueue(feed('c'));
     mockMissing.add('documents/feed-queue/b.jpg');
-    mockSendFeed.mockRejectedValueOnce(refusal).mockResolvedValueOnce('feed-id');
-    expect(await flushQueue()).toEqual({ handled: 3, dropped: [refusal, expect.any(Error)], stuck: [] });
+    mockSendFeed.mockRejectedValueOnce(notAMember).mockResolvedValueOnce('feed-id');
+    expect(await flushQueue()).toEqual({ handled: 3, dropped: [why, 'queued_photo_gone'], stuck: [] });
+  });
+
+  it('leaves out what the server wrote beside its refusal, which can quote a row', async () => {
+    await enqueue(feed('a'));
+    mockSendFeed.mockRejectedValueOnce({ ...notAMember, details: 'Key (caption)=(my secret)' });
+    expect((await flushQueue()).dropped).toEqual([why]);
+  });
+
+  it('says it at the next start when the app was killed before the run ended', async () => {
+    await enqueue(feed('a'));
+    await enqueue(feed('b'));
+    let cut = (_failure: unknown) => {};
+    mockSendFeed.mockRejectedValueOnce(notAMember).mockReturnValueOnce(
+      new Promise((_resolve, reject) => {
+        cut = reject;
+      }),
+    );
+    const killed = flushQueue();
+    await until(() => mockSendFeed.mock.calls.length === 2);
+
+    mockSendFeed.mockResolvedValue('feed-id');
+    expect(await afterRestart().flushQueue()).toEqual({ handled: 1, dropped: [why], stuck: [] });
+    expect(await afterRestart().flushQueue()).toEqual({ handled: 0, dropped: [], stuck: [] });
+    cut(networkFailure);
+    await killed;
+  });
+
+  it('keeps it for a run with the app in front, off the list of what waits', async () => {
+    await enqueue(feed('a'));
+    mockSendFeed.mockRejectedValueOnce(notAMember);
+    AppState.currentState = 'background';
+    expect(await flushQueue()).toEqual({ handled: 1, dropped: [], stuck: [] });
+    expect(await pendingFeeds()).toEqual([]);
+    expect(mockDeleted).toEqual(['documents/feed-queue/a.jpg']);
+    expect((await flushQueue()).dropped).toEqual([]);
+
+    AppState.currentState = 'active';
+    expect(await flushQueue()).toEqual({ handled: 0, dropped: [why], stuck: [] });
+    expect((await flushQueue()).dropped).toEqual([]);
+    expect(mockSendFeed).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps it through a phone that fails to read the list, and says it once', async () => {
+    await enqueue(feed('a'));
+    mockSendFeed.mockRejectedValueOnce(notAMember);
+    AppState.currentState = 'background';
+    await flushQueue();
+    AppState.currentState = 'active';
+
+    jest.mocked(AsyncStorage.getItem).mockRejectedValueOnce(new Error('disk I/O error'));
+    expect((await flushQueue()).dropped).toEqual([]);
+    expect((await flushQueue()).dropped).toEqual([why]);
+    expect((await flushQueue()).dropped).toEqual([]);
+  });
+
+  it('says nothing to the next account of what the last one lost', async () => {
+    await enqueue(feed('a'));
+    mockSendFeed.mockRejectedValueOnce(notAMember);
+    AppState.currentState = 'background';
+    await flushQueue();
+    AppState.currentState = 'active';
+
+    mockSignedIn = 'dan';
+    expect((await flushQueue()).dropped).toEqual([]);
+    await forgetFeedsOfOthers('dan');
+    mockSignedIn = 'noa';
+    expect((await flushQueue()).dropped).toEqual([]);
+  });
+
+  it('forgets it when the account leaves the phone', async () => {
+    await enqueue(feed('a'));
+    mockSendFeed.mockRejectedValueOnce(notAMember);
+    AppState.currentState = 'background';
+    await flushQueue();
+    AppState.currentState = 'active';
+
+    await clearQueue();
+    expect((await flushQueue()).dropped).toEqual([]);
   });
 
   it('counts a feed that went out as its replacement as sent', async () => {
@@ -524,11 +610,10 @@ describe('what a run tells its caller', () => {
   });
 
   it('tells only the caller that started the run', async () => {
-    const refusal = { code: '42501', message: 'not_a_member' };
     await enqueue(feed('a'));
-    mockSendFeed.mockRejectedValueOnce(refusal);
+    mockSendFeed.mockRejectedValueOnce(notAMember);
     const [started, joined] = await Promise.all([flushQueue(), flushQueue()]);
-    expect(started).toEqual({ handled: 1, dropped: [refusal], stuck: [] });
+    expect(started).toEqual({ handled: 1, dropped: [why], stuck: [] });
     expect(joined).toEqual({ handled: 0, dropped: [], stuck: [] });
   });
 

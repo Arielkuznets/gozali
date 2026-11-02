@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { useEffect, type ComponentType } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 import { act, create } from 'react-test-renderer';
 
 import '@/i18n';
@@ -53,7 +54,7 @@ jest.mock('@react-native-community/netinfo', () => ({
 }));
 
 const mockNotify = jest.fn();
-jest.mock('@/lib/confirm', () => ({ notify: (message: string) => mockNotify(message) }));
+jest.mock('@/lib/confirm', () => ({ notify: (...text: string[]) => mockNotify(...text) }));
 const mockReport = jest.fn();
 jest.mock('@/lib/reportError', () => ({
   ...jest.requireActual('@/lib/reportError'),
@@ -109,8 +110,23 @@ const connection = (state: Connection) =>
     await new Promise((resolve) => setTimeout(resolve));
   });
 
+const appStates = new Set<(state: AppStateStatus) => void>();
+
+const comeBackToApp = () =>
+  act(async () => {
+    AppState.currentState = 'active';
+    appStates.forEach((listener) => listener('active'));
+    await new Promise((resolve) => setTimeout(resolve));
+  });
+
 beforeEach(async () => {
   await AsyncStorage.clear();
+  AppState.currentState = 'active';
+  appStates.clear();
+  jest.mocked(AppState.addEventListener).mockImplementation((_type, listener) => {
+    appStates.add(listener);
+    return { remove: () => appStates.delete(listener) };
+  });
   mockSendFeed.mockReset();
   mockNotify.mockReset();
   mockReport.mockReset();
@@ -119,11 +135,13 @@ beforeEach(async () => {
 });
 
 describe('queued feeds that were dropped', () => {
+  const whatToDo = 'Take a new photo if you still need to feed today.';
+
   it('tells the member once and the developer why, for a refusal at a start that flushes twice', async () => {
     await enqueue(feed('a'));
     mockSendFeed.mockRejectedValue({ code: '42501', message: 'not_a_member' });
     await openApp();
-    expect(mockNotify.mock.calls).toEqual([[expect.stringContaining("couldn't go out")]]);
+    expect(mockNotify.mock.calls).toEqual([["A saved feed couldn't go out and was removed.", whatToDo]]);
     expect(mockReport.mock.calls).toEqual([['Queued feed dropped: 42501 not_a_member']]);
     expect(await pendingFeeds()).toEqual([]);
   });
@@ -134,11 +152,20 @@ describe('queued feeds that were dropped', () => {
     mockMissing.add('documents/feed-queue/b.jpg');
     mockSendFeed.mockRejectedValue({ code: 'P0001', message: 'too_many_posts' });
     await openApp();
-    expect(mockNotify.mock.calls).toEqual([[expect.stringContaining("2 saved feeds couldn't go out")]]);
+    expect(mockNotify.mock.calls).toEqual([["2 saved feeds couldn't go out and were removed.", whatToDo]]);
     expect(mockReport.mock.calls.flat()).toEqual([
       'Queued feed dropped: P0001 too_many_posts',
       'Queued feed dropped: queued_photo_gone',
     ]);
+  });
+
+  it('fits what Android shows of a title, with what to do under it', async () => {
+    await enqueue(feed('a'));
+    mockSendFeed.mockRejectedValue({ code: '42501', message: 'not_a_member' });
+    await openApp();
+    const [title, detail] = mockNotify.mock.calls[0] as [string, string];
+    expect(title.length).toBeLessThan(50);
+    expect(detail).toBe(whatToDo);
   });
 
   it('says nothing when everything went out', async () => {
@@ -147,6 +174,21 @@ describe('queued feeds that were dropped', () => {
     await openApp();
     expect(mockNotify).not.toHaveBeenCalled();
     expect(mockReport).not.toHaveBeenCalled();
+  });
+
+  it('waits for the app to be in front, where the alert can show, and says it once', async () => {
+    AppState.currentState = 'background';
+    await enqueue(feed('a'));
+    mockSendFeed.mockRejectedValue({ code: '42501', message: 'not_a_member' });
+    await openApp();
+    expect(await pendingFeeds()).toEqual([]);
+    expect(mockNotify).not.toHaveBeenCalled();
+    expect(mockReport).not.toHaveBeenCalled();
+
+    await comeBackToApp();
+    await comeBackToApp();
+    expect(mockNotify.mock.calls).toEqual([["A saved feed couldn't go out and was removed.", whatToDo]]);
+    expect(mockReport.mock.calls).toEqual([['Queued feed dropped: 42501 not_a_member']]);
   });
 });
 
