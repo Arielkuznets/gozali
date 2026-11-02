@@ -1,7 +1,7 @@
 -- Feed events, reactions, nudges, naming, the wardrobe and personal stats.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(38);
+select plan(47);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a4', 'noa@test.local'),
@@ -20,18 +20,30 @@ create function pg_temp.zone_at(local_hour integer) returns text language sql as
   from (select ((local_hour - extract(hour from now() at time zone 'utc')::integer + 36) % 24) - 12 as ahead) clock;
 $$;
 
--- What becomes of Dan's nudge when it is this hour on Noa's clock.
-create function pg_temp.nudge_noa_at(local_hour integer) returns text language plpgsql as $$
+-- The POSIX zone whose clock shows this time right now, to the second.
+create function pg_temp.zone_showing(clock time) returns text language sql as $$
+  select format('<T>%s%s', case when behind < 0 then '-' else '+' end, to_char(abs(behind) * interval '1 second', 'HH24:MI:SS'))
+  from (
+    select ((floor(extract(epoch from (now() at time zone 'utc')::time))::integer - extract(epoch from clock)::integer + 129600) % 86400) - 43200 as behind
+  ) offset_from_utc;
+$$;
+
+-- What becomes of Dan's nudge when Noa's clock shows this time. send-push runs every minute and a
+-- run can be a minute late, so it gets its turn two minutes on.
+create function pg_temp.nudge_noa_at(clock time) returns text language plpgsql as $$
 begin
   delete from public.nudges;
   delete from public.notifications where type = 'nudge';
-  update public.profiles set timezone = pg_temp.zone_at(local_hour) where id = '00000000-0000-0000-0000-0000000000a4';
+  update public.profiles set timezone = pg_temp.zone_showing(clock) where id = '00000000-0000-0000-0000-0000000000a4';
   begin
     perform public.nudge((select id from pack), '00000000-0000-0000-0000-0000000000a4');
   exception when raise_exception then
     return sqlerrm;
   end;
-  return case when exists (select 1 from public.claim_notifications() c where c.type = 'nudge') then 'delivered' else 'lost' end;
+  return case
+    when exists (select 1 from public.claim_notifications(now() + interval '2 minutes') c where c.type = 'nudge') then 'delivered'
+    else 'lost'
+  end;
 end;
 $$;
 
@@ -208,13 +220,45 @@ reset role;
 select is((select count(*) from public.nudges), 0::bigint, 'a nudge refused at night leaves the day''s nudge unused');
 select is((select count(*) from public.notifications where type = 'nudge'), 0::bigint, 'and queues nothing');
 
--- Whatever the hour, a nudge is delivered or refused, never accepted and lost.
+-- Whatever the time, a nudge is delivered or refused, never accepted and lost. Zones Postgres
+-- doesn't list turn into UTC on the way in, so that step stays out of the way here.
+alter table public.profiles disable trigger clean_profile_settings;
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000b4');
 select is(
-  (select array_agg(pg_temp.nudge_noa_at(local_hour) order by local_hour) from generate_series(0, 23) local_hour),
+  (select array_agg(pg_temp.nudge_noa_at(make_time(local_hour, 30, 0)) order by local_hour) from generate_series(0, 23) local_hour),
   array_fill('receiver_quiet'::text, array[7]) || array_fill('delivered'::text, array[16]) || array['receiver_quiet'],
   'the hours a nudge is refused are the hours it would be dropped'
 );
+select is(pg_temp.nudge_noa_at('06:59:59'), 'receiver_quiet', 'at 06:59:59 it is still night');
+select is(pg_temp.nudge_noa_at('07:00:00'), 'delivered', 'at 07:00 a nudge goes through');
+select is(pg_temp.nudge_noa_at('22:57:59'), 'delivered', 'the last one accepted still goes out before 23:00');
+select is(
+  pg_temp.nudge_noa_at('22:58:00'), 'receiver_quiet',
+  'from there on it couldn''t be claimed before 23:00, so it is refused'
+);
+select is(pg_temp.nudge_noa_at('22:59:30'), 'receiver_quiet', 'as in the last minute before 23:00');
+reset role;
+select is((select count(*) from public.nudges), 0::bigint, 'and the day''s nudge stays unused');
+alter table public.profiles enable trigger clean_profile_settings;
+
+-- A nudge that went out stays the day's nudge at any hour, and the sender hears that first: told to
+-- try after 07:00, they would only hear it then. The clock moves a long way west to stand in for
+-- the hours of one pack day.
+delete from public.nudges;
+delete from public.notifications where type = 'nudge';
+update public.profiles set timezone = pg_temp.zone_at(12) where id = '00000000-0000-0000-0000-0000000000a4';
+select public.nudge((select id from pack), '00000000-0000-0000-0000-0000000000a4');
+update public.profiles set timezone = pg_temp.zone_at(23) where id = '00000000-0000-0000-0000-0000000000a4';
+select throws_ok(
+  $$ select public.nudge((select id from pack), '00000000-0000-0000-0000-0000000000a4') $$,
+  'P0001', 'already_nudged', 'a sender who used the day''s nudge hears that at night too'
+);
+update public.profiles set timezone = pg_temp.zone_at(3) where id = '00000000-0000-0000-0000-0000000000a4';
+select throws_ok(
+  $$ select public.nudge((select id from pack), '00000000-0000-0000-0000-0000000000a4') $$,
+  'P0001', 'already_nudged', 'and before 07:00'
+);
+select is((select count(*) from public.nudges), 1::bigint, 'and nothing new is written');
 
 -- Personal stats: fed, missed, fed, fed, rested gives a best streak of 3 and a current one of 3.
 reset role;
