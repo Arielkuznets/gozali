@@ -1,7 +1,7 @@
 -- A member who rejoins starts again: feeds from before they left don't make them counted.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(8);
+select plan(21);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000d8', 'noa@test.local'),
@@ -147,6 +147,206 @@ reset role;
 select is(
   public.pack_first_day('10000000-0000-0000-0000-000000000018'), (select day from today),
   'someone coming back to an empty pack starts its days from that day'
+);
+
+-- Everyone left a new pack days ago, after feeding. Each one back starts over, not only the first:
+-- none of them answers for the time nobody was there, or counts a feed from before.
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000000a9', 'maya@test.local'),
+  ('00000000-0000-0000-0000-0000000000b9', 'lior@test.local'),
+  ('00000000-0000-0000-0000-0000000000c9', 'yael@test.local');
+create function pg_temp.emptied_pack(pack uuid, code text, members uuid[]) returns void language sql as $$
+  insert into public.packs (id, name, category, rest_days_per_week, timezone, invite_code)
+  values (pack, 'Climbers', 'running', 0, 'UTC', code);
+  insert into public.critters (pack_id, species) values (pack, 'kit');
+  insert into public.pack_members (pack_id, user_id, role, status, joined_at, left_at)
+  select pack, m.user_id, 'member', 'left', now() - interval '5 days' + m.position * interval '1 minute',
+    now() - interval '4 days'
+  from unnest(members) with ordinality as m (user_id, position);
+  insert into public.feeds (pack_id, user_id, day, created_at)
+  select pack, m.user_id, public.pack_day('UTC') - 5, now() - interval '5 days' + interval '1 hour'
+  from unnest(members) as m (user_id);
+$$;
+create function pg_temp.returns_to(code text, member uuid) returns void language sql as $$
+  select pg_temp.act_as(member);
+  set local role authenticated;
+  select public.join_pack(code);
+  reset role;
+$$;
+create function pg_temp.leaves(pack uuid, member uuid) returns void language sql as $$
+  select pg_temp.act_as(member);
+  set local role authenticated;
+  select public.leave_pack(pack);
+  reset role;
+$$;
+create function pg_temp.standing(pack uuid, member uuid, pack_date date) returns text language sql as $$
+  select (m ->> 'membership') || '/' || (m ->> 'hasStarted') || '/' || (m ->> 'fedToday')
+  from jsonb_array_elements(public.day_close_input(pack, pack_date) -> 'members') m
+  where m ->> 'userId' = member::text;
+$$;
+create function pg_temp.joined_on(pack uuid, member uuid) returns date language sql as $$
+  select public.pack_day('UTC', m.joined_at) from public.pack_members m where m.pack_id = pack and m.user_id = member;
+$$;
+
+select pg_temp.emptied_pack(
+  '10000000-0000-0000-0000-000000000028', 'CLMB3456',
+  array['00000000-0000-0000-0000-0000000000a9', '00000000-0000-0000-0000-0000000000b9']::uuid[]
+);
+select pg_temp.returns_to('CLMB3456', '00000000-0000-0000-0000-0000000000a9');
+select pg_temp.returns_to('CLMB3456', '00000000-0000-0000-0000-0000000000b9');
+select is(
+  pg_temp.joined_on('10000000-0000-0000-0000-000000000028', '00000000-0000-0000-0000-0000000000b9'),
+  (select day from today),
+  'the second one back to an empty pack counts from that day too'
+);
+select is(
+  pg_temp.standing(
+    '10000000-0000-0000-0000-000000000028', '00000000-0000-0000-0000-0000000000b9', (select day from today)
+  ),
+  'active/false/false',
+  'and hasn''t started, so the day can''t charge them a miss'
+);
+
+-- With a third member the old first day would stay if anyone kept their time.
+select pg_temp.emptied_pack(
+  '10000000-0000-0000-0000-000000000128', 'CLMC3456',
+  array['00000000-0000-0000-0000-0000000000a9', '00000000-0000-0000-0000-0000000000b9',
+        '00000000-0000-0000-0000-0000000000c9']::uuid[]
+);
+select pg_temp.returns_to('CLMC3456', '00000000-0000-0000-0000-0000000000a9');
+select pg_temp.returns_to('CLMC3456', '00000000-0000-0000-0000-0000000000b9');
+select is(
+  public.pack_first_day('10000000-0000-0000-0000-000000000128'), (select day from today),
+  'a pack of three starts from that day as well'
+);
+select is(
+  pg_temp.standing(
+    '10000000-0000-0000-0000-000000000128', '00000000-0000-0000-0000-0000000000b9', (select day - 3 from today)
+  ),
+  null,
+  'and the days nobody was there don''t count them'
+);
+
+-- Maya fed alone and left days ago. Lior took up the invite today, and Maya is back the same day.
+select pg_temp.emptied_pack(
+  '10000000-0000-0000-0000-000000000228', 'CLMD3456', array['00000000-0000-0000-0000-0000000000a9']::uuid[]
+);
+select pg_temp.returns_to('CLMD3456', '00000000-0000-0000-0000-0000000000b9');
+select pg_temp.returns_to('CLMD3456', '00000000-0000-0000-0000-0000000000a9');
+select is(
+  pg_temp.standing(
+    '10000000-0000-0000-0000-000000000228', '00000000-0000-0000-0000-0000000000a9', (select day from today)
+  ),
+  'active/false/false',
+  'someone who left before the first day isn''t charged for it'
+);
+
+-- Yesterday waits for its close, in the time between the end of a day and its close. Roni and Sam
+-- fed on it. Sam leaves and rejoins before it closes: the feed still counts, so an egg still hatches.
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000000d9', 'eli@test.local'),
+  ('00000000-0000-0000-0000-0000000000e9', 'dina@test.local'),
+  ('00000000-0000-0000-0000-0000000000f9', 'gal@test.local');
+insert into public.packs (id, name, category, rest_days_per_week, timezone, invite_code)
+values ('10000000-0000-0000-0000-000000000038', 'Rowers', 'running', 0, 'UTC', 'RWRS3456');
+insert into public.critters (pack_id, species) values ('10000000-0000-0000-0000-000000000038', 'kit');
+insert into public.pack_members (pack_id, user_id, role, joined_at)
+select '10000000-0000-0000-0000-000000000038', u, 'member', now() - interval '2 days'
+from unnest(array[
+  '00000000-0000-0000-0000-0000000000b8', '00000000-0000-0000-0000-0000000000c8',
+  '00000000-0000-0000-0000-0000000000d9', '00000000-0000-0000-0000-0000000000e9',
+  '00000000-0000-0000-0000-0000000000f9'
+]::uuid[]) u;
+create temp table quiet_day as select jsonb_build_object(
+  'type', 'neutral', 'applied', false, 'healthBefore', 70, 'coins', 0,
+  'critter', jsonb_build_object('status', 'egg', 'health', 70, 'xp', 0, 'stage', 'egg', 'streak', 0, 'marks', '[]'::jsonb),
+  'outcomes', '[]'::jsonb, 'newlySleeping', '[]'::jsonb, 'events', '[]'::jsonb,
+  'facts', jsonb_build_object('earlyBird', false, 'fullHouse', false, 'nightOwlFeeds', 0)
+) as body;
+select public.apply_day_result(
+  '10000000-0000-0000-0000-000000000038', (select day - 2 from today), (select body from quiet_day)
+);
+insert into public.feeds (pack_id, user_id, day, created_at)
+select '10000000-0000-0000-0000-000000000038', u, (select day - 1 from today), now() - interval '1 day'
+from unnest(array['00000000-0000-0000-0000-0000000000b8', '00000000-0000-0000-0000-0000000000c8']::uuid[]) u;
+
+select pg_temp.leaves('10000000-0000-0000-0000-000000000038', '00000000-0000-0000-0000-0000000000c8');
+select pg_temp.returns_to('RWRS3456', '00000000-0000-0000-0000-0000000000c8');
+select is(
+  pg_temp.standing(
+    '10000000-0000-0000-0000-000000000038', '00000000-0000-0000-0000-0000000000c8', (select day - 1 from today)
+  ),
+  'active/true/true',
+  'a rejoin before an ended day closes keeps the feed on it'
+);
+select is(
+  pg_temp.joined_on('10000000-0000-0000-0000-000000000038', '00000000-0000-0000-0000-0000000000c8'),
+  (select day - 2 from today),
+  'and the time they joined'
+);
+
+-- Sam left during that day, after feeding: the same.
+update public.pack_members set status = 'left', left_at = public.day_closes_at('UTC', (select day - 1 from today)) - interval '2 hours'
+where pack_id = '10000000-0000-0000-0000-000000000038' and user_id = '00000000-0000-0000-0000-0000000000c8';
+select pg_temp.returns_to('RWRS3456', '00000000-0000-0000-0000-0000000000c8');
+select is(
+  pg_temp.standing(
+    '10000000-0000-0000-0000-000000000038', '00000000-0000-0000-0000-0000000000c8', (select day - 1 from today)
+  ),
+  'active/true/true',
+  'so does one by a member who left during that day, after feeding'
+);
+
+-- Eli left that day without feeding: the day doesn't count him, and coming back doesn't either.
+update public.pack_members set status = 'left', left_at = public.day_closes_at('UTC', (select day - 1 from today)) - interval '2 hours'
+where pack_id = '10000000-0000-0000-0000-000000000038' and user_id = '00000000-0000-0000-0000-0000000000d9';
+select pg_temp.returns_to('RWRS3456', '00000000-0000-0000-0000-0000000000d9');
+select is(
+  pg_temp.standing(
+    '10000000-0000-0000-0000-000000000038', '00000000-0000-0000-0000-0000000000d9', (select day - 1 from today)
+  ),
+  null,
+  'a member who left that day without feeding isn''t charged for it'
+);
+select is(
+  pg_temp.joined_on('10000000-0000-0000-0000-000000000038', '00000000-0000-0000-0000-0000000000d9'),
+  (select day from today),
+  'and starts again from today'
+);
+
+-- Dina is asleep. A rejoin makes a member active, so a kept time would turn her sleep into a miss.
+update public.pack_members set status = 'sleeping'
+where pack_id = '10000000-0000-0000-0000-000000000038' and user_id = '00000000-0000-0000-0000-0000000000e9';
+select pg_temp.leaves('10000000-0000-0000-0000-000000000038', '00000000-0000-0000-0000-0000000000e9');
+select pg_temp.returns_to('RWRS3456', '00000000-0000-0000-0000-0000000000e9');
+select is(
+  pg_temp.standing(
+    '10000000-0000-0000-0000-000000000038', '00000000-0000-0000-0000-0000000000e9', (select day - 1 from today)
+  ),
+  null,
+  'nor is a member who was asleep'
+);
+
+-- Gal left before that day began.
+update public.pack_members set status = 'left', left_at = public.day_closes_at('UTC', (select day - 2 from today)) - interval '2 hours'
+where pack_id = '10000000-0000-0000-0000-000000000038' and user_id = '00000000-0000-0000-0000-0000000000f9';
+select pg_temp.returns_to('RWRS3456', '00000000-0000-0000-0000-0000000000f9');
+select is(
+  pg_temp.joined_on('10000000-0000-0000-0000-000000000038', '00000000-0000-0000-0000-0000000000f9'),
+  (select day from today),
+  'someone who left before that day starts again'
+);
+
+-- Once the day has closed there is nothing left to keep.
+select public.apply_day_result(
+  '10000000-0000-0000-0000-000000000038', (select day - 1 from today), (select body from quiet_day)
+);
+select pg_temp.leaves('10000000-0000-0000-0000-000000000038', '00000000-0000-0000-0000-0000000000c8');
+select pg_temp.returns_to('RWRS3456', '00000000-0000-0000-0000-0000000000c8');
+select is(
+  pg_temp.joined_on('10000000-0000-0000-0000-000000000038', '00000000-0000-0000-0000-0000000000c8'),
+  (select day from today),
+  'and a rejoin after the close counts from today'
 );
 
 select * from finish();
