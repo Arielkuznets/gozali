@@ -85,9 +85,11 @@ export const CLOSE_BUDGET_MS = 90_000;
 
 /**
  * Closes the due days of every pack, a few packs at a time; each pack's days go in order. Packs
- * in the same time zone all come due at the same moment, so with thousands of them a run stops
- * starting new packs after its time budget and leaves the rest (`deferred`) for the next run,
- * well before the function would be cut off.
+ * in the same time zone all come due at the same moment, and a run has 2 s of CPU, enough for a
+ * few hundred closes. Past that the function is killed with a 546: what closed stays closed, and
+ * the next run goes on. Waiting for the database uses no CPU, so the time budget only matters
+ * when the database is slow: a run then stops starting new packs and leaves the rest (`deferred`)
+ * for the next run, before the function's 150 seconds run out.
  */
 export async function closeDueDays(
   client: RpcClient,
