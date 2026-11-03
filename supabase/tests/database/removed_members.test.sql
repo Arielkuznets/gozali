@@ -1,7 +1,7 @@
 -- A removed member stays out; a member who left can come back; the admin can replace the code.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(9);
+select plan(11);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000d1', 'noa@test.local'),
@@ -34,9 +34,17 @@ select throws_ok(
   $$ select public.join_pack((select invite_code from code)) $$,
   'P0001', 'removed_from_pack', 'Dan can''t come back with the invite code'
 );
+select throws_ok(
+  $$ select * from public.pack_preview((select invite_code from code)) $$,
+  'P0001', 'removed_from_pack', 'nor read who is in the pack through it'
+);
 
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000d3');
 select lives_ok($$ select public.leave_pack((select id from pack)) $$, 'Maya leaves on her own');
+select is(
+  (select member_count from public.pack_preview((select invite_code from code))), 1,
+  'she still sees the pack through the code'
+);
 select is(public.join_pack((select invite_code from code)), (select id from pack), 'and can come back');
 
 reset role;
