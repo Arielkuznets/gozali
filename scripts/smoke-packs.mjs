@@ -95,6 +95,8 @@ async function whileOpen(held, call) {
     await session.run(`begin; ${held}`);
     let finished = false;
     const answer = Promise.resolve(call()).finally(() => (finished = true));
+    // Handled here too, or a call failing during the wait would stop the run before any cleanup.
+    answer.catch(() => {});
     // A transaction keeps its first read of pg_stat_activity, and would never see a new connection.
     const blocked = `select pg_stat_clear_snapshot();
       select count(*) from pg_stat_activity a where pg_backend_pid() = any (pg_blocking_pids(a.pid));`;
