@@ -9,12 +9,13 @@ import { supabase } from '@/lib/supabase';
 const REJOIN_READ_GAP_MS = 30_000;
 
 /**
- * Realtime replays nothing, so each rejoin of a channel after its first join runs `read` for what
- * the socket missed. A socket that keeps dropping reads once in each gap, and at the end of a gap
- * in which it came back, so the last rejoin always gets its read.
+ * Realtime replays nothing, so each join runs `read` for what the socket missed, apart from a first
+ * join that works at once. After a try that failed it has missed as much as any rejoin: the socket
+ * may have been down since the app opened. A socket that keeps dropping reads once in each gap, and
+ * at the end of a gap in which it came back, so the last rejoin always gets its read.
  */
 function readAfterRejoins(read: () => void) {
-  let joined = false;
+  let tried = false;
   let missed = false;
   let gap: ReturnType<typeof setTimeout> | undefined;
   const readNow = () => {
@@ -27,10 +28,11 @@ function readAfterRejoins(read: () => void) {
   };
   return {
     onStatus: (status: string) => {
-      if (status !== 'SUBSCRIBED') return;
-      if (!joined) joined = true;
-      else if (gap) missed = true;
-      else readNow();
+      if (status === 'SUBSCRIBED' && tried) {
+        if (gap) missed = true;
+        else readNow();
+      }
+      tried = true;
     },
     stop: () => clearTimeout(gap),
   };

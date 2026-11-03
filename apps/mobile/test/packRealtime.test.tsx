@@ -42,6 +42,9 @@ let socketAnswers = Promise.resolve();
 /** Every socket the client opened, the last one the live one. */
 let sockets: StandInSocket[] = [];
 
+/** No socket gets through while this is on, as on a lost route or with Realtime restarting. */
+let socketsRefused = false;
+
 /** Opens on the next turn, and says yes to everything as the server does to a good join. */
 class StandInSocket {
   readyState = 0;
@@ -53,6 +56,11 @@ class StandInSocket {
   constructor() {
     sockets.push(this);
     setImmediate(() => {
+      if (socketsRefused) {
+        this.onerror?.();
+        this.drop();
+        return;
+      }
       this.readyState = 1;
       this.onopen?.();
     });
@@ -166,6 +174,7 @@ beforeEach(async () => {
   await AsyncStorage.clear();
   frames = [];
   sockets = [];
+  socketsRefused = false;
   socketAnswers = Promise.resolve();
   refresh = held();
   beforeAnswering = () => refresh.answer;
@@ -291,6 +300,21 @@ describe('a socket that drops with the app open', () => {
     await openApp();
     await pass(60);
     expect(invalidated).not.toHaveBeenCalled();
+  });
+
+  it('reads once its channels get through, when the socket was down as the app opened', async () => {
+    await storeSession(nowSeconds() + 3600);
+    socketsRefused = true;
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask'] });
+    startApp();
+    await open(undefined, 'pack');
+    await pass(25);
+    expect(joins()).toBe(0);
+
+    socketsRefused = false;
+    await pass(40);
+    expect(joins()).toBeGreaterThan(0);
+    expect(reads()).toBe(1);
   });
 
   it('reads what it may have missed once its channels are back, once for all of them', async () => {
