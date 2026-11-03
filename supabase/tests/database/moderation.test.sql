@@ -1,12 +1,44 @@
 -- Word filtering, reports on photos and on members, and the helpers of account deletion.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(44);
+select plan(57);
 
 select ok(public.is_clean('Leg day, done'), 'ordinary captions pass');
 select ok(not public.is_clean('what the fuuuck'), 'repeated letters don''t get around the filter');
 select ok(not public.is_clean('sh1t happens'), 'nor do digits for letters');
 select ok(public.is_clean('Assassin class, then a glass of water'), 'blocked words inside ordinary words are fine');
+
+-- A number is a number, however its digits would read as letters.
+select ok(public.is_clean('Read up to page 455'), 'a page number passes');
+select ok(public.is_clean('Deadlift 455 lbs!'), 'so does a weight');
+select ok(public.is_clean('Room #455'), 'and a number after a sign');
+select ok(public.is_clean('8455 steps, 2455 calories'), 'and one with a digit that stands for no letter');
+
+-- Everything else reads as it always did.
+select ok(not public.is_clean('a55'), 'digits next to a letter still stand for letters');
+select ok(not public.is_clean('4$$'), 'and next to a symbol that stands for a letter');
+select ok(not public.is_clean('4$5'), 'with the digits on both sides of it');
+select ok(not public.is_clean('8a55 shit2'), 'a digit that stands for no letter still ends a word');
+select ok(not public.is_clean('sh1t 455'), 'a number next to a word doesn''t clear the word');
+select ok(public.is_clean('קראתי עד עמוד 455'), 'Hebrew with a number passes');
+select ok(public.is_clean('עמוד455 מתוך 800'), 'also with the number stuck to a word');
+select ok(not public.is_clean('היום a55 ממש'), 'and a blocked word among Hebrew is still caught');
+
+-- Every word on the list, in every mix of letters and the digits that stand for them, is blocked.
+-- The one spelling that is all digits is the number.
+with recursive spelled (done, rest) as (
+  select '', word from public.blocked_words
+  union
+  select s.done || c.letter, substr(s.rest, 2)
+  from spelled s
+  cross join lateral (values (left(s.rest, 1)), (translate(left(s.rest, 1), 'oieast', '013457'))) as c (letter)
+  where s.rest <> ''
+)
+select is(
+  (select array_agg(done order by done) from spelled where rest = '' and public.is_clean(done)),
+  array['455'],
+  'no digit spelling of a blocked word passes, but for the plain number'
+);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a7', 'noa@test.local'),
