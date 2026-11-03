@@ -143,21 +143,36 @@ async function storeSession(expires_at: number) {
 
 let app: ReactTestRenderer | undefined;
 
-/** Opens the app on what it last had, as the copy on the phone and the memory of a running app do. */
-async function openApp(options?: QueryClientConfig['defaultOptions']) {
+/**
+ * Opens the app on what it last had, as the copy on the phone and the memory of a running app do.
+ * With `only`, the screen holds that one read, so nothing else on it can set off a reload.
+ */
+async function openApp(options?: QueryClientConfig['defaultOptions'], only?: 'packs' | 'avatar') {
   // No garbage collection, whose timers would outlive the test.
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity, ...options?.queries } } });
   client.setQueryData(packsKey, [{ name: 'From the copy' } as Pack]);
   client.setQueryData(avatarsKey, new Map([[AVATAR, 'link from before']]));
-  let screen: { packs?: string[]; avatar?: string } = {};
+  const screen: { packs?: string[]; avatar?: string } = {};
+
+  function Packs() {
+    screen.packs = useMyPacks().data?.map((pack) => pack.name);
+    return null;
+  }
+
+  function Avatar() {
+    screen.avatar = useAvatarUrls([AVATAR]).data?.get(AVATAR);
+    return null;
+  }
 
   /** Reads of both kinds: what the server refuses without a token, and what it answers anyway. */
   function Home() {
     useFeedQueue();
-    const packs = useMyPacks().data?.map((pack) => pack.name);
-    const avatar = useAvatarUrls([AVATAR]).data?.get(AVATAR);
-    screen = { packs, avatar };
-    return null;
+    return (
+      <>
+        {only !== 'avatar' && <Packs />}
+        {only !== 'packs' && <Avatar />}
+      </>
+    );
   }
 
   await act(async () => {
@@ -174,11 +189,11 @@ async function openApp(options?: QueryClientConfig['defaultOptions']) {
 }
 
 /** Offline with a dead token: the refresh failed and auth-js is waiting before the next one. */
-async function openAppOffline(options?: QueryClientConfig['defaultOptions']) {
+async function openAppOffline(options?: QueryClientConfig['defaultOptions'], only?: 'packs' | 'avatar') {
   reachable = false;
   mockNetwork = { isConnected: false };
   await storeSession(nowSeconds() - 3600);
-  return openApp(options);
+  return openApp(options, only);
 }
 
 async function connectionBack() {
@@ -290,6 +305,25 @@ describe('a connection back while auth-js waits after a failed refresh', () => {
     await refreshRuns();
     await run(100);
     expect(shown().packs).toEqual(['From the server']);
+    expect(shown().avatar).toContain('/object/sign/avatars/link');
+  });
+
+  it('reloads a refused read still on its way, on a screen with no photos', async () => {
+    const { shown } = await openAppOffline(undefined, 'packs');
+    answersTake = 100;
+    await connectionBack();
+    answersTake = 0;
+    await refreshRuns();
+    await run(200);
+    expect(shown().packs).toEqual(['From the server']);
+  });
+
+  it('reloads a photo that failed with no session, on a screen with nothing else', async () => {
+    const { shown } = await openAppOffline(undefined, 'avatar');
+    await connectionBack();
+    expect(shown().avatar).toBe('link from before');
+    await refreshRuns();
+    await run(200);
     expect(shown().avatar).toContain('/object/sign/avatars/link');
   });
 
