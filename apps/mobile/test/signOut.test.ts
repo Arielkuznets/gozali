@@ -18,13 +18,15 @@ jest.mock('@/features/feeds/queue', () => ({ forgetFeedsOf: (userId: string) => 
 
 const mockSignOut = jest.fn();
 const mockGetSession = jest.fn();
+const mockStoredSession = jest.fn();
 jest.mock('@/lib/supabase', () => ({
   requireSupabase: () => ({ auth: { signOut: () => mockSignOut(), getSession: () => mockGetSession() } }),
-  storedSession: async () => ({ user: { id: 'noa' } }),
+  storedSession: () => mockStoredSession(),
 }));
 
 const offline = new TypeError('Network request failed');
 const signedIn = { data: { session: { access_token: 'good' } }, error: null };
+const stored = { user: { id: 'noa' } };
 
 const keptUntilSignedOut = [mockForgetFeedsOf, mockClearFocusSession, mockClearNotifications];
 const whatTheServerKeeps = [mockForgetPushToken, mockClearWidgets];
@@ -34,6 +36,7 @@ beforeEach(async () => {
   for (const clear of [...keptUntilSignedOut, ...whatTheServerKeeps]) clear.mockClear();
   mockSignOut.mockReset();
   mockGetSession.mockReset().mockResolvedValue(signedIn);
+  mockStoredSession.mockReset().mockResolvedValue(stored);
   suggestName('Noa Levi');
 });
 
@@ -108,6 +111,8 @@ describe('signing out', () => {
   });
 
   it('goes on after a refresh the server refused: that session is over', async () => {
+    // The refusal removes the session as getSession runs, so it is there only for the first look.
+    mockStoredSession.mockResolvedValueOnce(stored).mockResolvedValue(null);
     mockGetSession.mockResolvedValue({ data: { session: null }, error: Object.assign(new Error('Invalid Refresh Token'), { status: 400 }) });
     mockSignOut.mockResolvedValue({ error: null });
 

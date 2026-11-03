@@ -56,7 +56,8 @@ jest.mock('@bacons/apple-targets', () => ({
 jest.mock('@/features/widgets/android/task', () => ({ updateAndroidWidgets: async () => undefined }));
 jest.mock('expo-notifications', () => ({ setNotificationHandler: () => undefined }));
 jest.mock('@/lib/notifications', () => ({ clearNotifications: async () => undefined }));
-jest.mock('@/lib/push', () => ({ unregisterPushToken: async () => undefined }));
+const mockForgetPushToken = jest.fn(async () => undefined);
+jest.mock('@/lib/push', () => ({ unregisterPushToken: () => mockForgetPushToken() }));
 
 // Required here, for the environment above to be in place first.
 const { AUTH_STORAGE_KEY, requireSupabase } = jest.requireActual<typeof import('@/lib/supabase')>('@/lib/supabase');
@@ -254,6 +255,7 @@ beforeEach(async () => {
   tokenRequests = [];
   savedFeeds.length = 0;
   events = [];
+  mockForgetPushToken.mockClear();
   resumeWidgets();
   const { data } = requireSupabase().auth.onAuthStateChange((event) => {
     events.push(event);
@@ -408,6 +410,30 @@ describe.each([
       expect(await waiting()).toEqual(['waiting']);
       expect(widgetsShow()).toEqual(['Before']);
       expect(await AsyncStorage.getItem(WIDGET_TOKEN_KEY)).toBe('noa-widget-token');
+    });
+
+    it('fails the same way while auth-js holds on to a refusal from when the token was still good', async () => {
+      await phoneInUse(nowSeconds() + 40);
+      await enqueue(feed);
+      stopped = status;
+      const shown = await openApp();
+      await wait(45_000);
+      expect(refreshes()).toBe(1);
+      expect(await storedAccount()).toBe('noa');
+
+      const outcome = signOut().then(
+        () => 'signed out',
+        () => 'failed',
+      );
+
+      expect(await passing(outcome)).toBe('failed');
+      expect(refreshes()).toBe(1);
+      expect(await storedAccount()).toBe('noa');
+      expect(shown().signedIn).toBe('noa');
+      expect(await waiting()).toEqual(['waiting']);
+      expect(widgetsShow()).toEqual(['Before']);
+      expect(await AsyncStorage.getItem(WIDGET_TOKEN_KEY)).toBe('noa-widget-token');
+      expect(mockForgetPushToken).not.toHaveBeenCalled();
     });
   });
 });
