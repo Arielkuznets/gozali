@@ -302,6 +302,51 @@ describe('leaving a pack', () => {
     expect(mockNotify).toHaveBeenCalledTimes(1);
   });
 
+  describe('when the server took it, its answer was lost and word of it came over Realtime', () => {
+    const LOST = { error: { message: 'TypeError: Network request failed' } };
+
+    it('goes home with the word, though the form had stayed for a second try', async () => {
+      await start('/pack/p1/settings');
+      mockRpc.mockImplementationOnce(async () => {
+        mockPacks = [];
+        return LOST;
+      });
+      await press('Leave pack');
+      expect(mockNotify).toHaveBeenCalledTimes(1);
+      expect(hasButton('Leave pack')).toBe(true);
+
+      await act(async () => void client.invalidateQueries({ queryKey: packsKey }));
+      await settle();
+
+      expect(pathname()).toBe('/');
+      expect(shows('home')).toBe(true);
+      expect(shows(MISSING)).toBe(false);
+    });
+
+    it('goes home from the spinner, which has a Back while it waits for the answer', async () => {
+      await start('/pack/p1/settings');
+      let loseAnswer = () => {};
+      mockRpc.mockImplementationOnce(async () => {
+        mockPacks = [];
+        await new Promise<void>((resolve) => {
+          loseAnswer = resolve;
+        });
+        return LOST;
+      });
+      await press('Leave pack');
+      await act(async () => void client.invalidateQueries({ queryKey: packsKey }));
+      await settle();
+      expect(spinners()).toHaveLength(1);
+      expect(hasButton('Back')).toBe(true);
+
+      await act(async () => loseAnswer());
+      await settle();
+
+      expect(pathname()).toBe('/');
+      expect(shows(MISSING)).toBe(false);
+    });
+  });
+
   it('leaves nothing to go back to', async () => {
     await start('/pack/p1');
     await open('/pack/p1/settings');

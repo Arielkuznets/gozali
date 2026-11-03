@@ -34,7 +34,8 @@ export default function PackSettingsScreen() {
   const { data: pack, isPending, isError, refetch } = usePack(id);
   // Up here because leaving takes the pack, and so the form, away before it is done.
   const leavePack = useLeavePack();
-  const left = leavePack.isSuccess;
+  // A lost answer fails here what the server took, and then the pack reads as gone.
+  const left = leavePack.isSuccess || (leavePack.isError && pack === null);
   const backHome = useBackHome();
 
   // Only from the front: whoever walked away during the wait keeps what they opened since.
@@ -46,7 +47,7 @@ export default function PackSettingsScreen() {
 
   if (isPending) return <LoadingScreen back />;
   if (!pack && isError) return <LoadFailedScreen onRetry={() => void refetch()} />;
-  if (!pack) return leavePack.isPending || left ? <LoadingScreen /> : <PackMissingScreen />;
+  if (!pack) return leavePack.isPending || left ? <LoadingScreen back /> : <PackMissingScreen />;
   return <SettingsForm pack={pack} leavePack={leavePack} />;
 }
 
