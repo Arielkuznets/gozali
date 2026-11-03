@@ -1,7 +1,7 @@
 import { addDays, packDayOf } from '@gozali/game-engine';
 import { expect, test } from '@playwright/test';
 
-import { admin, createPack, createUser, doubleButtonText, feed, layOutTextLikeAPhone, photo, removeUsers, signIn, type TestUser } from './support';
+import { admin, createPack, createUser, doubleButtonText, feed, layOutTextLikeAPhone, photo, removeUsers, signIn, watchSocket, type TestUser } from './support';
 
 let noa: TestUser;
 let dan: TestUser;
@@ -215,10 +215,13 @@ test('a leave whose answer was lost is done on the second try', async ({ page })
     if (dialog.type() === 'alert') alerts.push(dialog.message());
     void dialog.accept();
   });
+  const socket = await watchSocket(page);
   await signIn(page, dan);
   await page.goto(`/pack/${pack.id}/settings`);
   await expect(page.getByRole('button', { name: 'Leave pack' })).toBeVisible();
-  // The server takes the leave and the answer never reaches the phone.
+  // The connection is gone: the server takes the leave, and neither its answer nor Realtime's word
+  // of it reaches the phone.
+  socket.away = true;
   await page.route(
     '**/rest/v1/rpc/leave_pack',
     async (route) => {
