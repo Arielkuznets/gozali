@@ -1,7 +1,7 @@
 -- A member who rejoins starts again: feeds from before they left don't make them counted.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(36);
+select plan(43);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000d8', 'noa@test.local'),
@@ -495,6 +495,89 @@ select pg_temp.returns_to('SLRS3456', '00000000-0000-0000-0000-0000000000cc');
 select is(
   public.pack_first_day('10000000-0000-0000-0000-000000000058'), (select day - 1 from today),
   'with one other member the time stays, or the first day would move and never close'
+);
+
+-- Rina and Ben were asleep when yesterday ended, and Ella was awake. Its close is still to come when
+-- all three go. The close finds the two asleep on every day still open, whatever their status says now.
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000000ce', 'nir@test.local'),
+  ('00000000-0000-0000-0000-0000000000cf', 'rina@test.local'),
+  ('00000000-0000-0000-0000-0000000000d0', 'ben@test.local'),
+  ('00000000-0000-0000-0000-0000000000d1', 'ella@test.local');
+insert into public.packs (id, name, category, rest_days_per_week, timezone, invite_code)
+values ('10000000-0000-0000-0000-000000000068', 'Divers', 'running', 0, 'UTC', 'DVRS3456');
+insert into public.critters (pack_id, species) values ('10000000-0000-0000-0000-000000000068', 'kit');
+insert into public.pack_members (pack_id, user_id, role, status, joined_at)
+select '10000000-0000-0000-0000-000000000068', v.member, v.role, v.status, now() - interval '20 days'
+from (values
+  ('00000000-0000-0000-0000-0000000000ce'::uuid, 'admin'::public.member_role, 'active'::public.member_status),
+  ('00000000-0000-0000-0000-0000000000cf', 'member', 'sleeping'),
+  ('00000000-0000-0000-0000-0000000000d0', 'member', 'sleeping'),
+  ('00000000-0000-0000-0000-0000000000d1', 'member', 'active')
+) as v (member, role, status);
+insert into public.feeds (pack_id, user_id, day, created_at)
+select '10000000-0000-0000-0000-000000000068', u, (select day - 10 from today), now() - interval '10 days'
+from unnest(array[
+  '00000000-0000-0000-0000-0000000000cf', '00000000-0000-0000-0000-0000000000d0', '00000000-0000-0000-0000-0000000000d1'
+]::uuid[]) u;
+
+select pg_temp.leaves('10000000-0000-0000-0000-000000000068', '00000000-0000-0000-0000-0000000000cf');
+select pg_temp.leaves('10000000-0000-0000-0000-000000000068', '00000000-0000-0000-0000-0000000000d1');
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000ce');
+set local role authenticated;
+select public.remove_member('10000000-0000-0000-0000-000000000068', '00000000-0000-0000-0000-0000000000d0');
+reset role;
+select is(
+  pg_temp.standing(
+    '10000000-0000-0000-0000-000000000068', '00000000-0000-0000-0000-0000000000cf', (select day - 1 from today)
+  ),
+  'sleeping/true/false',
+  'a member who leaves asleep after a day ended is asleep on that day'
+);
+select is(
+  pg_temp.standing(
+    '10000000-0000-0000-0000-000000000068', '00000000-0000-0000-0000-0000000000cf', (select day - 2 from today)
+  ),
+  'sleeping/true/false',
+  'and on an older day a late close hasn''t reached'
+);
+select is(
+  pg_temp.standing(
+    '10000000-0000-0000-0000-000000000068', '00000000-0000-0000-0000-0000000000cf', (select day from today)
+  ),
+  'left/true/false',
+  'the day they left doesn''t count them'
+);
+select is(
+  pg_temp.standing(
+    '10000000-0000-0000-0000-000000000068', '00000000-0000-0000-0000-0000000000d0', (select day - 1 from today)
+  ),
+  'sleeping/true/false',
+  'a member the admin removes is asleep on that day too'
+);
+select is(
+  pg_temp.standing(
+    '10000000-0000-0000-0000-000000000068', '00000000-0000-0000-0000-0000000000d1', (select day - 1 from today)
+  ),
+  'active/true/false',
+  'someone who was awake still answers for it'
+);
+
+-- Back in the pack the sleep is over, and the day that waits still leaves them out.
+select pg_temp.returns_to('DVRS3456', '00000000-0000-0000-0000-0000000000cf');
+select is(
+  pg_temp.standing(
+    '10000000-0000-0000-0000-000000000068', '00000000-0000-0000-0000-0000000000cf', (select day from today)
+  ),
+  'active/false/false',
+  'a member back from leaving asleep is awake today'
+);
+select is(
+  pg_temp.standing(
+    '10000000-0000-0000-0000-000000000068', '00000000-0000-0000-0000-0000000000cf', (select day - 1 from today)
+  ),
+  null,
+  'and isn''t charged for the day before'
 );
 
 select * from finish();
