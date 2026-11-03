@@ -287,7 +287,7 @@ The social part creates the positive pressure and the reason to open the app eve
 
 **Nudge:** next to a member who hasn't fed yet, including a member who hasn't started or is asleep, there is a button that sends them a notification: "{petName} is looking at you 👀". Limit: one nudge per day from each member to each member. You can't nudge a paused member, or a member who activated a joker or declared a rest today. A nudge into the receiver's quiet hours (section 8), or in the two minutes before they start, when it could no longer go out in time, is turned down with a message, and the day's nudge stays unused.
 
-**Weekly recap:** created at the end of every week (by the pack's week start) and saved.
+**Weekly recap:** created at the end of every week (by the pack's week start) and saved. A week that counted nobody, such as one of a pack that stood empty, is saved without a notification.
 
 - How many successful days out of the days of the week, and the change in health.
 - The most consistent member this week (on a tie, everyone at the top).
