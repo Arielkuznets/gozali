@@ -39,7 +39,7 @@ export interface MemberDay {
   restDeclaredToday: boolean;
   /** Rest days used earlier this week, declared or automatic. */
   restDaysUsedThisWeek: number;
-  /** Misses in the previous SLEEP_WINDOW_DAYS - 1 days, counted since the member last woke up. */
+  /** Misses in the previous SLEEP_WINDOW_DAYS - 1 days, counted since the member last woke up or rejoined. */
   recentMisses: number;
 }
 

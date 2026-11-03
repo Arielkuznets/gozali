@@ -1,7 +1,7 @@
 -- A member who rejoins starts again: feeds from before they left don't make them counted.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(43);
+select plan(49);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000d8', 'noa@test.local'),
@@ -578,6 +578,78 @@ select is(
   ),
   null,
   'and isn''t charged for the day before'
+);
+
+-- Misses toward sleep start over with a rejoin. Hadar and Yuval each missed the last two closed days.
+-- Hadar leaves and comes back, which counts from today. Yuval stays.
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000000d2', 'hadar@test.local'),
+  ('00000000-0000-0000-0000-0000000000d3', 'yuval@test.local'),
+  ('00000000-0000-0000-0000-0000000000d4', 'rotem@test.local');
+insert into public.packs (id, name, category, rest_days_per_week, timezone, invite_code)
+values ('10000000-0000-0000-0000-000000000078', 'Skaters', 'running', 0, 'UTC', 'SKTR3456');
+insert into public.critters (pack_id, species) values ('10000000-0000-0000-0000-000000000078', 'kit');
+insert into public.pack_members (pack_id, user_id, role, joined_at)
+select '10000000-0000-0000-0000-000000000078', u, 'member', now() - interval '20 days'
+from unnest(array[
+  '00000000-0000-0000-0000-0000000000d2', '00000000-0000-0000-0000-0000000000d3', '00000000-0000-0000-0000-0000000000d4'
+]::uuid[]) u;
+insert into public.day_results (pack_id, day, result, applied, missed_ids, health_before, health_after)
+select '10000000-0000-0000-0000-000000000078', (select day from today) - ago, 'fail', true,
+  array['00000000-0000-0000-0000-0000000000d2', '00000000-0000-0000-0000-0000000000d3',
+        '00000000-0000-0000-0000-0000000000d4']::uuid[],
+  70, 62
+from generate_series(2, 3) ago;
+create function pg_temp.misses(member uuid, pack_date date) returns int language sql as $$
+  select (m ->> 'recentMisses')::int
+  from jsonb_array_elements(public.day_close_input('10000000-0000-0000-0000-000000000078', pack_date) -> 'members') m
+  where m ->> 'userId' = member::text;
+$$;
+
+select pg_temp.leaves('10000000-0000-0000-0000-000000000078', '00000000-0000-0000-0000-0000000000d2');
+select pg_temp.returns_to('SKTR3456', '00000000-0000-0000-0000-0000000000d2');
+select is(
+  pg_temp.joined_on('10000000-0000-0000-0000-000000000078', '00000000-0000-0000-0000-0000000000d2'),
+  (select day from today),
+  'a rejoin counts from today'
+);
+select is(
+  pg_temp.misses('00000000-0000-0000-0000-0000000000d2', (select day from today)), 0,
+  'so the misses from before leaving don''t count toward sleep'
+);
+select is(
+  pg_temp.misses('00000000-0000-0000-0000-0000000000d3', (select day from today)), 2,
+  'as they do for someone who stayed'
+);
+
+-- Rotem fed yesterday, which waits for its close, and leaves and rejoins before that: she keeps her
+-- time as if she had never left, so her misses stay too.
+insert into public.feeds (pack_id, user_id, day, created_at)
+values (
+  '10000000-0000-0000-0000-000000000078', '00000000-0000-0000-0000-0000000000d4',
+  (select day - 1 from today), now() - interval '1 day'
+);
+select pg_temp.leaves('10000000-0000-0000-0000-000000000078', '00000000-0000-0000-0000-0000000000d4');
+select pg_temp.returns_to('SKTR3456', '00000000-0000-0000-0000-0000000000d4');
+select is(
+  pg_temp.joined_on('10000000-0000-0000-0000-000000000078', '00000000-0000-0000-0000-0000000000d4'),
+  (select day - 20 from today),
+  'a rejoin before the day closes keeps the time'
+);
+select is(
+  pg_temp.misses('00000000-0000-0000-0000-0000000000d4', (select day from today)), 2,
+  'and the misses'
+);
+
+-- A miss after coming back counts from the day of the rejoin on.
+insert into public.day_results (pack_id, day, result, applied, missed_ids, health_before, health_after)
+values (
+  '10000000-0000-0000-0000-000000000078', (select day from today), 'fail', true,
+  array['00000000-0000-0000-0000-0000000000d2']::uuid[], 62, 54
+);
+select is(
+  pg_temp.misses('00000000-0000-0000-0000-0000000000d2', (select day + 1 from today)), 1,
+  'a miss since coming back counts'
 );
 
 select * from finish();
