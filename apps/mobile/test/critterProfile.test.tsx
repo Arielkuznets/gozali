@@ -52,11 +52,24 @@ const SHOP = [
   { item: 'beanie', slot: 'head', price: 12 },
   { item: 'crown', slot: 'head', price: 45 },
 ];
+const AWAY = 'The pet is not here right now.';
 
 let tree: ReactTestRenderer;
 
 const pressable = (role: string, label: string) =>
   tree.root.findAll((node) => node.props.accessibilityRole === role && node.props.accessibilityLabel === label && typeof node.type === 'string');
+const texts = () => tree.root.findAll((node) => node.type === 'Text').map((node) => [node.props.children].flat().join(''));
+/** The drawing on each tile of the wardrobe, or of the shop. */
+const drawings = (tiles: 'wardrobe' | 'shop') =>
+  tree.root
+    .findAll(
+      (node) =>
+        typeof node.type === 'string' &&
+        (tiles === 'wardrobe'
+          ? node.props.accessibilityRole === 'radio'
+          : node.props.accessibilityRole === 'button' && /, [0-9]+ coins$/.test(node.props.accessibilityLabel ?? '')),
+    )
+    .map((tile) => tile.findAll((child) => child.type === 'Text')[0]?.props.children as string);
 
 async function open() {
   await act(async () => {
@@ -78,6 +91,56 @@ beforeEach(() => {
 
 afterEach(async () => {
   await act(async () => tree.unmount());
+});
+
+describe('a pet that is away', () => {
+  beforeEach(() => {
+    mockCritter = { ...mockCritter, status: 'ran_away', health: 0 };
+    mockRows.achievements = [{ key: 'hatched', unlocked_at: '2026-10-01T00:00:00Z' }];
+    mockRows.pack_items = [{ item: 'cap' }];
+  });
+
+  it('draws each item for sale on the pet, not on the note it left', async () => {
+    await open();
+
+    const shop = drawings('shop');
+    expect(shop).toHaveLength(4);
+    expect(new Set(shop).size).toBe(4);
+  });
+
+  it('draws each item of the wardrobe on the pet too', async () => {
+    await open();
+
+    // None is the same drawing in each slot of a pet that wears nothing.
+    const wardrobe = drawings('wardrobe');
+    expect(wardrobe).toHaveLength(4);
+    expect(new Set(wardrobe).size).toBe(3);
+  });
+
+  it('says why the wardrobe takes no taps', async () => {
+    await open();
+
+    expect(texts()).toContain(AWAY);
+    expect(pressable('radio', 'cap')[0]?.props.accessibilityState).toEqual({ selected: false, disabled: true });
+  });
+
+  it('has nothing to say over an empty wardrobe', async () => {
+    mockRows.achievements = [];
+    mockRows.pack_items = [];
+    await open();
+
+    expect(texts()).not.toContain(AWAY);
+  });
+});
+
+describe('a pet at home', () => {
+  it('dresses with no word about being away', async () => {
+    mockRows.achievements = [{ key: 'hatched', unlocked_at: '2026-10-01T00:00:00Z' }];
+    await open();
+
+    expect(texts()).not.toContain(AWAY);
+    expect(pressable('radio', 'scarf')[0]?.props.accessibilityState).toEqual({ selected: false, disabled: false });
+  });
 });
 
 describe('the wardrobe', () => {

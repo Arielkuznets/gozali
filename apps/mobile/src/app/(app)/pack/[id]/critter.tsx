@@ -1,4 +1,4 @@
-import type { BackgroundItem, HeadItem, NeckItem, Outfit } from '@gozali/critter-art';
+import type { BackgroundItem, CritterArt, HeadItem, NeckItem, Outfit } from '@gozali/critter-art';
 import { ACHIEVEMENTS, packDayOf, type WardrobeSlot } from '@gozali/game-engine';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -61,6 +61,9 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
   const canDress = critter.status === 'active';
   // An egg earns no coins and wears nothing, so its wardrobe and shop wait for the hatching.
   const hatched = critter.status !== 'egg';
+  // A tile shows its item on the pet. The note a pet that ran away left can't wear one, so the
+  // tiles draw it as it is at home.
+  const tileArt: CritterArt = { ...art, look: art.look === 'ran_away' ? 'happy' : art.look, sleeping: false, mood: 0 };
 
   const wear = (slot: WardrobeSlot, item: string | null) => {
     haptics.tap();
@@ -185,6 +188,7 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
                 <Coins text={t('profile.coins', { count: critter.coins })} />
               </View>
               {!ownsSomething && <AppText style={styles.muted}>{t('profile.wardrobeEmpty')}</AppText>}
+              {ownsSomething && !canDress && <AppText style={styles.muted}>{t('social.errors.critter_not_here')}</AppText>}
               {SLOTS.map((slot) => {
                 const items = owned(slot);
                 if (items.length === 0) return null;
@@ -204,7 +208,7 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
                             disabled={!canDress || worn}
                             onPress={() => wear(slot, item)}
                             style={[styles.item, worn && styles.itemWorn]}>
-                            <Critter art={{ ...art, outfit: preview, sleeping: false, mood: 0 }} size={64} label="" animated={false} />
+                            <Critter art={{ ...tileArt, outfit: preview }} size={64} label="" animated={false} />
                             <AppText variant="caption" numberOfLines={1}>
                               {item ? itemName(item) : t('profile.none')}
                             </AppText>
@@ -237,7 +241,7 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
                       onPress={() => offer(entry)}
                       style={[styles.item, styles.shopItem, !affordable && styles.unaffordable]}>
                       {/* The drawing shows the item; its name is read out and asked about on buying. */}
-                      <Critter art={{ ...art, outfit: preview, sleeping: false, mood: 0 }} size={72} label="" animated={false} />
+                      <Critter art={{ ...tileArt, outfit: preview }} size={72} label="" animated={false} />
                       <Coins text={t('profile.price', { price: entry.price })} style={styles.price} />
                     </Pressable>
                   );

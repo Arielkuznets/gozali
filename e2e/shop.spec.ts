@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator } from '@playwright/test';
 
 import { admin, createPack, createUser, removeUsers, signIn, type TestUser } from './support';
 
@@ -63,6 +63,23 @@ test('an item bought before its achievement is in the wardrobe once, and the fee
 
   await page.goto(`/pack/${pack.id}`);
   await expect(page.getByText('🏆 Kit unlocked One week strong', { exact: true })).toBeVisible();
+});
+
+test('a pet that ran away still shows what each tile offers, and says why the wardrobe waits', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
+  await admin.from('critters').update({ status: 'ran_away', stage: 'kid', xp: 8, health: 0, coins: 20 }).eq('pack_id', pack.id);
+  const unlocked = await admin.from('achievements').insert({ pack_id: pack.id, key: 'hatched' });
+  if (unlocked.error) throw unlocked.error;
+
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}/critter`);
+
+  // Each drawing names its parts with ids of its own, which say nothing of what it shows.
+  const drawing = async (tile: Locator) => (await tile.locator('svg').first().evaluate((svg) => svg.outerHTML)).replace(/gz[a-zA-Z0-9]+/g, 'ID');
+  const bow = await drawing(page.getByRole('button', { name: 'bow, 10 coins' }));
+  expect(bow).not.toBe(await drawing(page.getByRole('button', { name: 'crown, 45 coins' })));
+  expect(await drawing(page.getByRole('radio', { name: 'scarf' }))).not.toBe(await drawing(page.getByRole('radio', { name: 'None' }).last()));
+  await expect(page.getByText('The pet is not here right now.', { exact: true })).toBeVisible();
 });
 
 test('an egg has no wardrobe or shop until it hatches', async ({ page }) => {
