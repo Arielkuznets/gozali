@@ -112,17 +112,21 @@ function as(person, sql) {
   return `set local role authenticated; select set_config('request.jwt.claims', '${claims}', true); ${sql}; reset role;`;
 }
 
-/** A pack with this many members who joined one after another, the first its admin. */
-async function packOf(size) {
-  const people = [];
-  for (let n = 1; n <= size; n++) people.push(await signedInUser(`Member${n}`));
-  const made = await people[0].client.rpc('create_pack', {
+function createPack(person) {
+  return person.client.rpc('create_pack', {
     pack_name: 'Together',
     habit: 'gym',
     rest_days: 1,
     species: 'kit',
     time_zone: 'Asia/Jerusalem',
   });
+}
+
+/** A pack with this many members who joined one after another, the first its admin. */
+async function packOf(size) {
+  const people = [];
+  for (let n = 1; n <= size; n++) people.push(await signedInUser(`Member${n}`));
+  const made = await createPack(people[0]);
   if (made.error) throw made.error;
   packs.push(made.data);
   const { data } = await people[0].client.from('packs').select('invite_code').eq('id', made.data).single();
@@ -137,6 +141,15 @@ async function packOf(size) {
 async function isOnlyAdmin(pack, person) {
   const { data } = await admin.from('pack_members').select('user_id, status').eq('pack_id', pack).eq('role', 'admin');
   return data.length === 1 && data[0].user_id === person.id && data[0].status !== 'left';
+}
+
+async function packCount(person) {
+  const { count } = await admin
+    .from('pack_members')
+    .select('pack_id', { count: 'exact', head: true })
+    .eq('user_id', person.id)
+    .neq('status', 'left');
+  return count;
 }
 
 try {
@@ -256,6 +269,36 @@ try {
       second.client.rpc('join_pack', { code }),
     );
     check(back.data === target && (await isOnlyAdmin(target, second)), 'someone back as the last member is deleted becomes the admin');
+  }
+
+  // One account at the same moment, from hand-made calls or two phones.
+  {
+    const solo = await signedInUser('Solo');
+    const made = await Promise.all(Array.from({ length: 6 }, () => createPack(solo)));
+    packs.push(...made.flatMap((one) => one.data ?? []));
+    check((await packCount(solo)) === 3, 'six packs created at once stop at the limit of three');
+    check(made.filter((one) => one.error?.message.includes('pack_limit_reached')).length === 3, 'and the other three hear why');
+  }
+
+  {
+    const joiner = await signedInUser('Joiner');
+    const hosts = [];
+    for (let n = 0; n < 5; n++) hosts.push(await packOf(1));
+    const [made] = await Promise.all([
+      createPack(joiner),
+      ...hosts.map(({ code }) => joiner.client.rpc('join_pack', { code })),
+    ]);
+    if (made.data) packs.push(made.data);
+    check((await packCount(joiner)) === 3, 'five joins and a new pack at once stop there too');
+  }
+
+  // Each person waits only for their own calls, so a pack still fills up at once.
+  {
+    const { pack: target, code } = await packOf(1);
+    const friends = [];
+    for (let n = 0; n < 6; n++) friends.push(await signedInUser('Friend'));
+    const joins = await Promise.all(friends.map((friend) => friend.client.rpc('join_pack', { code })));
+    check(joins.every((join) => join.data === target), 'six people joining one pack at once all get in');
   }
 
   console.log('all good');
