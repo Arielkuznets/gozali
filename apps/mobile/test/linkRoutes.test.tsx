@@ -8,16 +8,17 @@ import { useEffect } from 'react';
 import { ActivityIndicator, Text } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
+import AppStack from '@/app/(app)/_layout';
 import NotFound from '@/app/+not-found';
 import AuthCallback from '@/app/auth/callback';
 import DevLoginRoute from '@/app/dev-login';
 import InviteLinkScreen from '@/app/i/[code]';
 import { savePendingInvite, takePendingInvite } from '@/features/packs/invites';
 import { isProfileComplete, useProfile, type Profile } from '@/features/profile/useProfile';
-import { useNotificationRoutes } from '@/lib/notifications';
 
-// The real router and the real link routes, under guards like the root layout's. A link reaches
-// the router the way it does on a phone: through the listener on expo-linking.
+// The real router, the app's own stack and the real link routes, under guards like the root
+// layout's. A link reaches the router the way it does on a phone: through the listener on
+// expo-linking.
 let mockLinkListener: ((event: { url: string }) => void) | null = null;
 jest.mock('expo-linking', () => ({
   ...jest.requireActual('expo-linking'),
@@ -41,6 +42,13 @@ jest.mock('expo-notifications', () => ({
   },
 }));
 jest.mock('@/lib/push', () => ({}));
+jest.mock('@/components/OfflineBanner', () => ({ OfflineBanner: () => null }));
+jest.mock('@/features/feeds/api', () => ({ useFeedQueue: () => undefined }));
+jest.mock('@/features/profile/useProfile', () => ({
+  ...jest.requireActual('@/features/profile/useProfile'),
+  useAccountSync: () => undefined,
+}));
+jest.mock('@/features/widgets/sync', () => ({ useWidgetSync: () => undefined }));
 let mockSession: { user: { id: string } } | null = null;
 jest.mock('@/features/auth/AuthProvider', () => ({ useAuth: () => ({ session: mockSession, loading: false }) }));
 let mockAnswerProfile: ((answer: { data: unknown; error: null }) => void) | null = null;
@@ -99,14 +107,13 @@ function Opens({ name }: { name: string }) {
 let appLayouts = 0;
 
 function AppLayout() {
-  useNotificationRoutes();
   useEffect(() => {
     appLayouts += 1;
     return () => {
       appLayouts -= 1;
     };
   }, []);
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return <AppStack />;
 }
 
 function Join() {
@@ -120,6 +127,8 @@ const routes = {
   '(app)/index': { default: () => <Opens name="home" /> },
   '(app)/join': { default: Join },
   '(app)/pack/[id]/index': { default: () => <Opens name="pack" /> },
+  '(app)/pack/[id]/feed': { default: () => <Opens name="camera" /> },
+  '(app)/pack/[id]/not-today': { default: () => <Opens name="not today" /> },
   'profile-setup': { default: () => <Opens name="setup" /> },
   welcome: { default: () => <Opens name="welcome" /> },
   'dev-login': { default: DevLoginRoute },
