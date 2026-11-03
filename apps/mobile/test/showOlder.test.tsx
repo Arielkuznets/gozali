@@ -4,11 +4,12 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import '@/i18n';
 import PackScreen from '@/app/(app)/pack/[id]/index';
+import { packFeedsKey, type FeedItem } from '@/features/feeds/api';
 
 // The real pack screen, feed list, hooks and QueryClient over a stand-in for the server that takes
 // its time, because what counts here is what stays on screen while it does.
 const mockScreen = { id: 'a', olderFails: false };
-const mockLists: { photos: number; events: number; first: string; posters: string[] }[] = [];
+const mockLists: { photos: number; events: number; first: string; posters: string[]; eventIds: string[] }[] = [];
 const mockMounts = { unmounts: 0 };
 const mockReacted = new Map<string, string>();
 const mockBlocked = new Set<string>();
@@ -89,12 +90,13 @@ jest.mock('@/features/feeds/FeedList', () => {
   const actual = jest.requireActual('@/features/feeds/FeedList');
   const { useEffect } = jest.requireActual('react');
   return {
-    FeedList: (props: { feeds: { id: string; user_id: string }[]; events: unknown[] }) => {
+    FeedList: (props: { feeds: { id: string; user_id: string }[]; events: { id: string }[] }) => {
       mockLists.push({
         photos: props.feeds.length,
         events: props.events.length,
         first: props.feeds[0]?.id ?? '',
         posters: [...new Set(props.feeds.map((feed) => feed.user_id))],
+        eventIds: props.events.map((event) => event.id),
       });
       useEffect(
         () => () => {
@@ -155,7 +157,7 @@ function mockRead(table: string) {
               created_at: mockAt(index * 6),
             })).filter((row) => !mockBlocked.has(row.user_id))
           : table === 'pack_events'
-            ? Array.from({ length: 50 }, (_, index) => ({ id: `e${index}`, kind: 'joined', actor_id: 'dan', payload: {}, created_at: mockAt(1 + index * 120) }))
+            ? Array.from({ length: 50 }, (_, index) => ({ id: `${pack}-e${index}`, kind: 'joined', actor_id: 'dan', payload: {}, created_at: mockAt(1 + index * 120) }))
             : [];
       return mockAnswer(rows.slice(0, limit)).then(done, failed);
     },
@@ -366,5 +368,21 @@ describe('Show older', () => {
 
     await advance(3000);
     expect(new Set(mockLists.map((list) => list.first))).toEqual(new Set(['b0']));
+  });
+
+  it("never lists one pack's events under another when a link opens a pack whose photos it holds", async () => {
+    const held = { id: 'b0', user_id: 'dan', created_at: mockAt(0), reactions: [] } as unknown as FeedItem;
+    client.setQueryData([...packFeedsKey, 'b', 30], [held]);
+    await open();
+    mockLists.length = 0;
+
+    mockScreen.id = 'b';
+    await act(async () => tree.update(screen()));
+    await advance(50);
+    expect(mockLists.at(-1)?.first).toBe('b0');
+    expect(mockLists.flatMap((list) => list.eventIds)).toEqual([]);
+
+    await advance(3000);
+    expect(mockLists.at(-1)?.eventIds[0]).toBe('b-e0');
   });
 });
