@@ -271,6 +271,24 @@ try {
     check(back.data === target && (await isOnlyAdmin(target, second)), 'someone back as the last member is deleted becomes the admin');
   }
 
+  // The next in line's account goes from the dashboard just as the admin leaves.
+  {
+    const { pack: target, people: [first, second, third] } = await packOf(3);
+    const out = await whileOpen(`delete from auth.users where id = '${second.id}';`, () =>
+      first.client.rpc('leave_pack', { target }),
+    );
+    check(!out.error && (await isOnlyAdmin(target, third)), 'the role goes past a next in line deleted as the admin leaves');
+  }
+
+  // Two accounts go from the dashboard at once, the admin's and the next in line's.
+  {
+    const { pack: target, people: [first, second, third] } = await packOf(3);
+    const gone = await whileOpen(`delete from auth.users where id = '${second.id}';`, () =>
+      admin.auth.admin.deleteUser(first.id),
+    );
+    check(!gone.error && (await isOnlyAdmin(target, third)), 'the role goes past a next in line deleted with the admin');
+  }
+
   // One account at the same moment, from hand-made calls or two phones.
   {
     const solo = await signedInUser('Solo');
