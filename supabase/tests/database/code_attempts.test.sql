@@ -1,7 +1,7 @@
 -- Guessing invite codes: misses are counted, and 20 in an hour stop the answers for that hour.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(7);
+select plan(9);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000aa', 'noa@test.local'),
@@ -9,6 +9,18 @@ insert into auth.users (id, email) values
 
 create function pg_temp.act_as(member uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', member, 'role', 'authenticated')::text, true);
+$$;
+-- What a read-only transaction, which is how the API runs a GET or a HEAD, gets from a preview.
+create function pg_temp.read_only_preview(code text) returns text language plpgsql as $$
+declare
+  shown bigint;
+begin
+  set local transaction_read_only = on;
+  select count(*) into shown from public.pack_preview(code);
+  raise exception 'shown %', shown;
+exception when others then
+  return sqlstate || ' ' || sqlerrm;
+end;
 $$;
 
 set local role authenticated;
@@ -21,6 +33,11 @@ select pg_temp.act_as('00000000-0000-0000-0000-0000000000bb');
 select is((select count(*) from public.pack_preview('ZZZZZZZZ')), 0::bigint, 'a wrong code shows no pack');
 select is(public.join_pack('ZZZZZZZY'), null, 'joining with a wrong code returns nothing, not an error');
 select is((select count(*) from public.pack_preview((select invite_code from code))), 1::bigint, 'the right code shows the pack');
+select is(
+  pg_temp.read_only_preview((select invite_code from code)), '25006 read_only',
+  'a read-only transaction, which can''t write a miss down, gets no answer for the right code'
+);
+select is(pg_temp.read_only_preview('ZZZZZZZX'), '25006 read_only', 'and the same one for a wrong code');
 
 reset role;
 select is(

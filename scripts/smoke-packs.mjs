@@ -33,7 +33,7 @@ async function signedInUser(name) {
     .update({ display_name: name, terms_accepted_at: new Date().toISOString() })
     .eq('id', created.data.user.id);
   if (profile.error) throw profile.error;
-  return { client, id: created.data.user.id };
+  return { client, id: created.data.user.id, token: signIn.data.session.access_token };
 }
 
 function check(condition, message) {
@@ -66,6 +66,13 @@ check(
   preview.data[0].critter.species === 'kit' && preview.data[0].member_names.join() === 'Noa',
   'the preview shows the critter and who is in the pack',
 );
+
+// A GET or HEAD runs in a read-only transaction, where a wrong code can't be counted as a miss.
+const headers = { apikey: publishableKey, Authorization: `Bearer ${dan.token}` };
+for (const method of ['GET', 'HEAD']) {
+  const answer = await fetch(`${url}/rest/v1/rpc/pack_preview?code=${pack.invite_code}`, { method, headers });
+  check(answer.status === 405, `a ${method} gets no preview, even with the right code`);
+}
 
 const joined = await dan.client.rpc('join_pack', { code: pack.invite_code });
 check(joined.data === packId, 'Dan joins the pack');
