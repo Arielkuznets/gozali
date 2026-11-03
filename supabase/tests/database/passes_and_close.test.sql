@@ -1,7 +1,7 @@
 -- Rest days, jokers, pauses, and the guards of apply_day_result.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(50);
+select plan(51);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a3', 'noa@test.local'),
@@ -279,8 +279,8 @@ select is(
   'the feed line about the joker with it'
 );
 
--- A pause wakes a sleeper on its first day. Until then they are asleep as before, so the same day
--- that doesn't count them can still be undone. Today is the first day of this pack.
+-- A pause wakes a sleeper on its first day. Until then they are asleep as before, so a pause
+-- cancelled in time changes nothing. Today is the first day of this pack.
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000001a3', 'mia@test.local'),
   ('00000000-0000-0000-0000-0000000001b3', 'lev@test.local'),
@@ -319,6 +319,12 @@ select is(
    where m ->> 'userId' = '00000000-0000-0000-0000-0000000001a3'),
   'sleeping',
   'so the day still leaves them out'
+);
+select ok(
+  not public.counted_on(
+    '10000000-0000-0000-0000-000000000103', '00000000-0000-0000-0000-0000000001a3', public.pack_day('UTC')
+  ),
+  'and reminders and "last one" pass them by'
 );
 set local role authenticated;
 select pg_temp.act_as('00000000-0000-0000-0000-0000000001a3');
