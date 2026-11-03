@@ -1,7 +1,7 @@
 -- Rest days, jokers, pauses, and the guards of apply_day_result.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(40);
+select plan(50);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a3', 'noa@test.local'),
@@ -278,6 +278,99 @@ select is(
   (select count(*) from public.pack_events where pack_id = (select id from started) and kind = 'joker'), 0::bigint,
   'the feed line about the joker with it'
 );
+
+-- A pause wakes a sleeper on its first day. Until then they are asleep as before, so the same day
+-- that doesn't count them can still be undone. Today is the first day of this pack.
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000001a3', 'mia@test.local'),
+  ('00000000-0000-0000-0000-0000000001b3', 'lev@test.local'),
+  ('00000000-0000-0000-0000-0000000001c3', 'yoni@test.local'),
+  ('00000000-0000-0000-0000-0000000001d3', 'shir@test.local'),
+  ('00000000-0000-0000-0000-0000000001e3', 'omer@test.local');
+insert into public.packs (id, name, category, rest_days_per_week, timezone, invite_code)
+values ('10000000-0000-0000-0000-000000000103', 'Sleepers', 'running', 0, 'UTC', 'SLPR3456');
+insert into public.critters (pack_id, species) values ('10000000-0000-0000-0000-000000000103', 'kit');
+insert into public.pack_members (pack_id, user_id, role, status)
+select '10000000-0000-0000-0000-000000000103', v.member, v.role, v.status
+from (values
+  ('00000000-0000-0000-0000-0000000001b3'::uuid, 'admin'::public.member_role, 'active'::public.member_status),
+  ('00000000-0000-0000-0000-0000000001a3', 'member', 'sleeping'),
+  ('00000000-0000-0000-0000-0000000001c3', 'member', 'sleeping'),
+  ('00000000-0000-0000-0000-0000000001d3', 'member', 'sleeping'),
+  ('00000000-0000-0000-0000-0000000001e3', 'member', 'sleeping')
+) as v (member, role, status);
+insert into storage.objects (bucket_id, name)
+values ('feed-photos', '10000000-0000-0000-0000-000000000103/00000000-0000-0000-0000-0000000001c3/1.jpg');
+create function pg_temp.standing(member uuid) returns text language sql as $$
+  select status || coalesce(' ' || (awake_since - public.pack_day('UTC')), '')
+  from public.pack_members where pack_id = '10000000-0000-0000-0000-000000000103' and user_id = member;
+$$;
+
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000001a3');
+select public.start_pause('10000000-0000-0000-0000-000000000103', 3);
+reset role;
+select is(pg_temp.standing('00000000-0000-0000-0000-0000000001a3'), 'sleeping', 'a sleeper who turns on a pause sleeps on');
+select is(
+  (select m ->> 'membership'
+   from jsonb_array_elements(
+     public.day_close_input('10000000-0000-0000-0000-000000000103', public.pack_day('UTC')) -> 'members'
+   ) m
+   where m ->> 'userId' = '00000000-0000-0000-0000-0000000001a3'),
+  'sleeping',
+  'so the day still leaves them out'
+);
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000001a3');
+select public.end_pause('10000000-0000-0000-0000-000000000103');
+reset role;
+select is(pg_temp.standing('00000000-0000-0000-0000-0000000001a3'), 'sleeping', 'cancelled before it starts, it leaves them asleep');
+
+-- A feed in between wakes Yoni as any feed does, and the cancelled pause doesn't undo that.
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000001c3');
+select public.start_pause('10000000-0000-0000-0000-000000000103', 3);
+select public.submit_feed(
+  '10000000-0000-0000-0000-000000000103',
+  '10000000-0000-0000-0000-000000000103/00000000-0000-0000-0000-0000000001c3/1.jpg'
+);
+select public.end_pause('10000000-0000-0000-0000-000000000103');
+reset role;
+select is(pg_temp.standing('00000000-0000-0000-0000-0000000001c3'), 'active 0', 'a feed before the cancel wakes them for good');
+
+-- Mia turns it on again and stays with it, and so does Shir, who then leaves the pack.
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000001a3');
+select public.start_pause('10000000-0000-0000-0000-000000000103', 3);
+select pg_temp.act_as('00000000-0000-0000-0000-0000000001d3');
+select public.start_pause('10000000-0000-0000-0000-000000000103', 7);
+select public.leave_pack('10000000-0000-0000-0000-000000000103');
+reset role;
+select is(
+  public.apply_day_result(
+    '10000000-0000-0000-0000-000000000103', public.pack_day('UTC'), (select body from outcome)
+  ),
+  true,
+  'the day before the pause closes'
+);
+select is(pg_temp.standing('00000000-0000-0000-0000-0000000001a3'), 'active 1', 'and the pause wakes them from its first day');
+select is(pg_temp.standing('00000000-0000-0000-0000-0000000001e3'), 'sleeping', 'nobody without a pause wakes');
+select is(pg_temp.standing('00000000-0000-0000-0000-0000000001d3'), 'left 0', 'and nobody who left comes back');
+
+-- Omer's pause starts the day after next, so that close wakes him and this one doesn't.
+insert into public.pauses (pack_id, user_id, starts_on, ends_on)
+values (
+  '10000000-0000-0000-0000-000000000103', '00000000-0000-0000-0000-0000000001e3',
+  public.pack_day('UTC') + 3, public.pack_day('UTC') + 5
+);
+select public.apply_day_result(
+  '10000000-0000-0000-0000-000000000103', public.pack_day('UTC') + 1, (select body from outcome)
+);
+select is(pg_temp.standing('00000000-0000-0000-0000-0000000001e3'), 'sleeping', 'a pause further off wakes nobody yet');
+select public.apply_day_result(
+  '10000000-0000-0000-0000-000000000103', public.pack_day('UTC') + 2, (select body from outcome)
+);
+select is(pg_temp.standing('00000000-0000-0000-0000-0000000001e3'), 'active 3', 'until the close of the day before it');
 
 select * from finish();
 rollback;
