@@ -47,6 +47,7 @@ export default function NotTodayScreen() {
             <ActivityIndicator color={colors.accent} />
           </View>
         )}
+        <Button label={t('days.close')} variant="secondary" onPress={() => goBack(`/pack/${id}`)} />
       </Screen>
     );
   }

@@ -105,6 +105,22 @@ describe('End pause tapped twice before the button can turn off', () => {
 });
 
 describe('Not today', () => {
+  it('offers a way out while it loads and once it failed', async () => {
+    mockRpc.mockImplementation(() => later({ data: null, error: new TypeError('Network request failed') }));
+
+    await open();
+    expect(buttons('Use')).toHaveLength(0);
+    expect(buttons('Close')).toHaveLength(1);
+
+    // Past the retries.
+    await advance(10_000);
+    expect(buttons('Try again')).toHaveLength(1);
+    expect(buttons('Close')).toHaveLength(1);
+
+    await act(async () => buttons('Close')[0]!.props.onPress());
+    expect(mockGoBack).toHaveBeenCalledWith('/pack/pack');
+  });
+
   it('shows a spinner on the Use that was tapped until the screen closes', async () => {
     await open();
     await act(async () => buttons('Use')[1]!.props.onPress());
