@@ -14,6 +14,8 @@ import { colors, fonts, radii, spacing } from '@/theme/tokens';
 type Props = {
   feeds: FeedItem[];
   events: PackEvent[];
+  /** The items the pack bought, once read. */
+  bought?: Set<string>;
   names: Map<string, string | null>;
   critterName: string;
   emoji: string;
@@ -31,7 +33,7 @@ type Props = {
  * reactions and a menu to report the photo or block the member who posted it. A tap on a photo
  * opens it on the whole screen.
  */
-export function FeedList({ feeds, events, names, critterName, emoji, today, someoneFed, userId, onReact, onMore }: Props) {
+export function FeedList({ feeds, events, bought, names, critterName, emoji, today, someoneFed, userId, onReact, onMore }: Props) {
   const { t } = useTranslation();
   const [open, setOpen] = useState<ViewedPhoto | null>(null);
   const entries = [
@@ -52,7 +54,7 @@ export function FeedList({ feeds, events, names, critterName, emoji, today, some
       {entries.map((entry) =>
         entry.kind === 'event' ? (
           <AppText key={entry.event.id} variant="caption" style={styles.event}>
-            {eventText(entry.event, t, nameOf, critterName)}
+            {eventText(entry.event, t, nameOf, critterName, bought)}
           </AppText>
         ) : (
           <PhotoCard
@@ -75,7 +77,7 @@ export function FeedList({ feeds, events, names, critterName, emoji, today, some
 
 type Translate = ReturnType<typeof useTranslation>['t'];
 
-function eventText(event: PackEvent, t: Translate, nameOf: (id: string | null) => string, critter: string): string {
+function eventText(event: PackEvent, t: Translate, nameOf: (id: string | null) => string, critter: string, bought: Set<string> | undefined): string {
   const name = nameOf(event.actor_id);
   switch (event.kind) {
     case 'joined':
@@ -91,11 +93,10 @@ function eventText(event: PackEvent, t: Translate, nameOf: (id: string | null) =
     case 'achievement': {
       const key = event.payload.key as AchievementKey;
       const item = ACHIEVEMENTS.find((achievement) => achievement.key === key)?.item.key ?? 'scarf';
-      return t('events.achievement', {
-        critter,
-        title: t(`achievements.${key}.title`),
-        item: t(`items.${item as 'scarf'}`),
-      });
+      const title = t(`achievements.${key}.title`);
+      // The shop doesn't sell what the pack owns, so a bought item was there before the achievement.
+      if (bought?.has(item) !== false) return t('events.achievementOwned', { critter, title });
+      return t('events.achievement', { critter, title, item: t(`items.${item as 'scarf'}`) });
     }
     case 'joker':
       return t('events.joker', { name });

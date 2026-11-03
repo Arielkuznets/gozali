@@ -31,7 +31,7 @@ import { countedToday, currentMembers, restDaysOn, usePack, type Pack, type Pack
 import { FOCUS_CATEGORIES, PACK_SIZE_MAX, categoryInfo } from '@/features/packs/constants';
 import { usePackRealtime } from '@/features/packs/realtime';
 import { NameMeCard } from '@/features/social/NameMeCard';
-import { socialErrorKey, useBlockedIds, useNudge, usePackEvents, useReact, type ReactionKey } from '@/features/social/api';
+import { socialErrorKey, useBlockedIds, useNudge, usePackEvents, usePackItems, useReact, type ReactionKey } from '@/features/social/api';
 import { useModeration } from '@/features/social/moderation';
 import { confirm, notify } from '@/lib/confirm';
 import { formatDay, readableZone } from '@/lib/dates';
@@ -58,6 +58,7 @@ export default function PackScreen() {
   const membersToday = useMembersToday(pack ?? undefined, now, pack?.critters?.status === 'egg');
   const dayStatus = useDayStatus(id);
   const events = usePackEvents(id, feedLimit);
+  const bought = usePackItems(id);
   const avatars = useAvatarUrls(pack?.pack_members.map((member) => member.profiles?.avatar_path) ?? []);
   const blocked = useBlockedIds(session?.user.id);
   const { mutate: sendReaction } = useReact();
@@ -254,6 +255,7 @@ export default function PackScreen() {
           <FeedList
             feeds={feed.data}
             events={shownEvents}
+            bought={bought.data}
             names={names}
             critterName={critterName}
             emoji={categoryInfo(pack.category).emoji}

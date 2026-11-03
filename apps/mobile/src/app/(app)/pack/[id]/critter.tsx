@@ -67,10 +67,13 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
     dress.mutate({ slot, item }, { onError: (error) => notify(t(socialErrorKey(error))) });
   };
 
-  // The wardrobe: what achievements unlocked, then what the pack bought, per slot.
+  // The wardrobe: what achievements unlocked, then what the pack bought, per slot. An item bought
+  // before its achievement came both ways and is there once.
   const owned = (slot: WardrobeSlot) => [
-    ...ACHIEVEMENTS.filter((a) => a.item.slot === slot && unlocked.has(a.key)).map((a) => a.item.key),
-    ...(shop.data ?? []).filter((s) => s.slot === slot && bought.data?.has(s.item)).map((s) => s.item),
+    ...new Set([
+      ...ACHIEVEMENTS.filter((a) => a.item.slot === slot && unlocked.has(a.key)).map((a) => a.item.key),
+      ...(shop.data ?? []).filter((s) => s.slot === slot && bought.data?.has(s.item)).map((s) => s.item),
+    ]),
   ];
   const ownsSomething = SLOTS.some((slot) => owned(slot).length > 0);
   const forSale = (shop.data ?? []).filter((s) => !owned(s.slot).includes(s.item));

@@ -44,6 +44,27 @@ test('the pack buys a cap with its coins and wears it', async ({ page }) => {
   expect(events).toEqual([expect.objectContaining({ actor_id: noa.id, payload: expect.objectContaining({ item: 'cap', price: 12 }) })]);
 });
 
+test('an item bought before its achievement is in the wardrobe once, and the feed calls nothing new', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
+  await admin.from('critters').update({ status: 'active', stage: 'kid', xp: 8, health: 80, coins: 20 }).eq('pack_id', pack.id);
+  page.on('dialog', (dialog) => void dialog.accept());
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}/critter`);
+  await page.getByRole('button', { name: 'beanie, 12 coins' }).click();
+  await expect(page.getByText('8 coins', { exact: true })).toBeVisible();
+
+  // A week of good days later, the 7-day streak brings the same beanie, and the feed hears of it.
+  const unlocked = await admin.from('achievements').insert({ pack_id: pack.id, key: 'streak_7' });
+  if (unlocked.error) throw unlocked.error;
+
+  await page.reload();
+  await expect(page.getByRole('radio', { name: 'None' }).first()).toBeVisible();
+  await expect(page.getByRole('radio', { name: 'beanie' })).toHaveCount(1);
+
+  await page.goto(`/pack/${pack.id}`);
+  await expect(page.getByText('🏆 Kit unlocked One week strong', { exact: true })).toBeVisible();
+});
+
 test('an egg has no wardrobe or shop until it hatches', async ({ page }) => {
   const pack = await createPack(noa, { name: 'Solo', habit: 'yoga', species: 'kit' });
 

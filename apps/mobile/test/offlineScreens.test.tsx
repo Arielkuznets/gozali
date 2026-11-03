@@ -94,6 +94,7 @@ jest.mock('@/features/social/api', () => ({
   useBlockedIds: () => ({ data: new Set() }),
   useNudge: () => ({ mutate: () => undefined }),
   usePackEvents: () => ({ data: [] }),
+  usePackItems: () => ({ data: undefined }),
   useReact: () => ({ mutate: () => undefined }),
 }));
 jest.mock('@/features/social/moderation', () => ({ useModeration: () => ({ memberActions: () => [], photoMenu: () => null }) }));
