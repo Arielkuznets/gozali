@@ -1,8 +1,10 @@
 import type { AchievementKey } from '@gozali/game-engine';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
 import { countedFeedsKey, feedsKey, packFeedsKey, refreshReactions, type FeedItem } from '@/features/feeds/api';
 import { packsKey } from '@/features/packs/api';
+import { notify } from '@/lib/confirm';
 import { shiftMonth } from '@/lib/dates';
 import { isBlockedText } from '@/lib/errors';
 import { withMyReaction } from '@/features/social/reactions';
@@ -267,6 +269,19 @@ export function useMyStats() {
   });
 }
 
+/**
+ * What a report or a block tells the person who sent it. Said here, not at the tap: callbacks of the
+ * tap don't run for a screen that closed meanwhile, and someone who left it counting on a block has
+ * to hear that it didn't save.
+ */
+function useAnswers(saved: 'social.reported' | 'social.blockedLeave') {
+  const { t } = useTranslation();
+  return {
+    onSuccess: () => notify(t(saved)),
+    onError: (error: unknown) => notify(t(socialErrorKey(error))),
+  };
+}
+
 export function useReport() {
   return useMutation({
     mutationFn: async ({ feedId, reporterId, reason }: { feedId: string; reporterId: string; reason: string | null }) => {
@@ -275,6 +290,7 @@ export function useReport() {
         .upsert({ feed_id: feedId, reporter_id: reporterId, reason }, { onConflict: 'feed_id,reporter_id', ignoreDuplicates: true });
       if (error) throw error;
     },
+    ...useAnswers('social.reported'),
   });
 }
 
@@ -287,6 +303,7 @@ export function useReportMember() {
         .upsert({ member_id: memberId, reporter_id: reporterId }, { onConflict: 'member_id,reporter_id', ignoreDuplicates: true });
       if (error) throw error;
     },
+    ...useAnswers('social.reported'),
   });
 }
 
@@ -299,6 +316,7 @@ export function useBlock() {
         .upsert({ blocker_id: blockerId, blocked_id: blockedId }, { ignoreDuplicates: true });
       if (error) throw error;
     },
+    ...useAnswers('social.blockedLeave'),
     // Not returned: the answer to the person who blocked shouldn't wait for the refetches. An
     // invalidation joins a read that has no data yet, like a longer page on its way, and that read
     // went out before the block, so it goes first and the reload starts it again.

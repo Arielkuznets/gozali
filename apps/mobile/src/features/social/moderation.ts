@@ -2,13 +2,13 @@ import { useTranslation } from 'react-i18next';
 
 import type { Menu, MenuAction } from '@/components/ActionMenu';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { socialErrorKey, useBlock, useReport, useReportMember } from '@/features/social/api';
-import { confirm, notify } from '@/lib/confirm';
+import { useBlock, useReport, useReportMember } from '@/features/social/api';
+import { confirm } from '@/lib/confirm';
 
 /**
- * Reporting and blocking, asked and answered the same wherever a photo or a member is shown.
- * `onBlocked` runs once a block is saved, for a screen still showing what the block just hid, and
- * `blocking` holds until the answer comes.
+ * Reporting and blocking, asked the same wherever a photo or a member is shown; their hooks give
+ * the answer. `onBlocked` runs once a block is saved, for a screen still showing what the block just
+ * hid, and `blocking` holds until the answer comes.
  */
 export function useModeration(onBlocked?: () => void) {
   const { t } = useTranslation();
@@ -19,7 +19,6 @@ export function useModeration(onBlocked?: () => void) {
   const { mutate: sendMemberReport } = useReportMember();
   const { mutate: sendBlock, isPending: blocking } = useBlock();
   const userId = session?.user.id;
-  const fail = (error: unknown) => notify(t(socialErrorKey(error)));
 
   const reportFeed = (feedId: string, title: string, action: string) => {
     if (!userId) return;
@@ -29,11 +28,7 @@ export function useModeration(onBlocked?: () => void) {
       confirm: action,
       cancel: t('social.cancel'),
       destructive: true,
-      onConfirm: () =>
-        sendReport(
-          { feedId, reporterId: userId, reason: null },
-          { onSuccess: () => notify(t('social.reported')), onError: fail },
-        ),
+      onConfirm: () => sendReport({ feedId, reporterId: userId, reason: null }),
     });
   };
 
@@ -45,11 +40,7 @@ export function useModeration(onBlocked?: () => void) {
       confirm: t('social.reportMember', { name }),
       cancel: t('social.cancel'),
       destructive: true,
-      onConfirm: () =>
-        sendMemberReport(
-          { memberId, reporterId: userId },
-          { onSuccess: () => notify(t('social.reported')), onError: fail },
-        ),
+      onConfirm: () => sendMemberReport({ memberId, reporterId: userId }),
     });
   };
 
@@ -61,17 +52,7 @@ export function useModeration(onBlocked?: () => void) {
       confirm: t('social.block', { name }),
       cancel: t('social.cancel'),
       destructive: true,
-      onConfirm: () =>
-        sendBlock(
-          { blockerId: userId, blockedId: memberId },
-          {
-            onSuccess: () => {
-              onBlocked?.();
-              notify(t('social.blockedLeave'));
-            },
-            onError: fail,
-          },
-        ),
+      onConfirm: () => sendBlock({ blockerId: userId, blockedId: memberId }, { onSuccess: () => onBlocked?.() }),
     });
   };
 
