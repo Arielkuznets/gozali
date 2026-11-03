@@ -1,7 +1,7 @@
 -- A member who rejoins starts again: feeds from before they left don't make them counted.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(31);
+select plan(36);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000d8', 'noa@test.local'),
@@ -427,6 +427,74 @@ select is(
   pg_temp.joined_on('10000000-0000-0000-0000-000000000038', '00000000-0000-0000-0000-0000000000c8'),
   (select day from today),
   'and a rejoin after the close counts from today'
+);
+
+-- Tom made a new pack two days ago and fed alone. Uri and Vered joined yesterday, its first day, and
+-- fed. Tom left that day without feeding, and is back before it closes. The first day doesn't hang
+-- on his time, since those two hold it, so the time moves, and his feed from before can't make him
+-- started on a day he had left.
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000000cb', 'tom@test.local'),
+  ('00000000-0000-0000-0000-0000000000cc', 'uri@test.local'),
+  ('00000000-0000-0000-0000-0000000000cd', 'vered@test.local');
+insert into public.packs (id, name, category, rest_days_per_week, timezone, invite_code)
+values ('10000000-0000-0000-0000-000000000048', 'Hikers', 'walking', 0, 'UTC', 'HKRS3456');
+insert into public.critters (pack_id, species) values ('10000000-0000-0000-0000-000000000048', 'kit');
+insert into public.pack_members (pack_id, user_id, role, joined_at) values
+  ('10000000-0000-0000-0000-000000000048', '00000000-0000-0000-0000-0000000000cb', 'admin', now() - interval '2 days'),
+  ('10000000-0000-0000-0000-000000000048', '00000000-0000-0000-0000-0000000000cc', 'member', now() - interval '1 day'),
+  ('10000000-0000-0000-0000-000000000048', '00000000-0000-0000-0000-0000000000cd', 'member', now() - interval '1 day');
+insert into public.feeds (pack_id, user_id, day, created_at) values
+  ('10000000-0000-0000-0000-000000000048', '00000000-0000-0000-0000-0000000000cb', (select day - 2 from today), now() - interval '2 days'),
+  ('10000000-0000-0000-0000-000000000048', '00000000-0000-0000-0000-0000000000cc', (select day - 1 from today), now() - interval '1 day'),
+  ('10000000-0000-0000-0000-000000000048', '00000000-0000-0000-0000-0000000000cd', (select day - 1 from today), now() - interval '1 day');
+
+select pg_temp.leaves('10000000-0000-0000-0000-000000000048', '00000000-0000-0000-0000-0000000000cb');
+update public.pack_members set left_at = now() - interval '1 day'
+where pack_id = '10000000-0000-0000-0000-000000000048' and user_id = '00000000-0000-0000-0000-0000000000cb';
+select pg_temp.returns_to('HKRS3456', '00000000-0000-0000-0000-0000000000cb');
+select is(
+  pg_temp.standing(
+    '10000000-0000-0000-0000-000000000048', '00000000-0000-0000-0000-0000000000cb', (select day - 1 from today)
+  ),
+  null,
+  'a member who left a new pack''s first day without feeding isn''t charged for it'
+);
+select is(
+  pg_temp.joined_on('10000000-0000-0000-0000-000000000048', '00000000-0000-0000-0000-0000000000cb'),
+  (select day from today),
+  'and starts again from today'
+);
+select is(
+  public.pack_first_day('10000000-0000-0000-0000-000000000048'), (select day - 1 from today),
+  'which leaves the first day where it was'
+);
+
+-- Vered fed on that day, so her time stays.
+select pg_temp.leaves('10000000-0000-0000-0000-000000000048', '00000000-0000-0000-0000-0000000000cd');
+select pg_temp.returns_to('HKRS3456', '00000000-0000-0000-0000-0000000000cd');
+select is(
+  pg_temp.standing(
+    '10000000-0000-0000-0000-000000000048', '00000000-0000-0000-0000-0000000000cd', (select day - 1 from today)
+  ),
+  'active/true/true',
+  'a feed on that day is kept in a new pack of three as well'
+);
+
+-- With one other member the first day hangs on this member's time, so it stays even without a feed.
+insert into public.packs (id, name, category, rest_days_per_week, timezone, invite_code)
+values ('10000000-0000-0000-0000-000000000058', 'Sailors', 'walking', 0, 'UTC', 'SLRS3456');
+insert into public.critters (pack_id, species) values ('10000000-0000-0000-0000-000000000058', 'kit');
+insert into public.pack_members (pack_id, user_id, role, joined_at) values
+  ('10000000-0000-0000-0000-000000000058', '00000000-0000-0000-0000-0000000000cc', 'admin', now() - interval '2 days'),
+  ('10000000-0000-0000-0000-000000000058', '00000000-0000-0000-0000-0000000000cd', 'member', now() - interval '1 day');
+select pg_temp.leaves('10000000-0000-0000-0000-000000000058', '00000000-0000-0000-0000-0000000000cc');
+update public.pack_members set left_at = now() - interval '1 day'
+where pack_id = '10000000-0000-0000-0000-000000000058' and user_id = '00000000-0000-0000-0000-0000000000cc';
+select pg_temp.returns_to('SLRS3456', '00000000-0000-0000-0000-0000000000cc');
+select is(
+  public.pack_first_day('10000000-0000-0000-0000-000000000058'), (select day - 1 from today),
+  'with one other member the time stays, or the first day would move and never close'
 );
 
 select * from finish();
