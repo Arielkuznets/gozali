@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import { useRef, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
@@ -38,6 +38,15 @@ export default function CreatePackScreen() {
   // The mutation's pending state reaches the button a moment after a tap; a second tap in between
   // would create a second pack.
   const creating = useRef(false);
+  const created = createPack.data;
+
+  // Only from the front: it takes the place of what is in front. Whoever opened something over the
+  // form during the wait comes back to the invite, not to a form that makes a second pack.
+  useFocusEffect(
+    useCallback(() => {
+      if (created) router.replace(`/pack/${created}/invite`);
+    }, [created]),
+  );
 
   const pickCategory = (key: Category, defaultRestDays: number) => {
     setCategory(key);
@@ -66,10 +75,7 @@ export default function CreatePackScreen() {
         species,
       },
       {
-        onSuccess: (packId) => {
-          haptics.success();
-          router.replace(`/pack/${packId}/invite`);
-        },
+        onSuccess: () => haptics.success(),
         onError: (error) => notify(t(packErrorKey(error))),
         onSettled: () => {
           creating.current = false;

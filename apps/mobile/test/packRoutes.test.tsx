@@ -723,6 +723,72 @@ describe('with the list of packs stalled', () => {
   });
 });
 
+describe('a pack that takes its time to be created', () => {
+  let answerCreate = () => {};
+
+  async function fillInAndCreate() {
+    await start('/');
+    await open('/create-pack');
+    await act(async () => app.root.findByType(TextInput).props.onChangeText('Morning runs'));
+    await press('Next');
+    await press('Next');
+    await press('Next');
+    const answer = mockRpc.getMockImplementation()!;
+    mockRpc.mockImplementation(
+      (name: string, args: unknown) =>
+        new Promise((resolve) => {
+          if (name === 'create_pack') answerCreate = () => resolve(answer(name, args));
+          else resolve(answer(name, args));
+        }),
+    );
+    await press('Create pack');
+  }
+
+  it('goes on to its invite once it is answered', async () => {
+    await fillInAndCreate();
+
+    await act(async () => answerCreate());
+    await settle();
+
+    expect(pathname()).toBe('/pack/p2/invite');
+  });
+
+  describe('with another screen in front when the server answers', () => {
+    it('leaves the person where they went, with the photo on the camera', async () => {
+      await fillInAndCreate();
+      await open('/pack/p1/feed');
+
+      await act(async () => answerCreate());
+      await settle();
+
+      expect(pathname()).toBe('/pack/p1/feed');
+      expect(shows(CAPTION)).toBe(true);
+    });
+
+    it('lists the pack on the home screen', async () => {
+      await fillInAndCreate();
+      await open('/pack/p1/feed');
+
+      await act(async () => answerCreate());
+      await settle();
+
+      expect(shows('Pack p1,Pack p2')).toBe(true);
+    });
+
+    it('goes on to its invite on the way back, with no form left to create it twice', async () => {
+      await fillInAndCreate();
+      await open('/pack/p1/feed');
+      await act(async () => answerCreate());
+      await settle();
+
+      await goBack();
+
+      expect(pathname()).toBe('/pack/p2/invite');
+      expect(hasButton('Create pack')).toBe(false);
+    });
+  });
+});
+
 describe('a new invite code', () => {
   const FRESH = 'EFGH6789';
 
