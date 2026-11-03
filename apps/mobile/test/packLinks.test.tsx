@@ -56,7 +56,9 @@ jest.mock('@/features/critter/useCritterText', () => ({
   useCritterText: (critter: { name: string }) => ({ name: critter.name, label: critter.name, lines: [] }),
 }));
 jest.mock('@/features/days/api', () => ({
-  isPausedToday: () => false,
+  canEndPause: () => false,
+  keptToday: () => ({ passes: new Map(), paused: new Set(), pausedForSure: new Set() }),
+  pauseToday: () => null,
   useDayStatus: () => ({ data: undefined }),
   useMembersToday: () => ({ data: undefined }),
   useTodayPasses: () => ({ data: undefined }),
@@ -65,6 +67,7 @@ const mockFeedReads: { packId: string; limit: number }[] = [];
 jest.mock('@/features/feeds/api', () => ({
   FEED_PAGE: 30,
   packFeedsKey: ['feeds', 'pack'],
+  feedWaitsToday: () => false,
   fedToday: () => new Set(),
   useCountedFeeds: () => ({ data: [] }),
   useFeedQueue: () => undefined,

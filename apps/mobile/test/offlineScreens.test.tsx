@@ -59,7 +59,7 @@ jest.mock('expo-image', () => ({ Image: () => null }));
 jest.mock('expo-image-manipulator', () => ({}));
 const mockCancelled = jest.fn();
 jest.mock('expo-notifications', () => ({ cancelScheduledNotificationAsync: async (id: string) => mockCancelled(id) }));
-const mockDismissTo = jest.fn();
+const mockReplace = jest.fn();
 let mockParams: Record<string, string>;
 /** What a screen runs when it comes back to the front, as long as it is mounted. */
 const mockOnFocus = new Set<() => void>();
@@ -68,13 +68,14 @@ jest.mock('expo-router', () => {
   return {
     useLocalSearchParams: () => mockParams,
     useIsFocused: () => true,
+    useNavigation: () => ({ isFocused: () => true, getState: () => ({ routes: [] }) }),
     useFocusEffect: (run: () => void) =>
       useEffect(() => {
         mockOnFocus.add(run);
         run();
         return () => void mockOnFocus.delete(run);
       }, [run]),
-    router: { push: jest.fn(), canGoBack: () => true, back: jest.fn(), replace: jest.fn(), dismissTo: (href: string) => mockDismissTo(href) },
+    router: { push: jest.fn(), canGoBack: () => true, back: jest.fn(), replace: (href: string) => mockReplace(href) },
   };
 });
 jest.mock('@/features/auth/AuthProvider', () => ({ useAuth: () => ({ session: { user: { id: 'noa' } } }) }));
@@ -204,7 +205,7 @@ beforeEach(async () => {
   mockStatus = null;
   mockParams = { id: PACK.id };
   mockCancelled.mockReset();
-  mockDismissTo.mockReset();
+  mockReplace.mockReset();
   phone();
 });
 
@@ -319,7 +320,7 @@ describe('a pause, with only the pack copy to go by', () => {
     phone({ pack: onPause(running()) });
     await open(<FeedScreen />);
 
-    expect(mockDismissTo).toHaveBeenCalledWith('/pack/gym');
+    expect(mockReplace).toHaveBeenCalledWith('/pack/gym');
   });
 
   it.each([
@@ -331,7 +332,7 @@ describe('a pause, with only the pack copy to go by', () => {
     expect(buttons(await open(<HomeScreen />))).toContain(FEED_ON_CARD);
     expect(buttons(await open(<PackScreen />))).toEqual(expect.arrayContaining(['Feed', 'Not today', 'Focus']));
     await open(<FeedScreen />);
-    expect(mockDismissTo).not.toHaveBeenCalled();
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 
   it('offers Feed on a copy with no word of pauses, as an older build kept it', async () => {
@@ -410,7 +411,7 @@ describe('a focus session a pause overtakes', () => {
     await open(<FeedScreen />);
     await settle();
 
-    expect(mockDismissTo).toHaveBeenCalledWith('/pack/gym');
+    expect(mockReplace).toHaveBeenCalledWith('/pack/gym');
     expect(await AsyncStorage.getItem(STORED)).toBeNull();
     expect(mockCancelled).toHaveBeenCalledWith('the-end');
   });
@@ -421,7 +422,7 @@ describe('a focus session a pause overtakes', () => {
     await open(<FeedScreen />);
     await settle();
 
-    expect(mockDismissTo).toHaveBeenCalledWith('/pack/gym');
+    expect(mockReplace).toHaveBeenCalledWith('/pack/gym');
     expect(await AsyncStorage.getItem(STORED)).toBe(running);
   });
 

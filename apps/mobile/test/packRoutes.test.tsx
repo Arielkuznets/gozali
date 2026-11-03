@@ -71,6 +71,8 @@ jest.mock('@/lib/supabase', () => ({
             await mockListAnswered;
             return mockOffline ? mockNoConnection : { data: mockPacks, error: null };
           },
+        }),
+        eq: (_column: string, id: string) => ({
           // As row level security has it: the photos are there for someone in the pack.
           order: () => ({ limit: async () => ({ data: mockPacks.some((pack) => pack.id === id) ? mockPhotos : [], error: null }) }),
         }),
