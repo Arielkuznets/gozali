@@ -1,7 +1,7 @@
 -- Owner alerts: a push when someone finishes signing up, and the day's summary at 21:00.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(31);
+select plan(34);
 
 delete from public.notifications;
 
@@ -183,6 +183,20 @@ select is(
 update today set day = day + 1;
 select public.queue_daily_summaries(pg_temp.at_local('21:05'));
 select is(pg_temp.trouble() ->> 'serverErrors', '1', 'what comes after 21:00 waits for the next, however late the summary is made');
+
+-- An outage is written when the job runs again, so one still going at 21:00 is unknown to that
+-- summary. It counts whole in the next one, hours before 21:00 too, and in no other.
+update today set day = day + 2;
+select public.note_heartbeat('owner-alerts-test', pg_temp.at_local('15:00'));
+select public.queue_daily_summaries(pg_temp.at_local('21:05'));
+select is(pg_temp.trouble() ->> 'downHours', '0', 'an outage still going at 21:00 is not in that summary');
+select public.note_heartbeat('owner-alerts-test', pg_temp.at_local('22:00'));
+update today set day = day + 1;
+select public.queue_daily_summaries(pg_temp.at_local('21:05'));
+select is(pg_temp.trouble() ->> 'downHours', '7', 'the next summary counts all seven hours of it');
+update today set day = day + 1;
+select public.queue_daily_summaries(pg_temp.at_local('21:05'));
+select is(pg_temp.trouble() ->> 'downHours', '0', 'and the one after that none');
 
 -- The clocks go back here, so from one 21:00 to the next is 25 hours.
 update today set day = date '2027-10-31';
