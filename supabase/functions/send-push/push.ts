@@ -36,6 +36,11 @@ export interface SendResult {
    * it wouldn't take are in here too, as RefusedRequest, so they read the same whatever else the run sent.
    */
   ticketErrors: Record<string, number>;
+  /**
+   * What the request that ended the sending failed with, or else what the first refused one got. A run
+   * whose requests all got an answer has none.
+   */
+  failure?: string;
 }
 
 export function toMessages(rows: readonly ClaimedRow[]): PushMessage[] {
@@ -72,6 +77,7 @@ export async function sendAll(
   let attempted = 0;
   let sent = 0;
   let down = false;
+  let failure: string | undefined;
   const deliver = async (batch: PushMessage[]): Promise<'sent' | 'refused' | 'failed'> => {
     try {
       const tickets = await send(batch);
@@ -87,7 +93,12 @@ export async function sendAll(
       });
       return 'sent';
     } catch (error) {
-      if (error instanceof RefusedRequest) return 'refused';
+      const reason = error instanceof Error ? error.message : String(error);
+      if (error instanceof RefusedRequest) {
+        failure ??= reason;
+        return 'refused';
+      }
+      failure = reason;
       down = true;
       return 'failed';
     }
@@ -115,7 +126,7 @@ export async function sendAll(
     }
   }
   if (refused.size > 0) ticketErrors.RefusedRequest = refused.size;
-  return { attempted, sent, requeue: [...requeue], refused: [...refused], deadTokens, ticketErrors };
+  return { attempted, sent, requeue: [...requeue], refused: [...refused], deadTokens, ticketErrors, failure };
 }
 
 /**

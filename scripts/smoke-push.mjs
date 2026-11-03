@@ -180,6 +180,8 @@ await admin.rpc('requeue_notifications', { ids: outOfTime.requeue });
 // owners. A phone that is gone is an answer from the service, and no phones means nothing to send.
 check(down.attempted === 100 && runFailed(down), 'a run the push service took nothing from failed');
 check(refusedThenDown.attempted === 3 && runFailed(refusedThenDown), 'and so did one it refused and then went down on');
+check(down.failure === 'push service down' && midway.failure === 'push service down', 'a run says what the request that ended it failed with');
+check(refusedThenDown.failure === 'push service down', 'rather than a refusal before it');
 check(midway.attempted === 200 && !runFailed(midway), 'one it took part of did not');
 const noPhones = await sendAll([{ ...lots[0], tokens: [] }], async () => {
   throw new Error('nothing to send');
@@ -208,6 +210,7 @@ check(
 );
 check(runFailed(ticketed), 'and a run with any of them failed, even with the rest out');
 check(JSON.stringify(gone.ticketErrors) === '{}' && JSON.stringify(midway.ticketErrors) === '{}', 'phones that are gone are not among them');
+check(gone.failure === undefined && ticketed.failure === undefined, 'a run whose requests all got an answer names no failure');
 
 // The real function, with Deno and Expo stood in for: `expo` answers each request, `database` may
 // answer an RPC instead of the server, and the claim runs at `at` and returns only the given rows.
@@ -285,14 +288,25 @@ const outageRows = await addRows([
   { user_id: noa, type: 'daily_summary', day: today, payload: { newUsers: 0, users: 41, feeders: 0, packs: 0, serverErrors: 600 } },
   { user_id: dan, pack_id: pack.id, type: 'evolution', payload: { event: 'hatched' } },
 ]);
+const outageAnswers = [401, 403, 429, 500, 502, 503, 504, 401, 503];
 const outage = [];
-for (const status of [401, 403, 429, 500, 502, 503, 504, 401, 503]) {
+for (const status of outageAnswers) {
   await admin.from('notifications').update({ send_after: new Date().toISOString() }).in('id', outageRows);
   outage.push(await runFunction(outageRows, () => expoFails(status)));
 }
 check(
   outage.every(({ status, report }) => status === 502 && report.attempted === 2 && report.requeued === 2),
   'nine failed runs in a row each find the rows, answer 502 and put them back',
+);
+// A wrong access token doesn't end by itself, so the owners have to be able to tell it from Expo
+// being down: the body is what reaches them, and the log is where they look next.
+check(
+  outage.every(({ report }, run) => report.failure === `expo push ${outageAnswers[run]}`),
+  'and each says what Expo answered, so a wrong access token reads apart from Expo being down',
+);
+check(
+  outage.every(({ logged }, run) => logged.some((line) => line.startsWith('send-push failed') && line.includes(`expo push ${outageAnswers[run]}`))),
+  'in the log too',
 );
 const afterOutage = await queueRows(outageRows);
 check(afterOutage.every((row) => row.status === 'pending' && row.attempts === 0), 'and the rows have spent no try');
@@ -350,7 +364,7 @@ check(refusedRun.report.sent === 1 && refusedRun.report.requeued === 1, 'a refus
 const { data: refusedAfter } = await admin.from('notifications').select('attempts').in('id', refusalRows).eq('user_id', dan);
 check(refusedAfter[0].attempts === 1, 'and it spends a try');
 check(
-  refusedRun.status === 502 && JSON.stringify(refusedRun.report.ticketErrors) === '{"RefusedRequest":1}',
+  refusedRun.status === 502 && JSON.stringify(refusedRun.report.ticketErrors) === '{"RefusedRequest":1}' && refusedRun.report.failure === 'expo push 400',
   'a run with a refusal failed, with the rest out, and says why',
 );
 check(refusedRun.logged.some((line) => line.startsWith('send-push failed')), 'in the log too');
@@ -402,6 +416,8 @@ check(
   'a run with an error on a ticket answers 502 with the code in its body, even with the rest out',
 );
 check(ticketRun.logged.some((line) => line.startsWith('send-push failed') && line.includes('InvalidCredentials')), 'and in the log');
+const noTickets = await runFunction(await addRows(signUpFor(dan)), () => Response.json({ errors: [{ code: 'INTERNAL_SERVER_ERROR' }] }));
+check(noTickets.status === 502 && noTickets.report.failure === 'expo push 200 without tickets', 'an answer with no tickets in it says so');
 
 const strandedRows = await addRows(twoBatches);
 const stranded = await runFunction(strandedRows, firstBatchOnly(), databaseFails('requeue_notifications'));
@@ -437,6 +453,7 @@ check(
   hung.status === 502 && hung.report.requeued === 1 && allowed.length > 0 && allowed.every((ms) => ms === REQUEST_TIMEOUT_MS),
   'a request that hangs is given up on time, and its rows go back',
 );
+check(hung.report.failure === 'timed out', 'and the run says the request timed out');
 
 // Owner alerts: someone finishing the profile setup tells the owner, in plain words.
 const owned = await admin.from('app_owners').insert({ user_id: noa });

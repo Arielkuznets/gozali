@@ -31,7 +31,8 @@ async function expoSend(batch: PushMessage[]): Promise<PushTicket[]> {
     if (response.status < 500 && ![401, 403, 429].includes(response.status)) throw new RefusedRequest(message);
     throw new Error(message);
   }
-  const { data } = (await response.json()) as { data: PushTicket[] };
+  const { data } = (await response.json()) as { data?: PushTicket[] };
+  if (!Array.isArray(data)) throw new Error(`expo push ${response.status} without tickets`);
   return data;
 }
 
@@ -66,6 +67,7 @@ Deno.serve(async (request) => {
     sent: result.sent,
     requeued: requeued?.error ? 0 : result.requeue.length,
     ticketErrors: result.ticketErrors,
+    failure: result.failure,
   };
   // Any answer but 200 reaches the owners' daily summary, through collect_service_errors.
   const failed = serverBehind || Boolean(requeued?.error) || runFailed(result);
