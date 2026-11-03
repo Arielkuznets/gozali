@@ -725,7 +725,8 @@
       "critter_not_here": "The pet is not here right now.",
       "not_enough_coins": "The pack doesn't have enough coins for that yet.",
       "already_owned": "The pack already has it.",
-      "not_for_sale": "That item isn't for sale."
+      "not_for_sale": "That item isn't for sale.",
+      "feed_not_found": "You can't react to this photo anymore."
     }
   },
   "profile": {

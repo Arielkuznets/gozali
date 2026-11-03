@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { createPack, createUser, feed, listening, photo, removeUsers, signIn, watchSocket, type TestUser } from './support';
+import { admin, createPack, createUser, feed, listening, photo, removeUsers, signIn, watchSocket, type TestUser } from './support';
 
 let noa: TestUser;
 let dan: TestUser;
@@ -41,4 +41,23 @@ test('reactions show at once, and a friend\'s arrives without a reload', async (
   // Taking it back.
   await fire.click();
   await expect(fire).not.toContainText('1');
+});
+
+test('a reaction on a photo that was just hidden says so', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
+  await feed(dan, pack.id, await photo(page, '🏋️'), 'Leg day');
+  const alerts: string[] = [];
+  page.on('dialog', (dialog) => {
+    alerts.push(dialog.message());
+    void dialog.accept();
+  });
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+  await expect(page.getByText('Leg day')).toBeVisible();
+
+  const hidden = await admin.from('feeds').update({ hidden_at: new Date().toISOString() }).eq('pack_id', pack.id);
+  if (hidden.error) throw hidden.error;
+  await page.getByRole('button', { name: 'React with 🔥' }).click();
+
+  await expect.poll(() => alerts).toEqual(["You can't react to this photo anymore."]);
 });

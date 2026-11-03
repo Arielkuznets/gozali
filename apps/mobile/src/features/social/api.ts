@@ -338,6 +338,7 @@ export function socialErrorKey(error: unknown) {
     'not_enough_coins',
     'already_owned',
     'not_for_sale',
+    'feed_not_found',
   ] as const) {
     if (message.includes(code)) return `social.errors.${code}` as const;
   }

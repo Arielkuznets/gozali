@@ -78,4 +78,8 @@ describe('social errors', () => {
   it('says a nudge has to wait for their morning', () => {
     expect(socialErrorKey({ code: 'P0001', message: 'receiver_quiet' })).toBe('social.errors.receiver_quiet');
   });
+
+  it('says a photo that went while it was on screen takes no more reactions', () => {
+    expect(socialErrorKey({ code: 'P0002', message: 'feed_not_found' })).toBe('social.errors.feed_not_found');
+  });
 });
