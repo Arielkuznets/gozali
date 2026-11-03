@@ -252,6 +252,23 @@ const firstBatchOnly = () => {
     return requests === 1 ? expoTakes()(batch) : expoFails();
   };
 };
+const expoHangs = (_, init) => new Promise((_, reject) => init.signal.addEventListener('abort', () => reject(init.signal.reason)));
+// Runs `work` with every request to Expo given up on at once, and notes how long it was allowed.
+const allowed = [];
+const givingUpAtOnce = async (work) => {
+  const realTimeout = AbortSignal.timeout;
+  AbortSignal.timeout = (ms) => {
+    allowed.push(ms);
+    const timeout = new AbortController();
+    setTimeout(() => timeout.abort(new Error('timed out')), 1);
+    return timeout.signal;
+  };
+  try {
+    return await work();
+  } finally {
+    AbortSignal.timeout = realTimeout;
+  }
+};
 const databaseFails = (name) => (rpc) => (rpc === name ? Response.json({ code: 'XX000', message: 'database down' }, { status: 500 }) : null);
 const addRows = async (rows) => {
   const added = await admin.from('notifications').insert(rows).select('id');
@@ -262,8 +279,8 @@ const queueRows = async (ids) => (await admin.from('notifications').select('stat
 const signUpFor = (id) => ({ user_id: id, type: 'new_user', payload: { name: 'Tal', number: 3 } });
 const twoBatches = Array.from({ length: 101 }, () => signUpFor(dan));
 
-// An outage says nothing about the rows it sends back. They spend no try and don't wait longer each
-// time, however long it lasts, and go out when it ends, the owners' summary of it with the rest.
+// An outage says nothing about the rows it sends back. They spend no try, however long it lasts, and
+// go out when it ends, the owners' summary of it with the rest.
 const outageRows = await addRows([
   { user_id: noa, type: 'daily_summary', day: today, payload: { newUsers: 0, users: 41, feeders: 0, packs: 0, serverErrors: 600 } },
   { user_id: dan, pack_id: pack.id, type: 'evolution', payload: { event: 'hatched' } },
@@ -279,12 +296,49 @@ check(
 );
 const afterOutage = await queueRows(outageRows);
 check(afterOutage.every((row) => row.status === 'pending' && row.attempts === 0), 'and the rows have spent no try');
-check(afterOutage.every((row) => new Date(row.send_after) - Date.now() < 90_000), 'and wait a minute, no longer than after the first run');
+check(afterOutage.every((row) => new Date(row.send_after) - Date.now() < 90_000), 'and rows this young wait a minute');
 const recovery = [];
 const recovered = await runFunction(outageRows, expoTakes(recovery));
 check(recovered.status === 200 && recovered.report.sent === 2, 'when Expo is back they go out');
 check(recovery.some((message) => message.to.includes('Noa') && message.body.includes('600 server errors')), 'and the owner hears about the outage');
 check((await queueRows(outageRows)).every((row) => row.status === 'sent'), 'and they leave the queue');
+
+// Expo can take a batch and lose the answer, so a row that goes back may be on the phones already.
+// This walks cron's minutes through an incident of that kind, with the row as old as it would be by
+// then and each run lasting `runSeconds`, and returns the minutes the row went out on and the row as
+// the incident leaves it. Every run claims all that is due, so each incident gets a row of its own.
+async function lostAnswers(rowIds, answer, runSeconds, minutes) {
+  const copies = [];
+  for (let minute = 0; minute < minutes; ) {
+    const asOldAsThat = new Date(Date.now() - minute * 60_000).toISOString();
+    await admin.from('notifications').update({ created_at: asOldAsThat, send_after: new Date().toISOString() }).in('id', rowIds);
+    await runFunction(rowIds, (batch, init) => {
+      copies.push(minute);
+      return answer(batch, init);
+    });
+    const [{ send_after: due }] = await queueRows(rowIds);
+    minute = Math.ceil(minute + (runSeconds * 1000 + (new Date(due) - Date.now())) / 60_000);
+  }
+  return { copies, left: await queueRows(rowIds) };
+}
+const summaryOf = (day) => ({ user_id: noa, type: 'daily_summary', day, payload: { newUsers: 0, users: 41, feeders: 0, packs: 0, serverErrors: 9 } });
+const hangs = await givingUpAtOnce(async () => lostAnswers(await addRows(summaryOf(addDays(today, -1))), expoHangs, 20, 360));
+const gatewayRow = await addRows(summaryOf(addDays(today, -2)));
+const gateway = await lostAnswers(gatewayRow, () => expoFails(502), 1, 360);
+const inTwoHours = (copies) => copies.filter((minute) => minute < 120).length;
+check(
+  [hangs, gateway].every(({ copies }) => inTwoHours(copies) <= 10 && copies.length <= 18),
+  'a row whose answers are lost goes out at most 10 times in two hours and 18 in six',
+);
+check([hangs, gateway].every(({ copies }) => [30, 31].includes(copies.at(-1) - copies.at(-2))), 'and once every half hour after that');
+check(
+  [hangs, gateway].every(({ left }) => left.every((row) => row.status === 'pending' && row.attempts === 0)),
+  'it spends no try, however long that lasts',
+);
+await admin.from('notifications').update({ send_after: new Date().toISOString() }).in('id', gatewayRow);
+const answered = await runFunction(gatewayRow, expoTakes());
+check(answered.status === 200 && answered.report.sent === 1, "and goes out once the answers come back, the owners' summary too");
+check((await queueRows(gatewayRow)).every((row) => row.status === 'sent'), 'and leaves the queue');
 
 // A refusal is about the row, so it spends a try and waits longer, while the rows beside it in the
 // run don't pay for it.
@@ -377,18 +431,12 @@ Date.now = realNow;
 check(clockRequests === 1 && overBudget.report.sent === 100 && overBudget.report.requeued === 1, 'a run past its budget starts no other request and puts the rest back');
 check((await queueRows(lateClock)).every((row) => row.attempts === 0), 'at no cost to the rows');
 
-const realTimeout = AbortSignal.timeout;
-const waits = [];
-AbortSignal.timeout = (ms) => {
-  waits.push(ms);
-  const timeout = new AbortController();
-  setTimeout(() => timeout.abort(new Error('timed out')), 1);
-  return timeout.signal;
-};
 const hungRows = await addRows(signUpFor(dan));
-const hung = await runFunction(hungRows, (_, init) => new Promise((_, reject) => init.signal.addEventListener('abort', () => reject(init.signal.reason))));
-AbortSignal.timeout = realTimeout;
-check(hung.status === 502 && hung.report.requeued === 1 && waits[0] === REQUEST_TIMEOUT_MS, 'a request that hangs is given up on time, and its rows go back');
+const hung = await givingUpAtOnce(() => runFunction(hungRows, expoHangs));
+check(
+  hung.status === 502 && hung.report.requeued === 1 && allowed.length > 0 && allowed.every((ms) => ms === REQUEST_TIMEOUT_MS),
+  'a request that hangs is given up on time, and its rows go back',
+);
 
 // Owner alerts: someone finishing the profile setup tells the owner, in plain words.
 const owned = await admin.from('app_owners').insert({ user_id: noa });

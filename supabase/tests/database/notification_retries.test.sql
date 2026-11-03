@@ -1,5 +1,5 @@
 -- A notification the push service won't take comes back later each time, and not forever. One that
--- goes back for any other reason spends none of that.
+-- goes back for any other reason spends no try and comes back later the longer it has been around.
 begin;
 create extension if not exists pgtap with schema extensions;
 select plan(19);
@@ -77,7 +77,9 @@ select ok(
   'and a fresh notification behind 200 refused ones is among them'
 );
 
--- A run that gets nothing through because the service is down names nothing as refused.
+-- A run that gets nothing through because the service is down names nothing as refused. The row may
+-- be on the phones all the same, so it waits half as long as it has been around, from a minute up to
+-- half an hour, and each run below finds it older.
 create function pg_temp.down_run(at_time timestamptz) returns integer language plpgsql as $$
 declare
   ids uuid[];
@@ -96,8 +98,10 @@ delete from runs;
 do $$
 declare
   claimed integer;
+  ages interval[] := array['0', '1 minute', '4 minutes', '10 minutes', '30 minutes', '59 minutes', '61 minutes', '6 hours', '3 days'];
 begin
   for try in 1..9 loop
+    update public.notifications set created_at = now() - ages[try];
     claimed := pg_temp.down_run((select at from noon));
     insert into runs
     select try, claimed, extract(epoch from n.send_after - now()) / 60 from public.notifications n;
@@ -110,9 +114,9 @@ select is(
   'a service that is down costs no tries: the ninth run still finds the row'
 );
 select is(
-  (select array_agg(distinct wait_minutes) from runs),
-  array[1]::numeric[],
-  'and the row never waits more than a minute'
+  (select array_agg(wait_minutes order by try) from runs),
+  array[1, 1, 2, 5, 15, 29.5, 30, 30, 30]::numeric[],
+  'and the row waits half its age, at least a minute and at most half an hour'
 );
 select is((select attempts from public.notifications), 0, 'it has spent no try');
 
