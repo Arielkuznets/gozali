@@ -8,9 +8,13 @@ import PackScreen from '@/app/(app)/pack/[id]/index';
 // The real pack screen, feed list, hooks and QueryClient over a stand-in for the server that takes
 // its time, because what counts here is what stays on screen while it does.
 const mockScreen = { id: 'a', olderFails: false };
-const mockLists: { photos: number; events: number; first: string }[] = [];
+const mockLists: { photos: number; events: number; first: string; posters: string[] }[] = [];
 const mockMounts = { unmounts: 0 };
 const mockReacted = new Map<string, string>();
+const mockBlocked = new Set<string>();
+/** The limit of every read of the feeds, as it went out. */
+const mockFeedReads: number[] = [];
+let mockMenu: { actions: { label: string; onPress: () => void }[] } | null = null;
 const mockDelay = 100;
 
 jest.mock('expo-router', () => ({
@@ -19,7 +23,12 @@ jest.mock('expo-router', () => ({
   router: { push: () => undefined },
 }));
 jest.mock('expo-image', () => ({ Image: () => null }));
-jest.mock('@/components/ActionMenu', () => ({ ActionMenu: () => null }));
+jest.mock('@/components/ActionMenu', () => ({
+  ActionMenu: ({ menu }: { menu: typeof mockMenu }) => {
+    mockMenu = menu;
+    return null;
+  },
+}));
 jest.mock('@/components/Button', () => ({ Button: () => null }));
 jest.mock('@/components/Coins', () => ({ Coins: () => null }));
 jest.mock('@/components/HealthBar', () => ({ HealthBar: () => null }));
@@ -38,7 +47,7 @@ jest.mock('@/features/critter/useCritterText', () => ({ useCritterText: () => ({
 jest.mock('@/features/feeds/PhotoViewer', () => ({ PhotoViewer: () => null }));
 jest.mock('@/features/packs/realtime', () => ({ usePackRealtime: () => undefined }));
 jest.mock('@/features/social/NameMeCard', () => ({ NameMeCard: () => null }));
-jest.mock('@/lib/confirm', () => ({ confirm: () => undefined, notify: () => undefined }));
+jest.mock('@/lib/confirm', () => ({ confirm: ({ onConfirm }: { onConfirm: () => void }) => onConfirm(), notify: () => undefined }));
 jest.mock('@/lib/haptics', () => ({ haptics: { tap: () => undefined, success: () => undefined } }));
 jest.mock('@/lib/navigation', () => ({ goBack: () => undefined }));
 jest.mock('@/lib/useNow', () => ({ useNow: () => new Date('2026-10-31T12:00:00Z') }));
@@ -80,8 +89,13 @@ jest.mock('@/features/feeds/FeedList', () => {
   const actual = jest.requireActual('@/features/feeds/FeedList');
   const { useEffect } = jest.requireActual('react');
   return {
-    FeedList: (props: { feeds: { id: string }[]; events: unknown[] }) => {
-      mockLists.push({ photos: props.feeds.length, events: props.events.length, first: props.feeds[0]?.id ?? '' });
+    FeedList: (props: { feeds: { id: string; user_id: string }[]; events: unknown[] }) => {
+      mockLists.push({
+        photos: props.feeds.length,
+        events: props.events.length,
+        first: props.feeds[0]?.id ?? '',
+        posters: [...new Set(props.feeds.map((feed) => feed.user_id))],
+      });
       useEffect(
         () => () => {
           mockMounts.unmounts += 1;
@@ -113,21 +127,33 @@ function mockRead(table: string) {
       limit = count;
       return read;
     },
+    upsert: (row: { blocked_id: string }) => {
+      read.then = (done: (answer: unknown) => unknown, failed: (error: unknown) => unknown) =>
+        mockAnswer(null)
+          .then((answer) => {
+            mockBlocked.add(row.blocked_id);
+            return answer;
+          })
+          .then(done, failed);
+      return read;
+    },
     then: (done: (answer: unknown) => unknown, failed: (error: unknown) => unknown) => {
+      if (table === 'feeds') mockFeedReads.push(limit);
       if (mockScreen.olderFails && limit > 30) return Promise.resolve({ data: null, error: new Error('offline') }).then(done, failed);
+      // What the server holds when the read goes out, which its answer can't take back.
       const rows =
         table === 'feeds'
           ? Array.from({ length: 95 }, (_, index) => ({
               id: `${pack}${index}`,
               pack_id: pack,
-              user_id: 'dan',
+              user_id: index % 2 === 0 ? 'dan' : 'zoe',
               photo_path: `${pack}/${index}.jpg`,
               caption: null,
               day: '2026-10-30',
               is_extra: false,
               focus_minutes: null,
               created_at: mockAt(index * 6),
-            }))
+            })).filter((row) => !mockBlocked.has(row.user_id))
           : table === 'pack_events'
             ? Array.from({ length: 50 }, (_, index) => ({ id: `e${index}`, kind: 'joined', actor_id: 'dan', payload: {}, created_at: mockAt(1 + index * 120) }))
             : [];
@@ -174,6 +200,7 @@ const screen = () => (
 const button = () => tree.root.findAll((node) => node.props.label === 'Show older')[0];
 const loadFailed = () => tree.root.findAll((node) => typeof node.props.onRetry === 'function')[0];
 const chips = () => tree.root.findAll((node) => node.props.accessibilityLabel === 'React with 🔥' && typeof node.props.onPress === 'function');
+const moreMenus = () => tree.root.findAll((node) => node.props.accessibilityLabel === 'More' && typeof node.props.onPress === 'function');
 /** What the list went through, leaving out renders that changed nothing in it. */
 const sizes = () => mockLists.map((list) => `${list.photos}p+${list.events}e`).filter((size, index, all) => size !== all[index - 1]);
 
@@ -197,6 +224,9 @@ beforeEach(() => {
   mockLists.length = 0;
   mockMounts.unmounts = 0;
   mockReacted.clear();
+  mockBlocked.clear();
+  mockFeedReads.length = 0;
+  mockMenu = null;
 });
 
 afterEach(async () => {
@@ -233,6 +263,24 @@ describe('Show older', () => {
     expect(button()?.props.loading).toBeFalsy();
     expect(mockReacted.get('a29')).toBe('fire');
     expect(chips()[29]?.props.accessibilityState).toEqual({ selected: true });
+  });
+
+  it('leaves no post of someone blocked during the load', async () => {
+    await open();
+    await showOlder();
+    await advance(20);
+
+    await act(async () => moreMenus()[0]?.props.onPress());
+    await act(async () => mockMenu?.actions.find((action) => action.label.startsWith('Block'))?.onPress());
+    await advance(150);
+    expect(mockBlocked).toEqual(new Set(['dan']));
+    expect(mockMounts.unmounts).toBe(0);
+    expect(button()?.props.loading).toBe(true);
+
+    await advance(5000);
+    expect(mockLists.at(-1)?.posters).toEqual(['zoe']);
+    expect(mockFeedReads).toEqual([30, 60, 60]);
+    expect(button()?.props.loading).toBeFalsy();
   });
 
   it('keeps the list when the longer page fails for good, says so, and can try again', async () => {

@@ -299,8 +299,11 @@ export function useBlock() {
         .upsert({ blocker_id: blockerId, blocked_id: blockedId }, { ignoreDuplicates: true });
       if (error) throw error;
     },
-    // Not returned: the answer to the person who blocked shouldn't wait for the refetches.
-    onSettled: () => {
+    // Not returned: the answer to the person who blocked shouldn't wait for the refetches. An
+    // invalidation joins a read that has no data yet, like a longer page on its way, and that read
+    // went out before the block, so it goes first and the reload starts it again.
+    onSettled: async () => {
+      await queryClient.cancelQueries({ queryKey: feedsKey, predicate: (query) => query.state.data === undefined });
       void queryClient.invalidateQueries({ queryKey: feedsKey });
       void queryClient.invalidateQueries({ queryKey: blocksKey });
     },
