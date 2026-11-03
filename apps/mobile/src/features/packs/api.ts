@@ -112,11 +112,13 @@ export function renameMember(queryClient: QueryClient, userId: string, name: str
 /**
  * Brings the phone up to a pack the server has just said the person is in. A null kept from when
  * they weren't goes first: a pack screen would open on it and say the pack isn't here, and the
- * list's copy doesn't replace a null.
+ * list's copy doesn't replace a null. The feeds are read again for a pack screen left underneath,
+ * which the person goes back to: it read them from outside the pack, which comes back empty.
  */
 export function refreshJoinedPack(queryClient: QueryClient, id: string): void {
   void queryClient.resetQueries({ queryKey: packKey(id), predicate: (query) => query.state.data === null });
   void queryClient.invalidateQueries({ queryKey: packsKey });
+  void queryClient.invalidateQueries({ queryKey: ['feeds'] });
 }
 
 export function useMyPacks() {

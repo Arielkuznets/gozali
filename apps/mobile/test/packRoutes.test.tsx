@@ -15,6 +15,7 @@ import InviteScreen from '@/app/(app)/pack/[id]/invite';
 import NotTodayScreen from '@/app/(app)/pack/[id]/not-today';
 import PackSettingsScreen from '@/app/(app)/pack/[id]/settings';
 import { LoadingScreen, PackMissingScreen } from '@/components/ScreenStates';
+import { usePackFeed } from '@/features/feeds/api';
 import { packsKey, useMyPacks, usePack, type Pack, type PackPreview } from '@/features/packs/api';
 import { NEW_SCREEN } from '@/lib/navigation';
 
@@ -33,7 +34,10 @@ jest.mock('@/features/auth/AuthProvider', () => ({
 jest.mock('@/components/OfflineBanner', () => ({ OfflineBanner: () => null }));
 jest.mock('@/features/days/PauseSection', () => ({ PauseSection: () => null }));
 jest.mock('@/features/critter/Critter', () => ({ Critter: () => null }));
-jest.mock('@/features/feeds/api', () => ({ useFeedQueue: () => undefined }));
+jest.mock('@/features/feeds/api', () => ({ ...jest.requireActual('@/features/feeds/api'), useFeedQueue: () => undefined }));
+jest.mock('@/features/feeds/queue', () => ({}));
+jest.mock('@/features/feeds/send', () => ({ PHOTO_BUCKET: 'photos' }));
+jest.mock('@react-native-community/netinfo', () => ({}));
 jest.mock('@/features/profile/useProfile', () => ({ useAccountSync: () => undefined }));
 jest.mock('@/features/widgets/sync', () => ({ useWidgetSync: () => undefined }));
 jest.mock('@/lib/notifications', () => ({ useNotificationRoutes: () => undefined }));
@@ -49,6 +53,7 @@ let mockPacks: Pack[] = [];
 let mockListAnswered: Promise<void> = Promise.resolve();
 let mockPackAnswered: Promise<void> = Promise.resolve();
 let mockOffline = false;
+let mockPhotos: { id: string }[] = [];
 const mockNoConnection = { data: null, error: new TypeError('Network request failed') };
 const mockRpc = jest.fn();
 jest.mock('@/lib/supabase', () => ({
@@ -66,10 +71,12 @@ jest.mock('@/lib/supabase', () => ({
             await mockListAnswered;
             return mockOffline ? mockNoConnection : { data: mockPacks, error: null };
           },
+          // As row level security has it: the photos are there for someone in the pack.
+          order: () => ({ limit: async () => ({ data: mockPacks.some((pack) => pack.id === id) ? mockPhotos : [], error: null }) }),
         }),
       }),
     }),
-    rpc: (name: string, args: unknown) => mockRpc(name, args),
+    rpc: (name: string, args: unknown) => (name === 'feed_reactions' ? { data: [], error: null } : mockRpc(name, args)),
   }),
 }));
 
@@ -111,12 +118,19 @@ function Home() {
   return <Text>{packs.data?.map((pack) => pack.name).join() || 'home'}</Text>;
 }
 
-/** Stands for the pack screen: the same states, by the same hook. */
+/** Stands for the pack screen: the same states and the same photos, by the same hooks. */
 function PackStandIn() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: pack, isPending } = usePack(id);
+  const { data: photos } = usePackFeed(id);
   if (isPending) return <LoadingScreen />;
-  return pack ? <Text>{`Open: ${pack.name}`}</Text> : <PackMissingScreen />;
+  if (!pack) return <PackMissingScreen />;
+  return (
+    <>
+      <Text>{`Open: ${pack.name}`}</Text>
+      <Text>{`Photos: ${photos?.length ?? 0}`}</Text>
+    </>
+  );
 }
 
 /** Stands for the camera: what it holds lives and dies with the screen. */
@@ -197,6 +211,7 @@ beforeEach(() => {
   mockListAnswered = Promise.resolve();
   mockPackAnswered = Promise.resolve();
   mockOffline = false;
+  mockPhotos = [];
   mockNotify.mockClear();
   mockRpc.mockReset();
   mockRpc.mockImplementation(async (name: string) => {
@@ -954,6 +969,7 @@ describe('Open pack on the join screen', () => {
     expect(shows(MISSING)).toBe(true);
     // Back in the pack, by a way that told this phone nothing.
     mockPacks = [packNamed('p1')];
+    mockPhotos = [{ id: 'f1' }];
     await open('/join?code=ABCD2345');
 
     await press('Open pack');
@@ -961,6 +977,7 @@ describe('Open pack on the join screen', () => {
     expect(appStack()).toEqual(['index', 'pack/[id]/index']);
     expect(shows(MISSING)).toBe(false);
     expect(shows('Open: Pack p1')).toBe(true);
+    expect(shows('Photos: 1')).toBe(true);
   });
 
   it("doesn't say the pack isn't here on what the phone kept from before", async () => {
@@ -1031,13 +1048,16 @@ describe('Join pack on the join screen', () => {
 
   it('goes back to that pack when it stood missing underneath', async () => {
     mockPacks = [];
+    mockPhotos = [{ id: 'f1' }];
     await start('/pack/p1');
+    expect(shows(MISSING)).toBe(true);
     await open('/join?code=ABCD2345');
 
     await press('Join pack');
 
     expect(appStack()).toEqual(['index', 'pack/[id]/index']);
     expect(shows('Open: Pack p1')).toBe(true);
+    expect(shows('Photos: 1')).toBe(true);
   });
 
   it('leaves alone a screen opened over it while the answer was on its way', async () => {
