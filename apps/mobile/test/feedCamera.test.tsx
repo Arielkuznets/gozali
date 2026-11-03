@@ -4,6 +4,7 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import '@/i18n';
 import FeedScreen from '@/app/(app)/pack/[id]/feed';
+import { EatingMoment } from '@/features/feeds/EatingMoment';
 
 // The real permission hook, over what the system answers.
 const mockGet = jest.fn();
@@ -309,6 +310,36 @@ describe('coming back to the app', () => {
     await answerAlert(allowed);
     expect(hasCamera()).toBe(true);
     expect(mockRequest).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('the sent screen', () => {
+  const critter = { species: 'mochi', name: 'Mochi', health: 70, xp: 40, stage: 'kid', status: 'active', streak: 3, coins: 0, marks: [], outfit: {} };
+  const eating = () => screen.root.findAllByType(EatingMoment);
+
+  beforeEach(() => {
+    mockGet.mockResolvedValue(allowed);
+    mockSend.mockResolvedValue('sent');
+  });
+
+  it('has the pet eat the photo, and love it', async () => {
+    mockPack = { data: { ...PACK, critters: critter }, isLoading: false, refetch: jest.fn() };
+    await takePhoto();
+    await press('Send');
+
+    expect(eating()).toHaveLength(1);
+    expect(shown()).toContain('Mochi loved it!');
+  });
+
+  it('says what a feed does while the pet is away, with no pet to eat it', async () => {
+    mockPack = { data: { ...PACK, critters: { ...critter, status: 'ran_away', health: 0 } }, isLoading: false, refetch: jest.fn() };
+    await takePhoto();
+    await press('Send');
+
+    expect(eating()).toHaveLength(0);
+    expect(shown()).not.toContain('loved it');
+    expect(shown()).toContain('Fed!');
+    expect(shown()).toContain('Three good days in a row bring Mochi back.');
   });
 });
 

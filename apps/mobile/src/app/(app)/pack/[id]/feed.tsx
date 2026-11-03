@@ -183,12 +183,14 @@ export default function FeedScreen() {
   };
 
   if (result) {
-    // Opened from a link while offline, the pack may not be loaded: then no animation.
+    // Opened from a link while offline, the pack may not be loaded: then no animation. A pet that ran
+    // away isn't there to eat the photo, which counts toward bringing it back.
     const critter = pack?.critters;
     const name = critter ? (critter.name ?? t(`packs.species.${critter.species}`)) : null;
+    const away = critter?.status === 'ran_away';
     return (
       <SafeAreaView style={styles.doneScreen}>
-        {pack && critter && name ? (
+        {pack && critter && name && !away ? (
           <EatingMoment
             art={{ ...critterArt(critter, { category: pack.category, now: serverNow() }), mood: 1, sleeping: false }}
             photoUri={shot?.uri ?? null}
@@ -199,9 +201,10 @@ export default function FeedScreen() {
         )}
         <View style={styles.doneText}>
           <AppText variant="heading" style={styles.centerText}>
-            {result === 'queued' ? t('feed.queuedTitle') : name ? t('feed.sent', { name }) : t('feed.sentPlain')}
+            {result === 'queued' ? t('feed.queuedTitle') : name && !away ? t('feed.sent', { name }) : t('feed.sentPlain')}
           </AppText>
           {result === 'queued' && <AppText style={[styles.centerText, styles.muted]}>{t('feed.queuedBody')}</AppText>}
+          {result === 'sent' && away && <AppText style={[styles.centerText, styles.muted]}>{t('critter.ranAwayBody', { name })}</AppText>}
         </View>
         {result === 'queued' && <Button label={t('feed.close')} onPress={() => goBack(`/pack/${packId}`)} />}
       </SafeAreaView>

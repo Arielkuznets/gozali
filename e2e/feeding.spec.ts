@@ -65,6 +65,30 @@ test('feeding: camera, caption, send, and the photo shows in the pack', async ({
   await expect(page.getByRole('button', { name: 'Close photo' })).toBeHidden();
 });
 
+test('a feed while the pet is away says it counts toward its return, with no pet eating it', async ({ context, page }) => {
+  await context.grantPermissions(['camera']);
+  const pack = await createPack(noa, { name: 'Study buddies', habit: 'study', species: 'mochi' }, [dan]);
+  await admin.from('critters').update({ status: 'ran_away', stage: 'kid', health: 0, xp: 9 }).eq('pack_id', pack.id);
+
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+  await expect(page.getByText('"Gone to find food"')).toBeVisible();
+  await page.getByRole('button', { name: 'Feed', exact: true }).click();
+  await page.waitForFunction(() => {
+    const video = document.querySelector('video');
+    return video !== null && video.readyState >= 2 && video.videoWidth > 0;
+  });
+  await page.getByRole('button', { name: 'Take photo' }).click();
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  // The pack, with the same line about coming back, stays under the camera.
+  const fed = page.getByText('Fed!', { exact: true });
+  await expect(fed).toBeVisible();
+  await expect(fed.locator('xpath=..')).toContainText('Three good days in a row bring Mochi back.');
+  await expect(page.getByText('Mochi loved it!')).toBeHidden();
+  await expect(page.getByLabel('Mochi eating')).toBeHidden();
+});
+
 test('a focus session left at the camera keeps its minutes for the photo', async ({ context, page }) => {
   await context.grantPermissions(['camera']);
   const pack = await createPack(noa, { name: 'Study buddies', habit: 'study', species: 'mochi' });
