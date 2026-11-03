@@ -28,7 +28,8 @@ export type FeedItem = {
   created_at: string;
   /**
    * Short-lived signed link; null once the photo was deleted after 30 days, which clears
-   * photo_path, and also for a path whose file storage can't find, at any age.
+   * photo_path, for a path whose file storage can't find, at any age, and on a first read that
+   * got no links.
    */
   photoUrl: string | null;
   reactions: ReactionTotal[];
@@ -115,12 +116,12 @@ export async function refreshReactions(queryClient: QueryClient, feedId: string)
 
 /** The pack's feed, newest first, with signed links to the photos and the reactions. */
 export function usePackFeed(packId: string, limit = FEED_PAGE) {
-  return useQuery({
+  return useQuery<FeedItem[]>({
     queryKey: [...packFeedsKey, packId, limit],
     // The shorter page stays while a longer one loads, or the list would unmount and the reader lose
     // their place. Never another pack's page: a link can change the pack on this same screen.
     placeholderData: (previous, query) => (query?.queryKey[2] === packId ? previous : undefined),
-    queryFn: async (): Promise<FeedItem[]> => {
+    queryFn: async ({ client, queryKey }): Promise<FeedItem[]> => {
       const supabase = requireSupabase();
       const { data, error } = await supabase
         .from('feeds')
@@ -135,13 +136,20 @@ export function usePackFeed(packId: string, limit = FEED_PAGE) {
         fetchReactions(data.map((feed) => feed.id)),
         paths.length > 0 ? supabase.storage.from(PHOTO_BUCKET).createSignedUrls(paths, PHOTO_LINK_SECONDS) : null,
       ]);
-      if (signed?.error) throw signed.error;
       for (const item of signed?.data ?? []) if (item.path && item.signedUrl) links.set(item.path, item.signedUrl);
-      return data.map((feed) => ({
+      const feeds = data.map((feed) => ({
         ...feed,
         photoUrl: feed.photo_path ? (links.get(feed.photo_path) ?? null) : null,
         reactions: reactions.get(feed.id) ?? [],
       }));
+      if (signed?.error) {
+        // The read still fails, so it tries again by itself. A first read puts up what the database
+        // answered meanwhile. A page already here keeps its photos, and a longer page has the one
+        // before it to go back to.
+        if (limit === FEED_PAGE && client.getQueryData(queryKey) === undefined) client.setQueryData(queryKey, feeds);
+        throw signed.error;
+      }
+      return feeds;
     },
   });
 }

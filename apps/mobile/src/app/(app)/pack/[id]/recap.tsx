@@ -98,6 +98,7 @@ function RecapView({ recap, packName, category, names }: ViewProps) {
   const art = critterArtFor(stats.critter, { category, mood: 1, sleeping: false });
   const change = stats.healthEnd - stats.healthStart;
   const mine = (photos.data ?? []).filter((photo) => photo.userId === session?.user.id);
+  const photosFailed = photos.isError && !photos.data;
   const top = stats.topMembers.map((member) => names.get(member) ?? '…').join(', ');
 
   const share = async () => {
@@ -159,11 +160,13 @@ function RecapView({ recap, packName, category, names }: ViewProps) {
             })}
           </View>
         )}
+        {photosFailed && <LoadFailed onRetry={() => void photos.refetch()} />}
       </ScrollView>
       <PhotoViewer photo={open} onClose={() => setOpen(null)} />
 
+      {/* The story holds the member's own photos, so it waits for them. */}
       {Platform.OS !== 'web' && (
-        <Button label={t('recap.share')} loading={sharing} onPress={() => void share()} />
+        <Button label={t('recap.share')} loading={sharing} disabled={photos.isLoading || photosFailed} onPress={() => void share()} />
       )}
 
       {/* Off screen: the story image that gets captured. */}

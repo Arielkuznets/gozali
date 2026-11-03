@@ -12,6 +12,9 @@ import { StoryCard } from '@/features/recap/StoryCard';
 let mockVisible: string[];
 let mockPoster: string;
 let mockReads = 0;
+let mockReadFails = false;
+let mockLinksFail = false;
+let mockHeld: Promise<void> = Promise.resolve();
 
 const mockRecap = {
   week_start: '2026-10-18',
@@ -36,14 +39,19 @@ jest.mock('@/lib/supabase', () => ({
       select: () => ({
         eq: () => ({ order: () => ({ limit: async () => ({ data: [mockRecap], error: null }) }) }),
         in: async () => {
+          await mockHeld;
           mockReads += 1;
+          if (mockReadFails) return { data: null, error: new Error('offline') };
           return { data: mockVisible.map((id) => ({ id, user_id: mockPoster, photo_path: `${table}/${id}.jpg` })), error: null };
         },
       }),
     }),
     storage: {
       from: () => ({
-        createSignedUrls: async (paths: string[]) => ({ data: paths.map((path) => ({ path, signedUrl: `https://photos.test/${path}?read=${mockReads}` })), error: null }),
+        createSignedUrls: async (paths: string[]) =>
+          mockLinksFail
+            ? { data: null, error: new Error('storage is down') }
+            : { data: paths.map((path) => ({ path, signedUrl: `https://photos.test/${path}?read=${mockReads}` })), error: null },
       }),
     },
   }),
@@ -72,6 +80,10 @@ const settle = () => act(() => new Promise((resolve) => setTimeout(resolve, 20))
 const tiles = () => tree!.root.findAllByType(Image);
 const shown = () => tiles().map((tile) => tile.props.source.cacheKey);
 const storyPhotos = () => tree!.root.findByType(StoryCard).findAllByType(Image);
+const SHARE = 'Share as a story';
+const LOAD_FAILED = "This didn't load. Check the connection and try again.";
+const button = (label: string) => tree!.root.findAll((node) => node.props.label === label && node.props.onPress)[0];
+const says = (text: string) => tree!.root.findAll((node) => node.type === 'Text' && [node.props.children].flat().join() === text).length > 0;
 const link = (id: string, read: number) => `https://photos.test/feeds/${id}.jpg?read=${read}`;
 
 async function open() {
@@ -96,12 +108,64 @@ beforeEach(() => {
   mockVisible = ['a', 'b'];
   mockPoster = 'dan';
   mockReads = 0;
+  mockReadFails = false;
+  mockLinksFail = false;
+  mockHeld = Promise.resolve();
   // No garbage collection, whose timers would outlive the test.
   client = new QueryClient({ defaultOptions: { queries: { gcTime: Infinity, retry: false } } });
 });
 
 afterEach(async () => {
   await close();
+});
+
+describe('a collage that does not load', () => {
+  it.each([
+    ['the read of the feeds', () => (mockReadFails = true)],
+    ['the links', () => (mockLinksFail = true)],
+  ])('says so when %s fail, and Try again brings the photos', async (_name, fail) => {
+    fail();
+    await open();
+    expect(shown()).toEqual([]);
+    expect(says(LOAD_FAILED)).toBe(true);
+
+    mockReadFails = false;
+    mockLinksFail = false;
+    await act(async () => button('Try again')?.props.onPress());
+    await settle();
+
+    expect(shown()).toEqual(['a', 'b']);
+    expect(says(LOAD_FAILED)).toBe(false);
+  });
+
+  it('says nothing of a collage with no photos left', async () => {
+    mockVisible = [];
+    await open();
+
+    expect(says(LOAD_FAILED)).toBe(false);
+    expect(button(SHARE)?.props.disabled).toBe(false);
+  });
+
+  it('holds Share while the photos are on their way, for a story that has them', async () => {
+    let release = () => {};
+    mockHeld = new Promise((resolve) => {
+      release = resolve;
+    });
+    await open();
+    expect(button(SHARE)?.props.disabled).toBe(true);
+
+    await act(async () => release());
+    await settle();
+
+    expect(button(SHARE)?.props.disabled).toBe(false);
+  });
+
+  it('holds Share while the collage has failed', async () => {
+    mockReadFails = true;
+    await open();
+
+    expect(button(SHARE)?.props.disabled).toBe(true);
+  });
 });
 
 describe('the collage of a recap', () => {

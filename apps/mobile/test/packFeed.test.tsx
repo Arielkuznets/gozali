@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
-import { usePackFeed } from '@/features/feeds/api';
+import { FEED_PAGE, usePackFeed } from '@/features/feeds/api';
 
 // The real hook over a stand-in for the server, whose answers the tests can hold back: the two
 // calls after the list can come back in either order.
@@ -42,15 +42,15 @@ const settle = () => act(() => new Promise((resolve) => setTimeout(resolve, 20))
 
 const trees: ReactTestRenderer[] = [];
 
-async function open() {
+async function open(limit?: number, retry: number | false = false) {
   const screen = {} as Pick<ReturnType<typeof usePackFeed>, 'data' | 'error' | 'isError' | 'isFetching' | 'refetch'>;
   function Pack() {
-    const { data, error, isError, isFetching, refetch } = usePackFeed('pack');
+    const { data, error, isError, isFetching, refetch } = usePackFeed('pack', limit);
     Object.assign(screen, { data, error, isError, isFetching, refetch });
     return null;
   }
   // No garbage collection, whose timers would outlive the test.
-  const client = new QueryClient({ defaultOptions: { queries: { gcTime: Infinity, retry: false } } });
+  const client = new QueryClient({ defaultOptions: { queries: { gcTime: Infinity, retry, retryDelay: 0 } } });
   await act(async () => {
     trees.push(
       create(
@@ -143,12 +143,62 @@ describe('the pack feed', () => {
     expect(screen.data).toEqual([]);
   });
 
-  it('fails when the links are refused', async () => {
+  it('keeps what the database answered when a first read gets no links, and says the read failed', async () => {
+    mockReactions.mockResolvedValue({ data: [{ feed_id: 'c', ...FIRE }], error: null });
     mockSign.mockResolvedValue({ data: null, error: REFUSED });
 
     const screen = await open();
 
+    expect(screen.data?.map((feed) => feed.id)).toEqual(['a', 'b', 'c']);
+    expect(screen.data?.map((feed) => feed.photoUrl)).toEqual([null, null, null]);
+    expect(screen.data?.map((feed) => feed.reactions)).toEqual([[], [], [FIRE]]);
+    expect(screen.error).toBe(REFUSED);
+  });
+
+  it('fills the photos in when a retry of that read gets its links', async () => {
+    mockSign.mockResolvedValueOnce({ data: null, error: REFUSED });
+
+    const screen = await open(undefined, 1);
+    await settle();
+
+    expect(mockSign).toHaveBeenCalledTimes(2);
+    expect(screen.data?.map((feed) => feed.photoUrl)).toEqual([link('pack/a.jpg'), null, link('pack/c.jpg')]);
+    expect(screen.isError).toBe(false);
+  });
+
+  it('fills the photos in on the next read after that read failed for good', async () => {
+    mockSign.mockResolvedValueOnce({ data: null, error: REFUSED });
+    const screen = await open();
+
+    await act(async () => {
+      await screen.refetch();
+    });
+    await settle();
+
+    expect(screen.data?.map((feed) => feed.photoUrl)).toEqual([link('pack/a.jpg'), null, link('pack/c.jpg')]);
+    expect(screen.isError).toBe(false);
+  });
+
+  it('keeps the photos it has when a later read gets no links', async () => {
+    const screen = await open();
+    mockRows = [photo('d'), ...mockRows];
+    mockSign.mockResolvedValue({ data: null, error: REFUSED });
+
+    await act(async () => {
+      await screen.refetch();
+    });
+    await settle();
+
+    expect(screen.data?.map((feed) => feed.photoUrl)).toEqual([link('pack/a.jpg'), null, link('pack/c.jpg')]);
     expect(screen.isError).toBe(true);
+  });
+
+  it('fails a longer page that gets no links: the page before it has the photos', async () => {
+    mockSign.mockResolvedValue({ data: null, error: REFUSED });
+
+    const screen = await open(FEED_PAGE * 2);
+
+    expect(screen.data).toBeUndefined();
     expect(screen.error).toBe(REFUSED);
   });
 

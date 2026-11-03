@@ -108,6 +108,9 @@ export default function PackScreen() {
   // While older photos remain unloaded, older events wait too, so the merged list has no gap.
   const oldestPhoto = feed.data?.at(-1)?.created_at;
   const shownEvents = (events.data ?? []).filter((event) => !morePhotos || !oldestPhoto || event.created_at >= oldestPhoto);
+  // A read that failed with nothing to show for it, or with rows that have no photos yet. One that
+  // failed with the list in place changes nothing on screen.
+  const feedFailed = feed.isError && (feed.data?.some((item) => item.photo_path !== null && item.photoUrl === null) ?? true);
 
   // No pictures until the list of blocked people is in, so a blocked face never flashes by. A link
   // signed before the block stays good for its hour, so the server's refusal alone comes too late.
@@ -246,6 +249,7 @@ export default function PackScreen() {
             names={names}
           />
         )}
+        {feedFailed && <LoadFailed onRetry={() => void feed.refetch()} />}
         {feed.data && (
           <FeedList
             feeds={feed.data}

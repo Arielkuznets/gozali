@@ -8,7 +8,7 @@ import { packFeedsKey, type FeedItem } from '@/features/feeds/api';
 
 // The real pack screen, feed list, hooks and QueryClient over a stand-in for the server that takes
 // its time, because what counts here is what stays on screen while it does.
-const mockScreen = { id: 'a', olderFails: false };
+const mockScreen = { id: 'a', olderFails: false, feedsFail: false, linksFail: false };
 const mockLists: { photos: number; events: number; first: string; posters: string[]; eventIds: string[] }[] = [];
 const mockMounts = { unmounts: 0 };
 const mockReacted = new Map<string, string>();
@@ -141,6 +141,7 @@ function mockRead(table: string) {
     },
     then: (done: (answer: unknown) => unknown, failed: (error: unknown) => unknown) => {
       if (table === 'feeds') mockFeedReads.push(limit);
+      if (table === 'feeds' && mockScreen.feedsFail) return Promise.resolve({ data: null, error: new Error('offline') }).then(done, failed);
       if (mockScreen.olderFails && limit > 30) return Promise.resolve({ data: null, error: new Error('offline') }).then(done, failed);
       // What the server holds when the read goes out, which its answer can't take back.
       const rows =
@@ -179,7 +180,12 @@ jest.mock('@/lib/supabase', () => ({
     from: mockRead,
     rpc: mockRpc,
     storage: {
-      from: () => ({ createSignedUrls: (paths: string[]) => mockAnswer(paths.map((path) => ({ path, signedUrl: `https://photos.test/${path}` }))) }),
+      from: () => ({
+        createSignedUrls: (paths: string[]) =>
+          mockScreen.linksFail
+            ? Promise.resolve({ data: null, error: new Error('storage is down') })
+            : mockAnswer(paths.map((path) => ({ path, signedUrl: `https://photos.test/${path}` }))),
+      }),
     },
   }),
 }));
@@ -202,6 +208,7 @@ const screen = () => (
 const button = () => tree.root.findAll((node) => node.props.label === 'Show older')[0];
 const loadFailed = () => tree.root.findAll((node) => typeof node.props.onRetry === 'function')[0];
 const chips = () => tree.root.findAll((node) => node.props.accessibilityLabel === 'React with 🔥' && typeof node.props.onPress === 'function');
+const photos = () => tree.root.findAll((node) => node.props.accessibilityRole === 'imagebutton' && typeof node.type === 'string');
 const moreMenus = () => tree.root.findAll((node) => node.props.accessibilityLabel === 'More' && typeof node.props.onPress === 'function');
 /** What the list went through, leaving out renders that changed nothing in it. */
 const sizes = () => mockLists.map((list) => `${list.photos}p+${list.events}e`).filter((size, index, all) => size !== all[index - 1]);
@@ -223,6 +230,8 @@ beforeEach(() => {
   client = new QueryClient({ defaultOptions: { queries: { gcTime: Infinity } } });
   mockScreen.id = 'a';
   mockScreen.olderFails = false;
+  mockScreen.feedsFail = false;
+  mockScreen.linksFail = false;
   mockLists.length = 0;
   mockMounts.unmounts = 0;
   mockReacted.clear();
@@ -235,6 +244,80 @@ afterEach(async () => {
   await act(async () => tree.unmount());
   client.clear();
   jest.useRealTimers();
+});
+
+describe('the first page', () => {
+  it('says so when it fails for good, and Try again brings the list', async () => {
+    mockScreen.feedsFail = true;
+    await open();
+    await advance(10_000);
+    expect(mockLists).toHaveLength(0);
+    expect(loadFailed()).toBeDefined();
+
+    mockScreen.feedsFail = false;
+    await act(async () => loadFailed()?.props.onRetry());
+    await advance(3000);
+    expect(sizes().at(-1)).toBe('30p+2e');
+    expect(loadFailed()).toBeUndefined();
+  });
+
+  it('says nothing of a page that is on its way', async () => {
+    await act(async () => {
+      tree = create(screen());
+    });
+    await advance(10);
+
+    expect(loadFailed()).toBeUndefined();
+  });
+
+  it('shows the rows when only the links failed, says so, and Try again brings the photos', async () => {
+    mockScreen.linksFail = true;
+    await open();
+    expect(chips()).toHaveLength(30);
+    expect(photos()).toHaveLength(0);
+    await advance(10_000);
+    expect(chips()).toHaveLength(30);
+    expect(loadFailed()).toBeDefined();
+
+    mockScreen.linksFail = false;
+    await act(async () => loadFailed()?.props.onRetry());
+    await advance(3000);
+    expect(photos()).toHaveLength(30);
+    expect(loadFailed()).toBeUndefined();
+  });
+
+  it('fills in by itself when a retry gets the links, with nothing to try again', async () => {
+    mockScreen.linksFail = true;
+    await open();
+    mockScreen.linksFail = false;
+    await advance(10_000);
+
+    expect(photos()).toHaveLength(30);
+    expect(loadFailed()).toBeUndefined();
+  });
+
+  it('says nothing when a later read fails with the photos on screen', async () => {
+    await open();
+    mockScreen.linksFail = true;
+
+    await act(async () => void client.invalidateQueries({ queryKey: packFeedsKey }));
+    await advance(10_000);
+
+    expect(photos()).toHaveLength(30);
+    expect(loadFailed()).toBeUndefined();
+  });
+
+  it('comes back from a longer page that got no links, with the list and its Try again for older', async () => {
+    await open();
+    mockScreen.linksFail = true;
+
+    await showOlder();
+    await advance(10_000);
+
+    expect(sizes().at(-1)).toBe('30p+2e');
+    expect(photos()).toHaveLength(30);
+    expect(tree.root.findAll((node) => typeof node.props.onRetry === 'function')).toHaveLength(1);
+  });
 });
 
 describe('Show older', () => {
