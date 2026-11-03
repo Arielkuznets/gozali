@@ -64,6 +64,11 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
   // A tile shows its item on the pet. The note a pet that ran away left can't wear one, so the
   // tiles draw it as it is at home.
   const tileArt: CritterArt = { ...art, look: art.look === 'ran_away' ? 'happy' : art.look, sleeping: false, mood: 0 };
+  // The wardrobe and the shop come from all three reads, the achievements from the first. A read that
+  // isn't in would pass for nothing unlocked or bought, so they wait for all of them.
+  const reads = hatched ? [achievements, shop, bought] : [achievements];
+  const loaded = reads.every((read) => read.data);
+  const failed = reads.filter((read) => read.isError && !read.data);
 
   const wear = (slot: WardrobeSlot, item: string | null) => {
     haptics.tap();
@@ -180,7 +185,9 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
           )}
         </View>
 
-        {hatched ? (
+        {failed.length > 0 && <LoadFailed onRetry={() => failed.forEach((read) => void read.refetch())} />}
+
+        {hatched && loaded && (
           <>
             <View style={styles.section}>
               <View style={styles.titleRow}>
@@ -249,7 +256,8 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
               </View>
             </View>
           </>
-        ) : (
+        )}
+        {!hatched && (
           <View style={styles.eggCard}>
             <AppText style={styles.eggIcon}>🥚</AppText>
             <View style={styles.fillText}>
@@ -259,24 +267,26 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
           </View>
         )}
 
-        <View style={styles.section}>
-          <AppText style={styles.sectionTitle}>{t('profile.achievements')}</AppText>
-          {ACHIEVEMENTS.map((achievement) => {
-            const at = unlocked.get(achievement.key);
-            return (
-              <View key={achievement.key} style={[styles.achievement, !at && styles.locked]}>
-                <AppText style={styles.badge}>{at ? '🏆' : '🔒'}</AppText>
-                <View style={styles.fillText}>
-                  <AppText style={styles.achievementTitle}>{t(`achievements.${achievement.key}.title`)}</AppText>
-                  <AppText variant="caption">
-                    {t(`achievements.${achievement.key}.condition`)} · {t(`items.${achievement.item.key as HeadItem}`)}
-                  </AppText>
+        {loaded && (
+          <View style={styles.section}>
+            <AppText style={styles.sectionTitle}>{t('profile.achievements')}</AppText>
+            {ACHIEVEMENTS.map((achievement) => {
+              const at = unlocked.get(achievement.key);
+              return (
+                <View key={achievement.key} style={[styles.achievement, !at && styles.locked]}>
+                  <AppText style={styles.badge}>{at ? '🏆' : '🔒'}</AppText>
+                  <View style={styles.fillText}>
+                    <AppText style={styles.achievementTitle}>{t(`achievements.${achievement.key}.title`)}</AppText>
+                    <AppText variant="caption">
+                      {t(`achievements.${achievement.key}.condition`)} · {t(`items.${achievement.item.key as HeadItem}`)}
+                    </AppText>
+                  </View>
+                  {at && <AppText variant="caption">{formatDay(at.slice(0, 10))}</AppText>}
                 </View>
-                {at && <AppText variant="caption">{formatDay(at.slice(0, 10))}</AppText>}
-              </View>
-            );
-          })}
-        </View>
+              );
+            })}
+          </View>
+        )}
       </ScrollView>
     </Screen>
   );

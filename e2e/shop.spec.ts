@@ -82,6 +82,29 @@ test('a pet that ran away still shows what each tile offers, and says why the wa
   await expect(page.getByText('The pet is not here right now.', { exact: true })).toBeVisible();
 });
 
+test('a profile whose achievements did not load says so, and Try again brings them', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
+  await admin.from('critters').update({ status: 'active', stage: 'kid', xp: 8, health: 80, coins: 20 }).eq('pack_id', pack.id);
+  const unlocked = await admin.from('achievements').insert({ pack_id: pack.id, key: 'hatched' });
+  if (unlocked.error) throw unlocked.error;
+
+  await signIn(page, noa);
+  const achievements = /\/rest\/v1\/achievements\?/;
+  await page.route(achievements, (route) => route.fulfill({ status: 503, body: '{}' }));
+  await page.goto(`/pack/${pack.id}/critter`);
+
+  // After the app's own tries again.
+  await expect(page.getByText("This didn't load. Check the connection and try again.")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText('🔒')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'scarf, 10 coins' })).toBeHidden();
+
+  await page.unroute(achievements);
+  await page.getByRole('button', { name: 'Try again' }).click();
+  await expect(page.getByRole('radio', { name: 'scarf' })).toBeVisible();
+  await expect(page.getByText('🏆')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'scarf, 10 coins' })).toBeHidden();
+});
+
 test('an egg has no wardrobe or shop until it hatches', async ({ page }) => {
   const pack = await createPack(noa, { name: 'Solo', habit: 'yoga', species: 'kit' });
 

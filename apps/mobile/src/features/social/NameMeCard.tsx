@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
+import { LoadFailed } from '@/components/ScreenStates';
 import { TextField } from '@/components/TextField';
 import { socialErrorKey, useChooseName, useNameSuggestions, useSuggestName } from '@/features/social/api';
 import { notify } from '@/lib/confirm';
@@ -34,6 +35,7 @@ export function NameMeCard({ packId, critter, isAdmin, adminName, names }: Props
       <AppText style={styles.muted}>
         {isAdmin ? t('social.nameMeBodyAdmin', { critter }) : t('social.nameMeBody', { critter, admin: adminName })}
       </AppText>
+      {suggestions.isError && !suggestions.data && <LoadFailed onRetry={() => void suggestions.refetch()} />}
       {suggestions.data?.map((suggestion) => (
         <View key={suggestion.id} style={styles.row}>
           <View style={styles.fill}>

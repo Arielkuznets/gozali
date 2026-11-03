@@ -10,13 +10,19 @@ import type { PackCritter } from '@/features/packs/api';
 // The real profile screen and hooks over a stand-in for the server. The drawing of a critter comes
 // out as text, so tests can read what a tile shows.
 let mockRows: Record<string, unknown[]>;
+/** Tables whose reads fail, as with no connection. */
+const mockFailing = new Set<string>();
+/** Holds every read until the test lets them through. */
+let mockHeld: Promise<void>;
 let mockCritter: PackCritter;
 jest.mock('@/lib/supabase', () => ({
   requireSupabase: () => ({
     from: (table: string) => {
       const read: Record<string, unknown> = {
         then: (done: (answer: unknown) => unknown, failed: (error: unknown) => unknown) =>
-          Promise.resolve({ data: mockRows[table] ?? [], error: null }).then(done, failed),
+          mockHeld
+            .then(() => (mockFailing.has(table) ? { data: null, error: new TypeError('Network request failed') } : { data: mockRows[table] ?? [], error: null }))
+            .then(done, failed),
       };
       for (const step of ['select', 'eq', 'gte', 'lt', 'order']) read[step] = () => read;
       return read;
@@ -48,11 +54,14 @@ jest.mock('@react-native-community/netinfo', () => ({}));
 const SHOP = [
   { item: 'bow', slot: 'head', price: 10 },
   { item: 'bandana', slot: 'neck', price: 10 },
+  { item: 'scarf', slot: 'neck', price: 10 },
   { item: 'cap', slot: 'head', price: 12 },
   { item: 'beanie', slot: 'head', price: 12 },
   { item: 'crown', slot: 'head', price: 45 },
 ];
 const AWAY = 'The pet is not here right now.';
+const LOAD_FAILED = "This didn't load. Check the connection and try again.";
+const WARDROBE_EMPTY = 'Items from achievements and the shop show up here.';
 
 let tree: ReactTestRenderer;
 
@@ -71,6 +80,8 @@ const drawings = (tiles: 'wardrobe' | 'shop') =>
     )
     .map((tile) => tile.findAll((child) => child.type === 'Text')[0]?.props.children as string);
 
+const settle = () => act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+
 async function open() {
   await act(async () => {
     tree = create(
@@ -81,12 +92,14 @@ async function open() {
     );
   });
   // An observer hears about a change in a macrotask, so an act with nothing to wait for looks too early.
-  await act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+  await settle();
 }
 
 beforeEach(() => {
   mockCritter = { species: 'kit', name: 'Kit', health: 80, xp: 40, stage: 'kid', status: 'active', streak: 7, coins: 60, marks: [], outfit: {} };
   mockRows = { shop_items: SHOP };
+  mockFailing.clear();
+  mockHeld = Promise.resolve();
 });
 
 afterEach(async () => {
@@ -140,6 +153,60 @@ describe('a pet at home', () => {
 
     expect(texts()).not.toContain(AWAY);
     expect(pressable('radio', 'scarf')[0]?.props.accessibilityState).toEqual({ selected: false, disabled: false });
+  });
+});
+
+describe('the reads behind the wardrobe, the shop and the achievements', () => {
+  beforeEach(() => {
+    mockRows.achievements = [{ key: 'hatched', unlocked_at: '2026-10-01T00:00:00Z' }];
+    mockRows.pack_items = [{ item: 'cap' }];
+  });
+
+  it.each(['achievements', 'pack_items', 'shop_items'])('say so when %s did not load, and Try again brings them', async (table) => {
+    mockFailing.add(table);
+    await open();
+
+    expect(texts()).toContain(LOAD_FAILED);
+    expect(texts()).not.toContain('🔒');
+    expect(texts()).not.toContain(WARDROBE_EMPTY);
+    expect(pressable('button', 'scarf, 10 coins')).toHaveLength(0);
+    expect(pressable('button', 'cap, 12 coins')).toHaveLength(0);
+
+    mockFailing.clear();
+    await act(async () => tree.root.findAll((node) => node.props.label === 'Try again' && node.props.onPress)[0]?.props.onPress());
+    await settle();
+
+    expect(texts()).not.toContain(LOAD_FAILED);
+    expect(pressable('radio', 'scarf')).toHaveLength(1);
+    expect(pressable('radio', 'cap')).toHaveLength(1);
+    expect(pressable('button', 'bow, 10 coins')).toHaveLength(1);
+    expect(texts()).toContain('🏆');
+  });
+
+  it('draw no locked list and no empty wardrobe while they are on their way', async () => {
+    let release = () => {};
+    mockHeld = new Promise((resolve) => {
+      release = resolve;
+    });
+    await open();
+
+    expect(texts()).not.toContain('🔒');
+    expect(texts()).not.toContain(WARDROBE_EMPTY);
+    expect(texts()).not.toContain(LOAD_FAILED);
+
+    await act(async () => release());
+    await settle();
+    expect(pressable('radio', 'scarf')).toHaveLength(1);
+  });
+
+  it('leave an egg its achievements when only the shop did not load', async () => {
+    mockCritter = { ...mockCritter, status: 'egg', stage: 'egg' };
+    mockRows.achievements = [];
+    mockFailing.add('shop_items');
+    await open();
+
+    expect(texts()).not.toContain(LOAD_FAILED);
+    expect(texts()).toContain('🔒');
   });
 });
 
