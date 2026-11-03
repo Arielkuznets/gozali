@@ -23,6 +23,12 @@ function projectId(): string | undefined {
   return extra?.eas?.projectId ?? Constants.easConfig?.projectId ?? undefined;
 }
 
+/** An age below zero says the clock was set back since, so it says nothing about the last register. */
+function isRecent(registeredAt: number): boolean {
+  const age = Date.now() - registeredAt;
+  return age >= 0 && age < REFRESH_MS;
+}
+
 /**
  * Saves this device's push token for the user, when notifications are allowed. Quietly does
  * nothing on the web, in a simulator, or before the project is linked to EAS.
@@ -43,7 +49,7 @@ export async function registerPushToken(): Promise<void> {
     const { data: session } = await requireSupabase().auth.getSession();
     const stamp = `${session.session?.user.id ?? ''}:${token}`;
     const last = await AsyncStorage.getItem(REGISTERED_KEY);
-    if (last && last.startsWith(`${stamp}@`) && Date.now() - Number(last.split('@')[1]) < REFRESH_MS) return;
+    if (last && last.startsWith(`${stamp}@`) && isRecent(Number(last.split('@')[1]))) return;
     await forgetting;
     // Through a server function: the token may still belong to whoever used this phone before.
     const { error } = await requireSupabase().rpc('register_push_token', {

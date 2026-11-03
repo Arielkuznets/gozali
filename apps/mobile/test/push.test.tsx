@@ -386,6 +386,37 @@ describe('registering again', () => {
     expect(await kept()).toBeNull();
   });
 
+  describe('the same token for the same account', () => {
+    const HOUR = 60 * 60 * 1000;
+    const clockMoves = (ms: number) => {
+      const now = Date.now();
+      jest.spyOn(Date, 'now').mockReturnValue(now + ms);
+    };
+
+    afterEach(() => jest.mocked(Date.now).mockRestore());
+
+    it('goes to the server twice a day', async () => {
+      await registerPushToken();
+      clockMoves(11 * HOUR);
+      await registerPushToken();
+      expect(registrations()).toBe(1);
+
+      clockMoves(2 * HOUR);
+      await registerPushToken();
+      expect(registrations()).toBe(2);
+    });
+
+    it('goes again after the clock was set back, which says nothing about how long ago it went', async () => {
+      await registerPushToken();
+      clockMoves(-24 * HOUR);
+      await registerPushToken();
+      expect(registrations()).toBe(2);
+
+      await registerPushToken();
+      expect(registrations()).toBe(2);
+    });
+  });
+
   describe('with two forgets under way', () => {
     let answers: (() => void)[];
     let first: Promise<void>;
