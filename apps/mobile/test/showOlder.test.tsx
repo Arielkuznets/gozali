@@ -305,6 +305,56 @@ describe('Show older', () => {
     expect(sizes().at(-1)).toBe('60p+3e');
   });
 
+  describe('after a longer page failed for good', () => {
+    beforeEach(async () => {
+      await open();
+      mockScreen.olderFails = true;
+      await showOlder();
+      await advance(10_000);
+      mockScreen.olderFails = false;
+    });
+
+    async function tapReactionDuringTheLoad() {
+      await advance(50);
+      await act(async () => chips().at(-1)?.props.onPress());
+      await advance(10);
+      expect(loadFailed()).toBeUndefined();
+      expect(button()?.props.loading).toBe(true);
+
+      await advance(5000);
+      expect(sizes().at(-1)).toBe('60p+3e');
+      expect(button()?.props.loading).toBeFalsy();
+      expect(loadFailed()).toBeUndefined();
+    }
+
+    it('still lands when a reaction is tapped during Try again', async () => {
+      await act(async () => loadFailed()?.props.onRetry());
+
+      await tapReactionDuringTheLoad();
+    });
+
+    it('still lands when a reaction is tapped during Show older on opening the pack again', async () => {
+      await act(async () => tree.unmount());
+      await open();
+      await showOlder();
+
+      await tapReactionDuringTheLoad();
+    });
+  });
+
+  it('shows a longer page it holds at once, on opening the pack again', async () => {
+    await open();
+    await showOlder();
+    await advance(3000);
+    await act(async () => tree.unmount());
+    await open();
+
+    await showOlder();
+    await advance(1);
+
+    expect(sizes()).toEqual(['60p+3e']);
+  });
+
   it('never shows one pack under the name of another when a link changes the pack on this screen', async () => {
     await open();
     mockLists.length = 0;

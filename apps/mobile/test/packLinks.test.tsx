@@ -64,6 +64,7 @@ jest.mock('@/features/days/api', () => ({
 const mockFeedReads: { packId: string; limit: number }[] = [];
 jest.mock('@/features/feeds/api', () => ({
   FEED_PAGE: 30,
+  packFeedsKey: ['feeds', 'pack'],
   fedToday: () => new Set(),
   useCountedFeeds: () => ({ data: [] }),
   useFeedQueue: () => undefined,

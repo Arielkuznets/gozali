@@ -25,7 +25,7 @@ import { critterArt, stageProgress } from '@/features/critter/art';
 import { useCritterText } from '@/features/critter/useCritterText';
 import { canEndPause, keptToday, pauseToday, useDayStatus, useMembersToday, useTodayPasses, type TodayPasses } from '@/features/days/api';
 import { FeedList } from '@/features/feeds/FeedList';
-import { FEED_PAGE, feedWaitsToday, fedToday, useCountedFeeds, usePackFeed, usePendingFeeds, type FeedItem } from '@/features/feeds/api';
+import { FEED_PAGE, feedWaitsToday, fedToday, packFeedsKey, useCountedFeeds, usePackFeed, usePendingFeeds, type FeedItem } from '@/features/feeds/api';
 import { storedFocusSession } from '@/features/focus/session';
 import { countedToday, currentMembers, restDaysOn, usePack, type Pack, type PackCritter, type PackMember } from '@/features/packs/api';
 import { FOCUS_CATEGORIES, PACK_SIZE_MAX, categoryInfo } from '@/features/packs/constants';
@@ -117,6 +117,13 @@ export default function PackScreen() {
       : undefined;
 
   const showOlder = () => {
+    // A page that failed goes first: a reaction's cancel puts a read back where it began, and the
+    // check above would take that old failure for this try's.
+    queryClient.removeQueries({
+      queryKey: [...packFeedsKey, id, feedLimit + FEED_PAGE],
+      exact: true,
+      predicate: (query) => query.state.data === undefined,
+    });
     setOlderFailed(null);
     setFeedLimit((limit) => limit + FEED_PAGE);
   };
