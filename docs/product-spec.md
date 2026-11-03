@@ -77,7 +77,7 @@ Each pack is an independent unit with one habit, one creature and its own rules;
 - **The pack creator is the admin:** changes the name, rest days and week start, chooses the creature's name (from the suggestions, and can change it later), and removes members.
 - A change to rest days takes effect from the start of next week.
 - **Leaving:** any member can leave. If the admin leaves, admin passes to the longest-standing member.
-- A pack with no members is deleted after 30 days.
+- A pack with no members is deleted after 30 days. Until then only someone who was in it can come back with its code, and the first one back becomes the admin; a member the admin removed stays out. To anyone else the code is one no pack has, so an emptied pack can't be seen or taken over (decision D25).
 
 **Week:** starts on Sunday by default; the admin can change it to Monday. The change takes effect at the end of the current week, which ends as it would have, with its recap (decision D24). The days until the new start day comes round join the first week under it: moving from Sunday to Monday, that week has 8 days; moving from Monday to Sunday, 13. Its rest-day quota grows with its length, rounded up (2 instead of 1 in 8 days, 4 instead of 2 in 13), so the change costs nobody a rest.
 
@@ -507,8 +507,8 @@ Important: the widgets and some of the modules require a **development build**, 
 - **User actions (Postgres functions):**
   - `submit_feed`: verifies pack membership, computes "the day" by the pack's time zone (including the offline rule), saves the feed (the database constraint prevents duplicates), wakes a sleeping member, and cancels a joker or declared rest for the same day.
   - `create_pack`: creates the pack, its egg and the admin membership, with a random invite code; limited to 3 packs per user. The day close reads a pack's time zone with Intl, which doesn't know every name Postgres lists, so the zone has to be one it can read.
-  - `pack_preview`: what someone sees before joining (name, habit, the critter as it is now, and who is in the pack), by invite code.
-  - `join_pack`: joining with an invite code, with locking and a check for a free spot; a member the admin removed can't rejoin this way.
+  - `pack_preview`: what someone sees before joining (name, habit, the critter as it is now, and who is in the pack), by invite code. A member the admin removed sees nothing, and a pack with no members shows only to someone who was in it. Each wrong code counts as a miss, 20 in an hour stop the answers for that hour, and a read-only transaction gets no answer, since it can't count one.
+  - `join_pack`: joining with an invite code, with locking and a check for a free spot; a member the admin removed can't rejoin this way, and a pack with no members takes back only someone who was in it.
   - `update_pack` (admin): the name changes right away; rest days and week start are stored as pending and apply from the next week start.
   - `remove_member` (admin) and `renew_invite_code` (admin: a new code; the old code and link stop working).
   - `leave_pack`: leaving, including passing admin to the longest-standing member.

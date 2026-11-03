@@ -142,3 +142,9 @@ Each entry: what was decided, what the options were, and why. Decisions D1–D11
 - **Options:** the days in between join the ending week (the earlier rule in the spec), or form a short week of their own (1 to 6 days, with its own recap), or join the first new week.
 - **Why:** the owner wanted the running week to end as planned, every day in exactly one week, every week with exactly one recap, and nobody refused a rest or charged a miss because of the change. Joining the first new week is the one rule that does all of it in every direction, without a recap for a single day. Rounding up gives the longer week exactly the rests anyone could have had in those days under either start day: r + 1 in 8 days and 2r in 13, for a quota r of 1 to 4. Before, the running week lost its recap, and the next one overlapped it, counting rests from both.
 
+
+## D25 · Who can come back to an emptied pack
+
+- **Decided:** a pack with no members takes back only someone who already has a row in it, and the first one back becomes its admin. A member the admin removed stays out, as in any pack. For anyone else its code answers as one no pack has, in both the preview and the join, and counts as a miss. Once someone is back the pack is a live pack again and the code works for anyone.
+- **Options:** anyone with the link joins and becomes the admin (the earlier rule, migration `20260927001900`); hide everything posted before a newcomer joined, in the read policies of the feeds and the photo files.
+- **Why:** an emptied pack stays 30 days, and its photos stay as long as they are kept, 8 weeks for those in a recap. Under the earlier rule a stranger with an old message became the admin and read all of it, with nobody there to see the join or remove them, while the people who left believed they were out. Hiding the old posts would need new rules on every read for a case the product doesn't need: the one branch in the join keeps coming back for the people it is for.

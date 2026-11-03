@@ -1,7 +1,7 @@
 -- A member who rejoins starts again: feeds from before they left don't make them counted.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(21);
+select plan(31);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000d8', 'noa@test.local'),
@@ -227,9 +227,10 @@ select is(
   'and the days nobody was there don''t count them'
 );
 
--- Maya fed alone and left days ago. Lior took up the invite today, and Maya is back the same day.
+-- Maya and Lior fed and left days ago. Lior is back today, and Maya the same day.
 select pg_temp.emptied_pack(
-  '10000000-0000-0000-0000-000000000228', 'CLMD3456', array['00000000-0000-0000-0000-0000000000a9']::uuid[]
+  '10000000-0000-0000-0000-000000000228', 'CLMD3456',
+  array['00000000-0000-0000-0000-0000000000a9', '00000000-0000-0000-0000-0000000000b9']::uuid[]
 );
 select pg_temp.returns_to('CLMD3456', '00000000-0000-0000-0000-0000000000b9');
 select pg_temp.returns_to('CLMD3456', '00000000-0000-0000-0000-0000000000a9');
@@ -240,6 +241,85 @@ select is(
   'active/false/false',
   'someone who left before the first day isn''t charged for it'
 );
+
+-- A pack with nobody in it keeps its photos for weeks, and nobody is there to see who comes in.
+-- Only someone who was in it can come back. To anyone else its code is one no pack has.
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000ca', 'ori@test.local');
+select pg_temp.emptied_pack(
+  '10000000-0000-0000-0000-000000000328', 'CLME3456', array['00000000-0000-0000-0000-0000000000ca']::uuid[]
+);
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000c9');
+set local role authenticated;
+select is(
+  (select count(*) from public.pack_preview('CLME3456')), 0::bigint,
+  'someone who was never in an emptied pack can''t see it'
+);
+select is(public.join_pack('CLME3456'), null, 'or join it');
+reset role;
+select is(
+  (select count(*) from public.pack_members
+   where pack_id = '10000000-0000-0000-0000-000000000328' and user_id = '00000000-0000-0000-0000-0000000000c9'),
+  0::bigint,
+  'so they get no membership'
+);
+select is(
+  (select count(*) from public.code_misses where user_id = '00000000-0000-0000-0000-0000000000c9'),
+  2::bigint,
+  'and both count as misses, as for a code no pack has'
+);
+
+-- At the limit of packs a refusal would tell the code is real.
+insert into public.pack_members (pack_id, user_id)
+select p, '00000000-0000-0000-0000-0000000000c9'
+from unnest(array[
+  '10000000-0000-0000-0000-000000000008', '10000000-0000-0000-0000-000000000018', '10000000-0000-0000-0000-000000000028'
+]::uuid[]) p;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000c9');
+set local role authenticated;
+select is(public.join_pack('CLME3456'), null, 'someone at the limit of packs gets the same answer');
+reset role;
+delete from public.pack_members
+where user_id = '00000000-0000-0000-0000-0000000000c9'
+  and pack_id in ('10000000-0000-0000-0000-000000000008', '10000000-0000-0000-0000-000000000018', '10000000-0000-0000-0000-000000000028');
+
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000ca');
+set local role authenticated;
+select is(
+  (select member_count from public.pack_preview('CLME3456')), 0,
+  'someone who was in it still sees it'
+);
+reset role;
+select pg_temp.returns_to('CLME3456', '00000000-0000-0000-0000-0000000000ca');
+select is(
+  (select role || '/' || status from public.pack_members
+   where pack_id = '10000000-0000-0000-0000-000000000328' and user_id = '00000000-0000-0000-0000-0000000000ca'),
+  'admin/active',
+  'and comes back as its admin'
+);
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000c9');
+set local role authenticated;
+select is(
+  public.join_pack('CLME3456'), '10000000-0000-0000-0000-000000000328'::uuid,
+  'with someone there the code works for anyone again'
+);
+reset role;
+
+-- Being the last one out doesn't undo a removal.
+select pg_temp.emptied_pack(
+  '10000000-0000-0000-0000-000000000428', 'CLMF3456', array['00000000-0000-0000-0000-0000000000ca']::uuid[]
+);
+update public.pack_members set removed_at = now() where pack_id = '10000000-0000-0000-0000-000000000428';
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000ca');
+set local role authenticated;
+select throws_ok(
+  $$ select public.join_pack('CLMF3456') $$,
+  'P0001', 'removed_from_pack', 'a member the admin removed stays out of an emptied pack'
+);
+select throws_ok(
+  $$ select * from public.pack_preview('CLMF3456') $$,
+  'P0001', 'removed_from_pack', 'and doesn''t see it either'
+);
+reset role;
 
 -- Yesterday waits for its close, in the time between the end of a day and its close. Roni and Sam
 -- fed on it. Sam leaves and rejoins before it closes: the feed still counts, so an egg still hatches.
