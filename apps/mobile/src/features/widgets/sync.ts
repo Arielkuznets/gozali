@@ -66,15 +66,15 @@ export async function clearWidgets(): Promise<void> {
   if (Platform.OS === 'web' || leaving) return;
   leaving = true;
   departures += 1;
-  await forgetWidgetToken();
-  await publish(null, null);
+  // Side by side: the widgets go blank at once, however long the revoke takes.
+  await Promise.all([forgetWidgetToken(), publish(null, null)]);
 }
 
 /**
  * For a phone nobody is signed in on. The app hears a session end only while it runs, so it can
- * start signed out with a token still here: left by build 4 when the server ended a session, or by
- * a run killed during the revoke. The widgets would go on fetching that account's packs, and each
- * fetch would keep the token alive on the server.
+ * start signed out with a token still here: build 4 left one when the server ended a session or
+ * when a run was killed during the revoke. The widgets would go on fetching that account's packs,
+ * and each fetch would keep the token alive on the server.
  */
 export async function clearWidgetsLeftBehind(): Promise<void> {
   if ((await savedWidgetToken()) || (await loadSnapshot())) await clearWidgets();

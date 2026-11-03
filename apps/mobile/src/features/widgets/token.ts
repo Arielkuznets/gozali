@@ -33,9 +33,12 @@ export async function widgetToken(): Promise<string | null> {
   return data;
 }
 
-/** On sign-out the token is revoked and the widgets forget everything. */
+/**
+ * On sign-out the token is revoked and the widgets forget everything. The phone's copies go first:
+ * a revoke can hang for half a minute, and by its answer they may be the next account's.
+ */
 export async function forgetWidgetToken(): Promise<void> {
   const token = await AsyncStorage.getItem(TOKEN_KEY);
-  if (token && supabase) await supabase.rpc('revoke_widget_token', { token });
   await AsyncStorage.multiRemove([TOKEN_KEY, OWNER_KEY, SNAPSHOT_KEY]);
+  if (token && supabase) await supabase.rpc('revoke_widget_token', { token });
 }

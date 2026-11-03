@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { loadSnapshot, savedWidgetToken } from '@/features/widgets/data';
-import { clearWidgets, refreshWidgets, resumeWidgets } from '@/features/widgets/sync';
+import { clearWidgets, clearWidgetsLeftBehind, refreshWidgets, resumeWidgets } from '@/features/widgets/sync';
 import { noteServerDate, serverNow } from '@/lib/serverClock';
 
 // What the widgets on the home screen read.
@@ -120,6 +120,66 @@ describe('refreshing the widgets', () => {
 
     expect(mockRpc).not.toHaveBeenCalled();
     expect(AsyncStorage.multiRemove).not.toHaveBeenCalled();
+  });
+});
+
+describe('a revoke the connection holds up', () => {
+  const left = { ...snapshot, packs: [{ id: 'left', name: 'Left behind' }] };
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+  let endRevoke: () => void;
+
+  beforeEach(async () => {
+    await saveToken('left-behind', 'dan');
+    await AsyncStorage.setItem('gozali.widget-snapshot', JSON.stringify(left));
+    mockAppGroup.set('snapshot', JSON.stringify(left));
+    mockAppGroup.set('token', 'left-behind');
+    let held = false;
+    mockRpc.mockImplementation((name: string) => {
+      if (name !== 'revoke_widget_token' || held) return Promise.resolve({ data: 'new-token', error: null });
+      held = true;
+      return new Promise((resolve) => {
+        endRevoke = () => resolve({ data: null, error: { code: '42501', message: 'permission denied' } });
+      });
+    });
+  });
+
+  it("leaves the next account's token and widgets alone when it ends", async () => {
+    mockSignedIn = null;
+    const clearing = clearWidgetsLeftBehind();
+    await settle();
+
+    mockSignedIn = 'noa';
+    resumeWidgets();
+    await refreshWidgets();
+    endRevoke();
+    await clearing;
+
+    expect(await AsyncStorage.getItem('gozali.widget-token')).toBe('new-token');
+    expect(await AsyncStorage.getItem('gozali.widget-token-owner')).toBe('noa');
+    expect(JSON.parse((await AsyncStorage.getItem('gozali.widget-snapshot'))!)).toMatchObject(snapshot);
+    expect(mockAppGroup.get('token')).toBe('new-token');
+    expect(JSON.parse(mockAppGroup.get('snapshot')!)).toMatchObject(snapshot);
+  });
+
+  it('holds a sign-out back, with nothing of the account left on the phone meanwhile', async () => {
+    let cleared = false;
+    const clearing = clearWidgets().then(() => {
+      cleared = true;
+    });
+    await settle();
+
+    expect(cleared).toBe(false);
+    expect(await AsyncStorage.multiGet(['gozali.widget-token', 'gozali.widget-token-owner', 'gozali.widget-snapshot'])).toEqual([
+      ['gozali.widget-token', null],
+      ['gozali.widget-token-owner', null],
+      ['gozali.widget-snapshot', null],
+    ]);
+    expect(mockAppGroup.get('token')).toBeUndefined();
+    expect(mockAppGroup.get('snapshot')).toBeUndefined();
+
+    endRevoke();
+    await clearing;
+    expect(cleared).toBe(true);
   });
 });
 
