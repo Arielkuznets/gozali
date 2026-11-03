@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { Alert } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
@@ -37,7 +38,10 @@ const PHOTO = { id: 'photo', userId: 'dan', name: 'Dan', url: 'https://photo/1',
 let moderation: ReturnType<typeof useModeration>;
 
 function PackScreen() {
-  moderation = useModeration();
+  const current = useModeration();
+  useEffect(() => {
+    moderation = current;
+  });
   return null;
 }
 
