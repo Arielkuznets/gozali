@@ -274,6 +274,34 @@ test('a member who dozed off is told how to come back', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Noa, asleep' })).toBeVisible();
 });
 
+test('a member who dozed off stays asleep until a pause starts, and through one they cancel', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
+  await admin.from('critters').update({ status: 'active', stage: 'baby', xp: 2, health: 70 }).eq('pack_id', pack.id);
+  await admin.from('pack_members').update({ status: 'sleeping' }).eq('pack_id', pack.id).eq('user_id', noa.id);
+  page.on('dialog', (dialog) => void dialog.accept());
+  await signIn(page, noa);
+
+  await page.goto(`/pack/${pack.id}/settings`);
+  await page.getByRole('button', { name: 'Pause', exact: true }).click();
+  await page.getByRole('menuitem', { name: '3 days' }).click();
+  await expect(page.getByRole('button', { name: 'Cancel pause' })).toBeVisible();
+
+  await page.goto(`/pack/${pack.id}`);
+  await expect(page.getByText("One photo and you're back.", { exact: false })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Noa, asleep' })).toBeVisible();
+  await expect(page.getByText('0/1 fed today').last()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Feed', exact: true })).toBeVisible();
+
+  await page.goto(`/pack/${pack.id}/settings`);
+  await page.getByRole('button', { name: 'Cancel pause' }).click();
+  await expect(page.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
+
+  await page.goto(`/pack/${pack.id}`);
+  await expect(page.getByText("One photo and you're back.", { exact: false })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Noa, asleep' })).toBeVisible();
+  await expect(page.getByText('0/1 fed today').last()).toBeVisible();
+});
+
 test('a friend leaving a hatched pack leaves the day running for the one who stays', async ({ page }) => {
   const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
   await admin.from('critters').update({ status: 'active', stage: 'baby', xp: 2, health: 70 }).eq('pack_id', pack.id);
