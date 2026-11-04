@@ -114,6 +114,8 @@ test('a member reported from their menu reaches the developer', async ({ page })
   await page.getByRole('menuitem', { name: 'Report Dan' }).click();
   await expect.poll(() => dialogs.at(-1)).toContain('We will look at it');
   expect(dialogs.at(-2)).toContain('Report Dan?');
+  // The bullying the Terms forbid is something to report a member for too.
+  expect(dialogs.at(-2)).toContain('how they treat you');
   const { data: reports } = await admin.from('reports').select('feed_id, member_id, reporter_id').eq('reporter_id', noa.id);
   expect(reports).toEqual([{ feed_id: null, member_id: dan.id, reporter_id: noa.id }]);
 });

@@ -294,7 +294,7 @@ export function useReport() {
   });
 }
 
-/** A report on the member themselves, for their name or profile photo. */
+/** A report on the member themselves: their name, their profile photo or how they treat others. */
 export function useReportMember() {
   return useMutation({
     mutationFn: async ({ memberId, reporterId }: { memberId: string; reporterId: string }) => {

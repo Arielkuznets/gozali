@@ -25,7 +25,7 @@ Captions and names are checked for offensive words, and some text will be refuse
 
 ## Reports and removal
 
-Every photo can be reported from its menu, and every member from theirs, for their name or profile photo. We review reports **within 24 hours**. We may hide content, and we may remove members or delete accounts that break these terms. Several reports on the same photo hide it until it is reviewed. You can also block any member, and any member can leave a pack at any time; a pack admin can remove members.
+Every photo can be reported from its menu, and every member from theirs, for anything about them: their name, their profile photo or how they treat you. We review reports **within 24 hours**. We may hide content, and we may remove members or delete accounts that break these terms. Several reports on the same photo hide it until it is reviewed. You can also block any member, and any member can leave a pack at any time; a pack admin can remove members.
 
 ## The game
 
