@@ -86,4 +86,15 @@ describe('the name on the profile setup', () => {
 
     expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ display_name: 'Friend' }));
   });
+
+  it('keeps an emoji at the end of the longest name whole', async () => {
+    // 30 characters, as the server counts them, in 31 UTF-16 units.
+    const name = `${'x'.repeat(29)}😀`;
+    await openSetup(newAccount(name));
+
+    expect(nameField().props.value).toBe(name);
+    await tickAndContinue();
+
+    expect(mockUpdate).toHaveBeenCalledWith(expect.objectContaining({ display_name: name }));
+  });
 });

@@ -20,9 +20,12 @@ export default function ProfileSetupScreen() {
   const { data: profile } = useProfile();
   // The name from Apple or Google is only a suggestion. Apple sends it only the first time an Apple
   // ID signs in here, and App Review refuses a setup that then waits for a typed name, so without
-  // one there is a default to keep or change.
+  // one there is a default to keep or change. Cut by characters, as the server counts them: half of
+  // an emoji can't be saved.
   const [name, setName] = useState(
-    (profile?.display_name ?? suggestedName() ?? t('profileSetup.defaultName')).slice(0, NAME_MAX_LENGTH),
+    Array.from(profile?.display_name ?? suggestedName() ?? t('profileSetup.defaultName'))
+      .slice(0, NAME_MAX_LENGTH)
+      .join(''),
   );
   const [agreed, setAgreed] = useState(false);
   const completeProfile = useCompleteProfile();
