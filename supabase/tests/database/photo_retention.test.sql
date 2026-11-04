@@ -1,7 +1,8 @@
--- Photo retention: 30 days, and recap collage photos 8 weeks after their week.
+-- Photo retention: 30 days, recap collage photos 8 weeks after their week, and reported photos 7 days
+-- after their last report.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(11);
+select plan(15);
 
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000ae', 'noa@test.local');
 insert into public.packs (id, name, category, rest_days_per_week, timezone, invite_code)
@@ -71,6 +72,34 @@ select ok(
 select ok(
   '20000000-0000-0000-0000-000000000007'::uuid in (select e.feed_id from public.expired_photos(now() - interval '21 days') e),
   'a 7-day week: the photo goes the day after'
+);
+
+-- A reported photo stays 7 days after its last report, as long as the link in the developer's email
+-- lasts, so its name can't take another image while that link still opens it.
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000be', 'dan@test.local');
+insert into public.pack_members (pack_id, user_id) values ('10000000-0000-0000-0000-0000000000ae', '00000000-0000-0000-0000-0000000000be');
+insert into public.feeds (id, pack_id, user_id, photo_path, day, is_extra, created_at)
+select ('20000000-0000-0000-0000-00000000000' || n)::uuid, '10000000-0000-0000-0000-0000000000ae',
+  '00000000-0000-0000-0000-0000000000ae', 'p/' || n || '.jpg', current_date - 40, true, now() - interval '40 days'
+from generate_series(8, 9) n;
+insert into public.reports (feed_id, reporter_id, created_at) values
+  ('20000000-0000-0000-0000-000000000008', '00000000-0000-0000-0000-0000000000be', now() - interval '2 days'),
+  ('20000000-0000-0000-0000-000000000009', '00000000-0000-0000-0000-0000000000be', now() - interval '8 days');
+select ok(
+  '20000000-0000-0000-0000-000000000008'::uuid not in (select e.feed_id from public.expired_photos() e),
+  'a photo reported 2 days ago stays past its 30 days'
+);
+select ok(
+  '20000000-0000-0000-0000-000000000008'::uuid not in (select e.feed_id from public.expired_photos(now() + interval '4 days 23 hours') e),
+  'up to 7 days after the report'
+);
+select ok(
+  '20000000-0000-0000-0000-000000000008'::uuid in (select e.feed_id from public.expired_photos(now() + interval '5 days 1 hour') e),
+  'and then goes'
+);
+select ok(
+  '20000000-0000-0000-0000-000000000009'::uuid in (select e.feed_id from public.expired_photos() e),
+  'a photo last reported 8 days ago goes'
 );
 
 select * from finish();

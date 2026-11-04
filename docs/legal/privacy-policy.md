@@ -31,7 +31,7 @@ We do **not** collect your location or contacts, we don't use advertising or tra
 
 ## How long we keep it
 
-- Photos are deleted automatically **30 days** after they were posted. A photo that appears in a weekly recap collage is kept 8 weeks after that week, so the recap can still show it, and then deleted too.
+- Photos are deleted automatically **30 days** after they were posted. A photo that appears in a weekly recap collage is kept 8 weeks after that week, so the recap can still show it, and then deleted too. A photo someone reported is kept for as long as the link to it in the developer's email about the report works, so the developer sees the photo that was reported, and then deleted too.
 - Records of sent notifications are deleted after 30 days, and a widget token that hasn't been used for 90 days is deleted.
 - Everything else stays while your account exists.
 - **Backups:** once a day the database is copied to the developer's own computer, outside the European Union. A copy holds accounts (email address and name) and everything else above except the photo files and what the sign-in service keeps for each phone. The 14 newest copies are kept, so a copy normally lasts about 14 days.
