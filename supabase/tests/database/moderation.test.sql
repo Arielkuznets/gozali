@@ -1,7 +1,7 @@
 -- Word filtering, reports on photos and on members, and the helpers of account deletion.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(87);
+select plan(88);
 
 select ok(public.is_clean('Leg day, done'), 'ordinary captions pass');
 select ok(not public.is_clean('what the fuuuck'), 'repeated letters don''t get around the filter');
@@ -97,6 +97,19 @@ select is(
   ]) spelled where not public.is_clean(spelled)),
   null,
   'ordinary words and names still pass'
+);
+
+-- A name that comes with a new account is kept only when it passes the filter, so a name with a
+-- blocked word leaves the profile without one, and the setup asks for it.
+insert into auth.users (id, email, raw_user_meta_data) values
+  ('00000000-0000-0000-0000-0000000001a7', 'one@test.local', '{"full_name": "Fuck You"}'),
+  ('00000000-0000-0000-0000-0000000001b7', 'two@test.local', '{"name": "you ass!"}'),
+  ('00000000-0000-0000-0000-0000000001c7', 'three@test.local', '{"full_name": "Noa Shitrit"}');
+select is(
+  (select array_agg(display_name order by id) from public.profiles
+   where id in ('00000000-0000-0000-0000-0000000001a7', '00000000-0000-0000-0000-0000000001b7', '00000000-0000-0000-0000-0000000001c7')),
+  array[null, null, 'Noa Shitrit'],
+  'a new account keeps the name it came with only when the name passes the filter'
 );
 
 insert into auth.users (id, email) values
