@@ -43,7 +43,8 @@ export { ErrorScreen as ErrorBoundary };
 const PROFILE_LIMIT_MS = 8000;
 
 export default function RootLayout() {
-  // Queries stay in memory as long as the copy kept on the phone, which holds only what is in memory.
+  // The copy kept on the phone holds only what is in memory, so a query no screen uses stays there a
+  // week instead of five minutes.
   const [queryClient] = useState(() => new QueryClient({ defaultOptions: { queries: { gcTime: KEEP_MS } } }));
   return (
     <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>

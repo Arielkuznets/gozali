@@ -1,3 +1,4 @@
+import { PAUSE_MAX_DAYS } from '@gozali/game-engine';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import type { QueryKey } from '@tanstack/react-query';
@@ -15,8 +16,20 @@ const KEPT = new Set(['profile', 'packs', 'feeds,counted']);
 /** Kept by the first part of its key, or by all of it where the rest of that family isn't kept. */
 const isKept = (key: QueryKey) => KEPT.has(String(key[0])) || KEPT.has(key.join());
 
-/** How long the kept copy is good for; queries stay in memory as long, so the copy has them. */
-export const KEEP_MS = 7 * 24 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * How long a query no screen uses stays in memory, and so in the copy, which holds only what is in
+ * memory. Shorter than the copy lasts: setTimeout can't wait past about 24 days, and a longer time
+ * would let go of the queries at once.
+ */
+export const KEEP_MS = 7 * DAY_MS;
+
+/**
+ * How long the copy is good for: the longest pause, so a start without a connection after reserve
+ * duty or a trip with the app closed still gets to the packs and the camera.
+ */
+const COPY_MS = PAUSE_MAX_DAYS * DAY_MS;
 
 const OWNER_KEY = 'gozali.query-cache-owner';
 
@@ -74,7 +87,7 @@ export const persister: Persister = {
 
 export const persistOptions: Omit<PersistQueryClientOptions, 'queryClient'> = {
   persister,
-  maxAge: KEEP_MS,
+  maxAge: COPY_MS,
   // Each bundle may shape its data differently, and an EAS Update keeps the app's version.
   buster: Updates.updateId ?? Constants.expoConfig?.version ?? '',
   dehydrateOptions: {

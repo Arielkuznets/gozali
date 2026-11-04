@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { QueryClient } from '@tanstack/react-query';
-import { PersistQueryClientProvider, persistQueryClientSubscribe } from '@tanstack/react-query-persist-client';
+import { PersistQueryClientProvider, persistQueryClientRestore, persistQueryClientSubscribe } from '@tanstack/react-query-persist-client';
 import { act, create } from 'react-test-renderer';
 
 import { useUpdateProfile, type ProfileSettings } from '@/features/profile/useProfile';
@@ -24,6 +24,7 @@ const COPY = 'gozali.query-cache';
 const PACKS = [{ name: 'Gym squad' }];
 /** Well past the second the persister holds a save back after the one before it. */
 const SAVE_MS = 1500;
+const DAY = 24 * 60 * 60 * 1000;
 jest.setTimeout(15_000);
 
 const settle = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -127,6 +128,19 @@ describe('the copy kept on the phone', () => {
     const restored = await afterRestart().persister.restoreClient();
 
     expect(restored?.clientState.queries.map((query) => query.state.data)).toEqual([PACKS]);
+  });
+
+  it('comes back after more than a week with the app closed', async () => {
+    const queryClient = appWithCopy(afterRestart());
+    queryClient.setQueryData(['packs'], PACKS);
+    await settle(SAVE_MS);
+
+    const eightDaysOn = jest.spyOn(Date, 'now').mockReturnValue(Date.now() + 8 * DAY);
+    const restarted = new QueryClient({ defaultOptions: { queries: { gcTime: Infinity } } });
+    await persistQueryClientRestore({ ...afterRestart().persistOptions, queryClient: restarted });
+    eightDaysOn.mockRestore();
+
+    expect(restarted.getQueryData(['packs'])).toEqual(PACKS);
   });
 
   it('keeps who fed, for the counts and the Feed buttons of a start without a connection', async () => {
