@@ -527,6 +527,32 @@ test.describe('a block whose reads afterwards fail', () => {
     await expect(page.getByRole('button', { name: 'Close photo' })).toBeHidden();
     await expect(page.getByLabel('Photo from Dan')).toBeHidden();
   });
+
+  test("takes the member's name suggestions off the open card", async ({ page }) => {
+    const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' }, [dan]);
+    await admin.from('critters').update({ status: 'active', stage: 'baby', xp: 2, health: 70 }).eq('pack_id', pack.id);
+    for (const [member, name] of [
+      [dan, 'Biscuit'],
+      [noa, 'Mochi'],
+    ] as const) {
+      const suggested = await member.client.rpc('suggest_name', { target: pack.id, suggested: name });
+      if (suggested.error) throw suggested.error;
+    }
+
+    const dialogs = answerDialogs(page);
+    await signIn(page, noa);
+    await page.goto(`/pack/${pack.id}`);
+    await expect(page.getByText('by Dan', { exact: true })).toBeVisible();
+
+    await readsFail(page);
+    await page.getByRole('button', { name: 'Dan, not yet today' }).click({ delay: 900 });
+    await page.getByRole('menuitem', { name: 'Block Dan' }).click();
+    await expect.poll(() => dialogs.at(-1)).toContain('Blocked.');
+
+    await expect(page.getByText('Biscuit', { exact: true })).toBeHidden();
+    await expect(page.getByText('by Dan', { exact: true })).toBeHidden();
+    await expect(page.getByText('Mochi', { exact: true })).toBeVisible();
+  });
 });
 
 test('a photo hidden by reports still counts for the day', async ({ page }) => {
