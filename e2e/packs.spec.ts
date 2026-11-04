@@ -141,6 +141,46 @@ test('joining with a code shows the pack first, then opens it', async ({ page })
   expect(members).toHaveLength(2);
 });
 
+test("a pack preview that didn't load offers Try again, which brings the pack", async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' });
+  // A connection that drops every request while the phone still counts as online.
+  let failing = true;
+  await page.route(/\/rest\/v1\/rpc\/pack_preview/, (route) => (failing ? route.abort() : route.fallback()));
+  await signIn(page, dan);
+  await page.goto(`/join?code=${pack.inviteCode}`);
+
+  // After the preview's own retries.
+  await expect(page.getByText("This didn't load", { exact: false })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole('button', { name: 'Join pack' })).toBeDisabled();
+
+  failing = false;
+  await page.getByRole('button', { name: 'Try again' }).click();
+  await expect(page.getByText('Gym squad')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Join pack' })).toBeEnabled();
+});
+
+test('a join refused for a code renewed meanwhile takes the pack off the screen', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' });
+  const told: string[] = [];
+  page.on('dialog', (dialog) => {
+    told.push(dialog.message());
+    void dialog.accept();
+  });
+  await signIn(page, dan);
+  await page.goto(`/join?code=${pack.inviteCode}`);
+  await expect(page.getByText('Gym squad')).toBeVisible();
+
+  // The admin gets a new code while the preview is open.
+  const renewed = await noa.client.rpc('renew_invite_code', { target: pack.id });
+  expect(renewed.error).toBeNull();
+  await page.getByRole('button', { name: 'Join pack' }).click();
+
+  await expect.poll(() => told).toEqual(['No pack has this code.']);
+  await expect(page.getByText('No pack has this code.')).toBeVisible();
+  await expect(page.getByText('Gym squad')).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Join pack' })).toBeDisabled();
+});
+
 test('pasting the whole invite message finds the code in it', async ({ page }) => {
   const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' });
   await signIn(page, dan);

@@ -56,12 +56,17 @@ function JoinForm({ linkCode }: { linkCode: string }) {
         haptics.success();
         openPack(packId);
       },
-      onError: (error) => notify(t(packErrorKey(error))),
+      onError: (error) => {
+        notify(t(packErrorKey(error)));
+        // The pack shown may be out of date, as when the admin replaced the code since it loaded.
+        void preview.refetch();
+      },
     });
   };
 
   const pack = preview.data;
   const complete = code.length === INVITE_CODE_LENGTH;
+  const refusal = preview.isError ? previewRefusal(preview.error) : null;
 
   return (
     <Screen>
@@ -99,7 +104,19 @@ function JoinForm({ linkCode }: { linkCode: string }) {
           <AppText style={styles.error}>{t('packs.errors.notFound')}</AppText>
         )}
         {complete && preview.isError && (
-          <AppText style={styles.error}>{t(previewRefusal(preview.error) ?? 'errors.loadFailed')}</AppText>
+          <View style={styles.failed}>
+            <AppText style={styles.error}>{t(refusal ?? 'errors.loadFailed')}</AppText>
+            {/* Trying again can't change a refusal. */}
+            {!refusal && (
+              <Button
+                label={t('home.retry')}
+                variant="secondary"
+                size="small"
+                loading={preview.isFetching}
+                onPress={() => void preview.refetch()}
+              />
+            )}
+          </View>
         )}
         {pack && (
           <View style={styles.preview}>
@@ -161,6 +178,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   previewText: { flex: 1, gap: 2 },
+  failed: { gap: spacing.sm },
   error: { color: colors.danger },
   actions: { gap: spacing.sm },
 });
