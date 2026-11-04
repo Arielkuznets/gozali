@@ -1,7 +1,7 @@
 -- Notifications: rows from feeds and the clock, and the rules applied before sending.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(25);
+select plan(28);
 
 -- Reminders are queued for every pack, so this test runs alone (all rolled back at the end).
 delete from public.packs;
@@ -216,6 +216,39 @@ insert into public.notifications (user_id, pack_id, type, payload, send_after) v
 select is(
   (select count(*) from public.claim_notifications((select at from noon))), 0::bigint,
   'and a nudge from someone the member blocked after it was queued isn''t sent'
+);
+
+-- An egg whose only friend left waits for a friend, so the one member left isn't reminded to feed it.
+delete from public.notifications;
+delete from public.blocks;
+insert into public.packs (id, name, category, rest_days_per_week, timezone, invite_code)
+values ('10000000-0000-0000-0000-000000000015', 'Rowers', 'running', 0, 'Asia/Jerusalem', 'PADL2345');
+insert into public.critters (pack_id, species) values ('10000000-0000-0000-0000-000000000015', 'mochi');
+insert into public.pack_members (pack_id, user_id, role, status, joined_at, left_at) values
+  ('10000000-0000-0000-0000-000000000015', '00000000-0000-0000-0000-0000000000a5', 'admin', 'active', now() - interval '5 days', null),
+  ('10000000-0000-0000-0000-000000000015', '00000000-0000-0000-0000-0000000000c5', 'member', 'left', now() - interval '5 days', now() - interval '2 days');
+create temp table evening as
+select (((select day from today)::timestamp + interval '20 hours 5 minutes') at time zone 'Asia/Jerusalem') as at;
+select public.queue_evening_reminders((select at from evening));
+select is(
+  (select count(*) from public.notifications where pack_id = '10000000-0000-0000-0000-000000000015'), 0::bigint,
+  'the one member left in an egg gets no evening reminder'
+);
+update public.critters set status = 'active', stage = 'baby' where pack_id = '10000000-0000-0000-0000-000000000015';
+select public.queue_evening_reminders((select at from evening));
+select is(
+  (select count(*) from public.notifications where pack_id = '10000000-0000-0000-0000-000000000015'), 1::bigint,
+  'the one member of a hatched pet does'
+);
+delete from public.notifications;
+update public.critters set status = 'egg', stage = 'egg' where pack_id = '10000000-0000-0000-0000-000000000015';
+update public.pack_members set status = 'active', left_at = null, joined_at = now()
+where pack_id = '10000000-0000-0000-0000-000000000015' and user_id = '00000000-0000-0000-0000-0000000000c5';
+select public.queue_evening_reminders((select at from evening));
+select is(
+  (select count(*) from public.notifications
+   where pack_id = '10000000-0000-0000-0000-000000000015' and user_id = '00000000-0000-0000-0000-0000000000a5'), 1::bigint,
+  'and with a friend back in the egg, so does the member who was alone'
 );
 
 select * from finish();

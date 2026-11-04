@@ -1,7 +1,7 @@
 -- A member who rejoins starts again: feeds from before they left don't make them counted.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(49);
+select plan(54);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000d8', 'noa@test.local'),
@@ -650,6 +650,68 @@ values (
 select is(
   pg_temp.misses('00000000-0000-0000-0000-0000000000d2', (select day + 1 from today)), 1,
   'a miss since coming back counts'
+);
+
+-- Ofer and Sivan's egg: both fed four days ago, Sivan left three days ago, and Ofer fed alone two
+-- days ago. An egg with nobody else in it waits for a friend, as before anyone joined, so only a
+-- feed counts its one member.
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000000d5', 'ofer@test.local'),
+  ('00000000-0000-0000-0000-0000000000d6', 'sivan@test.local'),
+  ('00000000-0000-0000-0000-0000000000d7', 'gali@test.local');
+insert into public.packs (id, name, category, rest_days_per_week, timezone, invite_code)
+values ('10000000-0000-0000-0000-000000000088', 'Rowers', 'running', 0, 'UTC', 'RWNG3456');
+insert into public.critters (pack_id, species) values ('10000000-0000-0000-0000-000000000088', 'kit');
+insert into public.pack_members (pack_id, user_id, role, joined_at) values
+  ('10000000-0000-0000-0000-000000000088', '00000000-0000-0000-0000-0000000000d5', 'admin', now() - interval '10 days'),
+  ('10000000-0000-0000-0000-000000000088', '00000000-0000-0000-0000-0000000000d6', 'member', now() - interval '10 days');
+insert into public.feeds (pack_id, user_id, day, created_at) values
+  ('10000000-0000-0000-0000-000000000088', '00000000-0000-0000-0000-0000000000d5', (select day - 4 from today), now() - interval '4 days'),
+  ('10000000-0000-0000-0000-000000000088', '00000000-0000-0000-0000-0000000000d6', (select day - 4 from today), now() - interval '4 days'),
+  ('10000000-0000-0000-0000-000000000088', '00000000-0000-0000-0000-0000000000d5', (select day - 2 from today), now() - interval '2 days');
+select pg_temp.leaves('10000000-0000-0000-0000-000000000088', '00000000-0000-0000-0000-0000000000d6');
+update public.pack_members set left_at = public.day_closes_at('UTC', (select day - 3 from today)) - interval '2 hours'
+where pack_id = '10000000-0000-0000-0000-000000000088' and user_id = '00000000-0000-0000-0000-0000000000d6';
+select is(
+  pg_temp.standing(
+    '10000000-0000-0000-0000-000000000088', '00000000-0000-0000-0000-0000000000d5', (select day - 3 from today)
+  ),
+  'active/false/false',
+  'on an egg, a day without a feed from the day the only friend left doesn''t count the one member left'
+);
+select is(
+  pg_temp.standing(
+    '10000000-0000-0000-0000-000000000088', '00000000-0000-0000-0000-0000000000d5', (select day - 2 from today)
+  ),
+  'active/true/true',
+  'their feed on such a day still counts'
+);
+select is(
+  pg_temp.standing(
+    '10000000-0000-0000-0000-000000000088', '00000000-0000-0000-0000-0000000000d5', (select day - 1 from today)
+  ),
+  'active/false/false',
+  'and the day after it doesn''t count them either'
+);
+update public.critters set status = 'active', stage = 'baby' where pack_id = '10000000-0000-0000-0000-000000000088';
+select is(
+  pg_temp.standing(
+    '10000000-0000-0000-0000-000000000088', '00000000-0000-0000-0000-0000000000d5', (select day - 1 from today)
+  ),
+  'active/true/false',
+  'a hatched pet''s one member still answers for a day'
+);
+update public.critters set status = 'egg', stage = 'egg' where pack_id = '10000000-0000-0000-0000-000000000088';
+
+-- Gali joins: from today the egg has company again, and its days count Ofer as before.
+insert into public.pack_members (pack_id, user_id, role)
+values ('10000000-0000-0000-0000-000000000088', '00000000-0000-0000-0000-0000000000d7', 'member');
+select is(
+  pg_temp.standing(
+    '10000000-0000-0000-0000-000000000088', '00000000-0000-0000-0000-0000000000d5', (select day from today)
+  ),
+  'active/true/false',
+  'a friend joining makes the day count the member who was alone'
 );
 
 select * from finish();

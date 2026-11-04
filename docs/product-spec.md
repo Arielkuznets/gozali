@@ -89,6 +89,7 @@ The critter is the heart of the product: its state reflects the pack's commitmen
 
 - After the pack is created an egg is shown. Until the second member joins, the pack's days are not closed.
 - When the second member joins, the egg starts to crack with an animation, and days start to close. While the creature is an egg, the day close doesn't change health, XP or the streak.
+- An egg left with one member waits for a friend again: until someone joins, that member's days count only when they feed, with no miss, no rest day, no step toward sleep and no evening reminder.
 - **The egg hatches on the first successful day on which at least two members fed.** That day counts as a regular successful day, and the creature moves to the Baby stage.
 - **Name:** after hatching, a "Name me!" card appears in the feed. Any member can suggest a name, and the admin picks one. Until then the creature is called by its creature name (Mochi, Kit and so on).
 
@@ -318,7 +319,7 @@ Few notifications, and only ones that change behavior; each type can be turned o
 
 - No more than 6 notifications per day per user **in total, across all packs together**. When the limit is reached, only Evening reminder and Last one are sent.
 - Friend fed doesn't count toward the limit, because it is merged: notifications waiting for the same user about the same pack are sent together ("3 friends fed Pixel"), after waiting up to 10 minutes. Timer done doesn't count either, because the user started it.
-- Reminders and Last one are not sent to someone who isn't counted today (paused, asleep) or who activated a joker or declared a rest. A nudge does reach a sleeping member, since waking them is what it's for, but not someone paused, on a joker or resting.
+- Reminders and Last one are not sent to someone who isn't counted today (paused, asleep, or alone with an egg) or who activated a joker or declared a rest. A nudge does reach a sleeping member, since waking them is what it's for, but not someone paused, on a joker or resting.
 - No notifications between 23:00 and 07:00 in the user's time, with no exceptions. A notification created in those hours that is still relevant in the morning (Weekly recap, Evolution, Pet state, Still in?) is sent at 07:00; the rest are dropped. A nudge never gets that far: `nudge` refuses it, so the sender knows.
 - The texts are written in the creature's voice, according to its personality.
 - The app asks for the notification permission by itself as the first home screen opens: right after the profile setup for each new account, and once per install right after signing in for an account that skips the setup (a new phone, a reinstall). After that only the notice in settings and starting a focus timer ask.
