@@ -42,7 +42,8 @@ jest.mock('@/features/profile/useProfile', () => ({ useAccountSync: () => undefi
 jest.mock('@/features/widgets/sync', () => ({ useWidgetSync: () => undefined }));
 jest.mock('@/lib/notifications', () => ({ useNotificationRoutes: () => undefined }));
 jest.mock('react-native-qrcode-svg', () => ({ __esModule: true, default: () => null }));
-jest.mock('expo-clipboard', () => ({ getStringAsync: async () => '', setStringAsync: async () => undefined }));
+const mockClipboard = jest.fn();
+jest.mock('expo-clipboard', () => ({ getStringAsync: () => mockClipboard(), setStringAsync: async () => undefined }));
 const mockNotify = jest.fn();
 jest.mock('@/lib/confirm', () => ({
   confirm: ({ onConfirm }: { onConfirm: () => void }) => onConfirm(),
@@ -215,6 +216,7 @@ beforeEach(() => {
   mockOffline = false;
   mockPhotos = [];
   mockNotify.mockClear();
+  mockClipboard.mockReset().mockResolvedValue('');
   mockRpc.mockReset();
   mockRpc.mockImplementation(async (name: string) => {
     if (name === 'leave_pack') mockPacks = [];
@@ -1006,6 +1008,39 @@ describe('the code field on the join screen', () => {
     } finally {
       platform.restore();
     }
+  });
+});
+
+describe('Paste on the join screen', () => {
+  const NOTHING = 'Nothing to paste. Copy the code, or type it here.';
+  const codeField = () => app.root.findByType(TextInput);
+
+  beforeEach(async () => {
+    await start('/');
+    await open('/join');
+    await act(async () => codeField().props.onChangeText('ABCD2345'));
+    await settle();
+  });
+
+  // iOS answers an empty clipboard, and a paste the person refused, with an empty string; the web
+  // throws on a refusal.
+  it.each([
+    ['is empty', () => mockClipboard.mockResolvedValue('')],
+    ['is refused', () => mockClipboard.mockRejectedValue(new Error('NoPermissionException'))],
+  ])('keeps the typed code when the paste %s, and says so', async (_what, answer) => {
+    answer();
+    await press('Paste');
+
+    expect(codeField().props.value).toBe('ABCD2345');
+    expect(mockNotify.mock.calls).toEqual([[NOTHING]]);
+  });
+
+  it('takes the code out of a pasted invite', async () => {
+    mockClipboard.mockResolvedValue('Join my pack "Gym squad" on Gozali! Code: EFGH6789\nhttps://gozali.app/i/EFGH6789');
+    await press('Paste');
+
+    expect(codeField().props.value).toBe('EFGH6789');
+    expect(mockNotify).not.toHaveBeenCalled();
   });
 });
 

@@ -138,6 +138,7 @@
     "codeLabel": "Invite code",
     "codePlaceholder": "8 letters and numbers",
     "paste": "Paste",
+    "nothingToPaste": "Nothing to paste. Copy the code, or type it here.",
     "join": "Join pack",
     "alreadyMember": "You're already in this pack.",
     "open": "Open pack",

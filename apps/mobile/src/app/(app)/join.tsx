@@ -37,8 +37,12 @@ function JoinForm({ linkCode }: { linkCode: string }) {
   const queryClient = useQueryClient();
   const body = useRef<ScrollView>(null);
 
+  // A paste the person refused reads as empty on iOS and throws on the web; either way the code they
+  // typed stays.
   const onPaste = async () => {
-    setCode(inviteCodeFrom(await Clipboard.getStringAsync()));
+    const pasted = inviteCodeFrom(await Clipboard.getStringAsync().catch(() => ''));
+    if (pasted) setCode(pasted);
+    else notify(t('join.nothingToPaste'));
   };
 
   const onOpen = (packId: string) => {
