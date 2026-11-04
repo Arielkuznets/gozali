@@ -75,6 +75,16 @@ describe('a JavaScript error nothing handled', () => {
     handler(refusal, false);
     expect(sent('report_app_error')).toEqual([expect.objectContaining({ error_message: refusalText, fatal: false })]);
   });
+
+  it('is reported once a run when it keeps coming back, and other ones still are', () => {
+    for (let time = 1; time <= 3; time += 1) handler(new Error('Failed to write value.'), false);
+    handler(new TypeError('undefined is not a function'), false);
+
+    expect(sent('report_app_error').map((report) => report.error_message)).toEqual([
+      'Error: Failed to write value.',
+      'TypeError: undefined is not a function',
+    ]);
+  });
 });
 
 describe('a promise that rejects with nothing to handle it', () => {
@@ -103,6 +113,19 @@ describe('a promise that rejects with nothing to handle it', () => {
     expect(trackers[0]?.allRejections).toBe(true);
     trackers[0]?.onUnhandled(1, new Error('x'));
     expect(sent('report_app_error')).toEqual([expect.objectContaining({ error_message: 'Error: x', fatal: false })]);
+  });
+
+  it('is reported once a run when it keeps coming back, and other ones still are', () => {
+    runtime.__DEV__ = false;
+    watchForCrashes();
+
+    for (let refresh = 1; refresh <= 3; refresh += 1) trackers[0]?.onUnhandled(refresh, new Error('Failed to write value.'));
+    trackers[0]?.onUnhandled(4, new TypeError('undefined is not a function'));
+
+    expect(sent('report_app_error').map((report) => report.error_message)).toEqual([
+      'Error: Failed to write value.',
+      'TypeError: undefined is not a function',
+    ]);
   });
 
   it("is left to React Native's own tracker in a development build, which shows it on screen", () => {

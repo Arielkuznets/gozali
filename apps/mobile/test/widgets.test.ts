@@ -1,7 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { createElement } from 'react';
+import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import { loadSnapshot, savedWidgetToken } from '@/features/widgets/data';
-import { clearWidgets, clearWidgetsLeftBehind, refreshWidgets, resumeWidgets } from '@/features/widgets/sync';
+import { clearWidgets, clearWidgetsLeftBehind, refreshWidgets, resumeWidgets, useWidgetSync } from '@/features/widgets/sync';
 import { noteServerDate, serverNow } from '@/lib/serverClock';
 
 // What the widgets on the home screen read.
@@ -322,5 +325,58 @@ describe('whose token it is', () => {
 
     expect(await savedWidgetToken()).toBe('dans-token');
     expect(mockRpc).not.toHaveBeenCalled();
+  });
+});
+
+describe('keeping the widgets in step with the app', () => {
+  const write = jest.mocked(AsyncStorage.setItem).getMockImplementation()!;
+  let app: ReactTestRenderer;
+  let client: QueryClient;
+
+  function Synced() {
+    useWidgetSync();
+    return null;
+  }
+
+  beforeEach(async () => {
+    jest.useFakeTimers({ doNotFake: ['setImmediate', 'nextTick', 'queueMicrotask'] });
+    client = new QueryClient();
+    await saveToken('new-token', 'noa');
+  });
+
+  afterEach(() => {
+    act(() => app.unmount());
+    client.clear();
+    jest.mocked(AsyncStorage.setItem).mockImplementation(write);
+    jest.useRealTimers();
+  });
+
+  /** A refresh, with what it set off done: an unhandled rejection fails the test while it runs. */
+  async function refreshNow() {
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(3000);
+    });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+  }
+
+  it('lets a refresh fail on a phone too full to keep the snapshot, and tries again at the next', async () => {
+    jest.mocked(AsyncStorage.setItem).mockImplementation(async (key, value) => {
+      if (key === 'gozali.widget-snapshot') throw new Error('Failed to write value.');
+      return write(key, value);
+    });
+    await act(async () => {
+      app = create(createElement(QueryClientProvider, { client }, createElement(Synced)));
+    });
+    await refreshNow();
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+
+    jest.mocked(AsyncStorage.setItem).mockImplementation(write);
+    await act(async () => {
+      await client.fetchQuery({ queryKey: ['packs'], queryFn: async () => [] });
+    });
+    await refreshNow();
+
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(JSON.parse((await AsyncStorage.getItem('gozali.widget-snapshot'))!)).toMatchObject(snapshot);
   });
 });

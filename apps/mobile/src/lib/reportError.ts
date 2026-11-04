@@ -111,11 +111,19 @@ type Hermes = { enablePromiseRejectionTracker?: (options: RejectionTracking) => 
  */
 export function watchForCrashes(): void {
   if (Platform.OS === 'web' || typeof ErrorUtils === 'undefined') return;
+  // An error that keeps coming back is sent once a run: the server keeps 50 reports a day for an
+  // account, and the next crash on this phone needs one of them too.
+  const sent = new Set<string>();
+  const sendOnce = (report: ErrorReport) => {
+    if (sent.has(report.message)) return;
+    sent.add(report.message);
+    void send(report).catch(() => undefined);
+  };
   const previous = ErrorUtils.getGlobalHandler();
   ErrorUtils.setGlobalHandler((error: unknown, isFatal?: boolean) => {
     const report = describe(error, null, Boolean(isFatal));
     if (isFatal) void AsyncStorage.setItem(PENDING_KEY, JSON.stringify(report)).catch(() => undefined);
-    else void send(report).catch(() => undefined);
+    else sendOnce(report);
     previous(error, isFatal);
   });
   // A promise that rejects with nothing to handle it never reaches the handler above. React Native
@@ -123,7 +131,7 @@ export function watchForCrashes(): void {
   if (!__DEV__) {
     (globalThis as { HermesInternal?: Hermes }).HermesInternal?.enablePromiseRejectionTracker?.({
       allRejections: true,
-      onUnhandled: (_id, rejection) => void send(describe(rejection, null, false)).catch(() => undefined),
+      onUnhandled: (_id, rejection) => sendOnce(describe(rejection, null, false)),
     });
   }
 }

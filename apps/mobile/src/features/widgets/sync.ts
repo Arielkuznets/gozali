@@ -96,7 +96,8 @@ export function useWidgetSync() {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const schedule = () => {
       clearTimeout(timer);
-      timer = setTimeout(() => void refreshWidgets(), DEBOUNCE_MS);
+      // A refresh that fails (a phone too full to keep the snapshot) is tried again at the next.
+      timer = setTimeout(() => void refreshWidgets().catch(() => undefined), DEBOUNCE_MS);
     };
     schedule();
     const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
