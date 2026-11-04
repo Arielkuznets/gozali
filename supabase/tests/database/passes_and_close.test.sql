@@ -1,7 +1,7 @@
 -- Rest days, jokers, pauses, and the guards of apply_day_result.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(51);
+select plan(53);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a3', 'noa@test.local'),
@@ -377,6 +377,45 @@ select public.apply_day_result(
   '10000000-0000-0000-0000-000000000103', public.pack_day('UTC') + 2, (select body from outcome)
 );
 select is(pg_temp.standing('00000000-0000-0000-0000-0000000001e3'), 'active 3', 'until the close of the day before it');
+
+-- Ella turns on a pause from tomorrow, then misses today, a third miss: today's close puts her to
+-- sleep, and her pause wakes her on its first day all the same, with no "Still in?".
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000001f3', 'ella@test.local'),
+  ('00000000-0000-0000-0000-0000000002a3', 'ido@test.local');
+insert into public.packs (id, name, category, rest_days_per_week, timezone, invite_code)
+values ('10000000-0000-0000-0000-000000000113', 'Nappers', 'running', 0, 'UTC', 'NAPS3456');
+insert into public.critters (pack_id, species) values ('10000000-0000-0000-0000-000000000113', 'kit');
+insert into public.pack_members (pack_id, user_id, role) values
+  ('10000000-0000-0000-0000-000000000113', '00000000-0000-0000-0000-0000000002a3', 'admin'),
+  ('10000000-0000-0000-0000-000000000113', '00000000-0000-0000-0000-0000000001f3', 'member');
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000001f3');
+select public.start_pause('10000000-0000-0000-0000-000000000113', 3);
+reset role;
+select public.apply_day_result('10000000-0000-0000-0000-000000000113', public.pack_day('UTC'), jsonb_build_object(
+  'type', 'fail', 'applied', false, 'healthBefore', 70, 'coins', 0,
+  'outcomes', jsonb_build_array(
+    jsonb_build_object('userId', '00000000-0000-0000-0000-0000000001f3', 'outcome', 'missed'),
+    jsonb_build_object('userId', '00000000-0000-0000-0000-0000000002a3', 'outcome', 'fed')
+  ),
+  'critter', jsonb_build_object('status', 'egg', 'health', 70, 'xp', 0, 'stage', 'egg', 'streak', 0, 'marks', '[]'::jsonb),
+  'newlySleeping', jsonb_build_array('00000000-0000-0000-0000-0000000001f3'),
+  'events', jsonb_build_array(jsonb_build_object('type', 'member_slept', 'userId', '00000000-0000-0000-0000-0000000001f3')),
+  'facts', jsonb_build_object('fullHouse', false, 'earlyBird', false, 'nightOwlFeeds', 0)
+));
+select is(
+  (select status || coalesce(' ' || (awake_since - public.pack_day('UTC')), '')
+   from public.pack_members
+   where pack_id = '10000000-0000-0000-0000-000000000113' and user_id = '00000000-0000-0000-0000-0000000001f3'),
+  'active 1',
+  'one who falls asleep at the close of the day before their pause wakes on its first day'
+);
+select is(
+  (select count(*) from public.notifications where type = 'still_in' and user_id = '00000000-0000-0000-0000-0000000001f3'),
+  0::bigint,
+  'and isn''t asked "Still in?"'
+);
 
 select * from finish();
 rollback;
