@@ -52,7 +52,7 @@ export async function closeOneDay(client: RpcClient, packId: string, day: string
     outage,
   });
   const after = result.critter;
-  const achievements = newAchievements(
+  const reached = newAchievements(
     {
       hatched: after.status !== 'egg',
       streak: after.streak,
@@ -67,6 +67,9 @@ export async function closeOneDay(client: RpcClient, packId: string, day: string
     },
     new Set(input.unlocked),
   );
+  // An egg wears nothing (spec section 4): what the pack reaches meanwhile unlocks on the day it
+  // hatches, which counts from the same totals.
+  const achievements = after.status === 'egg' ? [] : reached;
   const applied = await call<boolean>(client, 'apply_day_result', {
     target: packId,
     pack_date: day,
