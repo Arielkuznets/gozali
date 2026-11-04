@@ -209,6 +209,18 @@ const photoEmail = reportEmail(onPhoto, 'https://link');
 check(reportedPicture(onPhoto)?.path === path, 'the alert on the photo links the photo');
 check(photoEmail.subject === 'Gozali report: Two chapters (1)', 'and is headed by its caption');
 check(photoEmail.lines.includes('Caption: Two chapters'), 'and quotes it');
+check(
+  photoEmail.lines.includes(
+    `Keep it: update public.reports set handled_at = now() where feed_id = '${fed.data}'; update public.feeds set hidden_at = null where id = '${fed.data}';`,
+  ),
+  'it offers to keep the photo, its reports marked handled',
+);
+check(
+  photoEmail.lines.includes(
+    `Hide: update public.feeds set hidden_at = now() where id = '${fed.data}'; update public.reports set handled_at = now() where feed_id = '${fed.data}';`,
+  ),
+  'or to hide it, its reports marked handled too',
+);
 const onMember = await details(reports.find((report) => report.member_id));
 const memberEmail = reportEmail(onMember, 'https://link');
 check(reportedPicture(onMember)?.bucket === 'avatars' && reportedPicture(onMember)?.path === avatar, 'the alert on Noa links the profile photo');

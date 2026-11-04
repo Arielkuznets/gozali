@@ -29,8 +29,12 @@ export function reportEmail(details: Details, link: string): { subject: string; 
         `Photo (link valid 7 days): ${link || '(no photo)'}`,
       ]
     : [`Member: ${reported}`, `Profile photo (link valid 7 days): ${link || '(no photo)'}`];
+  // Either way the photo's reports are marked handled, so only new reports can hide it again.
   const remedies = feed
-    ? [`Hide: update public.feeds set hidden_at = now() where id = '${feed.id}';`]
+    ? [
+        `Keep it: update public.reports set handled_at = now() where feed_id = '${feed.id}'; update public.feeds set hidden_at = null where id = '${feed.id}';`,
+        `Hide: update public.feeds set hidden_at = now() where id = '${feed.id}'; update public.reports set handled_at = now() where feed_id = '${feed.id}';`,
+      ]
     : [
         // Without a name the app sends them back to profile setup to choose another.
         `Clear the name: update public.profiles set display_name = null where id = '${author.id}';`,

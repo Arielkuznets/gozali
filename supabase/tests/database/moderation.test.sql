@@ -1,7 +1,7 @@
 -- Word filtering, reports on photos and on members, and the helpers of account deletion.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(73);
+select plan(77);
 
 select ok(public.is_clean('Leg day, done'), 'ordinary captions pass');
 select ok(not public.is_clean('what the fuuuck'), 'repeated letters don''t get around the filter');
@@ -391,6 +391,50 @@ select pg_temp.act_as('00000000-0000-0000-0000-0000000000a7');
 insert into public.reports (feed_id, reporter_id) select id, '00000000-0000-0000-0000-0000000000a7' from extras where n = 22;
 reset role;
 select is(pg_temp.mailed_from('00000000-0000-0000-0000-0000000000a7'), 21::bigint, 'a day later their reports email the developer again');
+
+-- A photo the developer reviewed and kept, by the email's line that marks its reports handled and
+-- shows it again, stays up until three new reports hide it.
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000007a1', 'gil@test.local'),
+  ('00000000-0000-0000-0000-0000000007b1', 'hila@test.local');
+insert into public.pack_members (pack_id, user_id)
+select id, u from pack, unnest(array['00000000-0000-0000-0000-0000000007a1', '00000000-0000-0000-0000-0000000007b1']::uuid[]) u;
+create temp table kept (id uuid);
+with posted as (
+  insert into public.feeds (pack_id, user_id, day, is_extra)
+  values ((select id from pack), '00000000-0000-0000-0000-0000000000b7', current_date, true) returning id
+)
+insert into kept select id from posted;
+grant select on kept to authenticated;
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000c7');
+insert into public.reports (feed_id, reporter_id) select id, '00000000-0000-0000-0000-0000000000c7' from kept;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000d7');
+insert into public.reports (feed_id, reporter_id) select id, '00000000-0000-0000-0000-0000000000d7' from kept;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000f7');
+insert into public.reports (feed_id, reporter_id) select id, '00000000-0000-0000-0000-0000000000f7' from kept;
+reset role;
+select ok((select hidden_at is not null from public.feeds where id = (select id from kept)), 'three reports hide a photo');
+update public.reports set handled_at = now() where feed_id = (select id from kept);
+update public.feeds set hidden_at = null where id = (select id from kept);
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000a7');
+insert into public.reports (feed_id, reporter_id) select id, '00000000-0000-0000-0000-0000000000a7' from kept;
+reset role;
+select ok(
+  (select hidden_at is null from public.feeds where id = (select id from kept)),
+  'once the developer kept it, one more report leaves it up'
+);
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000007a1');
+insert into public.reports (feed_id, reporter_id) select id, '00000000-0000-0000-0000-0000000007a1' from kept;
+reset role;
+select ok((select hidden_at is null from public.feeds where id = (select id from kept)), 'and so does a second');
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000007b1');
+insert into public.reports (feed_id, reporter_id) select id, '00000000-0000-0000-0000-0000000007b1' from kept;
+reset role;
+select ok((select hidden_at is not null from public.feeds where id = (select id from kept)), 'the third new report hides it again');
 
 select is(
   (select count(*) from public.account_photo_paths('00000000-0000-0000-0000-0000000000a7')), 2::bigint,
