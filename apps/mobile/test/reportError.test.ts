@@ -77,6 +77,42 @@ describe('a JavaScript error nothing handled', () => {
   });
 });
 
+describe('a promise that rejects with nothing to handle it', () => {
+  type Tracking = { allRejections?: boolean; onUnhandled: (id: number, rejection: unknown) => void };
+  const runtime = globalThis as { __DEV__?: boolean; HermesInternal?: unknown; ErrorUtils?: unknown };
+  const real = { dev: runtime.__DEV__, hermes: runtime.HermesInternal, utils: runtime.ErrorUtils };
+  let trackers: Tracking[];
+
+  beforeEach(() => {
+    trackers = [];
+    runtime.HermesInternal = { enablePromiseRejectionTracker: (options: Tracking) => trackers.push(options) };
+    runtime.ErrorUtils = { getGlobalHandler: () => () => undefined, setGlobalHandler: () => undefined };
+  });
+
+  afterEach(() => {
+    runtime.__DEV__ = real.dev;
+    runtime.HermesInternal = real.hermes;
+    runtime.ErrorUtils = real.utils;
+  });
+
+  it('is reported from a store build, where React Native tracks none', () => {
+    runtime.__DEV__ = false;
+    watchForCrashes();
+
+    expect(trackers).toHaveLength(1);
+    expect(trackers[0]?.allRejections).toBe(true);
+    trackers[0]?.onUnhandled(1, new Error('x'));
+    expect(sent('report_app_error')).toEqual([expect.objectContaining({ error_message: 'Error: x', fatal: false })]);
+  });
+
+  it("is left to React Native's own tracker in a development build, which shows it on screen", () => {
+    runtime.__DEV__ = true;
+    watchForCrashes();
+
+    expect(trackers).toEqual([]);
+  });
+});
+
 describe('a sign-in report', () => {
   it('gives the message of a plain object, and leaves out what can quote a row', () => {
     reportSignInProblem('apple', refusal, 300);

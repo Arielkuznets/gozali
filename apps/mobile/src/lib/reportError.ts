@@ -102,6 +102,9 @@ export function reportSignInWait(provider: string, appState: string, elapsedMs: 
   reportSignInProblem(provider, new Error(`No answer yet, app ${appState}`), elapsedMs);
 }
 
+type RejectionTracking = { allRejections: boolean; onUnhandled: (id: number, rejection: unknown) => void };
+type Hermes = { enablePromiseRejectionTracker?: (options: RejectionTracking) => void };
+
 /**
  * Catches JavaScript errors nothing else handled. A fatal one closes the app before a request
  * could finish, so it is kept on the phone and sent on the next start.
@@ -115,6 +118,14 @@ export function watchForCrashes(): void {
     else void send(report).catch(() => undefined);
     previous(error, isFatal);
   });
+  // A promise that rejects with nothing to handle it never reaches the handler above. React Native
+  // tracks those only in a development build, which shows them on screen; a store build drops them.
+  if (!__DEV__) {
+    (globalThis as { HermesInternal?: Hermes }).HermesInternal?.enablePromiseRejectionTracker?.({
+      allRejections: true,
+      onUnhandled: (_id, rejection) => void send(describe(rejection, null, false)).catch(() => undefined),
+    });
+  }
 }
 
 /** Sends the report of an error that closed the app last time, once someone is signed in. */
