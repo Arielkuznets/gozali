@@ -113,6 +113,27 @@ test('creating a pack takes four steps and ends on the invite', async ({ page })
   await expect(page).toHaveURL(new RegExp(`/pack/${created.id}$`));
 });
 
+test('the rest days picked stay through a look back at the habit, and the pack gets them', async ({ page }) => {
+  await signIn(page, noa);
+  await page.goto('/create-pack');
+  await page.getByLabel('Pack name').fill('Evening reads');
+  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('radio', { name: 'Reading' }).click();
+  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('radio', { name: '2 rest days a week' }).click();
+
+  await page.getByRole('button', { name: 'Back' }).click();
+  await page.getByRole('radio', { name: 'Reading' }).click();
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  await expect(page.getByText('2 rest days a week', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('button', { name: 'Create pack' }).click();
+  await expect(page.getByText('Invite your friends')).toBeVisible();
+  const { data: packs } = await noa.client.from('packs').select('category, rest_days_per_week');
+  expect(packs).toEqual([{ category: 'reading', rest_days_per_week: 2 }]);
+});
+
 test('a habit of your own shows its field on a small phone, under the habits', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 667 });
   await signIn(page, noa);

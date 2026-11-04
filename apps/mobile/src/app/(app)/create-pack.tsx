@@ -62,7 +62,10 @@ export default function CreatePackScreen() {
     }, [step, created]),
   );
 
+  // A habit brings its own default rest days; a tap on the habit already picked, after a look back
+  // from the next step, keeps the count chosen there.
   const pickCategory = (key: Category, defaultRestDays: number) => {
+    if (key === category) return;
     setCategory(key);
     setRestDays(defaultRestDays);
   };
