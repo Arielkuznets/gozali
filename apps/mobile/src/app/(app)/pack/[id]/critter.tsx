@@ -11,7 +11,7 @@ import { HeaderButton } from '@/components/HeaderButton';
 import { Screen } from '@/components/Screen';
 import { LoadFailed, LoadingScreen, LoadFailedScreen, PackMissingScreen } from '@/components/ScreenStates';
 import { Critter } from '@/features/critter/Critter';
-import { critterArt, parseOutfit, stageProgress } from '@/features/critter/art';
+import { critterArt, localDay, parseOutfit, stageProgress } from '@/features/critter/art';
 import { useCritterText } from '@/features/critter/useCritterText';
 import { fedToday, useCountedFeeds } from '@/features/feeds/api';
 import { currentMembers, usePack, type Pack, type PackCritter } from '@/features/packs/api';
@@ -283,7 +283,8 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
                       {t(`achievements.${achievement.key}.condition`)} · {t(`items.${achievement.item.key as HeadItem}`)}
                     </AppText>
                   </View>
-                  {at && <AppText variant="caption">{formatDay(at.slice(0, 10))}</AppText>}
+                  {/* The moment it unlocked, on the phone's calendar: the server sends it in UTC. */}
+                  {at && <AppText variant="caption">{formatDay(localDay(new Date(at)))}</AppText>}
                 </View>
               );
             })}

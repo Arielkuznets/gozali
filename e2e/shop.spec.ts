@@ -137,3 +137,27 @@ test('an egg has no wardrobe or shop until it hatches', async ({ page }) => {
   await expect(page.getByText('Wardrobe', { exact: true })).toBeHidden();
   await expect(page.getByRole('button', { name: 'cap, 12 coins' })).toBeHidden();
 });
+
+// An achievement unlocks at its pack's day close, a moment the server sends in UTC.
+for (const [zone, unlockedAt, day] of [
+  // The close of November 3 in Jerusalem, 21:05 that evening in New York.
+  ['America/New_York', '2026-11-04T02:05:00Z', 'Tue, Nov 3'],
+  // The close of June 15 in Tokyo, 04:00 the next morning there.
+  ['Asia/Tokyo', '2027-06-15T19:00:00Z', 'Wed, Jun 16'],
+] as const) {
+  test.describe(`a phone in ${zone}`, () => {
+    test.use({ timezoneId: zone });
+
+    test('dates an achievement by the day it was on the phone', async ({ page }) => {
+      const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
+      await admin.from('critters').update({ status: 'active', stage: 'kid', xp: 8, health: 80 }).eq('pack_id', pack.id);
+      const unlocked = await admin.from('achievements').insert({ pack_id: pack.id, key: 'streak_7', unlocked_at: unlockedAt });
+      if (unlocked.error) throw unlocked.error;
+
+      await signIn(page, noa);
+      await page.goto(`/pack/${pack.id}/critter`);
+      await expect(page.getByText('One week strong', { exact: true })).toBeVisible();
+      await expect(page.getByText(day, { exact: true })).toBeVisible();
+    });
+  });
+}
