@@ -82,7 +82,7 @@ The app is thin on purpose: every decision that matters (whether a feed counts, 
 | Backend | [Supabase](https://supabase.com): Postgres 17, Auth, Storage, Edge Functions (Deno) | Authorization in the database with row level security; actions as security definer functions |
 | Scheduling | pg_cron, pg_net, Vault | Day close, push sending, daily summary and clean-up run inside the database |
 | Game rules | `packages/game-engine`, dependency-free TypeScript | Pure functions: the same code runs on the server, in the tests and in the simulator |
-| Delivery | EAS Build, Submit and Update; GitHub Actions | Cloud builds for the stores, over-the-air JavaScript updates, CI on every push |
+| Delivery | EAS Build, Submit and Update; GitHub Actions | Cloud builds for the stores, over-the-air JavaScript updates, CI on main, dev and every pull request |
 | Website | Cloudflare (static assets, DNS, Email Routing) | Landing, invite links (universal links), privacy, terms, support |
 
 ## Engineering highlights

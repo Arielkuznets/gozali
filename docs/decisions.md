@@ -102,7 +102,7 @@ Each entry: what was decided, what the options were, and why. Decisions D1–D11
 
 ## D18 · How the app is tested
 
-- **Decided:** five layers, all run in CI on every push: unit tests (the game engine, the critter drawing, and the app's logic with Jest); pgTAP tests of the database rules; smoke scripts that drive the real API, storage, realtime and Edge Functions of a local Supabase; end-to-end tests with Playwright on the web build of the app, in a phone-sized browser against that same local stack; and typechecks and lint.
+- **Decided:** five layers, all run in CI on pushes to main and dev and on every pull request: unit tests (the game engine, the critter drawing, and the app's logic with Jest); pgTAP tests of the database rules; smoke scripts that drive the real API, storage, realtime and Edge Functions of a local Supabase; end-to-end tests with Playwright on the web build of the app, in a phone-sized browser against that same local stack; and typechecks and lint.
 - **Options:** only unit and database tests; end-to-end tests on devices with Detox or Maestro.
 - **Why:** most of the product's rules live in the database and the Edge Functions, so tests have to run against a real Supabase, not mocks. The web build covers the screens and flows (create, join, feed with a fake camera, settings) in minutes on a plain CI runner, with no emulator or Mac. It doesn't cover native-only parts (widgets, push, the real camera, sign-in providers); those are checked on devices with the EAS builds.
 
