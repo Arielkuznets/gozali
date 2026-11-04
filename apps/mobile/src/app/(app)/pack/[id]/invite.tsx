@@ -75,6 +75,10 @@ export default function InviteScreen() {
         <AppText style={styles.code} selectable>
           {pack.invite_code}
         </AppText>
+        {/* Whoever has the code joins at once and sees the pack's photos: nothing asks the pack first. */}
+        <AppText variant="caption" style={[styles.centerText, styles.warning]}>
+          {t('invite.anyone')}
+        </AppText>
         <View style={styles.qr}>
           <QRCode value={link} size={height < 700 ? 136 : 180} color={colors.ink} backgroundColor={colors.surface} />
         </View>
@@ -104,6 +108,7 @@ const styles = StyleSheet.create({
   body: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md, paddingVertical: spacing.md },
   centerText: { textAlign: 'center' },
   muted: { color: colors.inkMuted, maxWidth: 320 },
+  warning: { maxWidth: 320 },
   qr: { padding: spacing.md, borderRadius: radii.lg, backgroundColor: colors.surface },
   code: { fontFamily: fonts.bodyBold, fontSize: 32, lineHeight: 40, letterSpacing: 4 },
   link: { color: colors.accentText },

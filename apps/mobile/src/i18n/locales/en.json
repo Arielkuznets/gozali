@@ -122,6 +122,7 @@
     "bodyHatched": "Up to {{count}} friends can raise {{name}} together. New members count from their first feed.",
     "full": "The pack is full: {{count}} members is the most.",
     "code": "Invite code",
+    "anyone": "Anyone with this code can join and see the pack's photos. Share it only with people you know.",
     "share": "Share invite",
     "copy": "Copy code",
     "copied": "Copied!",

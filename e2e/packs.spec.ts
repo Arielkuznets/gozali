@@ -71,6 +71,8 @@ test('creating a pack takes four steps and ends on the invite', async ({ page })
   expect(packs).toEqual([expect.objectContaining({ name: 'Morning runs', category: 'running' })]);
   const created = packs![0]!;
   await expect(page.getByText(created.invite_code)).toBeVisible();
+  // A code posted in public lets anyone in at once, with the pack's photos.
+  await expect(page.getByText("Anyone with this code can join and see the pack's photos.", { exact: false })).toBeVisible();
 
   await page.getByRole('button', { name: 'Done' }).click();
   await expect(page).toHaveURL(new RegExp(`/pack/${created.id}$`));
