@@ -44,7 +44,8 @@ beforeEach(async () => {
   await act(async () => {
     tree = create(
       // No garbage collection, whose timers would outlive the test.
-      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { gcTime: Infinity, retry: false } } })}>
+      <QueryClientProvider
+        client={new QueryClient({ defaultOptions: { queries: { gcTime: Infinity, retry: false }, mutations: { gcTime: Infinity } } })}>
         <NameMeCard packId="pack" critter="Kit" isAdmin adminName="Noa" names={new Map([['dan', 'Dan']])} />
       </QueryClientProvider>,
     );
@@ -94,5 +95,35 @@ describe('Pick on a suggestion', () => {
     await settle();
 
     expect(mockRpc.mock.calls).toEqual([['choose_name', { target: 'pack', suggestion: 's1' }]]);
+  });
+});
+
+describe('Suggest', () => {
+  const suggest = () => tree.root.findAll((node) => node.props.label === 'Suggest' && node.props.onPress)[0]!;
+
+  it('sends a name once for a double tap, and takes the next name once the first is in', async () => {
+    const answers: (() => void)[] = [];
+    mockRpc.mockImplementation(() => new Promise((resolve) => answers.push(() => resolve({ error: null }))));
+    // The server answers whatever reached it.
+    const answer = async () => {
+      await settle();
+      await act(async () => answers.splice(0).forEach((send) => send()));
+      await settle();
+    };
+    const field = tree.root.findAll((node) => typeof node.props.onChangeText === 'function')[0]!;
+    await act(async () => field.props.onChangeText('Biscuit'));
+
+    // Both taps land before the screen has drawn the first one on its way.
+    act(() => {
+      suggest().props.onPress();
+      suggest().props.onPress();
+    });
+    await answer();
+    expect(mockRpc.mock.calls).toEqual([['suggest_name', { target: 'pack', suggested: 'Biscuit' }]]);
+
+    await act(async () => field.props.onChangeText('Pebble'));
+    act(() => suggest().props.onPress());
+    await answer();
+    expect(mockRpc.mock.calls.map(([, args]) => args.suggested)).toEqual(['Biscuit', 'Pebble']);
   });
 });

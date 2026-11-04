@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
@@ -26,8 +26,22 @@ export function NameMeCard({ packId, critter, isAdmin, adminName, names }: Props
   const [name, setName] = useState('');
   const suggestions = useNameSuggestions(packId, true);
   const suggest = useSuggestName(packId);
+  // The mutation's pending state reaches the button a moment after a tap; a second tap in between
+  // would suggest the name twice.
+  const suggesting = useRef(false);
   const choose = useChooseName(packId);
   const fail = (error: unknown) => notify(t(socialErrorKey(error)));
+  const onSuggest = () => {
+    if (suggesting.current) return;
+    suggesting.current = true;
+    suggest.mutate(name.trim(), {
+      onSuccess: () => setName(''),
+      onError: fail,
+      onSettled: () => {
+        suggesting.current = false;
+      },
+    });
+  };
   // choose_name sets the name only while there is none, so a pick can't be taken back.
   const onPick = (suggestion: { id: string; name: string }) =>
     confirm({
@@ -71,7 +85,7 @@ export function NameMeCard({ packId, critter, isAdmin, adminName, names }: Props
           size="small"
           disabled={name.trim().length === 0}
           loading={suggest.isPending}
-          onPress={() => suggest.mutate(name.trim(), { onSuccess: () => setName(''), onError: fail })}
+          onPress={onSuggest}
         />
       </View>
     </View>
