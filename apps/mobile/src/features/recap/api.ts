@@ -24,6 +24,9 @@ export type Recap = { week_start: string; stats: RecapStats; feed_ids: string[] 
 
 export type RecapPhoto = { id: string; userId: string; url: string };
 
+/** The collages of all recaps, under the feeds' key: what reads the feeds again reads these too. */
+export const recapPhotosKey = ['feeds', 'recap-photos'] as const;
+
 const PHOTO_LINK_SECONDS = 60 * 60;
 
 export function useRecaps(packId: string) {
@@ -45,7 +48,7 @@ export function useRecaps(packId: string) {
 /** The collage photos a member may see (hidden and blocked ones drop out), with signed links. */
 export function useRecapPhotos(recap: Recap | undefined) {
   return useQuery({
-    queryKey: ['feeds', 'recap-photos', recap?.week_start, recap?.feed_ids.join()],
+    queryKey: [...recapPhotosKey, recap?.week_start, recap?.feed_ids.join()],
     enabled: recap !== undefined && recap.feed_ids.length > 0,
     queryFn: async (): Promise<RecapPhoto[]> => {
       const supabase = requireSupabase();

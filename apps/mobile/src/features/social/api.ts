@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { countedFeedsKey, feedsKey, packFeedsKey, refreshReactions, type FeedItem } from '@/features/feeds/api';
 import { packsKey } from '@/features/packs/api';
+import { recapPhotosKey, type RecapPhoto } from '@/features/recap/api';
 import { notify } from '@/lib/confirm';
 import { shiftMonth } from '@/lib/dates';
 import { isBlockedText } from '@/lib/errors';
@@ -309,6 +310,7 @@ export function useReportMember() {
 
 export function useBlock() {
   const queryClient = useQueryClient();
+  const answers = useAnswers('social.blockedLeave');
   return useMutation({
     mutationFn: async ({ blockerId, blockedId }: { blockerId: string; blockedId: string }) => {
       const { error } = await requireSupabase()
@@ -316,7 +318,19 @@ export function useBlock() {
         .upsert({ blocker_id: blockerId, blocked_id: blockedId }, { ignoreDuplicates: true });
       if (error) throw error;
     },
-    ...useAnswers('social.blockedLeave'),
+    // What the block hides leaves the screen at once, and stays gone when the reads below fail: the
+    // person's posts, their lines in the feed but the one of their joining, which isn't content,
+    // their recap photos and their profile photo. Who fed doesn't change, so the counted feeds stay.
+    onSuccess: (_data, { blockerId, blockedId }) => {
+      queryClient.setQueriesData<FeedItem[]>({ queryKey: packFeedsKey }, (feeds) => feeds?.filter((feed) => feed.user_id !== blockedId));
+      queryClient.setQueriesData<PackEvent[]>({ queryKey: [...feedsKey, 'events'] }, (events) =>
+        events?.filter((event) => event.actor_id !== blockedId || event.kind === 'joined'),
+      );
+      queryClient.setQueriesData<RecapPhoto[]>({ queryKey: recapPhotosKey }, (photos) => photos?.filter((photo) => photo.userId !== blockedId));
+      queryClient.setQueryData<Set<string>>([...blocksKey, blockerId, 'ids'], (ids) => ids && new Set(ids).add(blockedId));
+      answers.onSuccess();
+    },
+    onError: answers.onError,
     // Not returned: the answer to the person who blocked shouldn't wait for the refetches. An
     // invalidation joins a read that has no data yet, like a longer page on its way, and that read
     // went out before the block, so it goes first and the reload starts it again.

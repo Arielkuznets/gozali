@@ -269,14 +269,14 @@ test('your own photo on the whole screen has no menu', async ({ page }) => {
   await expect(page.getByRole('dialog').getByRole('button', { name: 'More' })).toHaveCount(0);
 });
 
-test('a recap photo can be reported and its poster blocked', async ({ page }) => {
-  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' }, [dan]);
-  await feed(dan, pack.id, await photo(page, '🏋️'), 'Leg day');
-  const { data: posted } = await admin.from('feeds').select('id').eq('pack_id', pack.id).single();
+/** A recap of a week the member led, with the pack's photos in its collage. Returns the photos' ids. */
+async function recapOf(packId: string, top: TestUser): Promise<string[]> {
+  const { data: posted } = await admin.from('feeds').select('id').eq('pack_id', packId);
+  const feedIds = (posted ?? []).map((row) => row.id as string);
   const { error } = await admin.from('weekly_recaps').insert({
-    pack_id: pack.id,
+    pack_id: packId,
     week_start: '2026-10-18',
-    feed_ids: [posted!.id],
+    feed_ids: feedIds,
     stats: {
       weekStart: '2026-10-18',
       weekEnd: '2026-10-24',
@@ -285,13 +285,20 @@ test('a recap photo can be reported and its poster blocked', async ({ page }) =>
       healthStart: 70,
       healthEnd: 85,
       coins: 9,
-      topMembers: [dan.id],
+      topMembers: [top.id],
       topFeeds: 6,
       achievements: [],
       critter: { species: 'axo', stage: 'kid', status: 'active', health: 85, marks: [], outfit: {}, name: 'Pico', streak: 7 },
     },
   });
   if (error) throw error;
+  return feedIds;
+}
+
+test('a recap photo can be reported and its poster blocked', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' }, [dan]);
+  await feed(dan, pack.id, await photo(page, '🏋️'), 'Leg day');
+  const [posted] = await recapOf(pack.id, dan);
 
   const dialogs = answerDialogs(page);
   await signIn(page, noa);
@@ -304,7 +311,7 @@ test('a recap photo can be reported and its poster blocked', async ({ page }) =>
   await page.getByRole('menuitem', { name: 'Report photo' }).click();
   await expect.poll(() => dialogs.at(-1)).toContain('We will look at it');
   const { data: reports } = await admin.from('reports').select('feed_id, reporter_id').eq('reporter_id', noa.id);
-  expect(reports).toEqual([{ feed_id: posted!.id, reporter_id: noa.id }]);
+  expect(reports).toEqual([{ feed_id: posted, reporter_id: noa.id }]);
 
   await viewer.getByRole('button', { name: 'More' }).click();
   await page.getByRole('menuitem', { name: 'Block Dan' }).click();
@@ -461,6 +468,61 @@ test('a member you block still shows joining the pack', async ({ page }) => {
   await expect(page.getByText('👋 Dan joined the pack')).toBeVisible();
   await expect(page.getByText('Leg day')).toBeHidden();
   await expect(page.getByText('No feeds yet. Be the first today!')).toBeHidden();
+});
+
+test.describe('a block whose reads afterwards fail', () => {
+  // As on a connection that drops right after the block went out.
+  const readsFail = (page: Page) =>
+    page.route('**/rest/v1/**', (route) => (route.request().method() === 'GET' ? route.abort('internetdisconnected') : route.continue()));
+
+  test("takes the member's posts, lines and profile photo off the pack", async ({ page }) => {
+    const image = await photo(page, '🏋️');
+    await setAvatar(dan, await photo(page, '🙂'));
+    const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' }, [dan]);
+    await admin.from('critters').update({ status: 'active', stage: 'kid', xp: 8, health: 80, coins: 20 }).eq('pack_id', pack.id);
+    const bought = await dan.client.rpc('buy_item', { target: pack.id, wanted: 'cap' });
+    if (bought.error) throw bought.error;
+    await feed(dan, pack.id, image, 'Leg day');
+
+    const dialogs = answerDialogs(page);
+    await signIn(page, noa);
+    await page.goto(`/pack/${pack.id}`);
+    const dansPhoto = page.locator(`img[src*="/avatars/${dan.id}/"]`);
+    await expect(page.getByText('Leg day')).toBeVisible();
+    await expect(page.getByText('🛍️ Dan bought Axo a cap')).toBeVisible();
+    await expect(dansPhoto).toHaveCount(1);
+
+    await readsFail(page);
+    await page.getByRole('button', { name: 'More' }).click();
+    await page.getByRole('menuitem', { name: 'Block Dan' }).click();
+    await expect.poll(() => dialogs.at(-1)).toContain('Blocked.');
+
+    await expect(page.getByText('Leg day')).toBeHidden();
+    await expect(page.getByText('🛍️ Dan bought Axo a cap')).toBeHidden();
+    await expect(dansPhoto).toHaveCount(0);
+    // A join isn't content, and who fed doesn't change.
+    await expect(page.getByText('👋 Dan joined the pack')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Dan, fed today' })).toBeVisible();
+  });
+
+  test("takes the member's photos out of a recap", async ({ page }) => {
+    const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' }, [dan]);
+    await feed(dan, pack.id, await photo(page, '🏋️'), 'Leg day');
+    await recapOf(pack.id, dan);
+
+    const dialogs = answerDialogs(page);
+    await signIn(page, noa);
+    await page.goto(`/pack/${pack.id}/recap`);
+    await page.getByLabel('Photo from Dan').click();
+
+    await readsFail(page);
+    await page.getByRole('dialog').getByRole('button', { name: 'More' }).click();
+    await page.getByRole('menuitem', { name: 'Block Dan' }).click();
+    await expect.poll(() => dialogs.at(-1)).toContain('Blocked.');
+
+    await expect(page.getByRole('button', { name: 'Close photo' })).toBeHidden();
+    await expect(page.getByLabel('Photo from Dan')).toBeHidden();
+  });
 });
 
 test('a photo hidden by reports still counts for the day', async ({ page }) => {
