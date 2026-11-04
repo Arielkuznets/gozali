@@ -1,9 +1,10 @@
 // Emails the developer about a report (spec section 11: handled within 24 hours). Called by the
 // report trigger through pg_net with the shared secret, for up to 20 reports a day from one person
 // and for the report that hides a photo.
-// Sends through Resend with RESEND_API_KEY to REPORT_EMAIL. Only a sent email answers 200: any other
-// answer counts as a server error in the owners' daily summary, and names the report, which nothing
-// sends again, so the owner can find it in the database.
+// Sends through Resend with RESEND_API_KEY to REPORT_EMAIL. Only a sent email answers 200, with its
+// link to the reported photo when there is one: a link Storage couldn't sign still goes out, saying
+// so, as 502. Any answer but 200 counts as a server error in the owners' daily summary, and names
+// the report, which nothing sends again, so the owner can find it in the database.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 import { hasCronSecret } from '../_shared/secret.ts';
@@ -33,12 +34,14 @@ Deno.serve(async (request) => {
 
   const picture = reportedPicture(details);
   let photo = '';
+  let linkFailure: string | undefined;
   if (picture) {
     const signed = await admin.storage.from(picture.bucket).createSignedUrl(picture.path, PHOTO_LINK_SECONDS);
     photo = signed.data?.signedUrl ?? '';
+    if (!photo) linkFailure = signed.error?.message ?? 'no link came back';
   }
 
-  const { subject, lines } = reportEmail(details, photo);
+  const { subject, lines } = reportEmail(details, photo, linkFailure);
 
   const apiKey = Deno.env.get('RESEND_API_KEY');
   const to = Deno.env.get('REPORT_EMAIL');
@@ -63,6 +66,10 @@ Deno.serve(async (request) => {
   } catch (failure) {
     console.error('report email failed', reportId, failure);
     return Response.json({ reportId, emailed: false, reason: String(failure) }, { status: 502 });
+  }
+  if (response.ok && linkFailure) {
+    console.error('report emailed without its photo link', reportId, linkFailure);
+    return Response.json({ reportId, emailed: true, reason: `the photo link failed: ${linkFailure}` }, { status: 502 });
   }
   if (response.ok) return Response.json({ reportId, emailed: true });
   // Resend says why it refused (a wrong key, or a sender it doesn't allow for that address); the

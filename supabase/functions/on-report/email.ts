@@ -18,17 +18,21 @@ export function reportedPicture({ feed, author }: Details): { bucket: string; pa
   return author.avatarPath ? { bucket: 'avatars', path: author.avatarPath } : null;
 }
 
-/** The subject and the lines of the email; `link` opens the picture, and is empty without one. */
-export function reportEmail(details: Details, link: string): { subject: string; lines: string[] } {
+/**
+ * The subject and the lines of the email; `link` opens the picture, and is empty without one or
+ * when Storage couldn't sign it, as `linkFailure` then says.
+ */
+export function reportEmail(details: Details, link: string, linkFailure?: string): { subject: string; lines: string[] } {
   const { author, feed, reports } = details;
   const reported = `${author.name ?? '?'} (${author.id})`;
+  const shown = link || (linkFailure ? `(the link failed: ${linkFailure})` : '(no photo)');
   const about = feed
     ? [
         `Posted by: ${reported} at ${feed.postedAt}`,
         `Caption: ${feed.caption ?? '(none)'}`,
-        `Photo (link valid 7 days): ${link || '(no photo)'}`,
+        `Photo (link valid 7 days): ${shown}`,
       ]
-    : [`Member: ${reported}`, `Profile photo (link valid 7 days): ${link || '(no photo)'}`];
+    : [`Member: ${reported}`, `Profile photo (link valid 7 days): ${shown}`];
   // Either way the photo's reports are marked handled, so only new reports can hide it again.
   const remedies = feed
     ? [

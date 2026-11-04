@@ -184,8 +184,9 @@ for (const report of reports) {
   );
 }
 
-// The real function, with Deno and Resend stood in for. Only a sent email answers 200: anything else
-// is a failure in the owners' summary, and its answer names the report that didn't go out.
+// The real function, with Deno and Resend stood in for, and Storage's link signing where a check
+// needs it to fail. Only a sent email with its photo link answers 200: anything else is a failure in
+// the owners' summary, and its answer names the report.
 registerHooks({ resolve: (specifier, context, next) => next(specifier.replace(/^npm:(.+)@\d+$/, '$1'), context) });
 const functionEnv = { SUPABASE_URL: url, SUPABASE_SERVICE_ROLE_KEY: secretKey, CRON_SECRET: 'smoke-feeds' };
 let onReport;
@@ -194,11 +195,16 @@ await import('../supabase/functions/on-report/index.ts');
 const realFetch = globalThis.fetch;
 const realConsoleError = console.error;
 const RESEND_URL = 'https://api.resend.com/emails';
-async function runOnReport(reportId, resend, { mailEnv = { RESEND_API_KEY: 'resend-key', REPORT_EMAIL: 'dev@gozali.test' }, secret = 'smoke-feeds' } = {}) {
+async function runOnReport(
+  reportId,
+  resend,
+  { mailEnv = { RESEND_API_KEY: 'resend-key', REPORT_EMAIL: 'dev@gozali.test' }, secret = 'smoke-feeds', sign } = {},
+) {
   const mails = [];
   Object.assign(functionEnv, { RESEND_API_KEY: undefined, REPORT_EMAIL: undefined }, mailEnv);
   console.error = () => {};
   globalThis.fetch = async (target, init) => {
+    if (sign && String(target).includes('/storage/v1/object/sign/')) return sign();
     if (String(target) !== RESEND_URL) return realFetch(target, init);
     mails.push(JSON.parse(init.body));
     return resend(init);
@@ -222,6 +228,18 @@ const reportId = reports[0].id;
 const sent = await runOnReport(reportId, resendTakes);
 check(sent.status === 200 && sent.body.emailed === true, 'with a key and an address the report is emailed');
 check(sent.mails.length === 1 && sent.mails[0].to[0] === 'dev@gozali.test', 'to the developer');
+check(!sent.mails[0].text.includes('(no photo)'), 'with the link to what was reported');
+const unsigned = await runOnReport(reportId, resendTakes, {
+  sign: () => Response.json({ statusCode: '503', error: 'Service Unavailable', message: 'storage is restarting' }, { status: 503 }),
+});
+check(
+  unsigned.status === 502 && unsigned.body.reportId === reportId && unsigned.body.reason.includes('storage is restarting'),
+  'a link Storage fails to sign answers 502, naming the report and why',
+);
+check(
+  unsigned.mails.length === 1 && unsigned.mails[0].text.includes('(the link failed: storage is restarting)'),
+  'and the mail still goes, saying the link failed',
+);
 const refused = await runOnReport(reportId, () =>
   Response.json({ name: 'validation_error', message: 'You can only send testing emails to your own email address' }, { status: 403 }),
 );
@@ -263,6 +281,10 @@ const photoEmail = reportEmail(onPhoto, 'https://link');
 check(reportedPicture(onPhoto)?.path === path, 'the alert on the photo links the photo');
 check(photoEmail.subject === 'Gozali report: Two chapters (1)', 'and is headed by its caption');
 check(photoEmail.lines.includes('Caption: Two chapters'), 'and quotes it');
+check(
+  reportEmail({ ...onPhoto, feed: { ...onPhoto.feed, photoPath: null } }, '').lines.includes('Photo (link valid 7 days): (no photo)'),
+  'an alert on a feed with no photo left says so',
+);
 check(
   photoEmail.lines.includes(
     `Keep it: update public.reports set handled_at = now() where feed_id = '${fed.data}'; update public.feeds set hidden_at = null where id = '${fed.data}';`,
