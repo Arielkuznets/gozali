@@ -214,6 +214,7 @@
     "invite": "Invite link and QR code",
     "leave": "Leave pack",
     "leaveConfirm": "Leave this pack?",
+    "leaveLastBody": "Nobody else is in this pack. It is deleted with its pet 30 days after you leave, and until then only its invite code can bring you back.",
     "cancel": "Cancel",
     "confirm": "Yes",
     "app": {

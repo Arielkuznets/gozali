@@ -219,7 +219,11 @@ test('a pack in a zone this phone can not read still opens, and the developer he
 
 test('leaving a pack ends on the home screen', async ({ page }) => {
   const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
-  page.on('dialog', (dialog) => void dialog.accept());
+  const asked: string[] = [];
+  page.on('dialog', (dialog) => {
+    asked.push(dialog.message());
+    void dialog.accept();
+  });
   await signIn(page, dan);
   await page.goto(`/pack/${pack.id}`);
   await page.getByRole('button', { name: 'Settings' }).click();
@@ -236,6 +240,28 @@ test('leaving a pack ends on the home screen', async ({ page }) => {
   await expect(page.getByText("This pack isn't here")).toBeHidden();
   const { data: packs } = await dan.client.from('packs').select('id');
   expect(packs).toEqual([]);
+  // Noa stays, so the pack goes on without him.
+  expect(asked).toEqual(['Leave this pack?']);
+});
+
+test('the last member is told before leaving that the pack is deleted', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
+  const left = await dan.client.rpc('leave_pack', { target: pack.id });
+  if (left.error) throw left.error;
+  const asked: string[] = [];
+  page.on('dialog', (dialog) => {
+    asked.push(dialog.message());
+    void dialog.dismiss();
+  });
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}/settings`);
+
+  await page.getByRole('button', { name: 'Leave pack' }).click();
+
+  await expect.poll(() => asked).toEqual([expect.stringContaining('Nobody else is in this pack.')]);
+  await expect(page.getByRole('button', { name: 'Leave pack' })).toBeVisible();
+  const { data: packs } = await noa.client.from('packs').select('id');
+  expect(packs).toEqual([{ id: pack.id }]);
 });
 
 test('a leave whose answer was lost is done on the second try', async ({ page }) => {

@@ -92,6 +92,8 @@ function SettingsForm({ pack, leavePack }: { pack: Pack; leavePack: ReturnType<t
   const onLeave = () => {
     confirm({
       title: t('settings.leaveConfirm'),
+      // The last one out ends the pack, and once out nothing in the app shows its code again.
+      message: members.length === 1 ? t('settings.leaveLastBody') : undefined,
       confirm: t('settings.confirm'),
       cancel: t('settings.cancel'),
       destructive: true,
