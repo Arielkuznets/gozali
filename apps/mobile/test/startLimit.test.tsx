@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { ReactNode } from 'react';
 import type { ReactTestRenderer } from 'react-test-renderer';
 
 // Starts of the app: the real root layout, auth provider, supabase-js and kept copy, against a
@@ -11,17 +12,33 @@ jest.mock('expo-splash-screen', () => ({ preventAutoHideAsync: async () => true,
 jest.mock('@expo-google-fonts/rubik', () => ({ Rubik_400Regular: 1, Rubik_500Medium: 2, Rubik_700Bold: 3 }));
 jest.mock('@expo-google-fonts/varela-round', () => ({ VarelaRound_400Regular: 4, useFonts: () => [true, null] }));
 jest.mock('expo-status-bar', () => ({ StatusBar: () => null }));
-jest.mock('expo-router', () => ({
-  router: {},
-  Stack: Object.assign(() => 'the app', { Protected: () => null, Screen: () => null }),
-}));
+// The screens whose guard lets them open, by name.
+jest.mock('expo-router', () => {
+  const { Fragment, createElement } = jest.requireActual<typeof import('react')>('react');
+  const Group = ({ children }: { children: ReactNode }) => createElement(Fragment, null, children);
+  return {
+    router: {},
+    Stack: Object.assign(Group, {
+      Protected: ({ guard, children }: { guard: boolean; children: ReactNode }) => (guard ? createElement(Group, null, children) : null),
+      Screen: ({ name }: { name: string }) => name,
+    }),
+  };
+});
 jest.mock('@/components/ErrorScreen', () => ({ ErrorScreen: () => null }));
 jest.mock('@/components/UpdateRequired', () => ({ UpdateRequired: () => null }));
 jest.mock('@/features/auth/signIn', () => ({ forgetNotificationsOfOthers: async () => undefined, signOut: async () => undefined }));
 jest.mock('@/features/packs/invites', () => ({ readInstallReferrer: async () => undefined }));
 jest.mock('@react-native-community/netinfo', () => ({ addEventListener: () => () => undefined }));
-jest.mock('@/features/widgets/sync', () => ({ clearWidgets: async () => undefined, clearWidgetsLeftBehind: async () => undefined }));
-jest.mock('@/lib/push', () => ({ registerPushToken: async () => undefined, unregisterWhileSignedOut: async () => undefined }));
+/** What a sign-out on this phone forgets: its pushes and its widgets. */
+const mockForgotten: string[] = [];
+jest.mock('@/features/widgets/sync', () => ({
+  clearWidgets: async () => undefined,
+  clearWidgetsLeftBehind: async () => void mockForgotten.push('widgets'),
+}));
+jest.mock('@/lib/push', () => ({
+  registerPushToken: async () => undefined,
+  unregisterWhileSignedOut: async () => void mockForgotten.push('pushes'),
+}));
 jest.mock('@/lib/reportError', () => ({ sendPendingCrash: async () => undefined, watchForCrashes: () => undefined }));
 
 // Required here, for the environment above to be in place first.
@@ -82,13 +99,18 @@ const answersAfter =
 
 let network: Network;
 
-/** A key whose read the phone refuses, or never answers, as a storage that has failed. */
-let unreadable: { key: string; kind: 'refused' | 'unanswered' } | null = null;
+/**
+ * A key whose read the phone refuses, or never answers, as a storage that has failed, or holds
+ * until a moment, as a phone too busy at a start.
+ */
+let unreadable: { key: string; kind: 'refused' | 'unanswered' } | { key: string; kind: 'held'; until: number } | null = null;
 const storage = AsyncStorage as unknown as { __INTERNAL_MOCK_STORAGE__: Record<string, string> };
 jest.mocked(AsyncStorage.getItem).mockImplementation(async (key: string) => {
   if (unreadable?.key === key) {
     if (unreadable.kind === 'refused') throw new Error('Database Error');
-    return new Promise<string | null>(() => undefined);
+    if (unreadable.kind === 'unanswered') return new Promise<string | null>(() => undefined);
+    const wait = unreadable.until - Date.now();
+    if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
   }
   return storage.__INTERNAL_MOCK_STORAGE__[key] ?? null;
 });
@@ -102,7 +124,8 @@ function onScreen() {
   if (mockHideSplash.mock.calls.length === 0) return 'splash';
   const drawn = JSON.stringify(app.toJSON());
   if (drawn.includes("This didn't load")) return 'failed';
-  if (drawn.includes('the app')) return 'the app';
+  if (drawn.includes('"(app)"')) return 'the app';
+  if (drawn.includes('"welcome"')) return 'sign-in';
   return drawn.includes('ActivityIndicator') ? 'spinner' : 'nothing';
 }
 
@@ -161,6 +184,7 @@ beforeEach(async () => {
   shown = new Set();
   network = answersAfter(50);
   unreadable = null;
+  mockForgotten.length = 0;
 });
 
 afterEach(async () => {
@@ -264,7 +288,7 @@ describe('a sign-in', () => {
     network = answersAfter(5000);
     await start({ session: 'none' });
     await advance(10_000);
-    expect(onScreen()).toBe('the app');
+    expect(onScreen()).toBe('sign-in');
 
     await signIn();
     await advance(11_000);
@@ -293,21 +317,72 @@ describe('a start with the profile kept on the phone', () => {
 });
 
 describe("a start where the phone can't read the session", () => {
-  it('leaves the splash when the read is refused', async () => {
+  it('leaves the splash for sign-in when the read is refused', async () => {
     unreadable = { key: AUTH_STORAGE_KEY, kind: 'refused' };
     await start({ session: 'good' });
     await advance(10_000);
 
-    expect(onScreen()).toBe('the app');
+    expect(onScreen()).toBe('sign-in');
   });
 
-  it('leaves the splash after 8 s when the read never answers', async () => {
+  it('says so after 8 s when the read never answers, with nothing forgotten', async () => {
     unreadable = { key: AUTH_STORAGE_KEY, kind: 'unanswered' };
     await start({ session: 'good' });
 
     await advance(7900);
     expect(onScreen()).toBe('splash');
     await advance(200);
+    expect(onScreen()).toBe('failed');
+    await advance(60_000);
+    expect(onScreen()).toBe('failed');
+    expect(mockForgotten).toEqual([]);
+  });
+
+  it('opens the app once a slow read answers, with no sign-in or sign-out on the way', async () => {
+    unreadable = { key: AUTH_STORAGE_KEY, kind: 'held', until: Date.now() + 9000 };
+    await start({ session: 'good' });
+
+    await advance(8500);
+    expect(onScreen()).toBe('failed');
+    await advance(1500);
     expect(onScreen()).toBe('the app');
+    expect(shown).not.toContain('sign-in');
+    expect(mockForgotten).toEqual([]);
+  });
+
+  it('gives the profile a wait of its own after a slow read', async () => {
+    unreadable = { key: AUTH_STORAGE_KEY, kind: 'held', until: Date.now() + 9000 };
+    network = answersAfter(6000);
+    await start({ session: 'good' });
+    await advance(9500);
+    expect(onScreen()).toBe('spinner');
+
+    await advance(5000);
+    expect(onScreen()).toBe('spinner');
+    await advance(1000);
+    expect(onScreen()).toBe('the app');
+  });
+
+  it('waits on the spinner again on Try again, and opens the app when the read answers', async () => {
+    unreadable = { key: AUTH_STORAGE_KEY, kind: 'held', until: Date.now() + 12_000 };
+    await start({ session: 'good' });
+    await advance(9000);
+    expect(onScreen()).toBe('failed');
+
+    await tryAgain();
+    await advance(1000);
+    expect(onScreen()).toBe('spinner');
+    await advance(3000);
+    expect(onScreen()).toBe('the app');
+    expect(mockForgotten).toEqual([]);
+  });
+
+  it('shows sign-in once a slow read answers that nobody is signed in', async () => {
+    unreadable = { key: AUTH_STORAGE_KEY, kind: 'held', until: Date.now() + 9000 };
+    await start({ session: 'none' });
+
+    await advance(10_000);
+    expect(onScreen()).toBe('sign-in');
+    expect(mockForgotten).toEqual(['pushes', 'widgets']);
   });
 });

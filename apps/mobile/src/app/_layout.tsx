@@ -35,12 +35,13 @@ clearShotFiles();
 export { ErrorScreen as ErrorBoundary };
 
 /**
- * How long the profile can keep someone on the splash or the spinner. A refused read gets through
- * its retries in 7 s and says so itself. Past that the connection has stalled or the token refresh
- * can't get through, and the read can take minutes to give up. It carries on behind the failure
- * screen, and its answer still opens the app.
+ * How long the phone's read of the session, and then the profile, can each keep someone on the
+ * splash or the spinner. Storage can be slow or stuck at a start. A refused read of the profile gets
+ * through its retries in 7 s and says so itself; past that the connection has stalled or the token
+ * refresh can't get through, and the read can take minutes to give up. Either read carries on
+ * behind the failure screen, and its answer still opens the app.
  */
-const PROFILE_LIMIT_MS = 8000;
+const WAIT_LIMIT_MS = 8000;
 
 export default function RootLayout() {
   // The copy kept on the phone holds only what is in memory, so a query no screen uses stays there a
@@ -67,15 +68,16 @@ function RootNavigator() {
   const queryClient = useQueryClient();
   useSignedOutSync();
   useRefetchWhenClockMoves();
-  const waiting = signedIn && profile.isPending;
+  const waiting = loading ? 'session' : signedIn && profile.isPending ? 'profile' : null;
   const [gaveUp, setGaveUp] = useState(false);
   const [tries, setTries] = useState(0);
-  const ready = fontsDone && !loading && (!waiting || gaveUp);
+  const ready = fontsDone && (!waiting || gaveUp);
 
-  // Each wait for the profile gets the whole limit, and so does each Try again.
+  // Each wait, for the session and then for the profile, gets the whole limit, and so does each
+  // Try again.
   useEffect(() => {
     if (!waiting) return;
-    const timer = setTimeout(() => setGaveUp(true), PROFILE_LIMIT_MS);
+    const timer = setTimeout(() => setGaveUp(true), WAIT_LIMIT_MS);
     return () => {
       clearTimeout(timer);
       setGaveUp(false);
@@ -90,12 +92,21 @@ function RootNavigator() {
     void readInstallReferrer();
   }, []);
 
-  // Waiting for the profile again (trying it once more, or just after signing in) shows a
-  // spinner; at the start the splash screen still covers it.
-  if (!ready) return fontsDone && !loading ? <LoadingScreen /> : null;
+  // Waiting again (trying once more, or for the profile just after signing in) shows a spinner; at
+  // the start the splash screen still covers it.
+  if (!ready) return fontsDone && (!loading || tries > 0) ? <LoadingScreen /> : null;
   // A version the server no longer supports stops here, whoever is signed in.
   if (config.data && isOlder(installedVersion(), config.data.min_version)) {
     return <UpdateRequired storeUrl={Platform.OS === 'android' ? config.data.android_url : config.data.ios_url} />;
+  }
+  // Until the phone says who is signed in, sign-in would be a guess: the person may well be signed
+  // in. The answer still opens the app.
+  if (loading) {
+    return (
+      <Screen>
+        <LoadFailed onRetry={() => setTries((count) => count + 1)} />
+      </Screen>
+    );
   }
   // A profile that didn't load in time (no connection at the start) is no reason to set it up
   // again: the profile setup loads it again on opening, and fails the same way.

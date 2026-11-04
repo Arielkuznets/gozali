@@ -19,9 +19,10 @@ function hasFailedRead(queryClient: QueryClient): boolean {
   return queryClient.getQueryCache().getAll().some((query) => query.isActive() && query.state.fetchFailureCount > 0);
 }
 
-/** As long as the profile may keep someone on the splash (app/_layout.tsx). */
-const SESSION_LIMIT_MS = 8000;
-
+/**
+ * `loading` holds until the phone says who is signed in, however long its storage takes: only then
+ * can a missing session mean a sign-out. The root layout limits how long the splash waits for it.
+ */
 type AuthState = { session: Session | null; loading: boolean };
 
 const AuthContext = createContext<AuthState>({ session: null, loading: true });
@@ -53,9 +54,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setState({ session: await storedSession(), loading: false });
       },
     );
-    // A read of the session that never answers would keep the splash up too. A late answer still
-    // sets the real session.
-    const limit = setTimeout(() => setState((current) => (current.loading ? { session: null, loading: false } : current)), SESSION_LIMIT_MS);
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       // Asked at every change, so what went out signed out says nothing about a later refresh.
       const tokenless = tookTokenlessRequest();
@@ -76,10 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (event === 'INITIAL_SESSION' && !session) return;
       setState({ session, loading: false });
     });
-    return () => {
-      clearTimeout(limit);
-      data.subscription.unsubscribe();
-    };
+    return () => data.subscription.unsubscribe();
   }, [queryClient]);
 
   return <AuthContext.Provider value={state}>{children}</AuthContext.Provider>;
