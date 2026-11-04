@@ -1302,6 +1302,7 @@ export type Database = {
         };
         Returns: undefined;
       };
+      uploads_today: { Args: { bucket: string }; Returns: number };
       use_day_pass: {
         Args: { pass: Database['public']['Enums']['day_pass_kind']; target: string };
         Returns: undefined;

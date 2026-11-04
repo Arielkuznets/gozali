@@ -503,7 +503,7 @@ Important: the widgets and some of the modules require a **development build**, 
 
 - **Auth:** Sign in with Apple and Google.
 - **Postgres + RLS:** all the tables from section 13, including the constraints that prevent race conditions.
-- **Storage:** a private bucket for photos, signed links.
+- **Storage:** a private bucket for photos, signed links. One account keeps at most 60 feed photos and 20 profile photos uploaded in the last day, far above the 36 feed photos the app can send in a day.
 - **Realtime:** updating the circles and the feed on the pack screen in real time, subject to RLS.
 - **Cron:** scheduled runs of day closing, recaps and notification sending: pg\_cron calls the Edge Functions through pg\_net, with the function address and a shared secret kept in Vault (decision D13). A call waits up to 150 seconds, the longest a function can run, so a long run is judged by its own answer.
 - **User actions (Postgres functions):**
