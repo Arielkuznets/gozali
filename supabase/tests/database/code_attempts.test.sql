@@ -1,7 +1,7 @@
 -- Guessing invite codes: misses are counted, and 20 in an hour stop the answers for that hour.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(9);
+select plan(11);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000aa', 'noa@test.local'),
@@ -16,6 +16,19 @@ declare
   shown bigint;
 begin
   set local transaction_read_only = on;
+  select count(*) into shown from public.pack_preview(code);
+  raise exception 'shown %', shown;
+exception when others then
+  return sqlstate || ' ' || sqlerrm;
+end;
+$$;
+-- What a request for one object gets from a preview. The API answers it with an error when no row
+-- comes, which rolls back the miss, as the failed block does here.
+create function pg_temp.one_object_preview(code text) returns text language plpgsql as $$
+declare
+  shown bigint;
+begin
+  perform set_config('request.headers', '{"accept":"application/vnd.pgrst.object+json"}', true);
   select count(*) into shown from public.pack_preview(code);
   raise exception 'shown %', shown;
 exception when others then
@@ -38,6 +51,11 @@ select is(
   'a read-only transaction, which can''t write a miss down, gets no answer for the right code'
 );
 select is(pg_temp.read_only_preview('ZZZZZZZX'), '25006 read_only', 'and the same one for a wrong code');
+select is(
+  pg_temp.one_object_preview((select invite_code from code)), '25006 read_only',
+  'a request for one object, which can''t keep a miss, gets no answer for the right code'
+);
+select is(pg_temp.one_object_preview('ZZZZZZZW'), '25006 read_only', 'and the same one for a wrong code');
 
 reset role;
 select is(

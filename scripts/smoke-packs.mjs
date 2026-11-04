@@ -188,6 +188,16 @@ try {
     const answer = await fetch(`${url}/rest/v1/rpc/pack_preview?code=${pack.invite_code}`, { method, headers });
     check(answer.status === 405, `a ${method} gets no preview, even with the right code`);
   }
+  // A request for one object fails when no row comes, and the API then rolls the miss back.
+  const singular = [];
+  for (let n = 0; n < 25; n++) {
+    singular.push(await dan.client.rpc('pack_preview', { code: `NOPE${String(n).padStart(4, '0')}` }).single());
+  }
+  singular.push(await dan.client.rpc('pack_preview', { code: pack.invite_code }).single());
+  check(
+    singular.every((answer) => answer.status === 405 && answer.error?.code === '25006'),
+    'a request for one object gets no preview, for 25 wrong codes or the right one',
+  );
 
   const joined = await dan.client.rpc('join_pack', { code: pack.invite_code });
   check(joined.data === packId, 'Dan joins the pack');
