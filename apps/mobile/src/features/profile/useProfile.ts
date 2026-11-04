@@ -127,18 +127,32 @@ export function useUpdateProfile() {
   const userId = session?.user.id;
   return useMutation({
     mutationKey: settingsKey,
-    // Each change sends all the notification choices, so changes go one at a time and each shows
-    // in the profile at once: the next one is made from it.
+    // A change to the notification choices reads the saved ones and writes them back with its own,
+    // so changes go one at a time: two at once would each write over the other.
     scope: { id: 'profile-settings' },
     mutationFn: async (settings: ProfileSettings) => {
       if (userId === undefined) throw new Error('Not signed in');
-      const { error } = await requireSupabase().from('profiles').update(settings).eq('id', userId);
+      const supabase = requireSupabase();
+      let change = settings;
+      // The choices are one column, and this phone's copy of it can be behind another phone's: the
+      // saved choices go back with only this change on them.
+      if (settings.notification_prefs) {
+        const saved = await supabase.from('profiles').select('notification_prefs').eq('id', userId).single();
+        if (saved.error) throw saved.error;
+        const prefs = saved.data.notification_prefs as Profile['notification_prefs'];
+        change = { ...settings, notification_prefs: { ...prefs, ...settings.notification_prefs } };
+      }
+      const { error } = await supabase.from('profiles').update(change).eq('id', userId);
       if (error) throw error;
     },
     onMutate: async (settings) => {
       await queryClient.cancelQueries({ queryKey: profileKey(userId) });
       const before = queryClient.getQueryData<Profile>(profileKey(userId));
-      queryClient.setQueryData<Profile>(profileKey(userId), (profile) => profile && { ...profile, ...settings });
+      const { notification_prefs: prefs, ...fields } = settings;
+      queryClient.setQueryData<Profile>(
+        profileKey(userId),
+        (profile) => profile && { ...profile, ...fields, notification_prefs: { ...profile.notification_prefs, ...prefs } },
+      );
       return { before };
     },
     onSuccess: (_data, { display_name: name }) => {

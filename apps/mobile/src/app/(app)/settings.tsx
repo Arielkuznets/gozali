@@ -60,7 +60,7 @@ export default function SettingsScreen() {
     update.mutate(settings, {
       onError: (error) => notify(t(saveErrorKey(error))),
     });
-  const toggle = (type: NotificationType, on: boolean) => save({ notification_prefs: { ...prefs, [type]: on } });
+  const toggle = (type: NotificationType, on: boolean) => save({ notification_prefs: { [type]: on } });
 
   const onDelete = () => {
     confirm({

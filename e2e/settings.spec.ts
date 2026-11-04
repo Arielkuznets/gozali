@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { admin, createPack, createUser, layOutTextLikeAPhone, removeUsers, signIn, type TestUser } from './support';
+import { admin, createPack, createUser, layOutTextLikeAPhone, removeUsers, signIn, signInElsewhere, type TestUser } from './support';
 
 let noa: TestUser;
 
@@ -39,8 +39,7 @@ test('turning three notification types off quickly keeps all three off', async (
   const recap = page.getByRole('switch', { name: 'Weekly recap' });
   await page.getByRole('switch', { name: 'Nudges' }).click();
   await recap.click();
-  // The first save is back and the second is still out: the second switch is still off right now,
-  // and the third choice is made from it.
+  // The first save is back and the second is still out: the second switch is still off right now.
   await page.waitForTimeout(2000);
   expect(await recap.isChecked()).toBe(false);
   await page.getByRole('switch', { name: 'Hatching, growing and achievements' }).click();
@@ -70,6 +69,30 @@ test('a switch whose save fails goes back and says so', async ({ page }) => {
 
   await expect.poll(() => alerts).toEqual(["Saving didn't work. Please try again."]);
   await expect(nudges).toBeChecked();
+});
+
+test('a switch turned on another phone stays as it was turned there', async ({ browser, page }) => {
+  await signIn(page, noa);
+  await page.goto('/settings');
+  // The same account on a second phone with Settings open, which hears nothing of the change.
+  const { data } = await (await signInElsewhere(noa)).auth.getSession();
+  const secondPhone = await browser.newContext({ baseURL: new URL(page.url()).origin });
+  const other = await secondPhone.newPage();
+  await signIn(other, { ...noa, session: data.session! });
+  await other.goto('/settings');
+  const recap = other.getByRole('switch', { name: 'Weekly recap' });
+  await expect(recap).toBeChecked();
+  const prefs = async () => (await noa.client.from('profiles').select('notification_prefs').single()).data?.notification_prefs;
+
+  await page.getByRole('switch', { name: 'Nudges' }).click();
+  await expect.poll(prefs).toMatchObject({ nudge: false });
+  await expect(other.getByRole('switch', { name: 'Nudges' })).toBeChecked();
+  await recap.click();
+
+  await expect.poll(prefs).toMatchObject({ weekly_recap: false });
+  expect(await prefs()).toMatchObject({ nudge: false, weekly_recap: false });
+  await expect(other.getByRole('switch', { name: 'Nudges' })).not.toBeChecked();
+  await secondPhone.close();
 });
 
 test.describe('with someone blocked', () => {
