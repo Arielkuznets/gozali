@@ -907,6 +907,17 @@ describe('a new code reaching the join screen that is open', () => {
   });
 });
 
+describe('a join link with the code in it twice', () => {
+  it('opens the join screen with the first code', async () => {
+    await start('/');
+
+    await open('/join?code=ABCD2345&code=EFGH6789');
+
+    expect(appStack()).toEqual(['index', 'join']);
+    expect(app.root.findByType(TextInput).props.value).toBe('ABCD2345');
+  });
+});
+
 describe('a code the server turns down for this member', () => {
   beforeEach(() => {
     // The app's own retries, which a refusal that can't change must not wait for.

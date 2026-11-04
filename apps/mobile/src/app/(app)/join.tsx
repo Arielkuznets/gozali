@@ -21,9 +21,11 @@ import { colors, radii, spacing } from '@/theme/tokens';
 
 /** Join with a code, typed, pasted or arriving through gozali://join?code=... */
 export default function JoinScreen() {
-  const { code } = useLocalSearchParams<{ code?: string }>();
+  // A link with the code in it more than once hands over a list.
+  const { code } = useLocalSearchParams<{ code?: string | string[] }>();
+  const linkCode = (Array.isArray(code) ? code[0] : code) ?? '';
   // An invite link tapped with this screen open starts it over with its code.
-  return <JoinForm key={code} linkCode={code ?? ''} />;
+  return <JoinForm key={linkCode} linkCode={linkCode} />;
 }
 
 function JoinForm({ linkCode }: { linkCode: string }) {
