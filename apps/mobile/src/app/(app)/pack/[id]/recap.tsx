@@ -237,7 +237,8 @@ const styles = StyleSheet.create({
   },
   statValue: { fontFamily: fonts.heading, fontSize: 26, lineHeight: 34 },
   collage: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
-  tile: { width: '32.5%', aspectRatio: 3 / 4, borderRadius: radii.sm, overflow: 'hidden', backgroundColor: colors.border },
+  // Three tiles and their two gaps fit in a row down to a 320 wide screen.
+  tile: { width: '32%', aspectRatio: 3 / 4, borderRadius: radii.sm, overflow: 'hidden', backgroundColor: colors.border },
   fill: { width: '100%', height: '100%' },
   offscreen: { position: 'absolute', left: -STORY_WIDTH * 3, top: 0, width: STORY_WIDTH, height: STORY_HEIGHT },
 });

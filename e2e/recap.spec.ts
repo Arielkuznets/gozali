@@ -4,14 +4,16 @@ import { admin, createPack, createUser, feed, photo, removeUsers, signIn, type T
 
 let noa: TestUser;
 let dan: TestUser;
+let maya: TestUser;
 
 test.beforeEach(async () => {
   noa = await createUser('Noa');
   dan = await createUser('Dan');
+  maya = await createUser('Maya');
 });
 
 test.afterEach(async () => {
-  await removeUsers(noa, dan);
+  await removeUsers(noa, dan, maya);
 });
 
 /** Last week's recap, with every photo of the pack in its collage. */
@@ -50,4 +52,22 @@ test('a screen reader reads the recap once, without the story behind it', async 
   const read = await page.locator('body').ariaSnapshot();
   expect(read.match(/good days/g)).toHaveLength(1);
   expect(read).not.toContain('gozali.app');
+});
+
+test.describe('on a phone 360 wide', () => {
+  test.use({ viewport: { width: 360, height: 800 } });
+
+  test('the collage keeps three photos to a row', async ({ page }) => {
+    const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' }, [dan, maya]);
+    for (const member of [noa, dan, maya]) await feed(member, pack.id, await photo(page, '🏋️'), 'Leg day');
+    await recapOf(pack.id);
+
+    await signIn(page, noa);
+    await page.goto(`/pack/${pack.id}/recap`);
+    const tiles = page.getByLabel(/^Photo from /);
+    await expect(tiles).toHaveCount(3);
+
+    const tops = await Promise.all((await tiles.all()).map(async (tile) => Math.round((await tile.boundingBox())!.y)));
+    expect(new Set(tops).size).toBe(1);
+  });
 });
