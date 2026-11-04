@@ -156,6 +156,33 @@ describe('a pet that is away', () => {
   });
 });
 
+describe('the tiles on a holiday', () => {
+  beforeEach(() => {
+    mockRows.achievements = [{ key: 'hatched', unlocked_at: '2026-10-01T00:00:00Z' }];
+    mockRows.pack_items = [{ item: 'cap' }];
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('draw each item as on any other day, not the holiday hat in its place', async () => {
+    // Noon on an ordinary day, then on the second day of Hanukkah.
+    jest.useFakeTimers({ now: new Date('2026-12-03T12:00:00Z'), advanceTimers: true });
+    await open();
+    const ordinary = { wardrobe: drawings('wardrobe'), shop: drawings('shop') };
+    await act(async () => tree.unmount());
+
+    jest.useFakeTimers({ now: new Date('2026-12-06T12:00:00Z'), advanceTimers: true });
+    await open();
+    const holiday = { wardrobe: drawings('wardrobe'), shop: drawings('shop') };
+
+    expect(new Set(ordinary.shop).size).toBe(4);
+    expect(new Set(holiday.shop).size).toBe(4);
+    expect(holiday).toEqual(ordinary);
+  });
+});
+
 describe('a pet at home', () => {
   it('dresses with no word about being away', async () => {
     mockRows.achievements = [{ key: 'hatched', unlocked_at: '2026-10-01T00:00:00Z' }];

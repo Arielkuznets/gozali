@@ -62,8 +62,8 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
   // An egg earns no coins and wears nothing, so its wardrobe and shop wait for the hatching.
   const hatched = critter.status !== 'egg';
   // A tile shows its item on the pet. The note a pet that ran away left can't wear one, so the
-  // tiles draw it as it is at home.
-  const tileArt: CritterArt = { ...art, look: art.look === 'ran_away' ? 'happy' : art.look, sleeping: false, mood: 0 };
+  // tiles draw the pet as it is at home, and without the holiday hat, which takes a head item's place.
+  const tileArt: CritterArt = { ...art, look: art.look === 'ran_away' ? 'happy' : art.look, sleeping: false, holiday: false, mood: 0 };
   // The wardrobe and the shop come from all three reads, the achievements from the first. A read that
   // isn't in would pass for nothing unlocked or bought, so they wait for all of them.
   const reads = hatched ? [achievements, shop, bought] : [achievements];
