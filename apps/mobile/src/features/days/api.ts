@@ -1,7 +1,8 @@
 import { addDays, packDayOf, type DayInput } from '@gozali/game-engine';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
+import { feedsKey } from '@/features/feeds/api';
 import { packsKey, usePack, type Pack, type PackMember } from '@/features/packs/api';
 import { notify } from '@/lib/confirm';
 import { readableZone } from '@/lib/dates';
@@ -142,7 +143,7 @@ export function useTodayPasses(pack: Pick<Pack, 'id' | 'timezone'> | undefined, 
   });
 }
 
-function useDayAction<T>(action: (packId: string, value: T) => PromiseLike<{ error: unknown }>, packId: string, onPack = false) {
+function useDayAction<T>(action: (packId: string, value: T) => PromiseLike<{ error: unknown }>, packId: string, alsoShownIn: QueryKey) {
   const queryClient = useQueryClient();
   const { t } = useTranslation();
   return useMutation({
@@ -159,9 +160,10 @@ function useDayAction<T>(action: (packId: string, value: T) => PromiseLike<{ err
       notify(t(dayErrorKey(error)));
       void queryClient.invalidateQueries({ queryKey: daysKey });
     },
-    // A pause is also in the pack, whose copy on the phone says so with no connection.
+    // A pause is also in the pack, whose copy on the phone says so with no connection. A joker is
+    // also a line in the pack feed, and Realtime doesn't send the delete that takes it back.
     onSettled: () => {
-      if (onPack) void queryClient.invalidateQueries({ queryKey: packsKey });
+      void queryClient.invalidateQueries({ queryKey: alsoShownIn });
     },
   });
 }
@@ -170,19 +172,20 @@ export function useDayPass(packId: string) {
   return useDayAction<'joker' | 'rest'>(
     (target, pass) => requireSupabase().rpc('use_day_pass', { target, pass }),
     packId,
+    feedsKey,
   );
 }
 
 export function useCancelDayPass(packId: string) {
-  return useDayAction<void>((target) => requireSupabase().rpc('cancel_day_pass', { target }), packId);
+  return useDayAction<void>((target) => requireSupabase().rpc('cancel_day_pass', { target }), packId, feedsKey);
 }
 
 export function useStartPause(packId: string) {
-  return useDayAction<number>((target, days) => requireSupabase().rpc('start_pause', { target, days }), packId, true);
+  return useDayAction<number>((target, days) => requireSupabase().rpc('start_pause', { target, days }), packId, packsKey);
 }
 
 export function useEndPause(packId: string) {
-  return useDayAction<void>((target) => requireSupabase().rpc('end_pause', { target }), packId, true);
+  return useDayAction<void>((target) => requireSupabase().rpc('end_pause', { target }), packId, packsKey);
 }
 
 /** Maps the server's error codes to translation keys. */

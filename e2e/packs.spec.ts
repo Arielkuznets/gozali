@@ -1,7 +1,20 @@
 import { addDays, packDayOf } from '@gozali/game-engine';
 import { expect, test, type Page } from '@playwright/test';
 
-import { admin, createPack, createUser, doubleButtonText, feed, layOutTextLikeAPhone, photo, removeUsers, signIn, watchSocket, type TestUser } from './support';
+import {
+  admin,
+  createPack,
+  createUser,
+  doubleButtonText,
+  feed,
+  layOutTextLikeAPhone,
+  listening,
+  photo,
+  removeUsers,
+  signIn,
+  watchSocket,
+  type TestUser,
+} from './support';
 
 let noa: TestUser;
 let dan: TestUser;
@@ -33,6 +46,28 @@ test('a rest day is on the pack when its screen closes, and Undo takes it back',
   await expect(page.getByRole('button', { name: 'Use', exact: true })).toHaveCount(2);
   const { data: passes } = await noa.client.from('day_passes').select('kind');
   expect(passes).toEqual([]);
+});
+
+// Realtime brings the line, but not the delete that takes it out (decision D23).
+test("a joker's line leaves the feed of the phone that took the joker back", async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Joker test', habit: 'gym', species: 'kit' }, [dan]);
+  await signIn(page, noa);
+  const socket = await watchSocket(page);
+  await page.goto(`/pack/${pack.id}`);
+  await listening(socket, pack.id);
+
+  await page.getByRole('button', { name: 'Not today' }).click();
+  await page.getByRole('button', { name: 'Use', exact: true }).nth(1).click();
+  await expect(page.getByText(/^🃏 Noa /)).toBeVisible();
+
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(page.getByText('Your joker covers today.').last()).toBeVisible();
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(page.getByRole('button', { name: 'Use', exact: true })).toHaveCount(2);
+  await page.getByRole('button', { name: 'Close' }).click();
+
+  await expect(page.getByRole('button', { name: 'Not today' })).toBeVisible();
+  await expect(page.getByText(/^🃏 Noa /)).toBeHidden();
 });
 
 test('a double tap on Create pack makes one pack', async ({ page }) => {
