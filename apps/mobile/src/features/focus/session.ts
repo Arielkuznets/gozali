@@ -20,6 +20,11 @@ export type FocusSession = {
 };
 
 const STORAGE_KEY = 'gozali.focus';
+/**
+ * The end notice's own identifier, so there is never more than one: two quick taps both schedule,
+ * and the second replaces the first.
+ */
+const END_NOTICE = 'gozali.focus-end';
 export const FOCUS_LENGTHS = [15, 25, 45, 60] as const;
 /** The longest session a feed shows: the server takes 1 to 600 minutes. */
 const FOCUS_MAX_MINUTES = 600;
@@ -46,6 +51,7 @@ async function scheduleEnd(session: FocusSession, text: { title: string; body: s
   if (Platform.OS === 'web' || left === null || session.minutes === null) return null;
   // Without the notification the timer still runs; the screen opens the camera if it's open.
   return Notifications.scheduleNotificationAsync({
+    identifier: END_NOTICE,
     content: { ...text, data: { url: `/pack/${session.packId}/feed?focus=${session.minutes}` } },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DATE,
@@ -55,9 +61,16 @@ async function scheduleEnd(session: FocusSession, text: { title: string; body: s
   }).catch(() => null);
 }
 
+/**
+ * Takes the session's end notice off the phone, waiting or already in Notification Center, where a
+ * tap would still post a photo with this session's minutes. A session an older build stored has a
+ * notice with an identifier of its own.
+ */
 async function cancelEnd(session: FocusSession | null) {
-  if (session?.notificationId) {
-    await Notifications.cancelScheduledNotificationAsync(session.notificationId).catch(() => undefined);
+  if (!session || Platform.OS === 'web') return;
+  for (const id of new Set([session.notificationId ?? END_NOTICE, END_NOTICE])) {
+    await Notifications.cancelScheduledNotificationAsync(id).catch(() => undefined);
+    await Notifications.dismissNotificationAsync(id).catch(() => undefined);
   }
 }
 

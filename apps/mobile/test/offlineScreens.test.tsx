@@ -58,7 +58,10 @@ jest.mock('expo-camera', () => ({
 jest.mock('expo-image', () => ({ Image: () => null }));
 jest.mock('expo-image-manipulator', () => ({}));
 const mockCancelled = jest.fn();
-jest.mock('expo-notifications', () => ({ cancelScheduledNotificationAsync: async (id: string) => mockCancelled(id) }));
+jest.mock('expo-notifications', () => ({
+  cancelScheduledNotificationAsync: async (id: string) => mockCancelled(id),
+  dismissNotificationAsync: async () => undefined,
+}));
 const mockReplace = jest.fn();
 let mockParams: Record<string, string>;
 /** What a screen runs when it comes back to the front, as long as it is mounted. */

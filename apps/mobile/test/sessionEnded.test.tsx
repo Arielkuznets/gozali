@@ -64,6 +64,7 @@ jest.mock('expo-notifications', () => ({
   cancelScheduledNotificationAsync: async (id: string) => {
     mockCancelled.push(id);
   },
+  dismissNotificationAsync: async () => undefined,
 }));
 const mockClearNotifications = jest.fn(async () => undefined);
 jest.mock('@/lib/notifications', () => ({
@@ -349,7 +350,7 @@ describe('a session the server ended, with nobody signing out', () => {
     expect(await waiting()).toEqual([]);
     expect(mockDeleted).toEqual(['documents/feed-queue/waiting.jpg']);
     expect(await AsyncStorage.getItem(FOCUS_KEY)).toBeNull();
-    expect(mockCancelled).toEqual(['end-of-focus']);
+    expect(mockCancelled).toEqual(['end-of-focus', 'gozali.focus-end']);
     expect(mockClearNotifications).toHaveBeenCalled();
     expect((await flushQueue()).handled).toBe(0);
     expect(requested('/storage/v1/object/')).toEqual([]);
@@ -419,7 +420,7 @@ describe('the wrong account, between a session the server ended and the same per
     expect(await waiting()).toEqual([]);
     expect(mockDeleted).toEqual(['documents/feed-queue/waiting.jpg']);
     expect(await AsyncStorage.getItem(FOCUS_KEY)).toBeNull();
-    expect(mockCancelled).toEqual(['end-of-focus']);
+    expect(mockCancelled).toEqual(['end-of-focus', 'gozali.focus-end']);
   });
 
   it('takes along what it had waiting itself, and only that', async () => {
@@ -441,7 +442,7 @@ describe('an account sent back to the profile setup, with work of its own waitin
 
     expect(await waiting()).toEqual([]);
     expect(await AsyncStorage.getItem(FOCUS_KEY)).toBeNull();
-    expect(mockCancelled).toEqual(['end-of-focus']);
+    expect(mockCancelled).toEqual(['end-of-focus', 'gozali.focus-end']);
     expect(mockClearNotifications).toHaveBeenCalled();
   });
 });
@@ -569,7 +570,7 @@ describe('signing out in the app', () => {
     expect(await AsyncStorage.getItem(SNAPSHOT_KEY)).toBeNull();
     expect(await waiting()).toEqual([]);
     expect(await AsyncStorage.getItem(FOCUS_KEY)).toBeNull();
-    expect(mockCancelled).toEqual(['end-of-focus']);
+    expect(mockCancelled).toEqual(['end-of-focus', 'gozali.focus-end']);
     expect(mockClearNotifications).toHaveBeenCalledTimes(1);
   });
 

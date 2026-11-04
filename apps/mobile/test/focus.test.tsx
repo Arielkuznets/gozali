@@ -1,7 +1,45 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Alert } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
+import '@/i18n';
+import FocusScreen from '@/app/(app)/pack/[id]/focus';
 import { clearFocusSession, elapsedMs, focusedMinutes, remainingMs, useFocusSession, type FocusSession } from '@/features/focus/session';
+
+// The phone's side of notifications. It keeps one request per identifier, as iOS and Android do,
+// and a request whose time came moves to the delivered ones in Notification Center.
+const mockScheduled = new Map<string, string>();
+const mockDelivered = new Set<string>();
+let mockRequests = 0;
+jest.mock('expo-notifications', () => ({
+  SchedulableTriggerInputTypes: { DATE: 'date' },
+  scheduleNotificationAsync: async (request: { identifier?: string; content: { data: { url: string } } }) => {
+    mockRequests += 1;
+    const id = request.identifier ?? `request-${mockRequests}`;
+    mockScheduled.set(id, request.content.data.url);
+    return id;
+  },
+  cancelScheduledNotificationAsync: async (id: string) => {
+    mockScheduled.delete(id);
+  },
+  dismissNotificationAsync: async (id: string) => {
+    mockDelivered.delete(id);
+  },
+}));
+jest.mock('@/lib/notifications', () => ({
+  allowNotifications: async () => true,
+  useNotificationPermission: () => ({ permission: 'granted', request: jest.fn() }),
+}));
+jest.mock('expo-router', () => ({
+  useLocalSearchParams: () => ({ id: 'p1' }),
+  useIsFocused: () => true,
+  useNavigation: () => ({ isFocused: () => true, getState: () => ({ routes: [] }) }),
+  router: { canGoBack: () => true, back: jest.fn(), replace: jest.fn() },
+}));
+jest.mock('@/features/critter/Critter', () => ({ Critter: () => null }));
+jest.mock('@/features/packs/api', () => ({
+  usePack: () => ({ data: { name: 'Study group', category: 'study', critters: null }, isPending: false, isError: false, refetch: jest.fn() }),
+}));
 
 const start = Date.UTC(2026, 8, 27, 10, 0);
 const minute = 60_000;
@@ -116,5 +154,89 @@ describe("a stored session that can't be read", () => {
 
       expect(focus.session).toBeNull();
     });
+  });
+});
+
+describe('the notice at the end of a session', () => {
+  const STORAGE_KEY = 'gozali.focus';
+  let screen: ReactTestRenderer;
+
+  const settle = () => act(() => new Promise((resolve) => setTimeout(resolve, 20)));
+  const press = (label: string) =>
+    screen.root.findAll((node) => (node.props.label === label || node.props.accessibilityLabel === label) && node.props.onPress)[0]!.props.onPress();
+  /** Its time came while the app was away. */
+  const deliver = () => {
+    for (const id of mockScheduled.keys()) mockDelivered.add(id);
+    mockScheduled.clear();
+  };
+
+  async function open() {
+    await act(async () => {
+      screen = create(<FocusScreen />);
+    });
+    await settle();
+  }
+
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+    mockScheduled.clear();
+    mockDelivered.clear();
+    // Stop asks first; this is the answer that stops.
+    jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+      buttons?.find((button) => button.style === 'destructive')?.onPress?.();
+    });
+  });
+
+  afterEach(async () => {
+    await act(async () => screen.unmount());
+    jest.restoreAllMocks();
+  });
+
+  it('is one, however fast the taps on a length came, and Stop takes it away', async () => {
+    await open();
+    await act(async () => {
+      press('25 minutes');
+      press('25 minutes');
+    });
+    await settle();
+    expect([...mockScheduled.values()]).toEqual(['/pack/p1/feed?focus=25']);
+
+    await act(async () => press('Cancel'));
+    await settle();
+    expect(mockScheduled.size).toBe(0);
+  });
+
+  it('is one after two taps on Resume, and Pause takes it away', async () => {
+    await AsyncStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify(session({ packId: 'p1', startedAt: Date.now() - 10 * minute, pausedAt: Date.now() - 2 * minute })),
+    );
+    await open();
+    await act(async () => {
+      press('Resume');
+      press('Resume');
+    });
+    await settle();
+    expect(mockScheduled.size).toBe(1);
+
+    await act(async () => press('Pause'));
+    await settle();
+    expect(mockScheduled.size).toBe(0);
+  });
+
+  it('leaves Notification Center once delivered, when the session ends by Stop or by its photo', async () => {
+    await open();
+    await act(async () => press('25 minutes'));
+    await settle();
+    deliver();
+    await act(async () => press('Cancel'));
+    await settle();
+    expect(mockDelivered.size).toBe(0);
+
+    await act(async () => press('25 minutes'));
+    await settle();
+    deliver();
+    await act(() => clearFocusSession('p1'));
+    expect(mockDelivered.size).toBe(0);
   });
 });

@@ -31,6 +31,7 @@ jest.mock('expo-image', () => ({ Image: 'Image' }));
 const mockCancelNotification = jest.fn();
 jest.mock('expo-notifications', () => ({
   cancelScheduledNotificationAsync: async (id: string) => mockCancelNotification(id),
+  dismissNotificationAsync: async () => undefined,
 }));
 jest.mock('@/components/OfflineBanner', () => ({ OfflineBanner: () => null }));
 jest.mock('@/features/auth/AuthProvider', () => ({ useAuth: () => ({ session: { user: { id: 'noa' } } }) }));
