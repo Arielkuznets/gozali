@@ -4,7 +4,7 @@ import { ExpoRoot } from 'expo-router/build/ExpoRoot';
 import { store } from 'expo-router/build/global-state/router-store';
 import { getMockContext } from 'expo-router/build/testing-library/mock-config';
 import { useState } from 'react';
-import { Text, TextInput } from 'react-native';
+import { BackHandler, Platform, Text, TextInput, type HardwareBackPressEvent } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import '@/i18n';
@@ -848,6 +848,79 @@ describe('a pack that takes its time to be created', () => {
       expect(pathname()).toBe('/pack/p2/invite');
       expect(hasButton('Create pack')).toBe(false);
     });
+  });
+});
+
+describe("the phone's own way back on Create pack", () => {
+  const onStep = (step: number) => shows(`Step ${step} of 4`);
+
+  describe('on Android', () => {
+    /** What the back button reaches: the newest listener first, until one takes it. */
+    const listeners: ((event: HardwareBackPressEvent) => boolean | null | undefined)[] = [];
+    const pressBack = async () => {
+      await act(async () => {
+        const event = { type: 'hardwareBackPress', timeStamp: Date.now() };
+        [...listeners].reverse().some((listener) => listener(event));
+      });
+      await settle();
+    };
+    let platform: jest.ReplaceProperty<typeof Platform.OS>;
+
+    beforeEach(() => {
+      platform = jest.replaceProperty(Platform, 'OS', 'android');
+      listeners.length = 0;
+      jest.spyOn(BackHandler, 'addEventListener').mockImplementation((_name, listener) => {
+        listeners.push(listener);
+        return { remove: () => void listeners.splice(listeners.indexOf(listener), 1) };
+      });
+    });
+
+    afterEach(() => {
+      jest.mocked(BackHandler.addEventListener).mockRestore();
+      platform.restore();
+    });
+
+    it('goes back a step, with what was typed kept', async () => {
+      await start('/');
+      await open('/create-pack');
+      await act(async () => app.root.findByType(TextInput).props.onChangeText('Morning runs'));
+      await press('Next');
+      await press('Next');
+      expect(onStep(3)).toBe(true);
+
+      await pressBack();
+      expect(onStep(2)).toBe(true);
+      await pressBack();
+
+      expect(appStack()).toEqual(['index', 'create-pack']);
+      expect(onStep(1)).toBe(true);
+      expect(app.root.findByType(TextInput).props.value).toBe('Morning runs');
+    });
+
+    it('leaves the form from its first step', async () => {
+      await start('/');
+      await open('/create-pack');
+
+      await pressBack();
+
+      expect(appStack()).toEqual(['index']);
+    });
+  });
+
+  it('takes no swipe away on iOS past the first step', async () => {
+    /** Whether the swipe from the edge may take the screen away. */
+    const swipeBack = () => (store.navigationRef.getCurrentOptions() as { gestureEnabled?: boolean } | undefined)?.gestureEnabled !== false;
+    await start('/');
+    await open('/create-pack');
+    expect(swipeBack()).toBe(true);
+
+    await act(async () => app.root.findByType(TextInput).props.onChangeText('Morning runs'));
+    await press('Next');
+    expect(swipeBack()).toBe(false);
+
+    await press('Back');
+    expect(onStep(1)).toBe(true);
+    expect(swipeBack()).toBe(true);
   });
 });
 

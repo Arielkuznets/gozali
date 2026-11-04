@@ -1,7 +1,7 @@
-import { router, useFocusEffect } from 'expo-router';
+import { Stack, router, useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { BackHandler, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
@@ -49,6 +49,19 @@ export default function CreatePackScreen() {
     }, [created]),
   );
 
+  // The phone's own way back goes back a step, as Back does, or the form would go with all that was
+  // typed. Android's back button can be taken over; the iOS swipe can only be turned off.
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== 'android' || step === 1 || created) return;
+      const back = BackHandler.addEventListener('hardwareBackPress', () => {
+        setStep(step - 1);
+        return true;
+      });
+      return () => back.remove();
+    }, [step, created]),
+  );
+
   const pickCategory = (key: Category, defaultRestDays: number) => {
     setCategory(key);
     setRestDays(defaultRestDays);
@@ -89,6 +102,7 @@ export default function CreatePackScreen() {
 
   return (
     <Screen>
+      <Stack.Screen options={{ gestureEnabled: step === 1 }} />
       <View style={styles.header}>
         <AppText variant="heading">{t('create.title')}</AppText>
         <AppText variant="caption">{t('create.step', { step })}</AppText>
