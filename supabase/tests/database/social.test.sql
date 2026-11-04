@@ -1,7 +1,7 @@
 -- Feed events, reactions, nudges, naming, the wardrobe and personal stats.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(50);
+select plan(51);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a4', 'noa@test.local'),
@@ -164,6 +164,14 @@ select pg_temp.act_as('00000000-0000-0000-0000-0000000000a4');
 select is(
   (select count(*) from public.feed_reactions(array['20000000-0000-0000-0000-000000000001'::uuid])), 0::bigint,
   'reactions from a blocked member are hidden'
+);
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000b4');
+select public.dress_critter((select id from pack), 'neck', 'scarf');
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000a4');
+select is(
+  (select array_agg(kind::text order by created_at) from public.pack_events where actor_id = '00000000-0000-0000-0000-0000000000b4'),
+  array['joined'],
+  'of a blocked member''s feed lines only their join still shows, so whoever blocked them knows they are in the pack'
 );
 delete from public.blocks;
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000c4');

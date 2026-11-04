@@ -408,6 +408,21 @@ test('a member you block stays fed on every screen', async ({ page }) => {
   await expect(page.getByLabel('Dan: 1 fed, 0 rest or joker, 0 paused or asleep, 0 missed')).toBeVisible();
 });
 
+test('a member you block still shows joining the pack', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' }, [dan]);
+  await feed(dan, pack.id, await photo(page, '🏋️'), 'Leg day');
+  const blocked = await noa.client.from('blocks').insert({ blocker_id: noa.id, blocked_id: dan.id });
+  if (blocked.error) throw blocked.error;
+
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+  await expect(page.getByRole('button', { name: 'Dan, fed today' })).toBeVisible();
+  // A block hides what they post, not that they are in the pack and can read what Noa posts there.
+  await expect(page.getByText('👋 Dan joined the pack')).toBeVisible();
+  await expect(page.getByText('Leg day')).toBeHidden();
+  await expect(page.getByText('No feeds yet. Be the first today!')).toBeHidden();
+});
+
 test('a photo hidden by reports still counts for the day', async ({ page }) => {
   const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' }, [dan]);
   await feed(dan, pack.id, await photo(page, '🏋️'), 'Leg day');
@@ -440,19 +455,6 @@ test.describe('an empty pack feed', () => {
     await page.goto(`/pack/${pack.id}`);
     await expect(page.getByText(NOBODY_FED)).toBeVisible();
     await expect(page.getByText(OUT_OF_SIGHT)).toBeHidden();
-  });
-
-  test('does not ask beside a member who fed and is blocked', async ({ page }) => {
-    const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' }, [dan]);
-    await feed(dan, pack.id, await photo(page, '🏋️'), 'Leg day');
-    const blocked = await noa.client.from('blocks').insert({ blocker_id: noa.id, blocked_id: dan.id });
-    if (blocked.error) throw blocked.error;
-
-    await signIn(page, noa);
-    await page.goto(`/pack/${pack.id}`);
-    await expect(page.getByRole('button', { name: 'Dan, fed today' })).toBeVisible();
-    await expect(page.getByText(OUT_OF_SIGHT)).toBeVisible();
-    await expect(page.getByText(NOBODY_FED)).toBeHidden();
   });
 
   test('does not ask someone whose own post reports hid', async ({ page }) => {
