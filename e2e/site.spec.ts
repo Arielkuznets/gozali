@@ -73,6 +73,21 @@ test('the privacy policy says how a deletion by email is confirmed', () => {
   expect(rights).toContain('Hide My Email');
 });
 
+test('the privacy policy names the update check the app sends Expo on every start', () => {
+  const { status, stderr } = build(FINGERPRINT);
+  expect(status, stderr).toBe(0);
+  // With an update URL and the default check on launch, expo-updates asks Expo for a newer version
+  // every time the app starts, with an id it keeps for the installation and, after an error that
+  // stopped the app while it was starting, that error.
+  const { updates } = JSON.parse(readFileSync(join(root, 'apps/mobile/app.json'), 'utf8')).expo;
+  expect(updates?.url).toMatch(/^https:\/\/u\.expo\.dev\//);
+  expect(updates?.checkOnLaunch ?? 'ALWAYS').toBe('ALWAYS');
+  const expo = /<li><strong>Expo<\/strong>(.*?)<\/li>/.exec(page('privacy/index.html'))?.[1];
+  expect(expo).toContain('updates');
+  expect(expo).toContain('installation');
+  expect(expo).toContain('error');
+});
+
 test('the real fingerprint goes into the file Android reads', () => {
   const { status, stderr } = build(FINGERPRINT);
   expect(status, stderr).toBe(0);

@@ -41,7 +41,7 @@ We do **not** collect your location or contacts, we don't use advertising or tra
 ## Services we use
 
 - **Supabase** stores the data and runs the server (database, file storage, sign-in).
-- **Expo** delivers push notifications, through Apple's and Google's push services.
+- **Expo** delivers push notifications, through Apple's and Google's push services, and the app's updates: each time the app starts, it asks Expo whether a newer version is out. That request carries your network address, a random id the app keeps for that installation, the app version and the phone's system and, after an error stopped the app while it was starting, that error. Expo uses it to send updates and to show the developer how many installations run each update and how often it fails.
 - **Apple** and **Google** provide sign-in.
 - **Resend** delivers report emails to the developer, with what was reported.
 - **Cloudflare** hosts the gozali.app website and forwards email sent to hello@gozali.app.

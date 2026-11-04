@@ -44,7 +44,7 @@ Photos are seen only by your pack, unless one is reported and the developer has 
 
 ## Privacy answers
 
-What the app collects (see docs/legal/privacy-policy.md). No tracking, no ads, no analytics, no third-party SDKs that collect data.
+What the app collects (see docs/legal/privacy-policy.md), including what Expo's code in the app sends to Expo: the push token and the update check on every start. No tracking and no ads.
 
 | Data | App Store label | Google Play data safety | Purpose |
 | --- | --- | --- | --- |
@@ -56,9 +56,10 @@ What the app collects (see docs/legal/privacy-policy.md). No tracking, no ads, n
 | User ID | Identifiers: user ID, linked | Personal info: user IDs | App functionality |
 | Push token and widget token | Identifiers: device ID, linked | Device or other IDs | App functionality |
 | Time zone, language and reminder settings | Other data, linked | Personal info: other info (time zone and language); App activity: other actions (reminder settings) | App functionality |
-| Error reports (the error, stack trace, the screen, the app version, iPhone or Android, whether the app crashed, and on a sign-in report the system name and version) | Diagnostics: crash data, other diagnostic data, linked | App info and performance: crash logs, diagnostics, collected | App functionality |
+| Error reports (the error, stack trace, the screen, the app version, iPhone or Android, whether the app crashed, and on a sign-in report the system name and version) | Diagnostics: crash data, other diagnostic data, linked | App info and performance: crash logs, diagnostics, collected | App functionality; on Google Play also Analytics |
 | Network address and user agent of each signed-in phone (kept by the sign-in service until that phone signs out or the account is deleted) | Other data, linked | Device or other IDs, collected | App functionality |
 | Scrambled network address when a sign-in fails (a keyed hash kept apart from the report, used for an hour, deleted within about a day) | Other data, not linked | Device or other IDs, collected | App functionality; on Google Play: fraud prevention, security and compliance |
+| Update check that Expo's code sends to Expo each time the app starts: the network address, a random id kept for the installation, the app version and system, and an error that stopped the app while it was starting (Expo counts installations and failures per update for the developer) | Other data; Identifiers: device ID; Diagnostics: crash data (each already declared above, so the App Store answers don't change) | Device or other IDs; App info and performance: crash logs, collected (both already above) | App functionality; on Google Play also Analytics |
 
 Data is encrypted in transit, and users can delete their account inside the app (Settings → Delete account). That removes the account and its data right away, apart from what the privacy policy lists: copies in the daily backups on the developer's computer, outside the EU, for about 14 days (the 14 newest are kept), the account id in the packs' past results, the name or account id in records of notifications sent to others for up to 30 days, the sign-in service's security log, and report emails. Photos are deleted after 30 days (a photo in a weekly recap collage 8 weeks after that week). A reported photo reaches the developer by email, through a link that works for 7 days.
 
