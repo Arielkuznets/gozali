@@ -1,7 +1,7 @@
 -- Word filtering, reports on photos and on members, and the helpers of account deletion.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(82);
+select plan(87);
 
 select ok(public.is_clean('Leg day, done'), 'ordinary captions pass');
 select ok(not public.is_clean('what the fuuuck'), 'repeated letters don''t get around the filter');
@@ -51,6 +51,52 @@ select is(
   (select array_agg(done order by done) from spelled where rest = '' and public.is_clean(done)),
   array['455'],
   'no digit spelling of a blocked word passes, but for the plain number'
+);
+
+-- Nor does any other spelling: in capitals, with each letter tripled, with a mark or a digit after
+-- it, with an invisible character or an accent inside, and with more after it when its longer forms
+-- are blocked too.
+select is(
+  (select array_agg(s.spelled order by s.spelled)
+   from public.blocked_words w
+   cross join lateral (values
+     (upper(w.word)),
+     (regexp_replace(w.word, '(.)', '\1\1\1', 'g')),
+     ('you ' || w.word || '!'),
+     (w.word || '1'),
+     (left(w.word, 1) || U&'\200B' || substr(w.word, 2)),
+     (left(w.word, 1) || U&'\0301' || substr(w.word, 2)),
+     (w.word || case w.match when 'prefix' then 'ing' else '' end)
+   ) as s (spelled)
+   where public.is_clean(s.spelled)),
+  null,
+  'no other spelling of a word on the list passes'
+);
+select is(
+  (select array_agg(spelled) from unnest(array[
+    U&'\FF26\FF35\FF23\FF2B', U&'\+01D41F\+01D42E\+01D41C\+01D424', 'fu' || U&'\0441' || 'k', 'sh' || U&'\0456' || 't pack', U&'\0430ss'
+  ]) spelled where public.is_clean(spelled)),
+  null,
+  'fullwidth, mathematical and Cyrillic letters read as the letters they look like'
+);
+select is(
+  (select array_agg(spelled) from unnest(array[
+    'f' || U&'\00AD' || 'uck', 'f' || U&'\2060' || 'uck', U&'\FEFF' || 'fu' || U&'\200D' || 'ck', 'fu' || U&'\200F' || 'ck you'
+  ]) spelled where public.is_clean(spelled)),
+  null,
+  'a soft hyphen, a joiner or a direction mark doesn''t split a word'
+);
+select is(
+  (select array_agg(spelled) from unnest(array['dumbass', 'Dipshits!', 'you dumbfuck']) spelled where public.is_clean(spelled)),
+  null,
+  'insults that end in a blocked word are on the list'
+);
+select is(
+  (select array_agg(spelled) from unnest(array[
+    'as', 'Assaf, Hadas and Dikla', U&'Zo\00EB, Ren\00E9e and Jos\00E9', 'Leg day, done!', 'Finally!!', 'Class 2 at 7'
+  ]) spelled where not public.is_clean(spelled)),
+  null,
+  'ordinary words and names still pass'
 );
 
 insert into auth.users (id, email) values
