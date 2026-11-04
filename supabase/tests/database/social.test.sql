@@ -1,7 +1,7 @@
 -- Feed events, reactions, nudges, naming, the wardrobe and personal stats.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(48);
+select plan(50);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a4', 'noa@test.local'),
@@ -181,10 +181,21 @@ set local role authenticated;
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000a4');
 insert into public.blocks (blocker_id, blocked_id) values ('00000000-0000-0000-0000-0000000000a4', '00000000-0000-0000-0000-0000000000b4');
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000b4');
+select lives_ok(
+  $$ select public.nudge((select id from pack), '00000000-0000-0000-0000-0000000000a4') $$,
+  'a nudge at someone who blocked the sender answers as any other does, so it doesn''t tell of the block'
+);
 select throws_ok(
   $$ select public.nudge((select id from pack), '00000000-0000-0000-0000-0000000000a4') $$,
-  'P0001', 'cannot_nudge', 'nobody nudges someone who blocked them'
+  'P0001', 'already_nudged', 'and it is the day''s nudge, like any other'
 );
+reset role;
+select is(
+  (select count(*) from public.notifications where type = 'nudge'), 0::bigint,
+  'but it reaches nobody'
+);
+delete from public.nudges;
+set local role authenticated;
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000a4');
 delete from public.blocks;
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000b4');
