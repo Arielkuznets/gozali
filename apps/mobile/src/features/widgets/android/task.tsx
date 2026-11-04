@@ -39,14 +39,20 @@ function isFresh({ savedAt = 0 }: WidgetSnapshot): boolean {
   return age >= 0 && age < FRESH_MS;
 }
 
-/** The latest snapshot: the saved one if fresh, otherwise fetched with the device's token. */
+/**
+ * The latest snapshot: the saved one if fresh, otherwise fetched with the device's token. A fetch
+ * that fails leaves the saved one, unless it found the token unknown and took the snapshot with it.
+ * With no token there is nothing to show: build 4 kept a deleted account's snapshot once its token
+ * was gone.
+ */
 async function currentSnapshot(): Promise<WidgetSnapshot | null> {
   const saved = await loadSnapshot();
   if (saved && isFresh(saved)) return saved;
   const token = await savedWidgetToken();
-  const fresh = token ? await fetchSnapshot(token) : null;
+  if (!token) return null;
+  const fresh = await fetchSnapshot(token);
   if (fresh) await saveSnapshot(fresh);
-  return fresh ?? saved;
+  return fresh ?? (await loadSnapshot());
 }
 
 /** Runs in the background when Android adds, updates (every 30 minutes) or resizes a widget. */

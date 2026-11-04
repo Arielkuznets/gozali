@@ -19,6 +19,7 @@ const pack = { dayEndsAt: '2026-10-30T01:00:00Z', art: 'awake', nightArt: 'aslee
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const SNAPSHOT_KEY = 'gozali.widget-snapshot';
+const TOKEN_KEY = 'gozali.widget-token';
 const OFFSET_KEY = 'gozali.server-offset';
 
 /** Eight in the evening on the phone, wherever the tests run. */
@@ -68,7 +69,7 @@ describe('a widget refresh on Android', () => {
 
   beforeEach(async () => {
     jest.useFakeTimers({ now: PHONE_EVENING });
-    await AsyncStorage.setItem('gozali.widget-token', 'token');
+    await AsyncStorage.setItem(TOKEN_KEY, 'token');
     fetched.mockReset();
     globalThis.fetch = fetched.mockImplementation(async () => ({
       status: 200,
@@ -114,6 +115,39 @@ describe('a widget refresh on Android', () => {
     jest.setSystemTime(PHONE_EVENING + 26 * MINUTE);
     await refresh();
     expect(fetched).toHaveBeenCalledTimes(2);
+  });
+
+  it('draws nothing of the account once the server no longer knows the token, and keeps nothing of it', async () => {
+    await saveSnapshot(PHONE_EVENING - 2 * HOUR, PHONE_EVENING - 2 * HOUR);
+    fetched.mockImplementation(async () => ({ status: 401, ok: false, headers: new Headers(), text: async () => 'unknown token' }));
+
+    await refresh();
+    await refresh();
+
+    expect(fetched).toHaveBeenCalledTimes(1);
+    expect(mockRenderCritter).not.toHaveBeenCalled();
+    expect(await AsyncStorage.multiGet([SNAPSHOT_KEY, TOKEN_KEY])).toEqual([
+      [SNAPSHOT_KEY, null],
+      [TOKEN_KEY, null],
+    ]);
+  });
+
+  it('draws nothing from a snapshot with no token left to fetch with', async () => {
+    await AsyncStorage.removeItem(TOKEN_KEY);
+    await saveSnapshot(PHONE_EVENING - 2 * HOUR, PHONE_EVENING - 2 * HOUR);
+
+    await refresh();
+
+    expect(mockRenderCritter).not.toHaveBeenCalled();
+  });
+
+  it('draws the snapshot it has when the fetch fails', async () => {
+    await saveSnapshot(PHONE_EVENING - 2 * HOUR, PHONE_EVENING - 2 * HOUR);
+    fetched.mockRejectedValue(new TypeError('Network request failed'));
+
+    await refresh();
+
+    expect(mockRenderCritter).toHaveBeenCalledTimes(1);
   });
 });
 

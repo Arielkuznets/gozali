@@ -29,14 +29,15 @@ export function savedWidgetToken(): Promise<string | null> {
 
 /**
  * The state the widgets show, or null without an answer. The server forgets a token nobody used
- * for 90 days; this device forgets it then too, so the app's next refresh makes a new one. Kept,
- * it left the widgets on the old picture for good.
+ * for 90 days, and an account's tokens go with the account, which another phone can delete. This
+ * device then forgets the token and the snapshot, so the widgets go blank and the app's next
+ * refresh makes a new token. Kept, they left the widgets on the old picture for good.
  */
 export async function fetchSnapshot(token: string): Promise<WidgetSnapshot | null> {
   try {
     const response = await clockedFetch(WIDGET_ENDPOINT, { headers: { 'x-widget-token': token } });
     if (response.status === 401 && (await response.text()) === 'unknown token') {
-      await AsyncStorage.removeItem(TOKEN_KEY);
+      await AsyncStorage.multiRemove([TOKEN_KEY, SNAPSHOT_KEY]);
       return null;
     }
     return response.ok ? { ...((await response.json()) as WidgetSnapshot), savedAt: Date.now() } : null;
