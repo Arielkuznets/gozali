@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery } from '@tanstack/react-query';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { router } from 'expo-router';
@@ -20,7 +19,7 @@ import {
   type SignInTrouble,
 } from '@/features/auth/signIn';
 import { Critter } from '@/features/critter/Critter';
-import { ONBOARDED_KEY } from '@/features/profile/onboarding';
+import { rulesSeen } from '@/features/profile/onboarding';
 import { notify } from '@/lib/confirm';
 import { errorCode, reportSignInProblem, reportSignInWait } from '@/lib/reportError';
 import { NotConfiguredError } from '@/lib/supabase';
@@ -42,8 +41,8 @@ export default function WelcomeScreen() {
 
   // The rules come first, once per install.
   useEffect(() => {
-    void AsyncStorage.getItem(ONBOARDED_KEY).then((done) => {
-      if (!done) router.replace('/onboarding');
+    void rulesSeen().then((seen) => {
+      if (!seen) router.replace('/onboarding');
     });
   }, []);
 

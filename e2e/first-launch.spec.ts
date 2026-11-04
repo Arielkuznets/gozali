@@ -31,6 +31,25 @@ test('a first launch shows the rules and the reward, then the sign-in screen', a
   await expect(page.getByRole('button', { name: 'Continue with Apple' })).toBeVisible();
 });
 
+test("a phone that can't note the rules as seen still goes on to sign-in", async ({ page }) => {
+  await page.addInitScript(() => {
+    const setItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (this: Storage, key: string, value: string) {
+      if (key === 'gozali.onboarded') throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+      setItem.call(this, key, value);
+    };
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Skip' }).click();
+
+  const apple = page.getByRole('button', { name: 'Continue with Apple' });
+  await expect(apple).toBeVisible();
+  // Past the sign-in screen's own look for the note.
+  await page.waitForTimeout(2000);
+  await expect(apple).toBeVisible();
+  await expect(page.getByText('Feed me with a photo')).toBeHidden();
+});
+
 test('in a window shorter than a phone the texts scroll instead of hiding behind the buttons', async ({ page }) => {
   // An iPad shows the app in a window people can make this short.
   await page.setViewportSize({ width: 600, height: 300 });
