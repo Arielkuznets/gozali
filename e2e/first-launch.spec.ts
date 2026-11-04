@@ -183,6 +183,19 @@ test('an account the sign-in gave no name finishes the setup with the tick alone
   await removeUsers(maya);
 });
 
+test('on a small phone the setup opens with the tick Continue waits for in view', async ({ page }) => {
+  // Larger text on an iPhone SE leaves the form about as little room as this window does.
+  await page.setViewportSize({ width: 320, height: 500 });
+  const maya = await createSignedUpUser('Maya');
+  await signIn(page, maya);
+  await page.goto('/');
+  await expect(page.getByText('About you')).toBeVisible();
+  await expect(page.getByRole('checkbox')).toBeInViewport({ ratio: 1 });
+
+  await expectClearOf(page.getByText("Next, we'll ask to send notifications", { exact: false }), page.getByRole('button', { name: 'Continue' }));
+  await removeUsers(maya);
+});
+
 /** A link opening in the running app: the web build hears of it through the browser history. */
 async function openLink(page: Page, path: string) {
   await page.evaluate((target) => {

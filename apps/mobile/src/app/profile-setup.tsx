@@ -74,11 +74,12 @@ export default function ProfileSetupScreen() {
           <AppText style={styles.agreeText}>{t('profileSetup.agree')}</AppText>
         </Pressable>
         <LegalLinks />
+        {/* The system asks as the home screen opens, right after this one (useAccountSync). It scrolls
+            with the form, leaving the room above Continue to the form and the tick Continue waits for. */}
+        <AppText variant="caption" style={styles.notice}>
+          {t('profileSetup.notifications')}
+        </AppText>
       </ScrollView>
-      {/* The system asks as the home screen opens, right after this one (useAccountSync). */}
-      <AppText variant="caption" style={styles.notice}>
-        {t('profileSetup.notifications')}
-      </AppText>
       <Button
         label={t('profileSetup.continue')}
         disabled={!canContinue || leaving.isPending}
@@ -117,5 +118,5 @@ const styles = StyleSheet.create({
   checkboxOn: { backgroundColor: colors.accent, borderColor: colors.accent },
   checkmark: { color: colors.onAccent, fontFamily: fonts.bodyBold },
   agreeText: { flex: 1 },
-  notice: { textAlign: 'center', paddingBottom: spacing.md },
+  notice: { textAlign: 'center' },
 });
