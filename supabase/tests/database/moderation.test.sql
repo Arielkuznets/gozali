@@ -1,7 +1,7 @@
 -- Word filtering, reports on photos and on members, and the helpers of account deletion.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(88);
+select plan(93);
 
 select ok(public.is_clean('Leg day, done'), 'ordinary captions pass');
 select ok(not public.is_clean('what the fuuuck'), 'repeated letters don''t get around the filter');
@@ -524,6 +524,68 @@ select pg_temp.act_as('00000000-0000-0000-0000-0000000007b1');
 insert into public.reports (feed_id, reporter_id) select id, '00000000-0000-0000-0000-0000000007b1' from kept;
 reset role;
 select ok((select hidden_at is not null from public.feeds where id = (select id from kept)), 'the third new report hides it again');
+
+-- The report that hides a photo emails the developer even past its reporter's 20 a day, so a hidden
+-- photo always reaches the review that ends its hiding. Reports on a photo already hidden don't.
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000008a1', 'ido@test.local'),
+  ('00000000-0000-0000-0000-0000000008b1', 'lior@test.local'),
+  ('00000000-0000-0000-0000-0000000008c1', 'tal@test.local'),
+  ('00000000-0000-0000-0000-0000000008d1', 'yael@test.local');
+insert into public.pack_members (pack_id, user_id)
+select id, u from pack, unnest(array[
+  '00000000-0000-0000-0000-0000000008a1', '00000000-0000-0000-0000-0000000008b1',
+  '00000000-0000-0000-0000-0000000008c1', '00000000-0000-0000-0000-0000000008d1'
+]::uuid[]) u;
+create temp table pile (id uuid, n bigint);
+with posted as (
+  insert into public.feeds (pack_id, user_id, day, is_extra)
+  select (select id from pack), '00000000-0000-0000-0000-0000000000b7', current_date, true from generate_series(1, 64)
+  returning id
+)
+insert into pile select id, row_number() over (order by id) from posted;
+grant select on pile to authenticated;
+create function pg_temp.mailed_about(feed uuid) returns uuid[] language sql as $$
+  select array_agg(r.reporter_id order by r.reporter_id) from pg_temp.mailed() m join public.reports r on r.id = m where r.feed_id = feed;
+$$;
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000008a1');
+insert into public.reports (feed_id, reporter_id) select id, '00000000-0000-0000-0000-0000000008a1' from pile where n <= 21;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000008b1');
+insert into public.reports (feed_id, reporter_id) select id, '00000000-0000-0000-0000-0000000008b1' from pile where n between 22 and 42;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000008c1');
+insert into public.reports (feed_id, reporter_id) select id, '00000000-0000-0000-0000-0000000008c1' from pile where n between 43 and 63;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000008d1');
+insert into public.reports (feed_id, reporter_id) select id, '00000000-0000-0000-0000-0000000008d1' from pile where n <= 21;
+reset role;
+select is(
+  (select count(*) from pg_temp.mailed() m join public.reports r on r.id = m where r.reporter_id::text like '00000000-0000-0000-0000-0000000008_1'),
+  0::bigint, 'a bulk of 21 reports emails none of them'
+);
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000008a1');
+insert into public.reports (feed_id, reporter_id) select id, '00000000-0000-0000-0000-0000000008a1' from pile where n = 64;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000008b1');
+insert into public.reports (feed_id, reporter_id) select id, '00000000-0000-0000-0000-0000000008b1' from pile where n = 64;
+reset role;
+select is(pg_temp.mailed_about((select id from pile where n = 64)), null, 'two reports past the cap on a photo email nothing');
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000008c1');
+insert into public.reports (feed_id, reporter_id) select id, '00000000-0000-0000-0000-0000000008c1' from pile where n = 64;
+reset role;
+select ok((select hidden_at is not null from public.feeds where id = (select id from pile where n = 64)), 'a third past the cap hides the photo');
+select is(
+  pg_temp.mailed_about((select id from pile where n = 64)), array['00000000-0000-0000-0000-0000000008c1'::uuid],
+  'and emails the developer'
+);
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000008d1');
+insert into public.reports (feed_id, reporter_id) select id, '00000000-0000-0000-0000-0000000008d1' from pile where n = 64;
+reset role;
+select is(
+  pg_temp.mailed_about((select id from pile where n = 64)), array['00000000-0000-0000-0000-0000000008c1'::uuid],
+  'a fourth past the cap, on the photo already hidden, emails nothing'
+);
 
 select is(
   (select count(*) from public.account_photo_paths('00000000-0000-0000-0000-0000000000a7')), 2::bigint,

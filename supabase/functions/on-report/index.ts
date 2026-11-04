@@ -1,5 +1,6 @@
 // Emails the developer about a report (spec section 11: handled within 24 hours). Called by the
-// report trigger through pg_net with the shared secret, for up to 20 reports a day from one person.
+// report trigger through pg_net with the shared secret, for up to 20 reports a day from one person
+// and for the report that hides a photo.
 // Sends through Resend with RESEND_API_KEY to REPORT_EMAIL. Only a sent email answers 200: any other
 // answer counts as a server error in the owners' daily summary, and names the report, which nothing
 // sends again, so the owner can find it in the database.
