@@ -334,4 +334,15 @@ describe('the photo that goes out', () => {
     expect(shown()).toContain(NO_SESSION);
     expect(shown()).not.toContain(DONE);
   });
+
+  it('leaves the session of another pack running, on an old link to the end of this one', async () => {
+    await keepSession(10, { packId: 'p2', notificationId: 'p2-time-is-up' });
+    await openPack();
+    await go(() => router.push(`${CAMERA}?focus=25` as Href));
+
+    await takeAndSend();
+
+    expect(JSON.parse((await AsyncStorage.getItem(STORAGE_KEY)) ?? 'null')).toMatchObject({ packId: 'p2', notificationId: 'p2-time-is-up' });
+    expect(mockCancelNotification).not.toHaveBeenCalled();
+  });
 });

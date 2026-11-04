@@ -168,8 +168,8 @@ export default function FeedScreen() {
         extra,
       });
       haptics.success();
-      // The photo that ends a focus session also ends it, whichever way the camera was opened.
-      if (focusMinutes !== null) await clearFocusSession();
+      // The photo that ends the pack's focus session also ends it, whichever way the camera was opened.
+      if (focusMinutes !== null) await clearFocusSession(packId);
       setResult(outcome);
     } catch (error) {
       // Removed from the pack while the camera was open, the upload is refused before the server
