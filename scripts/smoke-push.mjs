@@ -85,8 +85,8 @@ const result = await sendAll(mine, async (batch) => {
 const bodyFor = (id, text) => sentMessages.some((m) => m.to.includes(id) && m.body === text);
 check(bodyFor('Noa', '2 friends fed Pixel 🍽️'), 'Noa reads "2 friends fed Pixel"');
 check(bodyFor('Dan', 'Maya fed Pixel 🍽️'), 'Dan reads "Maya fed Pixel"');
-check(bodyFor('Noa', 'Everyone fed me. Everyone. Except. You. 👀'), 'the "last one" line is in Kit\'s voice');
-check(sentMessages.find((m) => m.body.startsWith('Everyone fed me'))?.data.url === `/pack/${pack.id}/feed`, '"last one" opens the camera');
+check(bodyFor('Noa', 'One feed away from a perfect day. The suspense! 🎭'), 'the "last one" line is in Kit\'s voice');
+check(sentMessages.find((m) => m.body.startsWith('One feed away'))?.data.url === `/pack/${pack.id}/feed`, '"last one" opens the camera');
 check(result.sent === 3 && result.deadTokens.length === 1, "Maya's dead token is reported");
 await admin.rpc('forget_push_tokens', { dead: result.deadTokens });
 const { data: mayaTokens } = await admin.from('push_tokens').select('token').eq('user_id', maya);

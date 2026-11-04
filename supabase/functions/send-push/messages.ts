@@ -1,6 +1,7 @@
 // Notification texts in the critter's voice (spec sections 4 and 8), one personality per
-// creature. English for the pilot. Texts never say who missed. The last two types are plain
-// alerts for the people who run Gozali: a sign-up, and the day in numbers.
+// creature. English for the pilot. Texts never say who missed, nor blame the one still to feed
+// (spec section 11). The last two types are plain alerts for the people who run Gozali: a
+// sign-up, and the day in numbers.
 
 export type Species = 'mochi' | 'kit' | 'axo' | 'ribbit' | 'hoot' | 'bun';
 export type NotificationType =
@@ -71,12 +72,12 @@ const VOICE: Record<'reminder' | 'last' | 'weak' | 'sick', Record<Species, strin
     bun: 'Um... sorry to bother you... could you feed me today? 🥕',
   },
   last: {
-    mochi: "Everyone fed me but you. I'll just... wait here 😴",
-    kit: 'Everyone fed me. Everyone. Except. You. 👀',
+    mochi: 'Almost full... one more feed and I can nap 😴',
+    kit: 'One feed away from a perfect day. The suspense! 🎭',
     axo: 'Everyone fed me! Well... almost everyone 👀',
-    ribbit: 'The pond is almost complete. Only you are missing 🍃',
+    ribbit: 'The pond is almost complete. One more feed and all is calm 🍃',
     hoot: "Observation: you're the last one left today 🦉",
-    bun: "Everyone fed me... except you. It's okay... 🥺",
+    bun: 'Um... my tummy is almost full... one more feed? 🥕',
   },
   weak: {
     mochi: "I'm getting a little floppy... a feed would help 🥺",
