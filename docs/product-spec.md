@@ -226,7 +226,7 @@ Examples: in a pack of 6 where one missed, the day is successful, health goes up
 
 **Sleep (inactive member):**
 
-- A member with 3 misses within 7 days goes to sleep automatically: they are not counted, the creature is not hurt by them, and their circle is shown with 💤. The count starts over every time the member wakes up or rejoins the pack.
+- A member with 3 misses within 7 days goes to sleep automatically: they are not counted, the creature is not hurt by them, and their circle is shown with 💤. The count starts over every time the member wakes up or rejoins the pack, except a rejoin after a day ended and before it closed by a member who fed on that day: that is as if they never left, so the feed counts and their misses stay.
 - They get a gentle message ("Still in? Your pack misses you") with an option to pause or leave.
 - Their next feed wakes them immediately, and they count on that same day.
 - A pause they turn on wakes them on its first day, so until then they stay asleep, and a pause cancelled before it starts changes nothing.
