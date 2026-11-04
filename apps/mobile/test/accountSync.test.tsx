@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { getCalendars, type Calendar } from 'expo-localization';
+import { AppState, type AppStateStatus } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import { useAccountSync } from '@/features/profile/useProfile';
@@ -13,20 +14,40 @@ jest.mock('@/lib/reportError', () => ({ sendPendingCrash: async () => undefined 
 
 /** The profile on the server, whose trigger saves a zone it doesn't know as UTC. */
 let mockZone: string;
+const mockKnownZones = ['UTC', 'Etc/GMT-2', 'Asia/Jerusalem', 'America/New_York', 'America/Los_Angeles'];
+/** Whether the phone can reach the server. */
+let mockOnline: boolean;
+const mockNoConnection = { message: 'TypeError: Network request failed' };
 const mockZonesSent: unknown[] = [];
 jest.mock('@/lib/supabase', () => ({
   requireSupabase: () => ({
     from: () => ({
-      select: () => ({ eq: () => ({ single: async () => ({ data: { id: 'noa', timezone: mockZone }, error: null }) }) }),
+      select: () => ({
+        eq: () => ({
+          single: async () => (mockOnline ? { data: { id: 'noa', timezone: mockZone }, error: null } : { data: null, error: mockNoConnection }),
+        }),
+      }),
       update: ({ timezone }: { timezone: string }) => ({
         eq: async () => {
           mockZonesSent.push(timezone);
-          mockZone = ['UTC', 'Etc/GMT-2'].includes(timezone) ? timezone : 'UTC';
+          if (!mockOnline) return { error: mockNoConnection };
+          mockZone = mockKnownZones.includes(timezone) ? timezone : 'UTC';
           return { error: null };
         },
       }),
     }),
   }),
+}));
+
+type Connection = { isConnected: boolean; isInternetReachable: boolean };
+const mockNetwork = new Set<(state: Connection) => void>();
+// Like NetInfo, a new listener hears the state there is now.
+jest.mock('@react-native-community/netinfo', () => ({
+  addEventListener: (listener: (state: Connection) => void) => {
+    mockNetwork.add(listener);
+    listener({ isConnected: mockOnline, isInternetReachable: mockOnline });
+    return () => mockNetwork.delete(listener);
+  },
 }));
 
 function AccountSync() {
@@ -57,12 +78,34 @@ async function startApp() {
   await settle();
 }
 
+const appStates = new Set<(state: AppStateStatus) => void>();
+
+async function comeBackToApp() {
+  for (const state of ['background', 'active'] as const) {
+    await act(async () => appStates.forEach((listener) => listener(state)));
+  }
+  await settle();
+}
+
+async function connectionComesBack() {
+  mockOnline = true;
+  await act(async () => mockNetwork.forEach((listener) => listener({ isConnected: true, isInternetReachable: true })));
+  await settle();
+}
+
 const phoneSetTo = (timeZone: string) => jest.mocked(getCalendars).mockReturnValue([{ timeZone } as Calendar]);
 
 beforeEach(() => {
   client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { gcTime: 0 } } });
   mockZonesSent.length = 0;
   mockZone = 'UTC';
+  mockOnline = true;
+  appStates.clear();
+  mockNetwork.clear();
+  jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, listener) => {
+    appStates.add(listener);
+    return { remove: () => appStates.delete(listener) };
+  });
 });
 
 afterEach(async () => {
@@ -94,5 +137,32 @@ describe('the time zone', () => {
     phoneSetTo('GMT+05:30');
     await startApp();
     expect(mockZonesSent).toEqual([]);
+  });
+
+  it('is sent when the app comes back in another zone', async () => {
+    mockZone = 'Asia/Jerusalem';
+    phoneSetTo('Asia/Jerusalem');
+    await startApp();
+    phoneSetTo('America/New_York');
+
+    await comeBackToApp();
+
+    expect(mockZonesSent).toEqual(['America/New_York']);
+    expect(mockZone).toBe('America/New_York');
+  });
+
+  it("that couldn't be saved without a connection is sent again once there is one", async () => {
+    // A start with no connection, from the profile the phone kept.
+    mockOnline = false;
+    mockZone = 'Asia/Jerusalem';
+    client.setQueryData(['profile', 'noa'], { id: 'noa', timezone: 'Asia/Jerusalem' });
+    phoneSetTo('America/Los_Angeles');
+    await startApp();
+    expect(mockZonesSent).toEqual(['America/Los_Angeles']);
+
+    await connectionComesBack();
+
+    expect(mockZonesSent).toEqual(['America/Los_Angeles', 'America/Los_Angeles']);
+    expect(mockZone).toBe('America/Los_Angeles');
   });
 });

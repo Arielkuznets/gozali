@@ -1,11 +1,12 @@
 import NetInfo from '@react-native-community/netinfo';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getLocales } from 'expo-localization';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 
 import { useAuth } from '@/features/auth/AuthProvider';
 import { forgetOtherAccounts } from '@/features/auth/signIn';
+import { hasConnection } from '@/features/feeds/queue';
 import { renameMember } from '@/features/packs/api';
 import { clearWidgetsLeftBehind } from '@/features/widgets/sync';
 import { deviceTimeZone } from '@/lib/dates';
@@ -183,16 +184,37 @@ export function useAccountSync() {
   const { mutate: updateProfile } = useUpdateProfile();
   const userId = session?.user.id;
   const zone = profile.data?.timezone;
-  // Once per zone: the server saves a zone it doesn't know as UTC (a phone's list of zones can be
-  // newer than the server's), so the device's zone never shows up and would be sent on every answer.
+  // Once per zone until the app or the connection comes back: the server saves a zone it doesn't
+  // know as UTC (a phone's list of zones can be newer than the server's), so the device's zone never
+  // shows up and would be sent on every answer.
   const sentZone = useRef<string | null>(null);
+  const [zoneChecks, setZoneChecks] = useState(0);
 
   useEffect(() => {
     const device = deviceTimeZone();
     if (zone === undefined || zone === device || sentZone.current === device) return;
     sentZone.current = device;
     updateProfile({ timezone: device });
-  }, [zone, updateProfile]);
+  }, [zone, updateProfile, zoneChecks]);
+
+  // A phone can keep the app in the background through a flight, and a save without a connection
+  // fails, so the zone is looked at again on each return to the app and once the connection is back.
+  useEffect(() => {
+    const checkAgain = () => {
+      sentZone.current = null;
+      setZoneChecks((count) => count + 1);
+    };
+    const appState = AppState.addEventListener('change', (state) => state === 'active' && checkAgain());
+    let offline = false;
+    const network = NetInfo.addEventListener((state) => {
+      if (offline && hasConnection(state)) checkAgain();
+      offline = !hasConnection(state);
+    });
+    return () => {
+      appState.remove();
+      network();
+    };
+  }, []);
 
   // Also on coming back to the app: permission may have been granted in the meantime.
   useEffect(() => {
