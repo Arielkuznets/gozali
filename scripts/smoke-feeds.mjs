@@ -1,13 +1,15 @@
 // Feeding end to end against the local stack, with the same calls as the app: Noa uploads a
 // photo and feeds, Dan sees it live and can open the photo, Eve (not in the pack) can't. Dan then
 // reports the photo and Noa, and the developer's alert about each goes through on-report, whose
-// every answer but a sent email names the report, with a stand-in for Resend.
+// every answer but a sent email names the report, with a stand-in for Resend. Reports sent at the
+// same moment keep to one person's 20 emails a day.
 // Run with `npx supabase start` and `npx supabase functions serve` up: node scripts/smoke-feeds.mjs
 import { registerHooks } from 'node:module';
 
 import { createClient } from '@supabase/supabase-js';
 
 import { reportEmail, reportedPicture } from '../supabase/functions/on-report/email.ts';
+import { as, openSession, whileOpen } from './db-session.mjs';
 
 const url = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY;
@@ -137,6 +139,36 @@ check(swapped.error !== null, 'so nothing takes its place under the same name');
 const unused = await noa.client.storage.from('feed-photos').remove([second]);
 check(unused.data?.length === 1, 'while an upload the server turned down is hers to remove');
 
+// One person's reports email the developer 20 times a day, also when hand-made calls send them at
+// the same moment: the second of two requests of 20 waits for the first, counts all 40, and emails
+// none of its own. The Vault holds no function address here, so the second request adds one in its
+// own transaction, counts what its reports queued for on-report, and is rolled back.
+const gil = await signedInUser('Gil');
+await gil.client.rpc('join_pack', { code: pack.invite_code });
+const setup = openSession();
+await setup.run(`insert into public.feeds (pack_id, user_id, day, is_extra)
+  select '${packId}', '${noa.id}', current_date, true from generate_series(1, 40);`);
+await setup.close();
+const { data: extras } = await admin.from('feeds').select('id').eq('pack_id', packId).is('photo_path', null);
+const reportAll = (feeds) =>
+  `insert into public.reports (feed_id, reporter_id) select unnest(array['${feeds.map((feed) => feed.id).join("','")}']::uuid[]), '${gil.id}'`;
+const beside = openSession();
+const queued = await whileOpen(as(gil, reportAll(extras.slice(0, 20))), () =>
+  beside.run(`begin;
+    select vault.create_secret('http://functions.smoke', 'functions_url') where not exists (select 1 from vault.secrets where name = 'functions_url');
+    select vault.create_secret('smoke-feeds', 'cron_secret') where not exists (select 1 from vault.secrets where name = 'cron_secret');
+    ${as(gil, reportAll(extras.slice(20)))}
+    select count(*) from net.http_request_queue q
+    where q.url like '%/on-report'
+      and convert_from(q.body, 'utf8') like any (select '%' || r.id || '%' from public.reports r where r.reporter_id = '${gil.id}');`),
+);
+await beside.run('rollback;');
+await beside.close();
+check(
+  extras.length === 40 && queued.split('\n').at(-1) === '0',
+  'of two requests of 20 reports at the same moment, only the first emails the developer',
+);
+
 // The same call the report trigger makes through pg_net where the Vault holds the function's address.
 // A stack without a mail key answers 503, which the owners' summary counts as a failure.
 for (const report of reports) {
@@ -238,6 +270,6 @@ check(memberEmail.lines.includes(`Member: Noa (${noa.id})`), 'and says who it is
 await dan.client.removeChannel(channel);
 await admin.storage.from('feed-photos').remove([path, second]);
 await admin.storage.from('avatars').remove([avatar]);
-for (const user of [noa, dan, eve]) await admin.auth.admin.deleteUser(user.id);
+for (const user of [noa, dan, eve, gil]) await admin.auth.admin.deleteUser(user.id);
 console.log('all good');
 process.exit(0);
