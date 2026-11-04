@@ -27,7 +27,8 @@
         "applinks:gozali.app"
       ],
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryAddUsageDescription": "Gozali saves your weekly story to your photos when you ask it to."
       },
       "privacyManifests": {
         "NSPrivacyAccessedAPITypes": [
