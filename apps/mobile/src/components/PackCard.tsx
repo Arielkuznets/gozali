@@ -34,10 +34,17 @@ export function PackCard({ pack, now, fed, userId, onPress, onFeed }: Props) {
   const iPaused = userId !== undefined && paused.has(userId);
   const category = categoryInfo(pack.category);
   const habit = pack.custom_habit ?? t(`packs.categories.${pack.category}`);
+  const feeds = !iPaused && !iFed;
 
   return (
     <Pressable
       accessibilityRole="button"
+      // VoiceOver makes the card one element and can't reach the Feed button inside it, so Feed
+      // is also one of the card's actions.
+      accessibilityActions={feeds ? [{ name: 'feed', label: t('home.feedPack', { name: pack.name }) }] : undefined}
+      onAccessibilityAction={(event) => {
+        if (event.nativeEvent.actionName === 'feed') onFeed();
+      }}
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
       {pack.critters && (

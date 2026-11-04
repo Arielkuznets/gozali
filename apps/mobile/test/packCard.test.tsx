@@ -1,12 +1,13 @@
-import { act, create, type ReactTestRenderer } from 'react-test-renderer';
+import { act, create, type ReactTestInstance, type ReactTestRenderer } from 'react-test-renderer';
 
 import '@/i18n';
 import { PackCard } from '@/components/PackCard';
 import type { Pack, PackCritter, PackMember } from '@/features/packs/api';
 
+let mockPaused = new Set<string>();
 jest.mock('@/features/critter/Critter', () => ({ Critter: () => null }));
 jest.mock('@/features/days/api', () => ({
-  keptToday: () => ({ passes: new Map(), paused: new Set(), pausedForSure: new Set() }),
+  keptToday: () => ({ passes: new Map(), paused: mockPaused, pausedForSure: new Set() }),
   useTodayPasses: () => ({ data: undefined }),
 }));
 jest.mock('@/features/feeds/api', () => ({ feedWaitsToday: () => false, usePendingFeeds: () => ({ data: undefined }) }));
@@ -53,21 +54,41 @@ const pack = (pack_members: PackMember[], critters: PackCritter | null): Pack =>
   pack_members,
 });
 
-function card(shown: Pack): string {
+beforeEach(() => {
+  mockPaused = new Set();
+});
+
+function render(shown: Pack, fed: string[] = [], onPress = () => undefined, onFeed = () => undefined): ReactTestRenderer {
   let tree!: ReactTestRenderer;
   act(() => {
     tree = create(
       <PackCard
         pack={shown}
         now={new Date('2026-10-29T10:00:00Z')}
-        fed={new Set()}
+        fed={new Set(fed)}
         userId="noa"
-        onPress={() => undefined}
-        onFeed={() => undefined}
+        onPress={onPress}
+        onFeed={onFeed}
       />,
     );
   });
-  return JSON.stringify(tree.toJSON());
+  return tree;
+}
+
+function card(shown: Pack): string {
+  return JSON.stringify(render(shown).toJSON());
+}
+
+/** The card itself: the host button that holds the pack's name. */
+function cardButton(tree: ReactTestRenderer): ReactTestInstance {
+  const buttons = tree.root.findAll(
+    (node) =>
+      typeof node.type === 'string' &&
+      node.props.accessibilityRole === 'button' &&
+      node.findAll((inner) => inner.props.children === 'Gym squad').length > 0,
+  );
+  expect(buttons).toHaveLength(1);
+  return buttons[0]!;
 }
 
 describe('the line on a pack card', () => {
@@ -95,5 +116,30 @@ describe('the line on a pack card', () => {
 
   it('waits for a friend on a pack with no pet to show', () => {
     expect(card(pack([noa], null))).toContain(WAITING);
+  });
+});
+
+// iOS makes an accessible view one VoiceOver element and hides the views inside it, so VoiceOver
+// can't reach the Feed button inside the card; the card offers Feed as one of its actions.
+describe('Feed on a pack card for a screen reader', () => {
+  it('is an action of the card while the member has not fed, and it feeds without opening the pack', () => {
+    const onPress = jest.fn();
+    const onFeed = jest.fn();
+    const button = cardButton(render(pack([noa, dan], critter('active')), ['dan'], onPress, onFeed));
+    expect(button.props.accessibilityActions).toEqual([{ name: 'feed', label: 'Feed Gym squad' }]);
+    act(() => button.props.onAccessibilityAction({ nativeEvent: { actionName: 'feed' } }));
+    expect(onFeed).toHaveBeenCalledTimes(1);
+    expect(onPress).not.toHaveBeenCalled();
+  });
+
+  it('is not offered once the member fed', () => {
+    const button = cardButton(render(pack([noa, dan], critter('active')), ['noa']));
+    expect(button.props.accessibilityActions ?? []).toEqual([]);
+  });
+
+  it('is not offered to a member on a pause', () => {
+    mockPaused = new Set(['noa']);
+    const button = cardButton(render(pack([noa, dan], critter('active'))));
+    expect(button.props.accessibilityActions ?? []).toEqual([]);
   });
 });
