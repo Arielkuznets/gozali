@@ -1,5 +1,5 @@
 import { addDays, packDayOf } from '@gozali/game-engine';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import { admin, createPack, createUser, doubleButtonText, feed, layOutTextLikeAPhone, photo, removeUsers, signIn, watchSocket, type TestUser } from './support';
 
@@ -450,6 +450,45 @@ test.describe('a member on a pause', () => {
 
     await expect(page.getByText(onPause, { exact: false })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Focus', exact: true })).toBeHidden();
+  });
+
+  test.describe('with a timer the pause overtook, ended at the camera', () => {
+    test.beforeEach(async ({ context, page }) => {
+      await context.grantPermissions(['camera']);
+      await signIn(page, noa);
+    });
+
+    /** A 25-minute timer of the pack that ran out a while ago, as the phone keeps it. */
+    const keepTimer = (page: Page, packId: string) =>
+      page.addInitScript(
+        (session) => window.localStorage.setItem('gozali.focus', session),
+        JSON.stringify({ packId, minutes: 25, startedAt: Date.now() - 30 * 60_000, pausedAt: null, pausedMs: 0, notificationId: null }),
+      );
+
+    test('by the link at its end, leaves the pack with no timer to open', async ({ page }) => {
+      const pack = await pausedPack();
+      await keepTimer(page, pack.id);
+      await page.goto(`/pack/${pack.id}/feed?focus=25`);
+
+      await expect(page).toHaveURL(new RegExp(`/pack/${pack.id}$`));
+      await expect(page.getByText(onPause, { exact: false })).toBeVisible();
+      expect(await page.evaluate(() => window.localStorage.getItem('gozali.focus'))).toBeNull();
+      await expect(page.getByRole('button', { name: 'Focus', exact: true })).toBeHidden();
+    });
+
+    test('by Done on the timer, leaves the pack with no timer to open', async ({ page }) => {
+      const pack = await pausedPack();
+      await keepTimer(page, pack.id);
+      await page.goto(`/pack/${pack.id}`);
+      await page.getByRole('button', { name: 'Focus', exact: true }).click();
+
+      await page.getByRole('button', { name: 'Done, take the photo' }).click();
+
+      await expect(page).toHaveURL(new RegExp(`/pack/${pack.id}$`));
+      await expect(page.getByText(onPause, { exact: false })).toBeVisible();
+      expect(await page.evaluate(() => window.localStorage.getItem('gozali.focus'))).toBeNull();
+      await expect(page.getByRole('button', { name: 'Focus', exact: true })).toBeHidden();
+    });
   });
 
   test('feeds again once the pause is over', async ({ page }) => {

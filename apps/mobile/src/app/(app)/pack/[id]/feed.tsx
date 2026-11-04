@@ -83,14 +83,15 @@ export default function FeedScreen() {
 
   // A widget or a notification can link here during a pause, when no photo counts. The pack says
   // why. A photo already taken stays: it was taken before the pause reached this screen. The link at
-  // the end of a focus session ends it here, as no photo will.
+  // the end of a focus session ends it here, as no photo will. The pack waits for that: it reads the
+  // session as it comes to the front, to offer Focus.
   const paused = pauseToday(dayStatus.data, pack, session?.user.id, now) !== null && !shot && !result;
   const openPack = useOpenPack();
   useFocusEffect(
     useCallback(() => {
       if (!paused) return;
-      if (focusMinutes !== null) void clearFocusSession(packId).catch(() => undefined);
-      openPack(packId);
+      const ended = focusMinutes !== null ? clearFocusSession(packId).catch(() => undefined) : Promise.resolve();
+      void ended.then(() => openPack(packId));
     }, [paused, packId, focusMinutes, openPack]),
   );
 
