@@ -26,7 +26,7 @@ Start a pack for a habit you share (the gym, running, walking, yoga, meditation,
 **Keep the streak.** Every good day earns the pack coins, and a longer streak earns more. Spend them on hats, scarves and backgrounds in the outfit shop, and unlock special items with achievements.
 
 Also inside:
-- Home and lock screen widgets that show your critter and how many of you fed today.
+- Home screen widgets, and lock screen widgets on iPhone, that show your critter and how many of you fed today. On iPhone they need iOS 17 or later.
 - A focus timer for study, reading, meditation, language and music packs.
 - A weekly recap you can share as a story, with only your own photos.
 - Gentle reminders in your critter's voice, never more than a few a day, and never at night.

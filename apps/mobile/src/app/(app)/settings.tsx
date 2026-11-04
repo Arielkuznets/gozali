@@ -28,6 +28,12 @@ const REMINDER_TIMES = ['17:00', '18:00', '19:00', '20:00', '21:00', '22:00'] as
 
 const saveErrorKey = (error: unknown) => (isBlockedText(error) ? ('errors.textNotAllowed' as const) : ('errors.saveFailed' as const));
 
+/** How to add a widget. The app runs on iOS 16, but the widget extension (targets/widget) needs iOS 17. */
+function widgetsHowTo() {
+  if (Platform.OS !== 'ios') return 'widgets.howToAndroid' as const;
+  return Number.parseInt(String(Platform.Version), 10) < 17 ? ('widgets.needsIos17' as const) : ('widgets.howToIos' as const);
+}
+
 /** App settings (spec section 9): name, reminder time, notifications by type, blocked people. */
 export default function SettingsScreen() {
   const { t } = useTranslation();
@@ -158,7 +164,7 @@ export default function SettingsScreen() {
 
         <View style={styles.section}>
           <AppText variant="caption">{t('settings.app.widgets')}</AppText>
-          <AppText style={styles.muted}>{t(Platform.OS === 'ios' ? 'widgets.howToIos' : 'widgets.howToAndroid')}</AppText>
+          <AppText style={styles.muted}>{t(widgetsHowTo())}</AppText>
         </View>
 
         <View style={styles.section}>

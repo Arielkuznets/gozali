@@ -33,8 +33,9 @@ const strings = (node: unknown): string[] =>
 const drawn = (node: ReactTestRendererJSON | string): string[] =>
   typeof node === 'string' ? [node] : (node.children ?? []).flatMap(drawn);
 
-async function settingsOn(os: typeof Platform.OS) {
+async function settingsOn(os: typeof Platform.OS, version: string | number) {
   const platform = jest.replaceProperty(Platform, 'OS', os);
+  const system = jest.spyOn(Platform, 'Version', 'get').mockReturnValue(version);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   let screen!: ReactTestRenderer;
   await act(async () => {
@@ -48,12 +49,13 @@ async function settingsOn(os: typeof Platform.OS) {
   await act(async () => screen.unmount());
   client.clear();
   platform.restore();
+  system.mockRestore();
   return text;
 }
 
 describe('how to add a widget', () => {
   it('gives the iPhone steps on iOS, without naming Android', async () => {
-    const text = await settingsOn('ios');
+    const text = await settingsOn('ios', '17.0');
 
     expect(text).toContain('Add a widget');
     expect(text).toContain('Edit or +');
@@ -61,8 +63,16 @@ describe('how to add a widget', () => {
     expect(text).not.toContain('iPhone');
   });
 
+  // The widget extension needs iOS 17, and the app runs on iOS 16 as well.
+  it('says on iOS 16 that widgets need iOS 17, instead of steps to a widget that is not there', async () => {
+    const text = await settingsOn('ios', '16.7.10');
+
+    expect(text).toContain('Widgets need iOS 17 or later.');
+    expect(text).not.toContain('Add a widget');
+  });
+
   it('gives the Android steps on Android, without naming iPhone', async () => {
-    const text = await settingsOn('android');
+    const text = await settingsOn('android', 34);
 
     expect(text).toContain('Add a widget');
     expect(text).toContain('tap Widgets');

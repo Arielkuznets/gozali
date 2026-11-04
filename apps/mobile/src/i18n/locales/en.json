@@ -817,7 +817,8 @@
     "openFirst": "Open Gozali first, then add the widget again.",
     "cancel": "Cancel",
     "howToIos": "Add a widget: long-press the home screen, tap Edit or +, and pick Gozali.",
-    "howToAndroid": "Add a widget: long-press the home screen, tap Widgets, and pick Gozali."
+    "howToAndroid": "Add a widget: long-press the home screen, tap Widgets, and pick Gozali.",
+    "needsIos17": "Widgets need iOS 17 or later."
   },
   "recap": {
     "title": "Weekly recap",
