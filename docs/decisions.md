@@ -96,7 +96,7 @@ Each entry: what was decided, what the options were, and why. Decisions D1–D11
 
 ## D17 · Moderation before the developer looks
 
-- **Decided:** a blocked-word check in the database on every text members write (captions, pack, critter and member names, habit texts, name suggestions), with the list kept in a table; every report emails the developer; the third report on the same photo hides it until the developer reviews it. A member can be reported too, for their name or profile photo; that only reaches the developer and hides nothing by itself.
+- **Decided:** a blocked-word check in the database on every text members write (captions, pack, critter and member names, habit texts, name suggestions), with the list kept in a table; every report emails the developer; the third report on the same photo hides it until the developer reviews it. A member can be reported too, for their name or profile photo; that only reaches the developer and hides nothing by itself. A block is also a report on the member blocked, so the developer hears of it the same way.
 - **Options:** filtering only in the app; hiding on the first report; waiting for the developer on every report.
 - **Why:** the store requires filtering and fast handling of reports (spec section 11). A check in the database can't be skipped by an old app version or a crafted request, and a table lets new words go in without a release. Hiding on the first report would let one member silence another; three independent reports mean the pack agrees something is wrong, and the developer still reviews within 24 hours.
 

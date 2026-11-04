@@ -1,6 +1,6 @@
 # Gozali Terms of Use
 
-Last updated: November 1, 2026
+Last updated: November 4, 2026
 
 By using Gozali you agree to these terms. If you don't agree, please don't use the app. Contact: hello@gozali.app.
 
@@ -14,6 +14,8 @@ You must be at least **13 years old**. You are responsible for what happens unde
 - Post only photos you took yourself for your habit. Don't post photos of other people without their permission.
 
 ## What is not allowed
+
+Gozali has no tolerance for objectionable content or abusive users.
 
 - Offensive, hateful, harassing or threatening content, and bullying of any kind, including through nudges, reactions or names.
 - Nudity, sexual content, violence, self-harm content or illegal content.

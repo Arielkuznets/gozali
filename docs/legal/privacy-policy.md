@@ -9,7 +9,7 @@ Gozali is an app where a small group of friends (a "pack") raises a shared pet b
 - **Account:** when you sign in with Apple or Google we receive an account identifier, your email address and, if the provider shares it, your name. Apple may give us a private relay email instead of your real one.
 - **Profile:** the display name you choose, a profile photo if you add one, your time zone and language (so days, reminders and quiet hours match your clock), your evening reminder time and which notifications you want.
 - **What you do in packs:** the packs you create or join, your photos, their captions and time, focus session lengths, rest days, jokers and pauses you take, reactions, nudges, name suggestions and changes to the pet's outfit.
-- **Safety:** reports you send and people you block.
+- **Safety:** reports you send and people you block. A block also reaches the developer, as a report on the person you blocked.
 - **Devices:** a push notification token for each phone you sign in on, and a token that lets your widgets read your packs' state (we keep only a scrambled form of it). For each phone you are signed in on, the sign-in service also keeps your network address and a short line that can name the app and the phone's system (the user agent). They are deleted when you sign out on that phone while connected, or when you delete your account.
 - **Errors:** when something goes wrong in the app, a technical report so we can fix it: the error and its stack trace (the place in the app's code where it happened), the screen, the app version, whether it's an iPhone or Android phone, whether the error closed the app, and your account id. Reports are deleted after 30 days.
 - **Sign-in problems:** when a sign-in doesn't finish, even if you closed it yourself and have no account yet, a report with the sign-in method, the error, how long it took, the app version and your phone's system and its version. These reports are deleted after 30 days too. We also keep a scrambled form of your network address, apart from the report, to limit how many reports one address can send. It is used for an hour and deleted within about a day.
@@ -19,7 +19,7 @@ We do **not** collect your location or contacts, we don't use advertising or tra
 ## Who can see what
 
 - Your photos, captions and reactions are visible **only to the members of that pack**, unless something is reported. Photos are stored privately and shown through links that expire within an hour.
-- When someone reports a photo or a caption, or a member for their name or profile photo, the developer gets an email to review it. It holds the names and account ids of both people, the caption, and a link to the photo that works for 7 days. The email stays in the developer's mailbox after the link stops working.
+- When someone reports a photo or a caption, or a member for their name or profile photo, or blocks a member, the developer gets an email to review it. It holds the names and account ids of both people, the caption, and a link to the photo that works for 7 days. The email stays in the developer's mailbox after the link stops working.
 - The 🤨 reaction is shown only as a number, without names.
 - Pack members see who fed, rested, used a joker, was paused or missed on each day, because that is how the pack works together. Notifications never say who missed.
 - Widgets on your home screen and lock screen show only the pet and numbers, never photos or names.

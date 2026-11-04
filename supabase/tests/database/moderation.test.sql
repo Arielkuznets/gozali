@@ -1,7 +1,7 @@
 -- Word filtering, reports on photos and on members, and the helpers of account deletion.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(59);
+select plan(66);
 
 select ok(public.is_clean('Leg day, done'), 'ordinary captions pass');
 select ok(not public.is_clean('what the fuuuck'), 'repeated letters don''t get around the filter');
@@ -289,6 +289,54 @@ select is(
   'the rest of the pack still reads them'
 );
 reset role;
+
+-- A block reaches the developer as a report on the member blocked, with the same email. The Vault
+-- holds the functions' address as in production; nothing leaves the transaction, since the queue is
+-- read before anything sends it.
+select vault.create_secret('http://functions.test', 'functions_url');
+select vault.create_secret('test-secret', 'cron_secret');
+create function pg_temp.mailed() returns setof uuid language sql as $$
+  select (convert_from(q.body, 'utf8')::jsonb ->> 'reportId')::uuid
+  from net.http_request_queue q where q.url = 'http://functions.test/on-report';
+$$;
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000d7');
+insert into public.blocks (blocker_id, blocked_id) values ('00000000-0000-0000-0000-0000000000d7', '00000000-0000-0000-0000-0000000000b7');
+reset role;
+create temp table block_report as
+  select id, reason from public.reports
+  where reporter_id = '00000000-0000-0000-0000-0000000000d7' and member_id = '00000000-0000-0000-0000-0000000000b7';
+select is((select array_agg(reason) from block_report), array['Blocked by the reporter'], 'a block is a report on the member blocked');
+select is((select count(*) from pg_temp.mailed() m join block_report r on r.id = m), 1::bigint, 'which emails the developer');
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000d7');
+delete from public.blocks where blocked_id = '00000000-0000-0000-0000-0000000000b7';
+insert into public.blocks (blocker_id, blocked_id) values ('00000000-0000-0000-0000-0000000000d7', '00000000-0000-0000-0000-0000000000b7');
+reset role;
+select is(
+  (select count(*) from public.reports where reporter_id = '00000000-0000-0000-0000-0000000000d7' and member_id = '00000000-0000-0000-0000-0000000000b7'),
+  1::bigint, 'unblocking and blocking again the same day leaves one report'
+);
+select is((select count(*) from pg_temp.mailed()), 1::bigint, 'and one email');
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000b7');
+select lives_ok(
+  $$ insert into public.blocks (blocker_id, blocked_id) values ('00000000-0000-0000-0000-0000000000b7', '00000000-0000-0000-0000-0000000000a7') $$,
+  'a block saves when the same person reported that member today'
+);
+reset role;
+select is(
+  (select count(*) from public.reports
+   where reporter_id = '00000000-0000-0000-0000-0000000000b7' and member_id = '00000000-0000-0000-0000-0000000000a7' and reason is null),
+  1::bigint, 'and their own report stays in its place'
+);
+update public.reports set created_at = now() - interval '25 hours' where id = (select id from block_report);
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000d7');
+delete from public.blocks where blocked_id = '00000000-0000-0000-0000-0000000000b7';
+insert into public.blocks (blocker_id, blocked_id) values ('00000000-0000-0000-0000-0000000000d7', '00000000-0000-0000-0000-0000000000b7');
+reset role;
+select is((select count(*) from pg_temp.mailed()), 2::bigint, 'a day later, blocking again reaches the developer again');
 
 select is(
   (select count(*) from public.account_photo_paths('00000000-0000-0000-0000-0000000000a7')), 2::bigint,
