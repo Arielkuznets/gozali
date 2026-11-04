@@ -29,6 +29,10 @@ export const recapPhotosKey = ['feeds', 'recap-photos'] as const;
 
 const PHOTO_LINK_SECONDS = 60 * 60;
 
+/**
+ * Every recap of the pack, newest first, so each one stays open from its week chip. A row is under
+ * a kilobyte, so a year of them is a small read.
+ */
 export function useRecaps(packId: string) {
   return useQuery({
     queryKey: ['social', 'recaps', packId],
@@ -37,8 +41,7 @@ export function useRecaps(packId: string) {
         .from('weekly_recaps')
         .select('week_start, stats, feed_ids')
         .eq('pack_id', packId)
-        .order('week_start', { ascending: false })
-        .limit(12);
+        .order('week_start', { ascending: false });
       if (error) throw error;
       return data as unknown as Recap[];
     },

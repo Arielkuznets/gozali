@@ -7,6 +7,7 @@ import { act, create, type ReactTestInstance, type ReactTestRenderer } from 'rea
 import '@/i18n';
 import RecapScreen from '@/app/(app)/pack/[id]/recap';
 import { StoryCard } from '@/features/recap/StoryCard';
+import { formatDay } from '@/lib/dates';
 
 // The real recap screen and hooks over a stand-in for the server. mockVisible is what the row level
 // security of feeds lets through: a photo hidden by reports stops coming back.
@@ -17,6 +18,8 @@ let mockReadFails = false;
 let mockLinksFail = false;
 let mockHeld: Promise<void> = Promise.resolve();
 let mockNoRecap = false;
+/** The pack's recaps on the server, newest first. */
+let mockRecaps: (typeof mockRecap)[];
 /** What Share asked view-shot for, one entry a capture. */
 let mockCaptures: unknown[] = [];
 
@@ -41,7 +44,16 @@ jest.mock('@/lib/supabase', () => ({
   requireSupabase: () => ({
     from: (table: string) => ({
       select: () => ({
-        eq: () => ({ order: () => ({ limit: async () => ({ data: mockNoRecap ? [] : [mockRecap], error: null }) }) }),
+        // As the server answers: a limit keeps the first rows, and with none every row comes.
+        eq: () => ({
+          order: () => {
+            const rows = mockNoRecap ? [] : mockRecaps;
+            return {
+              limit: async (count: number) => ({ data: rows.slice(0, count), error: null }),
+              then: (done: (answer: unknown) => void) => done({ data: rows, error: null }),
+            };
+          },
+        }),
         in: async () => {
           await mockHeld;
           mockReads += 1;
@@ -146,6 +158,7 @@ beforeEach(() => {
   mockLinksFail = false;
   mockHeld = Promise.resolve();
   mockNoRecap = false;
+  mockRecaps = [mockRecap];
   mockCaptures = [];
   // No garbage collection, whose timers would outlive the test.
   client = new QueryClient({ defaultOptions: { queries: { gcTime: Infinity, retry: false } } });
@@ -188,6 +201,25 @@ describe('a pack with no recap yet', () => {
 
     expect(says(THIS_WEEK)).toBe(true);
     expect(says(ALONE)).toBe(false);
+  });
+});
+
+describe('the weeks of a pack', () => {
+  // The recap of every week back from mockRecap's, the oldest more than three months before it.
+  const recapsBack = (count: number) =>
+    Array.from({ length: count }, (_, index) => {
+      const week = new Date(Date.UTC(2026, 9, 18 - 7 * index)).toISOString().slice(0, 10);
+      return { ...mockRecap, week_start: week, stats: { ...mockRecap.stats, weekStart: week } };
+    });
+  const weekChips = () =>
+    tree!.root.findAll((node) => typeof node.type === 'string' && node.props.accessibilityRole === 'radio').map((node) => node.props.accessibilityLabel);
+
+  it('offer every recap the server keeps, the oldest too', async () => {
+    mockRecaps = recapsBack(14);
+    await open();
+
+    expect(weekChips()).toEqual(mockRecaps.map((recap) => formatDay(recap.week_start)));
+    expect(weekChips().at(-1)).toBe(formatDay('2026-07-19'));
   });
 });
 
