@@ -46,6 +46,14 @@ export function PhotoViewer({ photo, onClose }: { photo: ViewedPhoto | null; onC
             </Pressable>
           </ScrollView>
         )}
+        {/* Under the buttons, and held to a few lines: on an iPhone they are the only way out. */}
+        {photo?.caption && (
+          <View style={[styles.bottom, { paddingBottom: insets.bottom + spacing.md }]}>
+            <AppText style={styles.light} numberOfLines={4}>
+              {photo.caption}
+            </AppText>
+          </View>
+        )}
         <View style={[styles.top, { paddingTop: insets.top + spacing.sm }]}>
           <AppText style={[styles.light, styles.name]} numberOfLines={1}>
             {photo?.name}
@@ -66,11 +74,6 @@ export function PhotoViewer({ photo, onClose }: { photo: ViewedPhoto | null; onC
             </Pressable>
           </View>
         </View>
-        {photo?.caption && (
-          <View style={[styles.bottom, { paddingBottom: insets.bottom + spacing.md }]}>
-            <AppText style={styles.light}>{photo.caption}</AppText>
-          </View>
-        )}
       </View>
       {/* Inside this Modal: iOS never shows a modal opened beside one that is already up. */}
       <ActionMenu menu={menu} cancel={t('social.cancel')} onClose={() => setMenu(null)} />

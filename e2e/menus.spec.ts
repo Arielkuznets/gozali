@@ -264,6 +264,23 @@ test('the buttons of a photo on the whole screen stay beside a long name', async
   }
 });
 
+test('a caption of line breaks leaves a photo on the whole screen its buttons', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' }, [dan]);
+  // The server keeps line breaks, so any member's own call can post one.
+  await feed(dan, pack.id, await photo(page, '🏋️'), `look${'\n'.repeat(72)}here`);
+
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+  await page.getByRole('img', { name: /^look/ }).click();
+  const viewer = page.getByRole('dialog');
+
+  await viewer.getByRole('button', { name: 'More' }).click({ timeout: 5_000 });
+  await expect(page.getByRole('menuitem')).toHaveText(['Report photo', 'Report Dan', 'Block Dan']);
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await viewer.getByRole('button', { name: 'Close photo' }).click({ timeout: 5_000 });
+  await expect(page.getByRole('button', { name: 'Close photo' })).toBeHidden();
+});
+
 test('your own photo on the whole screen has no menu', async ({ page }) => {
   const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' });
   await feed(noa, pack.id, await photo(page, '🏋️'), 'Leg day');

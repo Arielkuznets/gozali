@@ -4,6 +4,7 @@ import { Modal } from 'react-native';
 
 import '@/i18n';
 import { ActionMenu } from '@/components/ActionMenu';
+import { AppText } from '@/components/AppText';
 import { PhotoViewer, type ViewedPhoto } from '@/features/feeds/PhotoViewer';
 
 jest.mock('@/components/ActionMenu', () => ({ ActionMenu: () => null }));
@@ -49,5 +50,20 @@ describe('a photo on the whole screen', () => {
   // As big as a member could make it, it would be decoded at its full size on iOS.
   it('is decoded at the size of the screen', () => {
     expect(viewer(photo).root.findByType(Image).props.enforceEarlyResizing).toBe(true);
+  });
+});
+
+describe('a caption on the whole screen', () => {
+  const caption = `look${'\n'.repeat(72)}here`;
+
+  // It lies over the photo, and on an iPhone the buttons are the only way out of the viewer.
+  it('takes four lines at most, under the buttons', () => {
+    const tree = viewer({ ...photo, caption });
+    const text = tree.root.findAll((node) => node.type === AppText && node.props.children === caption)[0];
+    const close = tree.root.findAll((node) => node.props.accessibilityRole === 'button' && node.props.accessibilityLabel === 'Close photo')[0];
+    const drawn = tree.root.findAll(() => true);
+
+    expect(text?.props.numberOfLines).toBe(4);
+    expect(drawn.indexOf(text!)).toBeLessThan(drawn.indexOf(close!));
   });
 });
