@@ -1,7 +1,7 @@
 -- A member who rejoins starts again: feeds from before they left don't make them counted.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(54);
+select plan(58);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000d8', 'noa@test.local'),
@@ -712,6 +712,72 @@ select is(
   ),
   'active/true/false',
   'a friend joining makes the day count the member who was alone'
+);
+
+-- Oren and Gil missed the last two closed days, and yesterday, which waits for its close, too. The
+-- close reads its input, and before it writes the result Oren leaves and comes back, which starts his
+-- count over: he stays awake and isn't asked "Still in?". Gil, who stayed, falls asleep.
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000000da', 'oren@test.local'),
+  ('00000000-0000-0000-0000-0000000000db', 'gil@test.local'),
+  ('00000000-0000-0000-0000-0000000000dc', 'tamar@test.local');
+insert into public.packs (id, name, category, rest_days_per_week, timezone, invite_code)
+values ('10000000-0000-0000-0000-000000000098', 'Surfers', 'running', 0, 'UTC', 'SURF3456');
+insert into public.critters (pack_id, species, status, stage) values ('10000000-0000-0000-0000-000000000098', 'kit', 'active', 'baby');
+insert into public.pack_members (pack_id, user_id, role, joined_at)
+select '10000000-0000-0000-0000-000000000098', u, 'member', now() - interval '20 days'
+from unnest(array[
+  '00000000-0000-0000-0000-0000000000da', '00000000-0000-0000-0000-0000000000db', '00000000-0000-0000-0000-0000000000dc'
+]::uuid[]) u;
+insert into public.day_results (pack_id, day, result, applied, missed_ids, health_before, health_after)
+select '10000000-0000-0000-0000-000000000098', (select day from today) - ago, 'fail', true,
+  array['00000000-0000-0000-0000-0000000000da', '00000000-0000-0000-0000-0000000000db']::uuid[], 70, 54
+from generate_series(2, 3) ago;
+insert into public.feeds (pack_id, user_id, day, created_at)
+values ('10000000-0000-0000-0000-000000000098', '00000000-0000-0000-0000-0000000000dc', (select day - 1 from today), now() - interval '1 day');
+select is(
+  (select string_agg((m ->> 'membership') || '/' || (m ->> 'recentMisses'), ', ' order by m ->> 'userId')
+   from jsonb_array_elements(
+     public.day_close_input('10000000-0000-0000-0000-000000000098', (select day - 1 from today)) -> 'members'
+   ) m
+   where m ->> 'userId' <> '00000000-0000-0000-0000-0000000000dc'),
+  'active/2, active/2',
+  'the close reads Oren and Gil with two misses toward sleep each'
+);
+select pg_temp.leaves('10000000-0000-0000-0000-000000000098', '00000000-0000-0000-0000-0000000000da');
+select pg_temp.returns_to('SURF3456', '00000000-0000-0000-0000-0000000000da');
+select public.apply_day_result('10000000-0000-0000-0000-000000000098', (select day - 1 from today), jsonb_build_object(
+  'type', 'fail', 'applied', true, 'healthBefore', 54, 'coins', 0,
+  'outcomes', jsonb_build_array(
+    jsonb_build_object('userId', '00000000-0000-0000-0000-0000000000da', 'outcome', 'missed'),
+    jsonb_build_object('userId', '00000000-0000-0000-0000-0000000000db', 'outcome', 'missed'),
+    jsonb_build_object('userId', '00000000-0000-0000-0000-0000000000dc', 'outcome', 'fed')
+  ),
+  'critter', jsonb_build_object('status', 'active', 'health', 38, 'xp', 0, 'stage', 'baby', 'streak', 0, 'marks', '[]'::jsonb),
+  'newlySleeping', jsonb_build_array('00000000-0000-0000-0000-0000000000da', '00000000-0000-0000-0000-0000000000db'),
+  'events', jsonb_build_array(
+    jsonb_build_object('type', 'member_slept', 'userId', '00000000-0000-0000-0000-0000000000da'),
+    jsonb_build_object('type', 'member_slept', 'userId', '00000000-0000-0000-0000-0000000000db')
+  ),
+  'facts', jsonb_build_object('fullHouse', false, 'earlyBird', false, 'nightOwlFeeds', 0)
+));
+select is(
+  (select status::text from public.pack_members
+   where pack_id = '10000000-0000-0000-0000-000000000098' and user_id = '00000000-0000-0000-0000-0000000000da'),
+  'active',
+  'a member who came back while the day closed stays awake'
+);
+select is(
+  (select count(*) from public.notifications where type = 'still_in' and user_id = '00000000-0000-0000-0000-0000000000da'),
+  0::bigint,
+  'and isn''t asked "Still in?"'
+);
+select is(
+  (select m.status::text || '/' || (select count(*) from public.notifications n where n.type = 'still_in' and n.user_id = m.user_id)
+   from public.pack_members m
+   where m.pack_id = '10000000-0000-0000-0000-000000000098' and m.user_id = '00000000-0000-0000-0000-0000000000db'),
+  'sleeping/1',
+  'one who stayed falls asleep and is asked'
 );
 
 select * from finish();
