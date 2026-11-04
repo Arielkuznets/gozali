@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import { expect, test, type Locator } from '@playwright/test';
 
 import { admin, createPack, createUser, removeUsers, signIn, type TestUser } from './support';
@@ -103,6 +105,27 @@ test('a profile whose achievements did not load says so, and Try again brings th
   await expect(page.getByRole('radio', { name: 'scarf' })).toBeVisible();
   await expect(page.getByText('🏆')).toBeVisible();
   await expect(page.getByRole('button', { name: 'scarf, 10 coins' })).toBeHidden();
+});
+
+test('the line the pet says when petted shows whole at the top of its profile', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'mochi' }, [dan]);
+  await admin.from('critters').update({ status: 'active', stage: 'kid', xp: 8, health: 50 }).eq('pack_id', pack.id);
+  const en = JSON.parse(readFileSync(new URL('../apps/mobile/src/i18n/locales/en.json', import.meta.url), 'utf8'));
+  const lines = Object.values(en.critter.lines.mochi as Record<string, string[]>).flat();
+
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}/critter`);
+  await page.getByRole('button', { name: /^Mochi is / }).click();
+  const said = lines.map((line) => page.getByText(line, { exact: true })).reduce((one, other) => one.or(other));
+  await expect(said).toBeVisible();
+
+  // The bubble grows up from the pet's head, and the screen's scroller cuts off what is above its top.
+  const { bubble, scroller } = await said.evaluate((text) => {
+    let box = text.parentElement;
+    while (box && !['auto', 'scroll'].includes(getComputedStyle(box).overflowY)) box = box.parentElement;
+    return { bubble: text.parentElement!.getBoundingClientRect().top, scroller: box!.getBoundingClientRect().top };
+  });
+  expect(bubble).toBeGreaterThanOrEqual(scroller);
 });
 
 test('an egg has no wardrobe or shop until it hatches', async ({ page }) => {

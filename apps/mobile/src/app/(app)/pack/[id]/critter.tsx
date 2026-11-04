@@ -298,7 +298,9 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.md },
   headerSpacer: { width: 32 },
   body: { gap: spacing.lg, paddingBottom: spacing.xl },
-  hero: { alignItems: 'center', gap: spacing.xs },
+  // The line the pet says when petted grows up from its head, out of the drawing, and the scroller
+  // cuts off what is above its top: two lines of it fit.
+  hero: { alignItems: 'center', gap: spacing.xs, paddingTop: spacing.xxl },
   centerText: { textAlign: 'center' },
   progress: { alignSelf: 'stretch', gap: spacing.xs, paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
   track: { height: 8, borderRadius: 4, backgroundColor: colors.border, overflow: 'hidden' },
