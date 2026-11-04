@@ -9,10 +9,11 @@
 // after another while people use the app, so a row can be in it without its parent: that row is
 // skipped, and the run says how many per table, and an admin skipped that way passes the role on.
 // On a key the database empties when the parent goes, the row stays with the key empty. A pack made
-// in that time can be in it without its critter: it stays out, and the run names it. Photo files
-// aren't in backups, so the restored feeds and profiles forget their photo paths. The Vault values
-// (CRON_SECRET, functions_url), the function secrets and the Apple setup are set again by hand
-// (docs/setup.md, sections 1, 6 and 8).
+// in that time can be in it without its critter: it stays out, and the run names it. An account
+// deleted in that time can be in it without its profile: it is deleted again, and the run names it.
+// Photo files aren't in backups, so the restored feeds and profiles forget their photo paths. The
+// Vault values (CRON_SECRET, functions_url), the function secrets and the Apple setup are set again
+// by hand (docs/setup.md, sections 1, 6 and 8).
 import { readFileSync } from 'node:fs';
 
 import { query } from './backup.mjs';
@@ -199,11 +200,22 @@ update public.profiles set avatar_path = null where avatar_path is not null;
 alter table public.feeds enable trigger user;
 alter table public.profiles enable trigger user;
 end $restore$`);
+
+// A profile is made in the same transaction as its account and goes only with it, so an account
+// left without one was deleted while the backup ran. It goes again, as the privacy policy promises:
+// kept, it would sign in to an app that can't load without its profile. Listed apart from the
+// delete, since a call can be tried again after it went through.
+const noProfile = 'from auth.users u where not exists (select 1 from public.profiles p where p.id = u.id)';
+const deleted = run(`select u.id ${noProfile} order by 1`).map((row) => row.id);
+if (deleted.length > 0) run(`delete ${noProfile}`);
 console.log(`Restored the backup from ${backup.takenAt} in ${calls} calls, at most ${Math.ceil(largest / 1000)} KB each.`);
 if (leftOut.length > 0) {
   const total = leftOut.reduce((sum, { skipped }) => sum + skipped, 0);
   const tables = leftOut.map(({ table, skipped }) => `${table} ${skipped}`).join(', ');
   console.log(`Left out ${total} rows the backup holds without their parent, or holds twice: ${tables}.`);
+}
+if (deleted.length > 0) {
+  console.log(`Deleted ${deleted.length} ${deleted.length === 1 ? 'account' : 'accounts'} the backup caught being deleted: ${deleted.join(', ')}.`);
 }
 if (seededOnly.length > 0) {
   console.log(`Seeded rows the backup lacks: ${seededOnly.join(', ')}. They stay, in case a migration is newer than the backup. Delete any you had removed.`);

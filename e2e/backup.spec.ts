@@ -363,6 +363,20 @@ test.describe('a restore', () => {
     expect(psql(target, 'select count(*) from public.pack_events')).toBe('0');
   });
 
+  test('an account the backup caught being deleted is deleted again, and the run names it', async () => {
+    const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
+    const backup = backUp([noa, dan], pack.id);
+    // Dan deleted the account after the backup read the accounts, and before it read the profiles.
+    backup.tables['public.profiles'] = backup.tables['public.profiles']!.filter((row) => row.id !== dan.id);
+
+    const printed = restore(backup);
+
+    expect(psql(target, 'select id from auth.users')).toBe(noa.id);
+    expect(psql(target, 'select user_id from auth.identities')).toBe(noa.id);
+    expect(psql(target, 'select user_id from public.pack_members')).toBe(noa.id);
+    expect(printed).toContain(`Deleted 1 account the backup caught being deleted: ${dan.id}.`);
+  });
+
   test('a pack the backup caught being made, without its critter, stays out with all it holds', async () => {
     const older = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
     const newer = await createPack(noa, { name: 'Morning runs', habit: 'running', species: 'hoot' }, [dan]);
