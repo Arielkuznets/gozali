@@ -66,6 +66,37 @@ export function useBackHome(): () => void {
   }, [navigation]);
 }
 
+/** A screen's navigation, which hands an action to the stack the screen is on. */
+type ScreenNavigation = { dispatch(action: { type: string; payload?: object }): void };
+
+/** Screens that ask before they close, such as a camera with a photo that hasn't gone out. */
+const asking = new Set<ScreenNavigation>();
+
+/** Counts the screen of `navigation` as one that asks, until the function it returns is called. */
+export function askBeforeLinks(navigation: ScreenNavigation): () => void {
+  asking.add(navigation);
+  return () => void asking.delete(navigation);
+}
+
+const PACK_LINK = /^gozali:\/\/pack\/([^/?#]+)(\/feed)?\/?$/;
+
+/**
+ * The router follows a link by handing the app's stack new params, and the stack then drops the
+ * screens over the one the link opens with no beforeRemove. While a screen asks, the widgets' links
+ * (a pack and its camera) go to the stack as the same NAVIGATE instead, which does ask it. True
+ * when the link went that way.
+ */
+export function followPackLink(url: string): boolean {
+  const [navigation] = asking;
+  const link = PACK_LINK.exec(url);
+  if (!navigation || !link) return false;
+  navigation.dispatch({
+    type: 'NAVIGATE',
+    payload: { name: link[2] ? 'pack/[id]/feed' : 'pack/[id]/index', params: { id: link[1] }, pop: true },
+  });
+  return true;
+}
+
 /**
  * Leaves a route that opens over whatever is on screen, once `href` is known. A screen already
  * open underneath is gone back to, with what was typed there, and only with nothing there does

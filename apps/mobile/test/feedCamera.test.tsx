@@ -24,7 +24,7 @@ jest.mock('expo-router', () => {
   return {
     useLocalSearchParams: () => ({ id: 'pack-1' }),
     useIsFocused: () => true,
-    useNavigation: () => ({ isFocused: () => true, getState: () => ({ routes: [] }) }),
+    useNavigation: () => ({ isFocused: () => true, getState: () => ({ routes: [] }), addListener: () => () => undefined }),
     router: { canGoBack: () => true, back: () => mockBack(), replace: (href: string) => mockReplace(href) },
     useFocusEffect: (run: () => void) => useEffect(run, [run]),
   };

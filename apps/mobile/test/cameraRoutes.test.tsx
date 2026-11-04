@@ -2,10 +2,11 @@ import { Stack, router, type Href } from 'expo-router';
 import { ExpoRoot } from 'expo-router/build/ExpoRoot';
 import { store } from 'expo-router/build/global-state/router-store';
 import { getMockContext } from 'expo-router/build/testing-library/mock-config';
-import { Text, TextInput } from 'react-native';
+import { Alert, Text, TextInput, type AlertButton } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import '@/i18n';
+import * as NativeIntent from '@/app/+native-intent';
 import * as AppLayout from '@/app/(app)/_layout';
 import FeedScreen from '@/app/(app)/pack/[id]/feed';
 
@@ -65,6 +66,7 @@ jest.mock('@/features/profile/useProfile', () => ({ useAccountSync: () => undefi
 jest.mock('@/features/widgets/sync', () => ({ useWidgetSync: () => undefined }));
 
 const routes = {
+  '+native-intent': NativeIntent,
   _layout: { default: () => <Stack screenOptions={{ headerShown: false }} /> },
   '(app)/_layout': AppLayout,
   '(app)/index': { default: () => <Text>home</Text> },
@@ -144,16 +146,24 @@ async function tapNotification(url: string) {
   await go(() => mockTapListeners.forEach((listener) => listener({ notification: { request: { content: { data: { url } } } } })));
 }
 
+const questions = () => jest.mocked(Alert.alert).mock.calls.map(([title]) => title);
+async function answer(style: AlertButton['style']) {
+  const buttons = (jest.mocked(Alert.alert).mock.calls.at(-1)?.[2] ?? []) as AlertButton[];
+  await go(() => buttons.find((button) => button.style === style)?.onPress?.());
+}
+
 beforeEach(() => {
   jest.useFakeTimers();
   process.env.EXPO_ROUTER_IMPORT_MODE = 'sync';
   mockPausedPack = null;
   mockOutcome = 'sent';
   mockSent.length = 0;
+  jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
 });
 
 afterEach(async () => {
   await act(async () => app.unmount());
+  jest.mocked(Alert.alert).mockRestore();
   jest.useRealTimers();
 });
 
@@ -367,6 +377,134 @@ describe('a link to another pack', () => {
     await go(() => router.back());
     expect(pathname()).toBe(CAMERA);
     expect(captions()).toEqual(['Leg day']);
+  });
+});
+
+describe('a link to the pack under a photo', () => {
+  async function photoOverItsPack() {
+    await start('/');
+    await go(() => router.push('/pack/p1' as Href));
+    await go(() => router.push(CAMERA as Href));
+    await takePhoto('Leg day');
+  }
+
+  it('asks first, and Keep leaves the photo and its caption', async () => {
+    await photoOverItsPack();
+
+    await followLink('gozali://pack/p1');
+
+    expect(appStack()).toEqual(['index', 'pack/[id]/index p1', 'pack/[id]/feed p1']);
+    expect(questions()).toEqual(['Discard this photo?']);
+
+    await answer('cancel');
+    expect(appStack()).toEqual(['index', 'pack/[id]/index p1', 'pack/[id]/feed p1']);
+    expect(captions()).toEqual(['Leg day']);
+  });
+
+  it('opens the pack on Discard', async () => {
+    await photoOverItsPack();
+
+    await followLink('gozali://pack/p1');
+    await answer('destructive');
+
+    expect(appStack()).toEqual(['index', 'pack/[id]/index p1']);
+    expect(questions()).toHaveLength(1);
+  });
+
+  it('opens the pack with no question before a photo is taken', async () => {
+    await start('/');
+    await go(() => router.push('/pack/p1' as Href));
+    await go(() => router.push(CAMERA as Href));
+
+    await followLink('gozali://pack/p1');
+
+    expect(appStack()).toEqual(['index', 'pack/[id]/index p1']);
+    expect(questions()).toEqual([]);
+  });
+
+  it('asks for the photo of another pack that would go with it', async () => {
+    await start('/');
+    await go(() => router.push('/pack/p1' as Href));
+    await go(() => router.push(OTHER_PACK as Href));
+    await go(() => router.push(OTHER_CAMERA as Href));
+    await takePhoto('Leg day');
+
+    await followLink('gozali://pack/p1');
+
+    expect(appStack()).toEqual(['index', 'pack/[id]/index p1', 'pack/[id]/index p2', 'pack/[id]/feed p2']);
+    expect(questions()).toEqual(['Discard this photo?']);
+  });
+
+  it('asks for a photo under the screen in front', async () => {
+    await photoOverItsPack();
+    await tapNotification(OTHER_PACK);
+
+    await followLink('gozali://pack/p1');
+
+    expect(appStack()).toEqual(['index', 'pack/[id]/index p1', 'pack/[id]/feed p1', 'pack/[id]/index p2']);
+    expect(questions()).toEqual(['Discard this photo?']);
+  });
+});
+
+describe('Back on a photo', () => {
+  it('asks first', async () => {
+    await openCamera();
+    await takePhoto('Leg day');
+
+    await go(() => router.back());
+
+    expect(pathname()).toBe(CAMERA);
+    expect(questions()).toEqual(['Discard this photo?']);
+    expect(captions()).toEqual(['Leg day']);
+  });
+
+  it('closes the camera on Discard', async () => {
+    await openCamera();
+    await takePhoto('Leg day');
+
+    await go(() => router.back());
+    await answer('destructive');
+
+    expect(pathname()).toBe('/');
+    expect(questions()).toHaveLength(1);
+  });
+});
+
+describe("the camera's own ways out", () => {
+  it('close it after Retake with no question', async () => {
+    await openCamera();
+    await takePhoto('Leg day');
+
+    await press('Retake');
+    await press('Close');
+
+    expect(pathname()).toBe('/');
+    expect(questions()).toEqual([]);
+  });
+
+  it('close it after a send with no question', async () => {
+    await openCamera();
+    await takePhoto('Leg day');
+
+    await press('Send');
+    await settle();
+    await settle();
+    await settle();
+
+    expect(pathname()).toBe('/');
+    expect(questions()).toEqual([]);
+  });
+
+  it('close Saved for later with no question', async () => {
+    mockOutcome = 'queued';
+    await openCamera();
+    await takePhoto('Leg day');
+
+    await press('Send');
+    await press('Close');
+
+    expect(pathname()).toBe('/');
+    expect(questions()).toEqual([]);
   });
 });
 

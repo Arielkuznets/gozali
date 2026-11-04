@@ -1,6 +1,6 @@
 import { CameraView, useCameraPermissions, type CameraType } from 'expo-camera';
 import { Image } from 'expo-image';
-import { useFocusEffect, useIsFocused, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useIsFocused, useLocalSearchParams, useNavigation } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -28,10 +28,10 @@ import { compressPhoto, feedErrorKey, isFinalRejection } from '@/features/feeds/
 import { clearFocusSession } from '@/features/focus/session';
 import { usePack } from '@/features/packs/api';
 import { categoryInfo } from '@/features/packs/constants';
-import { notify } from '@/lib/confirm';
+import { confirm, notify } from '@/lib/confirm';
 import { isBlockedText } from '@/lib/errors';
 import { haptics } from '@/lib/haptics';
-import { goBack, useOpenPack } from '@/lib/navigation';
+import { askBeforeLinks, goBack, useOpenPack } from '@/lib/navigation';
 import { serverNow } from '@/lib/serverClock';
 import { useNow } from '@/lib/useNow';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
@@ -138,6 +138,36 @@ export default function FeedScreen() {
     const timer = setTimeout(() => goBack(`/pack/${packId}`), 2800);
     return () => clearTimeout(timer);
   }, [result, packId, focused]);
+
+  // A live photo can't be taken again once the moment has passed, so whatever else would close the
+  // camera with one waiting asks first: a widget's link to the pack under it, or the Android back
+  // key. The camera's own ways out come only without a photo, or once it is sent. While it goes
+  // out, or with its pack gone, there is nothing to lose.
+  const navigation = useNavigation();
+  const holding = shot !== null && result === null && !busy && pack !== null;
+  useEffect(() => {
+    if (!holding) return;
+    const stopLinks = askBeforeLinks(navigation);
+    const stopAsking = navigation.addListener('beforeRemove', (event) => {
+      event.preventDefault();
+      confirm({
+        title: t('feed.discardTitle'),
+        message: t('feed.discardBody'),
+        confirm: t('feed.discard'),
+        cancel: t('feed.keep'),
+        destructive: true,
+        onConfirm: () => {
+          stopLinks();
+          stopAsking();
+          navigation.dispatch(event.data.action);
+        },
+      });
+    });
+    return () => {
+      stopLinks();
+      stopAsking();
+    };
+  }, [holding, navigation, t]);
 
   const capture = async () => {
     if (!camera.current || !ready) return;

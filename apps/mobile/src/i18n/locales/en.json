@@ -529,7 +529,11 @@
     "cameraFailed": "The camera didn't start. Close other apps using it and try again.",
     "permissionTitle": "Camera needed",
     "permissionBody": "Feeding takes a live photo in the app. Only your pack sees it, unless it's reported.",
-    "openSettings": "Open settings"
+    "openSettings": "Open settings",
+    "discardTitle": "Discard this photo?",
+    "discardBody": "It hasn't gone to your pack yet.",
+    "discard": "Discard",
+    "keep": "Keep"
   },
   "focus": {
     "title": "Focus",
