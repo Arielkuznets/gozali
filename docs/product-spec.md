@@ -74,7 +74,7 @@ Each pack is an independent unit with one habit, one creature and its own rules;
 
 **Permissions:**
 
-- **The pack creator is the admin:** changes the name, rest days and week start, chooses the creature's name (from the suggestions, and can change it later), and removes members.
+- **The pack creator is the admin:** changes the name, rest days and week start, chooses the creature's name once (from the suggestions), and removes members.
 - A change to rest days takes effect from the start of next week.
 - **Leaving:** any member can leave. If the admin leaves, admin passes to the longest-standing member.
 - A pack with no members is deleted after 30 days. Until then only someone who was in it can come back with its code, and the first one back becomes the admin; a member the admin removed stays out. To anyone else the code is one no pack has, so an emptied pack can't be seen or taken over (decision D25).
