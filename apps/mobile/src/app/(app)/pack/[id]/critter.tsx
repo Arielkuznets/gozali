@@ -175,9 +175,11 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
             <MonthlyBoard
               month={month}
               results={results.data ?? []}
-              members={pack.pack_members
-                .filter((member) => member.status !== 'left' || (results.data ?? []).some((r) => r.missed_ids.includes(member.user_id) || r.fed_ids.includes(member.user_id)))
-                .map((member) => ({ id: member.user_id, name: member.profiles?.display_name ?? null }))}
+              members={pack.pack_members.map((member) => ({
+                id: member.user_id,
+                name: member.profiles?.display_name ?? null,
+                left: member.status === 'left',
+              }))}
               today={today}
               fedToday={fedToday(counted.data, pack, now)}
               color={critterAccents[critter.species]}
