@@ -5,6 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { ActionMenu, type Menu } from '@/components/ActionMenu';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
+import { LoadFailed } from '@/components/ScreenStates';
 import { PAUSE_LENGTHS, canEndPause, useDayStatus, useEndPause, useStartPause } from '@/features/days/api';
 import { confirm } from '@/lib/confirm';
 import { formatDay } from '@/lib/dates';
@@ -24,7 +25,7 @@ export function PauseSection({ packId }: { packId: string }) {
   // second tap in between, with the pause already over.
   const ending = useRef(false);
   const day = status.data;
-  if (!day) return null;
+  if (!day) return status.isError ? <LoadFailed onRetry={() => void status.refetch()} /> : null;
 
   const pause = day.pause;
   const upcoming = pause !== null && pause.startsOn > day.day;

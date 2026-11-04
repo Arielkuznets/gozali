@@ -82,6 +82,26 @@ async function open(screen = <NotTodayScreen />) {
   await advance(ANSWER_MS + 1);
 }
 
+describe('The pause card', () => {
+  it("says so when today's status didn't load, and a try that works brings it", async () => {
+    const answer = mockRpc.getMockImplementation()!;
+    let failing = true;
+    mockRpc.mockImplementation((name: string, ...args: unknown[]) =>
+      failing ? later({ data: null, error: new TypeError('Network request failed') }) : answer(name, ...args),
+    );
+    await open(<PauseSection packId="pack" />);
+    // Past the retries.
+    await advance(10_000);
+    expect(buttons('Try again')).toHaveLength(1);
+
+    failing = false;
+    await act(async () => buttons('Try again')[0]!.props.onPress());
+    await advance(ANSWER_MS + 1);
+    expect(buttons('Try again')).toHaveLength(0);
+    expect(buttons('Pause')).toHaveLength(1);
+  });
+});
+
 describe('End pause tapped twice before the button can turn off', () => {
   it('ends the pause once, with no refusal', async () => {
     pause = { startsOn: '2026-10-20', endsOn: '2026-12-01' };
