@@ -186,8 +186,9 @@ function RecapView({ recap, category, names }: ViewProps) {
         <Button label={t('recap.share')} loading={sharing || storyLoading} disabled={photosFailed} onPress={() => void share()} />
       )}
 
-      {/* Off screen: the story image that gets captured. */}
-      <View style={styles.offscreen} pointerEvents="none">
+      {/* Off screen, and kept from screen readers, which would read it after the recap: the story
+          image that gets captured. */}
+      <View style={styles.offscreen} pointerEvents="none" aria-hidden>
         <StoryCard
           ref={story}
           category={category}
