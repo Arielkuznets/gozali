@@ -101,6 +101,8 @@ Alerts on your own phone: add your profile to the owners, once, and you get a pu
 npx supabase db query --linked "insert into public.app_owners (user_id) values ('<your profile id>')"
 ```
 
+The row goes with the account. Deleting that account, even to try Settings → Delete account, ends every alert, and signing in again with the same Apple ID makes a new profile with a new id, so add that one. With no owner left there is nobody to tell, so the release below starts by counting the owners.
+
 These alerts go out through send-push like every other push, so whatever stops the pushes stops them too: a `cron_secret` in the Vault that doesn't match `CRON_SECRET`, a missing `functions_url`, send-push failing, or Expo turning the pushes down. Silence then looks like a quiet day, so two checks stay off that road:
 
 - No summary by 21:15 means something on the way is broken: run the health queries below.
@@ -138,7 +140,7 @@ Errors from members' phones (screens that failed to draw, JavaScript errors that
 npx supabase db query --linked "select created_at, platform, app_version, screen, message from app_errors order by created_at desc limit 50"
 ```
 
-A release goes out in this order:
+A release goes out in this order, after a check that the alerts still reach someone: `npx supabase db query --linked "select count(*) from public.app_owners"` answers 1 or more.
 
 1. `npx supabase db push`, at about :05 or :20 past the hour. Day closes run at :00, :15, :30 and :45, and a close or a settings save caught inside a migration's commit carries on with the old function.
 2. `npx supabase functions deploy close-days send-push widget-state on-report delete-account`. The functions call what the migrations add, so deployed first they fail until the schema catches up.
