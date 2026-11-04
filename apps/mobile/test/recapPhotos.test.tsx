@@ -26,7 +26,7 @@ const mockRecap = {
     successDays: 6,
     healthStart: 70,
     healthEnd: 85,
-    topMembers: [],
+    topMembers: [] as string[],
     topFeeds: 0,
     achievements: [],
     critter: { species: 'axo', stage: 'kid', status: 'active', health: 85, marks: [], outfit: {}, name: 'Pico', streak: 7 },
@@ -66,8 +66,14 @@ jest.mock('@/features/auth/AuthProvider', () => ({ useAuth: () => ({ session: { 
 jest.mock('@/features/critter/Critter', () => ({ Critter: () => null }));
 jest.mock('@/features/feeds/PhotoViewer', () => ({ PhotoViewer: () => null }));
 jest.mock('@/features/feeds/send', () => ({ PHOTO_BUCKET: 'photos' }));
+let mockMembers: { user_id: string; profiles: { display_name: string } }[];
 jest.mock('@/features/packs/api', () => ({
-  usePack: () => ({ data: { id: 'pack', name: 'Pack', category: 'gym', pack_members: [] }, isPending: false, isError: false, refetch: async () => undefined }),
+  usePack: () => ({
+    data: { id: 'pack', name: 'Pack', category: 'gym', pack_members: mockMembers },
+    isPending: false,
+    isError: false,
+    refetch: async () => undefined,
+  }),
 }));
 jest.mock('@/lib/confirm', () => ({ notify: () => undefined }));
 jest.mock('@/lib/navigation', () => ({ goBack: () => undefined }));
@@ -105,6 +111,9 @@ async function close() {
 }
 
 beforeEach(() => {
+  mockRecap.stats.topMembers = [];
+  mockRecap.stats.topFeeds = 0;
+  mockMembers = [];
   mockVisible = ['a', 'b'];
   mockPoster = 'dan';
   mockReads = 0;
@@ -191,6 +200,34 @@ describe('the collage of a recap', () => {
 
     expect(mockReads).toBe(2);
     expect(tiles().map((tile) => tile.props.source.uri)).toEqual([link('a', 1), link('b', 2)]);
+  });
+});
+
+describe('the most consistent members', () => {
+  const NOA = { user_id: 'noa', profiles: { display_name: 'Noa' } };
+  const mostConsistent = () =>
+    tree!.root
+      .findAll((node) => node.type === 'Text')
+      .map((node) => [node.props.children].flat().join(''))
+      .filter((text) => text.startsWith('Most consistent'));
+
+  // A deleted account takes its member row along, and its id stays in the recap.
+  it('are only those still in the pack', async () => {
+    mockRecap.stats.topMembers = ['gone', 'noa'];
+    mockRecap.stats.topFeeds = 6;
+    mockMembers = [NOA];
+    await open();
+
+    expect(mostConsistent()).toEqual(['Most consistent: Noa, 6 feeds']);
+  });
+
+  it('have no line when none of them is left', async () => {
+    mockRecap.stats.topMembers = ['gone'];
+    mockRecap.stats.topFeeds = 5;
+    mockMembers = [NOA];
+    await open();
+
+    expect(mostConsistent()).toEqual([]);
   });
 });
 

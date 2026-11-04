@@ -45,7 +45,7 @@ export function FeedList({ feeds, events, bought, names, critterName, emoji, tod
     // A block or a report takes a post out of this list and leaves its member fed on the same screen.
     return <AppText style={styles.empty}>{t(someoneFed ? 'pack.feedOutOfSight' : 'pack.feedEmpty')}</AppText>;
   }
-  const nameOf = (id: string | null) => (id ? (names.get(id) ?? '…') : '…');
+  const nameOf = (id: string) => names.get(id) ?? '…';
   const onOpen = (feed: FeedItem) =>
     setOpen({ id: feed.id, userId: feed.user_id, url: feed.photoUrl, caption: feed.caption, name: nameOf(feed.user_id) });
 
@@ -77,8 +77,9 @@ export function FeedList({ feeds, events, bought, names, critterName, emoji, tod
 
 type Translate = ReturnType<typeof useTranslation>['t'];
 
-function eventText(event: PackEvent, t: Translate, nameOf: (id: string | null) => string, critter: string, bought: Set<string> | undefined): string {
-  const name = nameOf(event.actor_id);
+function eventText(event: PackEvent, t: Translate, nameOf: (id: string) => string, critter: string, bought: Set<string> | undefined): string {
+  // A deleted account leaves its lines with no member; '…' is for a name still on its way.
+  const name = event.actor_id === null ? t('events.someone') : nameOf(event.actor_id);
   switch (event.kind) {
     case 'joined':
       return t('events.joined', { name });

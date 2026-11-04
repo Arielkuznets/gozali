@@ -608,7 +608,8 @@
     "dressed": "👗 {{name}} gave {{critter}} a {{item}}",
     "undressed": "👗 {{name}} changed {{critter}}'s look",
     "named": "🏷️ {{name}} named the pet {{critter}}",
-    "bought": "🛍️ {{name}} bought {{critter}} a {{item}}"
+    "bought": "🛍️ {{name}} bought {{critter}} a {{item}}",
+    "someone": "Someone"
   },
   "moments": {
     "hatchedTitle": "{{name}} hatched!",

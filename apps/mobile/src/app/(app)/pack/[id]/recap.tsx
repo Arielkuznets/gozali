@@ -99,7 +99,9 @@ function RecapView({ recap, packName, category, names }: ViewProps) {
   const change = stats.healthEnd - stats.healthStart;
   const mine = (photos.data ?? []).filter((photo) => photo.userId === session?.user.id);
   const photosFailed = photos.isError && !photos.data;
-  const top = stats.topMembers.map((member) => names.get(member) ?? '…').join(', ');
+  // A deleted account takes its member row along, and the recap keeps its id: only those still
+  // here are named.
+  const top = stats.topMembers.flatMap((member) => (names.has(member) ? [names.get(member) ?? '…'] : []));
 
   const share = async () => {
     if (!story.current) return;
@@ -133,8 +135,8 @@ function RecapView({ recap, packName, category, names }: ViewProps) {
             <Coins text={t('recap.coins', { count: stats.coins })} variant="body" />
           </View>
         )}
-        {stats.topMembers.length > 0 && (
-          <AppText style={styles.centerText}>{t('recap.mostConsistent', { names: top, count: stats.topFeeds })}</AppText>
+        {top.length > 0 && (
+          <AppText style={styles.centerText}>{t('recap.mostConsistent', { names: top.join(', '), count: stats.topFeeds })}</AppText>
         )}
         {stats.achievements.map((key) => (
           <AppText key={key} style={styles.centerText}>

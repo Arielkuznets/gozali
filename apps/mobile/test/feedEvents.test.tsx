@@ -53,3 +53,15 @@ describe('a joker in the feed', () => {
     expect(textOf([joker], undefined, new Map([['dan', 'Dan']]))).toEqual(['🃏 Dan took a joker']);
   });
 });
+
+describe('a line of a member whose account is gone', () => {
+  // A deleted account leaves its lines with no actor.
+  it('says Someone, while a name still on its way shows as …', () => {
+    const events: PackEvent[] = [
+      { id: 'joined', kind: 'joined', actor_id: null, payload: {}, created_at: '2026-10-30T10:00:00Z' },
+      { id: 'bought', kind: 'bought', actor_id: null, payload: { item: 'bow' }, created_at: '2026-10-29T10:00:00Z' },
+      { id: 'named', kind: 'named', actor_id: 'noa', payload: { name: 'Kit' }, created_at: '2026-10-28T10:00:00Z' },
+    ];
+    expect(textOf(events)).toEqual(['👋 Someone joined the pack', '🛍️ Someone bought Mochi a bow', '🏷️ … named the pet Kit']);
+  });
+});
