@@ -5,7 +5,9 @@ import * as ImagePicker from 'expo-image-picker';
 import { Platform } from 'react-native';
 
 import { useAuth } from '@/features/auth/AuthProvider';
+import { isNetworkFailure } from '@/features/feeds/send';
 import { useProfile } from '@/features/profile/useProfile';
+import { reportError } from '@/lib/reportError';
 import { requireSupabase } from '@/lib/supabase';
 
 // The optional profile photo (spec section 9). Unlike feeds, it may come from the gallery: it
@@ -64,15 +66,22 @@ export function useSetAvatar() {
       }
       // Another phone may have changed the photo since this one read the profile, so the file to remove
       // is the one the profile points at now. The copy here stands in if that read fails.
-      const current = await supabase.from('profiles').select('avatar_path').eq('id', userId).single();
+      const readPath = () => supabase.from('profiles').select('avatar_path').eq('id', userId).single();
+      const current = await readPath();
       const previous = current.error ? (profile.data?.avatar_path ?? null) : current.data.avatar_path;
       const { error } = await supabase.from('profiles').update({ avatar_path: path }).eq('id', userId);
-      if (error) {
-        // The profile still points at the old photo; don't leave the new file behind.
-        if (path) await supabase.storage.from(BUCKET).remove([path]);
+      // An update with no answer may have been saved all the same, and then this goes on as if it was
+      // answered. One not saved yet may still land, so the new file stays for it.
+      if (error && !(isNetworkFailure(error) && (await readPath()).data?.avatar_path === path)) {
+        // Refused: the profile still points at the old photo; don't leave the new file behind.
+        if (path && !isNetworkFailure(error)) await supabase.storage.from(BUCKET).remove([path]);
         throw error;
       }
-      if (previous) await supabase.storage.from(BUCKET).remove([previous]);
+      if (previous) {
+        // Left behind, the old photo is still there for pack mates to open, so the developer hears of it.
+        const removed = await supabase.storage.from(BUCKET).remove([previous]);
+        if (removed.error) reportError(removed.error);
+      }
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['profile'] });
