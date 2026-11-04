@@ -78,7 +78,7 @@ The app is thin on purpose: every decision that matters (whether a feed counts, 
 | Mobile app | [Expo](https://expo.dev) SDK 57, React Native 0.86, React 19, Expo Router | One TypeScript codebase for iOS and Android; native config generated from `app.json` |
 | Data in the app | TanStack Query, Supabase Realtime | Caching, refetch on focus, optimistic reactions, live updates |
 | Animation and art | Reanimated, react-native-svg | The critters are drawn in code as SVG and animated on the UI thread |
-| Widgets | SwiftUI (WidgetKit, App Group), react-native-android-widget | The pet and who fed today on the home and lock screen |
+| Widgets | SwiftUI (WidgetKit, App Group), react-native-android-widget | The pet and how many fed today on the home and lock screen |
 | Backend | [Supabase](https://supabase.com): Postgres 17, Auth, Storage, Edge Functions (Deno) | Authorization in the database with row level security; actions as security definer functions |
 | Scheduling | pg_cron, pg_net, Vault | Day close, push sending, daily summary and clean-up run inside the database |
 | Game rules | `packages/game-engine`, dependency-free TypeScript | Pure functions: the same code runs on the server, in the tests and in the simulator |

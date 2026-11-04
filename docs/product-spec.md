@@ -354,13 +354,13 @@ Reporting and blocking are in the menu of every feed item and of every member.
 | Widget | Platform | What it shows | Tap |
 | --- | --- | --- | --- |
 | Pack, small | iOS and Android | The creature in its state, a health bar, "3/5", and a mark if the user already fed | Opens the pack's camera, or the pack screen if the user already fed |
-| Pack, medium | iOS and Android | Also: the members' circles without names, the streak, and when the day ends: a live countdown on iOS, the time it ends on Android (which redraws only every half hour) | Like the small one, and a Feed button opens the camera |
-| All packs, large | iOS and Android | Up to 3 packs: for each the creature, health and "3/5" | Opens the pack that was tapped |
+| Pack, medium | iOS and Android | Also: the creature's name, the members' circles without names, the streak, and when the day ends: a live countdown on iOS, the time it ends on Android (which redraws only every half hour) | Like the small one, and a Feed button opens the camera |
+| All packs, large | iOS and Android | Up to 3 packs: for each the pack's name, the creature, health and "3/5" | Opens the pack that was tapped |
 | Lock screen | iOS | A health ring and "3/5"; the rectangular version also shows the creature's name | Opens the pack screen |
 
 - For single-pack widgets you choose which pack to show, in the widget settings.
 - The creature in the widget is a static image by creature, stage and state (no animation), including wardrobe items, and it sleeps at night like in the app.
-- **Privacy:** the widget shows no photos and no names of members, only the creature and numbers, because the home screen and the lock screen are visible to others.
+- **Privacy:** the home screen and the lock screen are visible to others, so the widget shows no photos and no names of members, only the creature and numbers, and on the large one each pack's name.
 - **Updates:** right after every action in the app, at the end of the day (03:00), and from the server about every 30 minutes, subject to the operating system's refresh limits.
 
 **Main flows:**
