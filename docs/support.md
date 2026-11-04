@@ -5,7 +5,7 @@ Questions, problems or ideas: write to **hello@gozali.app** and we will answer w
 ## Common questions
 
 - **How does the egg hatch?** A friend joins your pack, and two of you feed it with a photo on the same day and nobody misses. It hatches when that day ends.
-- **What if I can't do my habit one day?** Use a rest day or the joker from the pack screen ("Not today?"), or pause the pack from its settings when you go away for a few days. The pet isn't hurt.
+- **What if I can't do my habit one day?** Use a rest day or the joker from the pack screen ("Not today?"), or pause yourself in the pack's settings when you go away for a few days. Each person who goes away pauses on their own, and the pet isn't hurt by the days you take off.
 - **The camera doesn't open.** Gozali needs the camera to feed the pet. Allow it in your phone's Settings, under Gozali.
 - **Notifications don't arrive.** Allow them in your phone's Settings, under Gozali, and check the reminder time in the app's Settings.
 - **Reporting a photo:** tap ⋯ on the photo and choose Report photo. We look at every report within 24 hours. The photo reaches the developer by email, through a link that works for 7 days.

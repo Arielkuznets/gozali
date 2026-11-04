@@ -64,6 +64,17 @@ test('the support page tells someone without the app how to have the account del
   expect(deletion).toContain('Hide My Email');
 });
 
+test('the support page says a pause covers only the person who takes it', () => {
+  const { status, stderr } = build(FINGERPRINT);
+  expect(status, stderr).toBe(0);
+  // A pause is saved for the member who starts it: the rest of the pack is still counted.
+  const support = page('support/index.html');
+  expect(support).not.toMatch(/pause the pack/i);
+  const away = /<li><strong>What if I can't do my habit one day\?<\/strong>(.*?)<\/li>/.exec(support)?.[1];
+  expect(away).toContain('pause yourself');
+  expect(away).toContain('pauses on their own');
+});
+
 test('the privacy policy says how a deletion by email is confirmed', () => {
   const { status, stderr } = build(FINGERPRINT);
   expect(status, stderr).toBe(0);
