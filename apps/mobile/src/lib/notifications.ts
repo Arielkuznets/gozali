@@ -108,15 +108,17 @@ export function useNotificationRoutes() {
   useEffect(() => {
     if (Platform.OS === 'web') return;
     const open = (response: Notifications.NotificationResponse | null) => {
-      const url: unknown = response?.notification.request.content.data?.url;
+      if (!response) return;
+      // The phone keeps every tap as the last response until the app clears it, and the next time
+      // these screens are built (a sign-in after the server ended the session, the profile setup
+      // again, Try again) it would open once more.
+      void Notifications.clearLastNotificationResponseAsync();
+      const url: unknown = response.notification.request.content.data?.url;
       // A tap for the screen already on top would stack a second copy of it. The path has no
       // query (the focus-end notice opens the camera with ?focus=).
       if (typeof url === 'string' && url.split('?')[0] !== current.current) router.push(url as Href, NEW_SCREEN);
     };
-    void Notifications.getLastNotificationResponseAsync().then((response) => {
-      open(response);
-      if (response) void Notifications.clearLastNotificationResponseAsync();
-    });
+    void Notifications.getLastNotificationResponseAsync().then(open);
     const subscription = Notifications.addNotificationResponseReceivedListener(open);
     return () => subscription.remove();
   }, []);

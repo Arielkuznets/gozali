@@ -31,11 +31,14 @@ jest.mock('expo-linking', () => ({
 }));
 type Tap = { notification: { request: { content: { data: { url: string } } } } };
 const mockTapListeners = new Set<(response: Tap) => void>();
-let mockTapThatStartedApp: Tap | null = null;
+/** The phone keeps every tap, the one that started the app or a later one, until the app clears it. */
+let mockLastTap: Tap | null = null;
 jest.mock('expo-notifications', () => ({
   setNotificationHandler: () => undefined,
-  getLastNotificationResponseAsync: async () => mockTapThatStartedApp,
-  clearLastNotificationResponseAsync: async () => undefined,
+  getLastNotificationResponseAsync: async () => mockLastTap,
+  clearLastNotificationResponseAsync: async () => {
+    mockLastTap = null;
+  },
   addNotificationResponseReceivedListener: (listener: (response: Tap) => void) => {
     mockTapListeners.add(listener);
     return { remove: () => mockTapListeners.delete(listener) };
@@ -50,7 +53,15 @@ jest.mock('@/features/profile/useProfile', () => ({
 }));
 jest.mock('@/features/widgets/sync', () => ({ useWidgetSync: () => undefined }));
 let mockSession: { user: { id: string } } | null = null;
-jest.mock('@/features/auth/AuthProvider', () => ({ useAuth: () => ({ session: mockSession, loading: false }) }));
+const mockSessionWatchers = new Set<() => void>();
+jest.mock('@/features/auth/AuthProvider', () => {
+  const { useSyncExternalStore } = jest.requireActual<typeof import('react')>('react');
+  const watch = (watcher: () => void) => {
+    mockSessionWatchers.add(watcher);
+    return () => mockSessionWatchers.delete(watcher);
+  };
+  return { useAuth: () => ({ session: useSyncExternalStore(watch, () => mockSession), loading: false }) };
+});
 let mockAnswerProfile: ((answer: { data: unknown; error: null }) => void) | null = null;
 jest.mock('@/lib/supabase', () => ({
   requireSupabase: () => ({
@@ -186,11 +197,21 @@ async function goBack() {
   await settle();
 }
 
+/** A session that starts or ends while the app is open, as AuthProvider tells every screen. */
+async function sessionBecomes(session: typeof mockSession) {
+  await act(async () => {
+    mockSession = session;
+    mockSessionWatchers.forEach((watcher) => watcher());
+  });
+  await settle();
+}
+
 const tapOn = (url: string): Tap => ({ notification: { request: { content: { data: { url } } } } });
 
 async function tapNotification(url: string) {
   await act(async () => {
-    for (const listener of mockTapListeners) listener(tapOn(url));
+    mockLastTap = tapOn(url);
+    for (const listener of mockTapListeners) listener(mockLastTap);
   });
   await settle();
 }
@@ -201,7 +222,7 @@ beforeEach(() => {
   opened.length = 0;
   mockSession = null;
   mockAnswerProfile = null;
-  mockTapThatStartedApp = null;
+  mockLastTap = null;
   client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
 });
 
@@ -399,13 +420,31 @@ describe('a widget link reaching the app while it is running', () => {
 
 describe('a notification that opens the app', () => {
   it('opens its screen once, over the home screen', async () => {
-    mockTapThatStartedApp = tapOn('/pack/p9');
+    mockLastTap = tapOn('/pack/p9');
     signInWith(finished);
     await start('/');
 
     expect(rootRoutes()).toEqual(['(app)']);
     expect(appStack()).toEqual(['index', 'pack/[id]/index']);
     expect(opened).toEqual(['home', 'pack']);
+  });
+});
+
+describe('a notification tapped with the app open', () => {
+  it('is not opened again when the app is built again later in the same run', async () => {
+    signInWith(finished);
+    await start('/');
+    await tapNotification('/pack/p9');
+    expect(appStack()).toEqual(['index', 'pack/[id]/index']);
+    await goBack();
+
+    // The server ends the session, which signs nothing out on the phone, and the person signs in again.
+    await sessionBecomes(null);
+    expect(rootRoutes()).toEqual(['welcome']);
+    await sessionBecomes({ user: { id: USER } });
+
+    expect(rootRoutes()).toEqual(['(app)']);
+    expect(appStack()).toEqual(['index']);
   });
 });
 
