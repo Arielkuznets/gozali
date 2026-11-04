@@ -70,7 +70,7 @@ Everything runs locally without accounts (see the README). This is the one-time 
      eas env:create --name GOOGLE_SERVICES_JSON --type file --value ./google-services.json --environment development
      ```
 
-     Repeat for `preview` and `production`.
+     Repeat for `preview` and `production`. An Android EAS build in an environment without it stops with an error, since its phones would never get a push token.
    - Firebase → Project settings → Service accounts → Generate new private key, then `eas credentials` → Android → Push Notifications (FCM V1) and upload that key. Keep the key file out of the repo too.
 
 ## 3. gozali.app

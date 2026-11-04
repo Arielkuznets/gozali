@@ -25,7 +25,7 @@ const mockRpc = jest.fn();
 const mockTableDelete = jest.fn();
 let mockStoredSession: object | null;
 jest.mock('@/lib/supabase', () => ({
-  supabase: null,
+  supabase: { rpc: (name: string, args: unknown) => mockRpc(name, args) },
   requireSupabase: () => ({
     rpc: (name: string, args: unknown) => mockRpc(name, args),
     from: (table: string) => ({ delete: () => ({ eq: (_column: string, value: string) => mockTableDelete(table, value) }) }),
@@ -344,6 +344,48 @@ describe('a phone that signed out offline on a build that kept no copy of its to
 
     expect(mockReadToken).not.toHaveBeenCalled();
     expect(forgotten()).toEqual([]);
+  });
+});
+
+describe('a phone that gets no token', () => {
+  /** What expo-notifications answers on an Android build made without Firebase's file. */
+  const noFirebase = Object.assign(
+    new Error('Unable to get Firebase Messaging instance. Did you configure `googleServicesFile` path in app config?'),
+    { code: 'E_REGISTRATION_FAILED' },
+  );
+  const noConnection = Object.assign(new Error('Error encountered while fetching Expo token: TypeError: Network request failed.'), {
+    code: 'ERR_NOTIFICATIONS_NETWORK_ERROR',
+  });
+  const reports = () => mockRpc.mock.calls.filter(([name]) => name === 'report_app_error').map(([, args]) => args.error_message);
+  let register: () => Promise<void>;
+
+  // A new copy for each test: a test is a run of the app, and a run keeps count.
+  beforeEach(() => {
+    jest.isolateModules(() => {
+      register = jest.requireActual<typeof import('@/lib/push')>('@/lib/push').registerPushToken;
+    });
+  });
+
+  it('tells the developer, once a run, when the push setup is broken', async () => {
+    mockReadToken.mockRejectedValue(noFirebase);
+
+    await register();
+    await register();
+
+    expect(reports()).toEqual([`Error: Push token: E_REGISTRATION_FAILED ${noFirebase.message}`]);
+    expect(registrations()).toBe(0);
+  });
+
+  it('tells nobody when there was no connection, and a later try registers', async () => {
+    mockReadToken.mockRejectedValueOnce(noConnection);
+    await register();
+    answer({ register_push_token: offline });
+    await register();
+    answer({});
+    await register();
+
+    expect(reports()).toEqual([]);
+    expect(registrations()).toBe(2);
   });
 });
 

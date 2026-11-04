@@ -3,6 +3,7 @@ import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
+import { errorCode, errorText, reportError } from '@/lib/reportError';
 import { requireSupabase, storedSession } from '@/lib/supabase';
 
 const TOKEN_KEY = 'gozali.push-token';
@@ -16,6 +17,15 @@ const REFRESH_MS = 12 * 60 * 60 * 1000;
 
 /** Every forget under way. A register waits for their answers: arriving later, one would undo it. */
 let forgetting: Promise<void> = Promise.resolve();
+
+/** Set once a failed register was reported: the tries after it, at each return to the app, would say the same. */
+let failureReported = false;
+
+/** No connection to the server or to Expo's push service, which a later try gets past. */
+function isConnectionFailure(error: unknown): boolean {
+  const code = errorCode(error);
+  return code === '' || code === 'ERR_NOTIFICATIONS_NETWORK_ERROR';
+}
 
 /** The EAS project id, present once the app is linked to an Expo project (eas init). */
 function projectId(): string | undefined {
@@ -31,7 +41,7 @@ function isRecent(registeredAt: number): boolean {
 
 /**
  * Saves this device's push token for the user, when notifications are allowed. Quietly does
- * nothing on the web, in a simulator, or before the project is linked to EAS.
+ * nothing on the web or before the project is linked to EAS.
  */
 export async function registerPushToken(): Promise<void> {
   if (Platform.OS === 'web') return;
@@ -62,8 +72,13 @@ export async function registerPushToken(): Promise<void> {
     await AsyncStorage.setItem(TOKEN_KEY, token);
     await AsyncStorage.setItem(REGISTERED_KEY, `${stamp}@${Date.now()}`);
     await AsyncStorage.setItem(TOKEN_KNOWN_KEY, '1');
-  } catch {
-    // No token (simulator, no network): the next app start tries again.
+  } catch (error) {
+    // The next start or return to the app tries again. Any failure but a lost connection can be a
+    // build whose push setup is broken (an Android one without Firebase's file), which nothing else shows.
+    if (!failureReported && !isConnectionFailure(error)) {
+      failureReported = true;
+      reportError(new Error(`Push token: ${errorText(error)}`));
+    }
   }
 }
 
