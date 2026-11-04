@@ -114,8 +114,8 @@ function primaryKeys() {
   );
 }
 
-/** Every table, saved into `out`; returns a line for the log. */
-function backUp() {
+/** Every table, saved into `dir`; returns a line for the log. */
+export function backUp(dir = out) {
   const tables = query(
     `select table_schema || '.' || table_name as name from information_schema.tables
      where table_type = 'BASE TABLE' and table_schema = 'public'
@@ -123,6 +123,10 @@ function backUp() {
   ).map((row) => row.name);
   // An empty file would count as a good backup and push a real one out of the newest 14.
   if (!tables.includes('public.profiles')) throw new Error('the database listed no tables');
+  // The accounts sort first, and the profiles are read last. A profile goes only with its account, so
+  // an account deleted while the run reads the tables in between is in the file without one, and the
+  // restore deletes it again with whatever of it the run read.
+  tables.push(...tables.splice(tables.indexOf('public.profiles'), 1));
 
   const backup = { takenAt: new Date().toISOString(), source: target.slice(2), tables: {} };
   const keys = primaryKeys();
@@ -150,17 +154,17 @@ function backUp() {
     backup.tables[table] = rows;
   }
 
-  mkdirSync(out, { recursive: true });
+  mkdirSync(dir, { recursive: true });
   const name = `gozali-${backup.source}-${backup.takenAt.slice(0, 10)}.json`;
-  const partial = join(out, `${name}.partial`);
+  const partial = join(dir, `${name}.partial`);
   writeFileSync(partial, JSON.stringify(backup));
-  renameSync(partial, join(out, name));
+  renameSync(partial, join(dir, name));
 
-  const old = readdirSync(out)
+  const old = readdirSync(dir)
     .filter((file) => file.startsWith(`gozali-${backup.source}-`) && file.endsWith('.json'))
     .sort()
     .slice(0, -KEEP);
-  for (const file of old) rmSync(join(out, file));
+  for (const file of old) rmSync(join(dir, file));
 
   const counts = Object.entries(backup.tables).map(([table, rows]) => `${table.replace('public.', '')} ${rows.length}`);
   const note = emptied.length > 0 ? `. Saved empty, nested too deep for the file: ${emptied.join(', ')}` : '';

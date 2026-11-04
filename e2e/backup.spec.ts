@@ -68,7 +68,7 @@ test('a backup keeps every row of a table longer than one page', async () => {
   run(`node --require ./e2e/between-pages.cjs scripts/backup.mjs --local --out "${out}"`, {
     ...process.env,
     PAGED_TABLE: 'public.day_results',
-    SECOND_PAGE_SQL: secondPage,
+    PAGE_SQL: secondPage,
     BETWEEN_PAGES: `delete from public.day_results where pack_id = '${gone.pack_id}' and day = '${gone.day}'`,
   });
 
@@ -382,6 +382,44 @@ test.describe('a restore', () => {
     expect(psql(target, 'select user_id from auth.identities')).toBe(noa.id);
     expect(psql(target, 'select user_id from public.pack_members')).toBe(noa.id);
     expect(printed).toContain(`Deleted 1 account the backup caught being deleted: ${dan.id}.`);
+  });
+
+  test('an account deleted while the backup reads its last tables goes again with the restore', async () => {
+    test.setTimeout(600_000);
+    const tom = await createUser('Tom');
+    others = [tom];
+    const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [tom]);
+    // Tom deletes the account as the run reaches the last table in name order.
+    run(`node --require ./e2e/between-pages.cjs scripts/backup.mjs --local --out "${out}"`, {
+      ...process.env,
+      PAGED_TABLE: 'public.widget_tokens',
+      AT_PAGE: '1',
+      BETWEEN_PAGES: `delete from auth.users where id = '${tom.id}'`,
+    });
+    const file = readdirSync(out).find((name) => name.endsWith('.json'))!;
+    const { tables } = JSON.parse(readFileSync(join(out, file), 'utf8')) as { tables: Record<string, Row[]> };
+    const ours = (column: string) => (row: Row) => row[column] === noa.id || row[column] === tom.id;
+    const inPack = (row: Row) => row.pack_id === pack.id;
+    expect(tables['auth.users']!.filter(ours('id'))).toHaveLength(2);
+    expect(tables['public.pack_members']!.filter(inPack)).toHaveLength(2);
+    expect(tables['public.profiles']!.filter(ours('id')).map((row) => row.id)).toEqual([noa.id]);
+
+    // What the file holds of these two and their pack.
+    const printed = restore({
+      tables: {
+        'auth.users': tables['auth.users']!.filter(ours('id')),
+        'auth.identities': tables['auth.identities']!.filter(ours('user_id')),
+        'public.app_config': tables['public.app_config']!,
+        'public.profiles': tables['public.profiles']!.filter(ours('id')),
+        'public.packs': tables['public.packs']!.filter((row) => row.id === pack.id),
+        'public.critters': tables['public.critters']!.filter(inPack),
+        'public.pack_members': tables['public.pack_members']!.filter(inPack),
+      },
+    });
+
+    expect(psql(target, 'select id from auth.users')).toBe(noa.id);
+    expect(psql(target, 'select user_id from public.pack_members')).toBe(noa.id);
+    expect(printed).toContain(`Deleted 1 account the backup caught being deleted: ${tom.id}.`);
   });
 
   test('a pack the backup caught being made, without its critter, stays out with all it holds', async () => {

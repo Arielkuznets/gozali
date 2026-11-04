@@ -1,11 +1,14 @@
-// query() with the CLI's answers stubbed and its pauses skipped, and the check of a page on rows made
-// here, so nothing in this file needs a database.
+// query() and a whole run with the CLI's answers stubbed and its pauses skipped, and the check of a
+// page on rows made here, so nothing in this file needs a database.
 import assert from 'node:assert/strict';
 import childProcess from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { syncBuiltinESMExports } from 'node:module';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, beforeEach, mock, test } from 'node:test';
 
-import { emptyUnwritable, query } from './backup.mjs';
+import { backUp, emptyUnwritable, query } from './backup.mjs';
 
 const real = childProcess.spawnSync;
 const failed = { status: 1, stdout: '', stderr: 'failed to connect to postgres: Connection timed out' };
@@ -61,6 +64,27 @@ test('a call that works is sent once', () => {
   assert.deepEqual(query('select 1 as ok', '--local'), [{ ok: 1 }]);
   assert.equal(calls(), 1);
   assert.deepEqual(pauses, []);
+});
+
+test('a run reads the accounts first and the profiles after every other table', () => {
+  const tables = ['auth.identities', 'auth.users', 'public.app_config', 'public.profiles', 'public.push_tokens', 'public.widget_tokens'];
+  const read = [];
+  const rows = (list) => ({ status: 0, stdout: JSON.stringify(list), stderr: '' });
+  childProcess.spawnSync = (command) => {
+    const sql = readFileSync(/-f "([^"]+)"/.exec(command)[1], 'utf8');
+    if (sql.includes('information_schema.tables')) return rows(tables.map((name) => ({ name })));
+    if (sql.includes('pg_index')) return rows([]);
+    read.push(/ from (\S+) as r /.exec(sql)[1]);
+    return rows([{ rows: '[]' }]);
+  };
+  syncBuiltinESMExports();
+  const dir = mkdtempSync(join(tmpdir(), 'gozali-backup-test-'));
+  try {
+    backUp(dir);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+  assert.deepEqual(read, ['auth.identities', 'auth.users', 'public.app_config', 'public.push_tokens', 'public.widget_tokens', 'public.profiles']);
 });
 
 const nested = (depth) => JSON.parse(`${'['.repeat(depth)}${']'.repeat(depth)}`);
