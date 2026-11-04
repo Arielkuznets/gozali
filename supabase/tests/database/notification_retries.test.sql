@@ -2,7 +2,7 @@
 -- goes back for any other reason spends no try and comes back later the longer it has been around.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(19);
+select plan(21);
 
 -- The queue is one for everybody, so this test runs alone (all rolled back at the end).
 delete from public.notifications;
@@ -164,6 +164,29 @@ select public.requeue_notifications(array['50000000-0000-0000-0000-000000000004'
 select is((select attempts from public.notifications where id = '50000000-0000-0000-0000-000000000004'), 1, 'with no list of refusals, every row spends a try');
 select public.requeue_notifications(array['50000000-0000-0000-0000-000000000004']::uuid[], null);
 select is((select attempts from public.notifications where id = '50000000-0000-0000-0000-000000000004'), 2, 'and so with null');
+
+-- A row the run never offered, or offered only in a request turned down whole, is on no phone: it
+-- comes back in a minute however old it is, and spends no try.
+delete from public.notifications;
+insert into public.notifications (id, user_id, type, payload, send_after, created_at)
+select ('50000000-0000-0000-0000-00000000000' || n)::uuid, '00000000-0000-0000-0000-0000000000e1', 'friend_fed',
+  '{"feeders": ["00000000-0000-0000-0000-0000000000e1"]}', timestamptz '2000-01-01', now() - interval '4 hours'
+from generate_series(5, 6) n;
+select public.requeue_notifications(
+  array['50000000-0000-0000-0000-000000000005', '50000000-0000-0000-0000-000000000006']::uuid[],
+  '{}',
+  array['50000000-0000-0000-0000-000000000005']::uuid[]
+);
+select is(
+  (select attempts || ' ' || round(extract(epoch from send_after - now()) / 60) from public.notifications where id = '50000000-0000-0000-0000-000000000005'),
+  '0 1',
+  'a four-hour-old row no phone has comes back in a minute, at no cost'
+);
+select is(
+  (select attempts || ' ' || round(extract(epoch from send_after - now()) / 60) from public.notifications where id = '50000000-0000-0000-0000-000000000006'),
+  '0 30',
+  'while one beside it that may be on the phones waits half an hour'
+);
 
 -- Only the function that sends may touch the queue.
 set local role authenticated;

@@ -1270,7 +1270,10 @@ export type Database = {
         Args: { app_version?: string; device?: string; problem: string };
         Returns: undefined;
       };
-      requeue_notifications: { Args: { ids: string[]; refused?: string[] }; Returns: undefined };
+      requeue_notifications: {
+        Args: { ids: string[]; refused?: string[]; unsent?: string[] };
+        Returns: undefined;
+      };
       require_admin: { Args: { target: string }; Returns: string };
       require_membership: { Args: { member: string; target: string }; Returns: string };
       require_user: { Args: Record<PropertyKey, never>; Returns: string };

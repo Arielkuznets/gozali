@@ -383,6 +383,14 @@ check(
 );
 check(JSON.stringify(refused.refused) === JSON.stringify(dans), 'Expo refusing a notification names it as refused');
 check([down, midway, refusedThenDown, outOfTime].every((result) => result.refused.length === 0), 'a service that is down or a run out of time names none');
+const idsOf = (rows) => rows.map((row) => row.id).join();
+check(
+  down.unsent.join() === idsOf(lots.slice(100)) && midway.unsent.join() === idsOf(lots.slice(200)),
+  'what a run never offered is named unsent, and what was in the request that failed is not',
+);
+check(outOfTime.unsent.length === outOfTime.requeue.length, 'all a run out of time puts back is unsent');
+check(refusedThenDown.unsent.join() === idsOf(lots.slice(1, 3)), 'and so is what Expo got only in a batch it turned down whole');
+check(refused.unsent.length === 0, 'but not a row Expo refused alone');
 let oneByOne = 0;
 const refusedOneThenDown = await sendAll(lots.slice(0, 3), async () => {
   oneByOne += 1;
@@ -404,6 +412,36 @@ check(behind.status === 502 && behind.report.sent === 100 && behind.report.reque
 check(behind.logged.some((line) => line.includes('requeue_notifications')), 'and it says so in the log');
 const behindAfter = (await queueRows(behindRows)).filter((row) => row.status === 'pending');
 check(behindAfter.length === 1 && behindAfter[0].attempts === 1, 'and the rows go back all the same');
+
+// Rows a run never offered to Expo can't be on the phones, so they come back in a minute however
+// old they are. Those in the request that failed wait half their age, in case Expo took them.
+const neverOfferedRows = await addRows(twoBatches);
+await admin.from('notifications').update({ created_at: new Date(Date.now() - 4 * 3600_000).toISOString() }).in('id', neverOfferedRows);
+const offered = new Set();
+const firstFails = await runFunction(neverOfferedRows, (batch) => {
+  for (const message of batch) offered.add(message.data.notificationId);
+  return expoFails(503);
+});
+const minutesLeft = (row) => (new Date(row.send_after) - Date.now()) / 60_000;
+const { data: afterFirstFails } = await admin.from('notifications').select('id, attempts, send_after').in('id', neverOfferedRows);
+const notOffered = afterFirstFails.filter((row) => !offered.has(row.id));
+check(firstFails.status === 502 && offered.size === 100 && notOffered.length === 1, 'a run whose first request fails offers Expo nothing more');
+check(notOffered.every((row) => minutesLeft(row) < 1.5), 'and the four-hour-old row it never offered comes back in a minute');
+check(
+  afterFirstFails.filter((row) => offered.has(row.id)).every((row) => minutesLeft(row) > 29),
+  'while those of the failed request wait half an hour',
+);
+check(afterFirstFails.every((row) => row.attempts === 0), 'and none spends a try');
+
+// A server with the `refused` argument but not `unsent` takes the rows back as it always did, and the
+// run answers 502 so that it is seen.
+const halfBehindRows = await addRows(twoBatches);
+const noUnsent = () =>
+  Response.json({ code: 'PGRST202', message: 'Could not find the function public.requeue_notifications(ids, refused, unsent)' }, { status: 404 });
+const halfBehind = await runFunction(halfBehindRows, firstBatchOnly(), (rpc, args) => (rpc === 'requeue_notifications' && args.unsent ? noUnsent() : null));
+check(halfBehind.status === 502 && halfBehind.report.requeued === 1, 'a server without the unsent list makes the run answer 502');
+const halfBehindAfter = (await queueRows(halfBehindRows)).filter((row) => row.status === 'pending');
+check(halfBehindAfter.length === 1 && halfBehindAfter[0].attempts === 0, 'and takes the row back without spending a try');
 
 // The status is what reaches the owners, through collect_service_errors, and the body and the log
 // are what they read then.

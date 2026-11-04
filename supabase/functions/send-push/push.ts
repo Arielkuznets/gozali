@@ -30,6 +30,11 @@ export interface SendResult {
   requeue: string[];
   /** The part of `requeue` the service turned down; the rest was never answered and costs no try. */
   refused: string[];
+  /**
+   * The part of `requeue` no phone can have: never offered, or offered only in requests the service
+   * turned down whole. The rest of what was never answered may have gone out all the same.
+   */
+  unsent: string[];
   deadTokens: string[];
   /**
    * Messages Expo answered with an error, by its code, leaving out tokens that are gone. Notifications
@@ -61,8 +66,9 @@ export function toMessages(rows: readonly ClaimedRow[]): PushMessage[] {
  * Sends every message. A batch the service refuses is sent again one notification at a time, and
  * the notifications it still refuses go back in the queue, named in `refused`; tokens Expo reports
  * as no longer registered are returned so they can be forgotten. After a request that fails, or
- * once `outOfTime` says so, what is left isn't sent but goes back in the queue: the claimed rows
- * already count as sent, and a run cut off by the function's time limit would lose them.
+ * once `outOfTime` says so, what is left isn't sent but goes back in the queue, named in `unsent`:
+ * the claimed rows already count as sent, and a run cut off by the function's time limit would lose
+ * them.
  */
 export async function sendAll(
   rows: readonly ClaimedRow[],
@@ -72,6 +78,8 @@ export async function sendAll(
   const messages = toMessages(rows);
   const requeue = new Set<string>();
   const refused = new Set<string>();
+  // Rows in a request the service answered or left unanswered, which may have reached a phone.
+  const reached = new Set<string>();
   const deadTokens: string[] = [];
   const ticketErrors: Record<string, number> = {};
   let attempted = 0;
@@ -113,6 +121,7 @@ export async function sendAll(
     }
     attempted += batch.length;
     const outcome = await deliver(batch);
+    if (outcome !== 'refused') for (const id of ids) reached.add(id);
     if (outcome === 'sent') continue;
     // Expo turns down a whole request for one bad message (a token of another Expo project is
     // enough), and the same batch would fail again on every run, holding up everyone in it. A
@@ -120,13 +129,15 @@ export async function sendAll(
     for (const id of ids) {
       const alone = outcome === 'refused' && ids.size > 1 && !stopped();
       const answer = alone ? await deliver(batch.filter((message) => message.data.notificationId === id)) : outcome;
+      if (alone && answer !== 'refused') reached.add(id);
       if (answer !== 'sent') requeue.add(id);
       // A batch turned down as a whole says nothing about a row unless the row is all there is.
       if (answer === 'refused' && (alone || ids.size === 1)) refused.add(id);
     }
   }
   if (refused.size > 0) ticketErrors.RefusedRequest = refused.size;
-  return { attempted, sent, requeue: [...requeue], refused: [...refused], deadTokens, ticketErrors, failure };
+  const unsent = [...requeue].filter((id) => !reached.has(id) && !refused.has(id));
+  return { attempted, sent, requeue: [...requeue], refused: [...refused], unsent, deadTokens, ticketErrors, failure };
 }
 
 /**

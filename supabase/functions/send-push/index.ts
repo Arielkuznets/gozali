@@ -64,16 +64,22 @@ Deno.serve(async (request) => {
   const rows = claimed.data as ClaimedRow[];
   const started = Date.now();
   const result = await sendAll(rows, expoSend, () => Date.now() - started > SEND_BUDGET_MS);
-  let requeued = result.requeue.length > 0 ? await client.rpc('requeue_notifications', { ids: result.requeue, refused: result.refused }) : null;
-  // A server behind this function takes the rows back without the list, each spending a try. The
-  // run still answers 502, so the missing migration gets noticed.
+  const { requeue: ids, refused, unsent } = result;
+  let requeued = ids.length > 0 ? await client.rpc('requeue_notifications', { ids, refused, unsent }) : null;
+  // A server behind this function takes the rows back as far as it can: without the rows no phone
+  // has, which then wait as if Expo might have them, or also without the refusals, each row spending
+  // a try. The run still answers 502, so the missing migration gets noticed.
   const serverBehind = requeued?.error?.code === 'PGRST202';
   if (serverBehind) {
-    console.error('requeue_notifications has no refused argument on this server', requeued?.error?.message);
-    requeued = await client.rpc('requeue_notifications', { ids: result.requeue });
+    console.error('requeue_notifications has no unsent argument on this server', requeued?.error?.message);
+    requeued = await client.rpc('requeue_notifications', { ids, refused });
+    if (requeued.error?.code === 'PGRST202') {
+      console.error('requeue_notifications has no refused argument on this server', requeued.error.message);
+      requeued = await client.rpc('requeue_notifications', { ids });
+    }
   }
   // These rows stay marked as sent with nothing delivered, so the log is what is left of them.
-  if (requeued?.error) console.error('requeue failed', requeued.error.message, result.requeue.join(' '));
+  if (requeued?.error) console.error('requeue failed', requeued.error.message, ids.join(' '));
   if (result.deadTokens.length > 0) {
     const forgotten = await client.rpc('forget_push_tokens', { dead: result.deadTokens });
     if (forgotten.error) console.error('forgetting dead tokens failed', forgotten.error.message);
@@ -82,7 +88,7 @@ Deno.serve(async (request) => {
     claimed: rows.length,
     attempted: result.attempted,
     sent: result.sent,
-    requeued: requeued?.error ? 0 : result.requeue.length,
+    requeued: requeued?.error ? 0 : ids.length,
     ticketErrors: result.ticketErrors,
     failure: result.failure,
   };
