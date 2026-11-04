@@ -168,6 +168,21 @@ test('a surname that begins with a blocked word finishes the profile setup', asy
   await removeUsers(noa);
 });
 
+test('an account the sign-in gave no name finishes the setup with the tick alone', async ({ page }) => {
+  // Apple sends the name only the first time an Apple ID signs in to the app.
+  const maya = await createSignedUpUser('Maya');
+  await signIn(page, maya);
+  await page.goto('/');
+  await expect(page.getByLabel('Your name')).toHaveValue('Friend');
+  await page.getByRole('checkbox').click();
+  await page.getByRole('button', { name: 'Continue' }).click();
+
+  await expect(page.getByRole('button', { name: 'Create a pack' })).toBeVisible();
+  const saved = await maya.client.from('profiles').select('display_name').eq('id', maya.id).single();
+  expect(saved.data?.display_name).toBe('Friend');
+  await removeUsers(maya);
+});
+
 /** A link opening in the running app: the web build hears of it through the browser history. */
 async function openLink(page: Page, path: string) {
   await page.evaluate((target) => {

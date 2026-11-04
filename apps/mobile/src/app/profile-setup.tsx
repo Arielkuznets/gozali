@@ -18,8 +18,12 @@ import { colors, fonts, radii, spacing } from '@/theme/tokens';
 export default function ProfileSetupScreen() {
   const { t } = useTranslation();
   const { data: profile } = useProfile();
-  // The name from Apple or Google is only a suggestion.
-  const [name, setName] = useState((profile?.display_name ?? suggestedName() ?? '').slice(0, NAME_MAX_LENGTH));
+  // The name from Apple or Google is only a suggestion. Apple sends it only the first time an Apple
+  // ID signs in here, and App Review refuses a setup that then waits for a typed name, so without
+  // one there is a default to keep or change.
+  const [name, setName] = useState(
+    (profile?.display_name ?? suggestedName() ?? t('profileSetup.defaultName')).slice(0, NAME_MAX_LENGTH),
+  );
   const [agreed, setAgreed] = useState(false);
   const completeProfile = useCompleteProfile();
   const leaving = useSignOut();
