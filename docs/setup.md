@@ -126,12 +126,12 @@ npx supabase db query --linked "insert into public.outages (starts_at, ends_at, 
 
 Plan limits: the summary adds "📦 612 MB of files (free plan: 1 GB)" once this project's stored files reach 500 MB. Egress and database size can't be read that way: they show only on the organization's Usage page, so look there every week. Supabase's own notice goes to the billing email and only after a quota is passed, so make sure that is an address you read. When the line shows up, the choice is Pro or keeping less. After a move to Pro, change the line in `summaryLine` (`supabase/functions/send-push/messages.ts`) or it shows every evening.
 
-Is the server doing its jobs? The last closed day of every pack (a pack more than a day behind means close-days is failing for it), scheduled jobs that failed, and function calls that didn't answer 200, over the last day:
+Is the server doing its jobs? The last closed day of every pack (a pack more than a day behind means close-days is failing for it), scheduled jobs that failed, and function calls that didn't answer 200, over the last day. Those calls are what the summary counts as server errors: every five minutes they are copied into `service_errors`, with the error or the start of the answer in `detail`, and kept there 30 days, while `net._http_response`, where pg_net writes the answers, keeps only 6 hours.
 
 ```sh
 npx supabase db query --linked "select p.name, max(r.day) as last_closed from packs p left join day_results r on r.pack_id = p.id group by p.name order by 2 nulls first"
 npx supabase db query --linked "select jobid, status, return_message, start_time from cron.job_run_details where status <> 'succeeded' and start_time > now() - interval '1 day'"
-npx supabase db query --linked "select created, status_code, timed_out, error_msg, left(content::text, 200) from net._http_response where (status_code is distinct from 200) and created > now() - interval '1 day'"
+npx supabase db query --linked "select at, status, detail from public.service_errors where at > now() - interval '1 day' order by at desc"
 ```
 
 Errors from members' phones (screens that failed to draw, JavaScript errors that closed the app, sent on the next start, and queued feeds that were dropped or got stuck) are kept for 30 days:
