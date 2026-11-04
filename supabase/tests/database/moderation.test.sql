@@ -1,23 +1,31 @@
 -- Word filtering, reports on photos and on members, and the helpers of account deletion.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(93);
+select plan(100);
 
 select ok(public.is_clean('Leg day, done'), 'ordinary captions pass');
 select ok(not public.is_clean('what the fuuuck'), 'repeated letters don''t get around the filter');
 select ok(not public.is_clean('sh1t happens'), 'nor do digits for letters');
 select ok(public.is_clean('Assassin class, then a glass of water'), 'blocked words inside ordinary words are fine');
 
--- A number is a number, however its digits would read as letters.
+-- A number is a number, however its digits would read as letters, and so is one written with a
+-- sign, like a price: digits and symbols read as letters only beside a letter, or with no digit.
 select ok(public.is_clean('Read up to page 455'), 'a page number passes');
 select ok(public.is_clean('Deadlift 455 lbs!'), 'so does a weight');
 select ok(public.is_clean('Room #455'), 'and a number after a sign');
 select ok(public.is_clean('8455 steps, 2455 calories'), 'and one with a digit that stands for no letter');
+select ok(public.is_clean('Paid 45$ for the new shoes'), 'and a price with its sign after it');
+select ok(public.is_clean('455$'), 'however its digits would read');
+select ok(public.is_clean('Bench 5x5 @55'), 'and a weight after an at sign');
+select ok(public.is_clean('4$$'), 'so digits and symbols alone pass, even where they could spell a word');
+select ok(public.is_clean('4$5'), 'wherever the symbol sits among the digits');
 
 -- Everything else reads as it always did.
 select ok(not public.is_clean('a55'), 'digits next to a letter still stand for letters');
-select ok(not public.is_clean('4$$'), 'and next to a symbol that stands for a letter');
-select ok(not public.is_clean('4$5'), 'with the digits on both sides of it');
+select ok(not public.is_clean('a$$'), 'and so do symbols');
+select ok(not public.is_clean('4ss'), 'a digit before letters too');
+select ok(not public.is_clean('5h1t'), 'and digits between them');
+select ok(not public.is_clean('@$$'), 'symbols with no digit stand for letters by themselves');
 select ok(not public.is_clean('8a55 shit2'), 'a digit that stands for no letter still ends a word');
 select ok(not public.is_clean('sh1t 455'), 'a number next to a word doesn''t clear the word');
 select ok(public.is_clean('קראתי עד עמוד 455'), 'Hebrew with a number passes');
