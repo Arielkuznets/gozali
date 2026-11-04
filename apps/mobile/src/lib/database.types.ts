@@ -1171,6 +1171,7 @@ export type Database = {
           total: number;
         }[];
       };
+      feed_uses_photo: { Args: { photo: string }; Returns: boolean };
       fold_pending_settings: { Args: { pack_date: string; target: string }; Returns: undefined };
       forget_photos: { Args: { feed_ids: string[] }; Returns: undefined };
       forget_push_token: { Args: { device_token: string }; Returns: undefined };

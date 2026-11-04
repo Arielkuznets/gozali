@@ -129,6 +129,14 @@ check((await reportMember(eve.client, eve.id)).error !== null, "Eve, who is not 
 const { data: reports } = await dan.client.from('reports').select('id, feed_id, member_id');
 check(reports?.length === 2, 'Dan has one report on each');
 
+// A posted photo can't change, so the photo Dan reported is the one the developer opens.
+const removed = await noa.client.storage.from('feed-photos').remove([path]);
+check(removed.data?.length === 0, "Noa can't delete the photo of her feed");
+const swapped = await noa.client.storage.from('feed-photos').upload(path, photo, { contentType: 'image/jpeg' });
+check(swapped.error !== null, 'so nothing takes its place under the same name');
+const unused = await noa.client.storage.from('feed-photos').remove([second]);
+check(unused.data?.length === 1, 'while an upload the server turned down is hers to remove');
+
 // The same call the report trigger makes through pg_net where the Vault holds the function's address.
 // A stack without a mail key answers 503, which the owners' summary counts as a failure.
 for (const report of reports) {
