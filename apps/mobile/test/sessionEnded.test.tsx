@@ -40,6 +40,7 @@ jest.mock('expo-file-system', () => {
 jest.mock('expo-image-manipulator', () => ({}));
 jest.mock('@react-native-community/netinfo', () => ({
   fetch: async () => ({ isConnected: true, isInternetReachable: true }),
+  addEventListener: () => () => undefined,
 }));
 
 // What the iOS widgets read, and how often they were told to redraw.
