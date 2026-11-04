@@ -96,6 +96,40 @@ async function goOffline(page: import('@playwright/test').Page) {
   }
 }
 
+test("the offline banner sits above a pack's top buttons, not over them", async ({ context, page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' });
+  // NetInfo on the web listens to the browser's NetworkInformation object when there is one, and
+  // Chromium never tells that object about setOffline; without it NetInfo hears offline and online.
+  await page.addInitScript(() =>
+    Object.defineProperty(Navigator.prototype, 'connection', { get: () => undefined, configurable: true }),
+  );
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+  await expect(page.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
+
+  await context.setOffline(true);
+  const banner = page.getByText("You're offline", { exact: false });
+  await expect(banner).toBeVisible();
+  const covered = async () => {
+    const box = (await banner.locator('..').boundingBox())!;
+    const names: string[] = [];
+    for (const name of ['Back', 'Invite', 'Settings']) {
+      const button = (await page.getByRole('button', { name, exact: true }).boundingBox())!;
+      const across = Math.min(box.x + box.width, button.x + button.width) - Math.max(box.x, button.x);
+      const down = Math.min(box.y + box.height, button.y + button.height) - Math.max(box.y, button.y);
+      if (across > 0 && down > 0) names.push(name);
+    }
+    return names;
+  };
+  expect(await covered()).toEqual([]);
+
+  // Text twice its size, as far as the phone's largest setting takes a caption.
+  await page.addStyleTag({ content: 'div[dir=auto]{zoom:2}' });
+  await expect(banner).toBeVisible();
+  expect(await covered()).toEqual([]);
+  await context.setOffline(false);
+});
+
 test('opening the app without a connection shows the packs it last had', async ({ page }) => {
   await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' });
   await signIn(page, noa);

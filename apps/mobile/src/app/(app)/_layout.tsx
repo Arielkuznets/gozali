@@ -27,6 +27,8 @@ export default function AppLayout() {
   useNotificationRoutes();
   return (
     <View style={styles.fill}>
+      {/* Above the screens, which move down while it shows. */}
+      <OfflineBanner />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
         {/* First, because finishing the profile setup opens the first screen listed here. */}
         <Stack.Screen name="index" />
@@ -38,7 +40,6 @@ export default function AppLayout() {
         />
         <Stack.Screen name="pack/[id]/not-today" options={{ presentation: 'modal' }} />
       </Stack>
-      <OfflineBanner />
     </View>
   );
 }
