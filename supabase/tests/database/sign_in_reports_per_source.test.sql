@@ -2,7 +2,7 @@
 -- headers; others still get through, and the address itself isn't kept.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(7);
+select plan(8);
 
 -- Cloudflare's CF-Connecting-IP is the caller's address; X-Forwarded-For is whatever the caller sent.
 create function pg_temp.report_from(address text, times integer) returns void language plpgsql as $$
@@ -69,6 +69,27 @@ select is(
   (select count(*) from public.app_errors where screen = 'sign-in' and message like '%from 192.0.2.50'),
   4::bigint,
   'and the eleventh report from that address is dropped'
+);
+
+-- The caller picks the time zone of its request (Prefer: timezone), and a half-hour one starts its
+-- hours half an hour apart. The hour of a report is the same in all of them.
+set local role anon;
+do $$
+declare
+  zone text;
+begin
+  foreach zone in array array['UTC', 'Asia/Kolkata', 'America/New_York'] loop
+    perform set_config('timezone', zone, true);
+    perform pg_temp.report_from('203.0.113.99', 4);
+  end loop;
+end;
+$$;
+reset role;
+set local timezone to default;
+select is(
+  (select count(*) from public.app_errors where screen = 'sign-in' and message like '%from 203.0.113.99'),
+  10::bigint,
+  'one address gets ten reports in, whatever time zone each one names'
 );
 
 -- Without Cloudflare's header (a local stack) only the app-wide cap applies.
