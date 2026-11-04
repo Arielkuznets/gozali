@@ -127,10 +127,10 @@ npx supabase db query --linked "insert into public.outages (starts_at, ends_at, 
 
 Plan limits: the summary adds "📦 612 MB of files (free plan: 1 GB)" once this project's stored files reach 500 MB. Egress and database size can't be read that way: they show only on the organization's Usage page, so look there every week. Supabase's own notice goes to the billing email and only after a quota is passed, so make sure that is an address you read. When the line shows up, the choice is Pro or keeping less. After a move to Pro, change the line in `summaryLine` (`supabase/functions/send-push/messages.ts`) or it shows every evening.
 
-Is the server doing its jobs? The last closed day of every pack (a pack more than a day behind means close-days is failing for it), scheduled jobs that failed, and function calls that didn't answer 200, over the last day. Those calls are what the summary counts as server errors: every five minutes they are copied into `service_errors`, with the error or the start of the answer in `detail`, and kept there 30 days, while `net._http_response`, where pg_net writes the answers, keeps only 6 hours.
+Is the server doing its jobs? The first query lists the packs behind on closing days, the ones the summary's ⏰ line counts, each with the first day it hasn't closed: that day should have closed over an hour ago, so close-days is failing for that pack. A pack no friend has joined yet closes no days, and neither does one everyone left, so neither is ever behind. The other two list scheduled jobs that failed and function calls that didn't answer 200, over the last day. Those calls are what the summary counts as server errors: every five minutes they are copied into `service_errors`, with the error or the start of the answer in `detail`, and kept there 30 days, while `net._http_response`, where pg_net writes the answers, keeps only 6 hours.
 
 ```sh
-npx supabase db query --linked "select p.name, max(r.day) as last_closed from packs p left join day_results r on r.pack_id = p.id group by p.name order by 2 nulls first"
+npx supabase db query --linked "select p.name, t.pack_id, t.next_day from public.packs_to_close(now() - interval '1 hour') t join public.packs p on p.id = t.pack_id order by t.next_day"
 npx supabase db query --linked "select jobid, status, return_message, start_time from cron.job_run_details where status <> 'succeeded' and start_time > now() - interval '1 day'"
 npx supabase db query --linked "select at, status, detail from public.service_errors where at > now() - interval '1 day' order by at desc"
 ```
