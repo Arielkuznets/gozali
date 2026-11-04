@@ -19,6 +19,9 @@ function hasFailedRead(queryClient: QueryClient): boolean {
   return queryClient.getQueryCache().getAll().some((query) => query.isActive() && query.state.fetchFailureCount > 0);
 }
 
+/** As long as the profile may keep someone on the splash (app/_layout.tsx). */
+const SESSION_LIMIT_MS = 8000;
+
 type AuthState = { session: Session | null; loading: boolean };
 
 const AuthContext = createContext<AuthState>({ session: null, loading: true });
@@ -37,11 +40,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void Promise.all([storedSession(), clockRestored]).then(([stored]) => {
       if (!answered && stored && hasExpired(stored)) setState({ session: stored, loading: false });
     });
-    void supabase.auth.getSession().then(async ({ data, error }) => {
-      answered = true;
-      const session = data.session ?? (isAuthRetryableFetchError(error) ? await storedSession() : null);
-      setState({ session, loading: false });
-    });
+    void supabase.auth.getSession().then(
+      async ({ data, error }) => {
+        answered = true;
+        const session = data.session ?? (isAuthRetryableFetchError(error) ? await storedSession() : null);
+        setState({ session, loading: false });
+      },
+      // Storage that refuses to read the session makes getSession fail, and nothing else would end
+      // the splash. What can still be read of the session opens the app, or else sign-in.
+      async () => {
+        answered = true;
+        setState({ session: await storedSession(), loading: false });
+      },
+    );
+    // A read of the session that never answers would keep the splash up too. A late answer still
+    // sets the real session.
+    const limit = setTimeout(() => setState((current) => (current.loading ? { session: null, loading: false } : current)), SESSION_LIMIT_MS);
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       // Asked at every change, so what went out signed out says nothing about a later refresh.
       const tokenless = tookTokenlessRequest();
@@ -62,7 +76,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (event === 'INITIAL_SESSION' && !session) return;
       setState({ session, loading: false });
     });
-    return () => data.subscription.unsubscribe();
+    return () => {
+      clearTimeout(limit);
+      data.subscription.unsubscribe();
+    };
   }, [queryClient]);
 
   return <AuthContext.Provider value={state}>{children}</AuthContext.Provider>;

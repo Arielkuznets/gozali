@@ -82,6 +82,17 @@ const answersAfter =
 
 let network: Network;
 
+/** A key whose read the phone refuses, or never answers, as a storage that has failed. */
+let unreadable: { key: string; kind: 'refused' | 'unanswered' } | null = null;
+const storage = AsyncStorage as unknown as { __INTERNAL_MOCK_STORAGE__: Record<string, string> };
+jest.mocked(AsyncStorage.getItem).mockImplementation(async (key: string) => {
+  if (unreadable?.key === key) {
+    if (unreadable.kind === 'refused') throw new Error('Database Error');
+    return new Promise<string | null>(() => undefined);
+  }
+  return storage.__INTERNAL_MOCK_STORAGE__[key] ?? null;
+});
+
 let renderer: typeof import('react-test-renderer');
 let app: ReactTestRenderer;
 /** Everything that was on screen since the app started. */
@@ -111,6 +122,16 @@ async function start({ session }: { session: 'good' | 'expired' | 'none' }) {
     await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(sessionOf(expires)));
   }
   jest.resetModules();
+  if (unreadable?.kind === 'refused') {
+    // auth-js hands each new listener the session by itself, and lets a refused read of it go
+    // uncaught. A phone only warns about that; Jest fails the test, so it is caught here.
+    const { GoTrueClient } = jest.requireActual<typeof import('@supabase/auth-js')>('@supabase/auth-js');
+    const client = GoTrueClient.prototype as unknown as { _emitInitialSession: (id: string) => Promise<void> };
+    const emit = client._emitInitialSession;
+    client._emitInitialSession = function (this: unknown, id: string) {
+      return emit.call(this, id).catch(() => undefined);
+    };
+  }
   renderer = jest.requireActual<typeof import('react-test-renderer')>('react-test-renderer');
   const { createElement } = jest.requireActual<typeof import('react')>('react');
   const { default: RootLayout } = jest.requireActual<typeof import('@/app/_layout')>('@/app/_layout');
@@ -139,6 +160,7 @@ beforeEach(async () => {
   mockHideSplash.mockClear();
   shown = new Set();
   network = answersAfter(50);
+  unreadable = null;
 });
 
 afterEach(async () => {
@@ -267,5 +289,25 @@ describe('a start with the profile kept on the phone', () => {
     await advance(9000);
 
     expect([...shown]).toEqual(['the app']);
+  });
+});
+
+describe("a start where the phone can't read the session", () => {
+  it('leaves the splash when the read is refused', async () => {
+    unreadable = { key: AUTH_STORAGE_KEY, kind: 'refused' };
+    await start({ session: 'good' });
+    await advance(10_000);
+
+    expect(onScreen()).toBe('the app');
+  });
+
+  it('leaves the splash after 8 s when the read never answers', async () => {
+    unreadable = { key: AUTH_STORAGE_KEY, kind: 'unanswered' };
+    await start({ session: 'good' });
+
+    await advance(7900);
+    expect(onScreen()).toBe('splash');
+    await advance(200);
+    expect(onScreen()).toBe('the app');
   });
 });
