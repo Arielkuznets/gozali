@@ -501,6 +501,34 @@ test.describe('a member on a pause', () => {
     await expect(page.getByRole('button', { name: 'Feed', exact: true })).toBeVisible();
     await expect(page.getByText(onPause, { exact: false })).toBeHidden();
   });
+
+  test('is asked before End pause ends it for good, and Cancel keeps it', async ({ page }) => {
+    const pack = await pausedPack();
+    const today = packDayOf(new Date(), 'Asia/Jerusalem');
+    // Three days in, the first day a running pause can end.
+    await admin.from('pauses').update({ starts_on: addDays(today, -3) }).eq('pack_id', pack.id);
+    const asked: string[] = [];
+    let yes = false;
+    page.on('dialog', (dialog) => {
+      asked.push(dialog.message());
+      void (yes ? dialog.accept() : dialog.dismiss());
+    });
+    await signIn(page, noa);
+    await page.goto(`/pack/${pack.id}/settings`);
+    const end = page.getByRole('button', { name: 'End pause' });
+
+    await end.click();
+    await expect.poll(() => asked).toEqual([expect.stringContaining('You count again from today')]);
+    await expect(end).toBeVisible();
+    const kept = await admin.from('pauses').select('ends_on').eq('pack_id', pack.id).single();
+    expect(kept.data?.ends_on).toBe(addDays(today, 5));
+
+    yes = true;
+    await end.click();
+    await expect(page.getByText('Your next pause can start after', { exact: false })).toBeVisible();
+    const ended = await admin.from('pauses').select('ends_on').eq('pack_id', pack.id).single();
+    expect(ended.data?.ends_on).toBe(addDays(today, -1));
+  });
 });
 
 test.describe('new rest days in a pack of one', () => {

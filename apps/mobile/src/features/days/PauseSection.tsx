@@ -26,6 +26,10 @@ export function PauseSection({ packId }: { packId: string }) {
   const day = status.data;
   if (!day) return null;
 
+  const pause = day.pause;
+  const upcoming = pause !== null && pause.startsOn > day.day;
+  const canEnd = pause !== null && (upcoming || canEndPause(pause.startsOn, day.day));
+
   const onStart = (days: number) => {
     confirm({
       title: t('days.pauseConfirm', { count: days }),
@@ -39,7 +43,7 @@ export function PauseSection({ packId }: { packId: string }) {
       title: t('days.pauseHowLong'),
       actions: PAUSE_LENGTHS.map((days) => ({ label: lengthLabel(days, t), onPress: () => onStart(days) })),
     });
-  const onEnd = () => {
+  const end = () => {
     if (ending.current) return;
     ending.current = true;
     endPause.mutate(undefined, {
@@ -48,10 +52,18 @@ export function PauseSection({ packId }: { packId: string }) {
       },
     });
   };
-
-  const pause = day.pause;
-  const upcoming = pause !== null && pause.startsOn > day.day;
-  const canEnd = pause !== null && (upcoming || canEndPause(pause.startsOn, day.day));
+  // A pause that hasn't started goes with nothing lost. A running one can't be taken back, and the
+  // next can't start for 30 days.
+  const onEnd = () =>
+    upcoming
+      ? end()
+      : confirm({
+          title: t('days.endPauseConfirm'),
+          message: t('days.endPauseBody'),
+          confirm: t('days.endPause'),
+          cancel: t('settings.cancel'),
+          onConfirm: end,
+        });
 
   return (
     <View style={styles.card}>

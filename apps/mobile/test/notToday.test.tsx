@@ -5,7 +5,7 @@ import '@/i18n';
 import NotTodayScreen from '@/app/(app)/pack/[id]/not-today';
 import { Button } from '@/components/Button';
 import { PauseSection } from '@/features/days/PauseSection';
-import { notify } from '@/lib/confirm';
+import { confirm, notify } from '@/lib/confirm';
 
 // The real screen, hooks and query client; only the server stands in, and takes a moment to answer.
 const mockGoBack = jest.fn();
@@ -18,7 +18,7 @@ jest.mock('expo-router', () => ({
   useNavigation: () => ({ isFocused: () => true }),
 }));
 jest.mock('@/lib/navigation', () => ({ goBack: (...args: unknown[]) => mockGoBack(...args) }));
-jest.mock('@/lib/confirm', () => ({ notify: jest.fn() }));
+jest.mock('@/lib/confirm', () => ({ confirm: jest.fn(), notify: jest.fn() }));
 jest.mock('@/lib/supabase', () => ({ requireSupabase: () => ({ rpc: (...args: unknown[]) => mockRpc(...args) }) }));
 jest.mock('@/features/packs/api', () => ({ usePack: () => ({ data: { id: 'pack', timezone: 'UTC' } }) }));
 
@@ -43,6 +43,8 @@ beforeEach(async () => {
   pass = null;
   pause = null;
   jest.mocked(notify).mockReset();
+  // Yes to every question, unless a test says otherwise.
+  jest.mocked(confirm).mockReset().mockImplementation(({ onConfirm }) => onConfirm());
   mockGoBack.mockReset();
   mockRpc.mockReset().mockImplementation((name: string) => {
     if (name === 'use_day_pass') pass = 'rest';
@@ -101,6 +103,41 @@ describe('End pause tapped twice before the button can turn off', () => {
 
     expect(mockRpc.mock.calls.filter(([name]) => name === 'end_pause')).toHaveLength(1);
     expect(notify).not.toHaveBeenCalled();
+  });
+});
+
+describe('End pause', () => {
+  const endCalls = () => mockRpc.mock.calls.filter(([name]) => name === 'end_pause');
+
+  it('asks first on a running pause, and Cancel keeps it', async () => {
+    pause = { startsOn: '2026-10-20', endsOn: '2026-12-01' };
+    jest.mocked(confirm).mockImplementation(() => undefined);
+    await open(<PauseSection packId="pack" />);
+
+    await act(async () => buttons('End pause')[0]!.props.onPress());
+    await advance(ANSWER_MS + 1);
+
+    expect(jest.mocked(confirm).mock.calls).toEqual([
+      [
+        expect.objectContaining({
+          title: 'End your pause now?',
+          message: 'You count again from today, and your next pause can start in 30 days.',
+        }),
+      ],
+    ]);
+    expect(endCalls()).toHaveLength(0);
+    expect(buttons('End pause')).toHaveLength(1);
+  });
+
+  it('cancels a pause that has not started with one tap', async () => {
+    pause = { startsOn: '2026-11-02', endsOn: '2026-11-10' };
+    jest.mocked(confirm).mockImplementation(() => undefined);
+    await open(<PauseSection packId="pack" />);
+
+    await act(async () => buttons('Cancel pause')[0]!.props.onPress());
+
+    expect(confirm).not.toHaveBeenCalled();
+    expect(endCalls()).toHaveLength(1);
   });
 });
 

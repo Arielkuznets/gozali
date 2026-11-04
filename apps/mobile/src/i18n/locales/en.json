@@ -576,6 +576,8 @@
     "pausedUntil": "Paused until {{date}}.",
     "pauseStarts": "Your pause runs from {{date}} to {{end}}.",
     "endPause": "End pause",
+    "endPauseConfirm": "End your pause now?",
+    "endPauseBody": "You count again from today, and your next pause can start in 30 days.",
     "cancelPause": "Cancel pause",
     "pauseAvailableFrom": "Your next pause can start after {{date}}.",
     "errors": {
