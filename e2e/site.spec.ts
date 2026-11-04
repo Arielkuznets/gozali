@@ -58,6 +58,19 @@ test('the support page tells someone without the app how to have the account del
   const deletion = /<li><strong>Deleting your account:<\/strong>(.*?)<\/li>/.exec(page('support/index.html'))?.[1];
   expect(deletion).toContain('Settings → Delete account');
   expect(deletion).toContain('hello@gozali.app');
+  // Only the account's own address can have it deleted, and an Apple account that hid its email
+  // holds an address its owner has to look up.
+  expect(deletion).toMatch(/confirm/i);
+  expect(deletion).toContain('Hide My Email');
+});
+
+test('the privacy policy says how a deletion by email is confirmed', () => {
+  const { status, stderr } = build(FINGERPRINT);
+  expect(status, stderr).toBe(0);
+  const rights = /<h2>Your rights<\/h2>\n<p>(.*?)<\/p>/.exec(page('privacy/index.html'))?.[1];
+  expect(rights).toContain('hello@gozali.app');
+  expect(rights).toMatch(/confirm/i);
+  expect(rights).toContain('Hide My Email');
 });
 
 test('the real fingerprint goes into the file Android reads', () => {

@@ -6,7 +6,7 @@ Gozali is an app where a small group of friends (a "pack") raises a shared pet b
 
 ## What we collect
 
-- **Account:** when you sign in with Apple or Google we receive an account identifier, your email address and, if the provider shares it, your name. Apple may give us a private relay email instead of your real one.
+- **Account:** when you sign in with Apple or Google we receive an account identifier, your email address and, if the provider shares it, your name. If you choose Hide My Email, Apple gives us a private relay address instead of your real one.
 - **Profile:** the display name you choose, a profile photo if you add one, your time zone and language (so days, reminders and quiet hours match your clock), your evening reminder time and which notifications you want.
 - **What you do in packs:** the packs you create or join, your photos, their captions and time, focus session lengths, rest days, jokers and pauses you take, reactions, nudges, name suggestions and changes to the pet's outfit.
 - **Safety:** reports you send and people you block. A block also reaches the developer, as a report on the person you blocked.
@@ -50,7 +50,7 @@ They process data only to provide these services to Gozali.
 
 ## Your rights
 
-You can see and change your profile in the app, and delete your account from Settings ("How long we keep it" says what that removes and what stays for a while). If you no longer have the app, write to hello@gozali.app with the email address you signed in with, and we will delete the account the same way within 30 days. You can also ask us there for a copy of your data or to correct it, and we will answer within 30 days. If you live in the European Union or the UK, you may also complain to your data protection authority. The data is stored in the European Union (Ireland), apart from the backups and report emails, which the developer keeps outside it.
+You can see and change your profile in the app, and delete your account from Settings ("How long we keep it" says what that removes and what stays for a while). If you no longer have the app, write to hello@gozali.app from the email address you signed in with, or, if you signed in with Apple and chose Hide My Email, give the address Apple made for Gozali (on an iPhone or iPad: Settings → your name → Sign in with Apple → Gozali). We write to that address to confirm the request is yours, and within 30 days of your answer we delete the account and everything the app's deletion removes. You can also ask us there for a copy of your data or to correct it, confirmed the same way, and we will answer within 30 days. If you live in the European Union or the UK, you may also complain to your data protection authority. The data is stored in the European Union (Ireland), apart from the backups and report emails, which the developer keeps outside it.
 
 ## Age
 

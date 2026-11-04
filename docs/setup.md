@@ -140,6 +140,15 @@ Errors from members' phones (screens that failed to draw, JavaScript errors that
 npx supabase db query --linked "select created_at, platform, app_version, screen, message from app_errors order by created_at desc limit 50"
 ```
 
+Someone without the app can ask at hello@gozali.app to have their account deleted, for a copy of their data or for a correction. The privacy policy promises each within 30 days, a deletion within 30 days of their answer to your confirmation. Only the account's own address can ask, so whatever a mail says, act on it only once that address confirms:
+
+1. Find the account in Auth → Users by the address. An account made with Sign in with Apple and Hide My Email holds an address ending in `@privaterelay.appleid.com`, which the person reads on an iPhone under Settings → their name → Sign in with Apple → Gozali; the address they write from is nowhere in the project.
+2. Write to the account's address and ask them to answer to confirm. Apple's relay passes mail on only from senders the developer registered, and bounces the rest: once, in the Apple Developer account under Certificates, Identifiers & Profiles → Services → Sign in with Apple for Email Communication → Configure, add the address you write from to Email Sources.
+3. Once a deletion is confirmed, delete the files first, as the app does: in the SQL editor, `select public.account_photo_paths('<user id>')` lists the photos, each under its pack's folder in Storage → feed-photos, in a folder named for the user id. Delete them there, and the folder named for the user id in Storage → avatars.
+4. Then delete the user in Auth → Users. The profile, memberships, feeds, reactions, passes and tokens go with it, and an admin's role passes to the longest-standing member who plays.
+
+Nothing takes a deletion back: a restore goes only into an empty project.
+
 A release goes out in this order, after a check that the alerts still reach someone: `npx supabase db query --linked "select count(*) from public.app_owners"` answers 1 or more.
 
 1. `npx supabase functions deploy on-report`. It reads a report as the server gives it before the migrations and after them, and the one in place may not: the on-report of build 4 fails on a report about a member, which every block makes once the migrations are in, and that email is lost.

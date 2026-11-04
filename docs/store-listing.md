@@ -62,7 +62,7 @@ What the app collects (see docs/legal/privacy-policy.md). No tracking, no ads, n
 
 Data is encrypted in transit, and users can delete their account inside the app (Settings → Delete account). That removes the account and its data right away, apart from what the privacy policy lists: copies in the daily backups on the developer's computer, outside the EU, for about 14 days (the 14 newest are kept), the account id in the packs' past results, the name or account id in records of notifications sent to others for up to 30 days, the sign-in service's security log, and report emails. Photos are deleted after 30 days (a photo in a weekly recap collage 8 weeks after that week). A reported photo reaches the developer by email, through a link that works for 7 days.
 
-Google Play's form also asks for a web link where people can ask for their account to be deleted, and a page that only sends them back to the app doesn't count. Give `https://gozali.app/support`: its "Deleting your account" line tells someone without the app to write to hello@gozali.app, and the developer then deletes the account within 30 days.
+Google Play's form also asks for a web link where people can ask for their account to be deleted, and a page that only sends them back to the app doesn't count. Give `https://gozali.app/support`: its "Deleting your account" line tells someone without the app to write to hello@gozali.app from the address they signed in with, or to give their Hide My Email address, and the developer confirms through that address and deletes the account within 30 days of the answer (docs/setup.md, section 5).
 
 ## Notes for Apple's review
 
