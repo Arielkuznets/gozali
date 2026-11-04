@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { Modal } from 'react-native';
 
@@ -41,5 +42,12 @@ describe('the menu of a photo on the whole screen', () => {
 
   it('is not offered on your own photo', () => {
     expect(more(viewer({ ...photo, userId: 'noa' }))).toHaveLength(0);
+  });
+});
+
+describe('a photo on the whole screen', () => {
+  // As big as a member could make it, it would be decoded at its full size on iOS.
+  it('is decoded at the size of the screen', () => {
+    expect(viewer(photo).root.findByType(Image).props.enforceEarlyResizing).toBe(true);
   });
 });

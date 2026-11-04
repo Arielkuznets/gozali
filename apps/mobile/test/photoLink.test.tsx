@@ -2,6 +2,7 @@ import { Image } from 'expo-image';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import '@/i18n';
+import { MemberCircles } from '@/components/MemberCircles';
 import type { FeedItem } from '@/features/feeds/api';
 import { FeedList } from '@/features/feeds/FeedList';
 
@@ -97,5 +98,27 @@ describe('a card with no link', () => {
 
   test('gives no reason when only the file is missing, at any age', () => {
     expect(card(null, PATH)).not.toContain(KEPT);
+  });
+});
+
+// iOS decodes a photo at its full size unless it is told the size of its view first, and anyone in a
+// pack can post a photo with more pixels than a phone has memory for.
+describe("another member's photo", () => {
+  test('is decoded at the size of its feed card', () => {
+    let tree!: ReactTestRenderer;
+    act(() => {
+      tree = create(list('https://s/photo?token=first'));
+    });
+
+    expect(photo(tree).enforceEarlyResizing).toBe(true);
+  });
+
+  test('is decoded at the size of its member circle', () => {
+    let tree!: ReactTestRenderer;
+    act(() => {
+      tree = create(<MemberCircles members={[{ id: 'dan', name: 'Dan', state: 'fed', avatarUrl: 'https://s/dan.jpg?token=a' }]} color="#000" />);
+    });
+
+    expect(photo(tree).enforceEarlyResizing).toBe(true);
   });
 });

@@ -40,6 +40,8 @@ export function PhotoViewer({ photo, onClose }: { photo: ViewedPhoto | null; onC
                 style={styles.fill}
                 contentFit="contain"
                 accessibilityLabel={photo.caption ?? t('feed.photoBy', { name: photo.name })}
+                // A photo's pixels have no limit, and iOS would decode them all first (SignedPhoto).
+                enforceEarlyResizing
               />
             </Pressable>
           </ScrollView>

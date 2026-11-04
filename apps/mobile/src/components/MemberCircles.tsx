@@ -59,6 +59,8 @@ export function MemberCircles({ members, color, onNudge, onMenu }: Props) {
                   style={[styles.avatar, member.state === 'pass' && styles.faded]}
                   contentFit="cover"
                   transition={200}
+                  // A profile photo's pixels have no limit, and iOS would decode them all first.
+                  enforceEarlyResizing
                 />
               ) : (
                 <AppText style={[styles.initial, member.state === 'fed' && { color: onFill }]}>{resting ? '💤' : initial(member.name)}</AppText>
