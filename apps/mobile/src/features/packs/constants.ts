@@ -51,11 +51,23 @@ export function normalizeInviteCode(input: string): string {
   return input.toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g, '').slice(0, INVITE_CODE_LENGTH);
 }
 
+/** A whole code, maybe split in the middle, as people write one. */
+const CODE_SHAPE = '[a-hj-np-z2-9]{4}[- ]?[a-hj-np-z2-9]{4}(?![a-z0-9])';
+
 /**
  * The code in what someone pasted: the invite message and the link carry it after "/i/" or
- * "Code:", and the letters of the rest would make a wrong code. Anything else is the code itself.
+ * "Code:", a friend may write it among words of their own, and the letters of the rest would make
+ * a wrong code. Anything else is the code itself.
  */
 export function inviteCodeFrom(input: string): string {
-  const found = /gozali(?:\.app|:\/)\/i\/([a-z0-9-]+)/i.exec(input) ?? /\bcode:\s*([a-z0-9-]+)/i.exec(input);
-  return normalizeInviteCode(found?.[1] ?? input);
+  // Full-width letters and digits, as East Asian keyboards type them, become the plain ones.
+  const text = input.normalize('NFKC');
+  const found =
+    /gozali(?:\.app|:\/)\/i\/([a-z0-9-]+)/i.exec(text) ?? new RegExp(`\\bcode\\s*[:=]\\s*(${CODE_SHAPE})`, 'i').exec(text);
+  if (found) return normalizeInviteCode(found[1]!);
+  // An English word can be made of the code's letters too (STRENGTH), so a word with a digit wins,
+  // and the last word otherwise, as in "my code is ...".
+  const words = [...text.matchAll(new RegExp(`(?:^|[^a-z0-9])(${CODE_SHAPE})`, 'gi'))].map((match) => match[1]!);
+  const word = words.findLast((candidate) => /[2-9]/.test(candidate)) ?? words.at(-1);
+  return normalizeInviteCode(word ?? /\bcode\s*[:=]\s*([a-z0-9-]+)/i.exec(text)?.[1] ?? text);
 }

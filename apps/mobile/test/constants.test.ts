@@ -25,9 +25,28 @@ describe('invite codes', () => {
     expect(inviteCodeFrom('Code: abcd-2345')).toBe('ABCD2345');
   });
 
+  it('finds a code written in somebody\'s own words', () => {
+    expect(inviteCodeFrom('Code KPQR5678')).toBe('KPQR5678');
+    expect(inviteCodeFrom('my code is KPQR5678')).toBe('KPQR5678');
+    expect(inviteCodeFrom('Join us! kpqr 5678 :)')).toBe('KPQR5678');
+    expect(inviteCodeFrom('code=KPQR5678')).toBe('KPQR5678');
+    expect(inviteCodeFrom('CODE : KPQR-5678')).toBe('KPQR5678');
+    expect(inviteCodeFrom('gozali://join?code=KPQR5678')).toBe('KPQR5678');
+  });
+
+  it('reads a code typed in full-width characters', () => {
+    expect(inviteCodeFrom('ＫＰＱＲ５６７８')).toBe('KPQR5678');
+  });
+
+  it('takes a word with a digit over an English word of the same letters, and the last word otherwise', () => {
+    expect(inviteCodeFrom('KPQR5678 is for the STRENGTH squad')).toBe('KPQR5678');
+    expect(inviteCodeFrom('strength squad: WXYZABCD')).toBe('WXYZABCD');
+  });
+
   it('reads anything else as the code itself', () => {
     expect(inviteCodeFrom(' abcd 2345 ')).toBe('ABCD2345');
     expect(inviteCodeFrom('ABC')).toBe('ABC');
+    expect(inviteCodeFrom('Code: ABCD234')).toBe('ABCD234');
   });
 });
 
