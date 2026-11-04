@@ -3,7 +3,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams } from 'expo-router';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
@@ -76,6 +76,8 @@ function JoinForm({ linkCode }: { linkCode: string }) {
               placeholder={t('join.codePlaceholder')}
               autoCapitalize="characters"
               autoCorrect={false}
+              // Latin keys whatever the phone's layout: a Hebrew one types letters no code has.
+              keyboardType={Platform.OS === 'ios' ? 'ascii-capable' : Platform.OS === 'android' ? 'visible-password' : undefined}
               value={code}
               onChangeText={(text) => setCode(inviteCodeFrom(text))}
               returnKeyType="join"

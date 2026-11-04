@@ -991,6 +991,24 @@ describe('a join link with the code in it twice', () => {
   });
 });
 
+describe('the code field on the join screen', () => {
+  // A code is Latin letters and digits, which a Hebrew layout's letter keys don't type.
+  it.each([
+    ['ios', 'ascii-capable'],
+    ['android', 'visible-password'],
+  ] as const)('asks %s for a keyboard with Latin letters', async (os, keyboard) => {
+    const platform = jest.replaceProperty(Platform, 'OS', os);
+    try {
+      await start('/');
+      await open('/join');
+
+      expect(app.root.findByType(TextInput).props.keyboardType).toBe(keyboard);
+    } finally {
+      platform.restore();
+    }
+  });
+});
+
 describe('a code the server turns down for this member', () => {
   beforeEach(() => {
     // The app's own retries, which a refusal that can't change must not wait for.
