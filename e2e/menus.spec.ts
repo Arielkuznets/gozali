@@ -1,6 +1,18 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { admin, createPack, createUser, feed, layOutTextLikeAPhone, photo, removeUsers, setClock, signIn, type TestUser } from './support';
+import {
+  admin,
+  createPack,
+  createUser,
+  feed,
+  layOutTextLikeAPhone,
+  photo,
+  removeUsers,
+  setClock,
+  signIn,
+  signInElsewhere,
+  type TestUser,
+} from './support';
 
 let noa: TestUser;
 let dan: TestUser;
@@ -511,4 +523,47 @@ test('the profile photo menu adds and removes a photo', async ({ page }) => {
   await expect(page.getByText('Add a photo')).toBeVisible();
   const { data: profile } = await admin.from('profiles').select('avatar_path').eq('id', noa.id).single();
   expect(profile?.avatar_path).toBeNull();
+});
+
+/** Picks a profile photo from the library, through the menu of the photo on the screen. */
+async function choosePhoto(page: Page, picture: Buffer): Promise<void> {
+  await page.getByRole('button', { name: 'Profile photo' }).click();
+  const chooser = page.waitForEvent('filechooser');
+  await page.getByRole('menuitem', { name: 'Choose from library' }).click();
+  await (await chooser).setFiles({ name: 'me.jpg', mimeType: 'image/jpeg', buffer: picture });
+}
+
+const photoFiles = async (member: TestUser) => ((await admin.storage.from('avatars').list(member.id)).data ?? []).map((file) => file.name);
+
+test('removing the photo on a phone that missed a change removes the photo in use', async ({ browser, page }) => {
+  const first = await photo(page, '🙂');
+  const second = await photo(page, '😎');
+  answerDialogs(page);
+  await signIn(page, noa);
+  await page.goto('/me');
+  await choosePhoto(page, first);
+  await expect.poll(() => photoFiles(noa)).toHaveLength(1);
+  const before = await photoFiles(noa);
+
+  // The same account on a second phone, which read the profile before the change and hears nothing of it.
+  const { data } = await (await signInElsewhere(noa)).auth.getSession();
+  const secondPhone = await browser.newContext({ baseURL: new URL(page.url()).origin });
+  const other = await secondPhone.newPage();
+  answerDialogs(other);
+  await signIn(other, { ...noa, session: data.session! });
+  await other.goto('/me');
+  await expect(other.getByText('Change photo')).toBeVisible();
+
+  await choosePhoto(page, second);
+  await expect.poll(() => photoFiles(noa)).not.toEqual(before);
+  await expect.poll(() => photoFiles(noa)).toHaveLength(1);
+
+  await other.getByRole('button', { name: 'Profile photo' }).click();
+  await other.getByRole('menuitem', { name: 'Remove photo' }).click();
+  await expect(other.getByText('Add a photo')).toBeVisible();
+
+  await expect.poll(() => photoFiles(noa)).toEqual([]);
+  const { data: profile } = await admin.from('profiles').select('avatar_path').eq('id', noa.id).single();
+  expect(profile?.avatar_path).toBeNull();
+  await secondPhone.close();
 });

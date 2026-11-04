@@ -62,7 +62,10 @@ export function useSetAvatar() {
         const upload = await supabase.storage.from(BUCKET).upload(path, await bytes(image.uri), { contentType: 'image/jpeg' });
         if (upload.error) throw upload.error;
       }
-      const previous = profile.data?.avatar_path ?? null;
+      // Another phone may have changed the photo since this one read the profile, so the file to remove
+      // is the one the profile points at now. The copy here stands in if that read fails.
+      const current = await supabase.from('profiles').select('avatar_path').eq('id', userId).single();
+      const previous = current.error ? (profile.data?.avatar_path ?? null) : current.data.avatar_path;
       const { error } = await supabase.from('profiles').update({ avatar_path: path }).eq('id', userId);
       if (error) {
         // The profile still points at the old photo; don't leave the new file behind.
