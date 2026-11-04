@@ -201,7 +201,7 @@ async function runOnReport(reportId, resend, { mailEnv = { RESEND_API_KEY: 'rese
   globalThis.fetch = async (target, init) => {
     if (String(target) !== RESEND_URL) return realFetch(target, init);
     mails.push(JSON.parse(init.body));
-    return resend();
+    return resend(init);
   };
   try {
     const answer = await onReport(
@@ -233,6 +233,20 @@ const unreachable = await runOnReport(reportId, () => {
   throw new TypeError('fetch failed');
 });
 check(unreachable.status === 502 && unreachable.body.reportId === reportId, 'and so does a mail that never reached Resend');
+// pg_net gives up on the answer after 60 seconds and keeps only the timeout, which names no report.
+const askedAt = Date.now();
+const unanswered = await runOnReport(
+  reportId,
+  (init) =>
+    new Promise((resolve, reject) => {
+      init.signal?.addEventListener('abort', () => reject(init.signal.reason));
+      setTimeout(() => resolve(Response.json({ id: 'too late' })), 60_000);
+    }),
+);
+check(
+  unanswered.status === 502 && unanswered.body.reportId === reportId && Date.now() - askedAt < 30_000,
+  'and so does a mail Resend never answers, well before pg_net stops waiting',
+);
 const noKey = await runOnReport(reportId, resendTakes, { mailEnv: { REPORT_EMAIL: 'dev@gozali.test' } });
 check(noKey.status === 503 && noKey.body.reportId === reportId && noKey.mails.length === 0, 'without a key it answers 503, naming the report');
 const noAddress = await runOnReport(reportId, resendTakes, { mailEnv: { RESEND_API_KEY: 'resend-key' } });

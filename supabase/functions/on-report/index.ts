@@ -10,6 +10,9 @@ import { hasCronSecret } from '../_shared/secret.ts';
 import { reportEmail, reportedPicture, type Details } from './email.ts';
 
 const PHOTO_LINK_SECONDS = 7 * 24 * 60 * 60;
+// pg_net gives up on the answer after 60 seconds and keeps only the timeout, which names no report,
+// so a send that hangs is given up well before.
+const RESEND_TIMEOUT_MS = 20_000;
 
 function escape(text: string): string {
   return text.replace(/[&<>"']/g, (char) => `&#${char.charCodeAt(0)};`);
@@ -55,6 +58,7 @@ Deno.serve(async (request) => {
         text: lines.join('\n'),
         html: `<pre style="font-family:system-ui">${escape(lines.join('\n'))}</pre>${photo ? `<img src="${photo}" width="360">` : ''}`,
       }),
+      signal: AbortSignal.timeout(RESEND_TIMEOUT_MS),
     });
   } catch (failure) {
     console.error('report email failed', reportId, failure);
