@@ -10,15 +10,15 @@ const UNLOCKED: PackEvent = { id: 'event', kind: 'achievement', actor_id: null, 
 const NEW_ITEM = '🏆 Mochi unlocked One week strong: a new beanie for the wardrobe';
 const NOTHING_NEW = '🏆 Mochi unlocked One week strong';
 
-function textOf(bought: Set<string> | undefined) {
+function textOf(events: PackEvent[], bought?: Set<string>, names = new Map<string, string | null>()) {
   let tree!: ReactTestRenderer;
   act(() => {
     tree = create(
       <FeedList
         feeds={[]}
-        events={[UNLOCKED]}
+        events={events}
         bought={bought}
-        names={new Map()}
+        names={names}
         critterName="Mochi"
         emoji="🐾"
         today="Sun Nov 01 2026"
@@ -34,14 +34,22 @@ function textOf(bought: Set<string> | undefined) {
 
 describe('an achievement in the feed', () => {
   it('brings a new item when the pack never bought it', () => {
-    expect(textOf(new Set(['cap']))).toEqual([NEW_ITEM]);
+    expect(textOf([UNLOCKED], new Set(['cap']))).toEqual([NEW_ITEM]);
   });
 
   it('brings nothing new when the pack bought that item first', () => {
-    expect(textOf(new Set(['beanie']))).toEqual([NOTHING_NEW]);
+    expect(textOf([UNLOCKED], new Set(['beanie']))).toEqual([NOTHING_NEW]);
   });
 
   it('promises nothing new before it is known what the pack bought', () => {
-    expect(textOf(undefined)).toEqual([NOTHING_NEW]);
+    expect(textOf([UNLOCKED])).toEqual([NOTHING_NEW]);
+  });
+});
+
+describe('a joker in the feed', () => {
+  // The line stays in the feed after its day closes, among the photos of later days.
+  it('reads true on the days after the joker', () => {
+    const joker: PackEvent = { id: 'joker', kind: 'joker', actor_id: 'dan', payload: { day: '2026-10-29' }, created_at: '2026-10-29T07:00:00Z' };
+    expect(textOf([joker], undefined, new Map([['dan', 'Dan']]))).toEqual(['🃏 Dan took a joker']);
   });
 });

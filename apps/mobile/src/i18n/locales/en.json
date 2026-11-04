@@ -604,7 +604,7 @@
     "returned": "🩹 {{critter}} came back!",
     "achievement": "🏆 {{critter}} unlocked {{title}}: a new {{item}} for the wardrobe",
     "achievementOwned": "🏆 {{critter}} unlocked {{title}}",
-    "joker": "🃏 {{name}} is taking a joker today",
+    "joker": "🃏 {{name}} took a joker",
     "dressed": "👗 {{name}} gave {{critter}} a {{item}}",
     "undressed": "👗 {{name}} changed {{critter}}'s look",
     "named": "🏷️ {{name}} named the pet {{critter}}",
