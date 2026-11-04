@@ -19,6 +19,7 @@ import { NAME_MAX_LENGTH, NOTIFICATION_TYPES, useProfile, useUpdateProfile, type
 import { confirm, notify } from '@/lib/confirm';
 import { isBlockedText } from '@/lib/errors';
 import { useNotificationPermission } from '@/lib/notifications';
+import { reportError } from '@/lib/reportError';
 import { requireSupabase, storedSession } from '@/lib/supabase';
 import { goBack } from '@/lib/navigation';
 import { colors, radii, spacing } from '@/theme/tokens';
@@ -39,9 +40,12 @@ export default function SettingsScreen() {
   const removal = useMutation({
     mutationFn: () => deleteAccount({ revokeApple: config.data?.apple_revocation === true }),
     // With the session gone the person is on the sign-in screen: there is nothing to try again, and
-    // the account may be gone too, with no way left to ask.
+    // the account may be gone too, with no way left to ask. The phone calls the function itself, so
+    // the owners' summary hears of a failure only from this report.
     onError: async (error) => {
-      if (!isCancellation(error) && (await storedSession())) notify(t('settings.app.deleteFailed'));
+      if (isCancellation(error) || !(await storedSession())) return;
+      notify(t('settings.app.deleteFailed'));
+      reportError(error, 'delete-account');
     },
   });
 

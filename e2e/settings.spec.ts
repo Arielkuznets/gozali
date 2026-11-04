@@ -271,7 +271,7 @@ test('a deletion whose answer was lost with the connection finishes on the next 
   expect(alerts).toHaveLength(1);
 });
 
-test('a deletion that failed says so while the account is still there', async ({ page }) => {
+test('a deletion that failed says so while the account is still there, and reaches the developer', async ({ page }) => {
   const alerts: string[] = [];
   page.on('dialog', (dialog) => {
     if (dialog.type() === 'alert') alerts.push(dialog.message());
@@ -286,6 +286,9 @@ test('a deletion that failed says so while the account is still there', async ({
 
   await expect.poll(() => alerts).toEqual(["The account wasn't deleted. Please try again."]);
   await expect(remove).toBeEnabled();
+  await expect
+    .poll(async () => (await admin.from('app_errors').select('screen').eq('user_id', noa.id)).data)
+    .toEqual([{ screen: 'delete-account' }]);
 });
 
 test('a long name leaves the way to the settings on the screen', async ({ page }) => {
