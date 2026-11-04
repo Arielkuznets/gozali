@@ -19,11 +19,13 @@ Everything runs locally without accounts (see the README). This is the one-time 
    npx supabase functions deploy close-days send-push widget-state on-report delete-account
    ```
 
-4. Secrets for the functions. `CRON_SECRET` is any long random string; `EXPO_ACCESS_TOKEN` is optional (Expo push security); `RESEND_API_KEY` and `REPORT_EMAIL` send report alerts (without them reports only reach the function log):
+4. Secrets for the functions. `CRON_SECRET` is any long random string; `EXPO_ACCESS_TOKEN` is optional (Expo push security). `RESEND_API_KEY`, `REPORT_EMAIL` and `REPORT_EMAIL_FROM` send report alerts. `REPORT_EMAIL_FROM` is the sender, at a domain verified in Resend: without it Resend's test sender is used, which delivers only to the Resend account's own address. Without the key or the address a report reaches only the function log, and on-report answers 503, which the owners' daily summary counts as a server error. A report whose email fails isn't sent again; its id is in the function's answer, in `service_errors`.
 
    ```sh
-   npx supabase secrets set CRON_SECRET=<random> EXPO_ACCESS_TOKEN=<token> RESEND_API_KEY=<key> REPORT_EMAIL=<your email>
+   npx supabase secrets set CRON_SECRET=<random> EXPO_ACCESS_TOKEN=<token> RESEND_API_KEY=<key> REPORT_EMAIL=<your email> REPORT_EMAIL_FROM="Gozali <reports@<verified domain>>"
    ```
+
+   Check them with `npx supabase secrets list`, then report a photo from the app and see that the email arrives.
 
 5. Let pg_cron reach the functions: in the SQL editor, with the same `CRON_SECRET`:
 

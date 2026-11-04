@@ -1,7 +1,10 @@
 // Feeding end to end against the local stack, with the same calls as the app: Noa uploads a
 // photo and feeds, Dan sees it live and can open the photo, Eve (not in the pack) can't. Dan then
-// reports the photo and Noa, and the developer's alert about each goes through on-report.
+// reports the photo and Noa, and the developer's alert about each goes through on-report, whose
+// every answer but a sent email names the report, with a stand-in for Resend.
 // Run with `npx supabase start` and `npx supabase functions serve` up: node scripts/smoke-feeds.mjs
+import { registerHooks } from 'node:module';
+
 import { createClient } from '@supabase/supabase-js';
 
 import { reportEmail, reportedPicture } from '../supabase/functions/on-report/email.ts';
@@ -127,14 +130,78 @@ const { data: reports } = await dan.client.from('reports').select('id, feed_id, 
 check(reports?.length === 2, 'Dan has one report on each');
 
 // The same call the report trigger makes through pg_net where the Vault holds the function's address.
+// A stack without a mail key answers 503, which the owners' summary counts as a failure.
 for (const report of reports) {
   const response = await fetch(`${url}/functions/v1/on-report`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-cron-secret': process.env.CRON_SECRET ?? 'local-cron-secret' },
     body: JSON.stringify({ reportId: report.id }),
   });
-  check(response.ok, `on-report takes the report on ${report.feed_id ? 'the photo' : 'the member'}`);
+  const answer = await response.json();
+  check(
+    (response.ok || response.status === 503) && answer.reportId === report.id,
+    `on-report answers about the report on ${report.feed_id ? 'the photo' : 'the member'}, by its id`,
+  );
 }
+
+// The real function, with Deno and Resend stood in for. Only a sent email answers 200: anything else
+// is a failure in the owners' summary, and its answer names the report that didn't go out.
+registerHooks({ resolve: (specifier, context, next) => next(specifier.replace(/^npm:(.+)@\d+$/, '$1'), context) });
+const functionEnv = { SUPABASE_URL: url, SUPABASE_SERVICE_ROLE_KEY: secretKey, CRON_SECRET: 'smoke-feeds' };
+let onReport;
+globalThis.Deno = { env: { get: (name) => functionEnv[name] }, serve: (handler) => (onReport = handler) };
+await import('../supabase/functions/on-report/index.ts');
+const realFetch = globalThis.fetch;
+const realConsoleError = console.error;
+const RESEND_URL = 'https://api.resend.com/emails';
+async function runOnReport(reportId, resend, { mailEnv = { RESEND_API_KEY: 'resend-key', REPORT_EMAIL: 'dev@gozali.test' }, secret = 'smoke-feeds' } = {}) {
+  const mails = [];
+  Object.assign(functionEnv, { RESEND_API_KEY: undefined, REPORT_EMAIL: undefined }, mailEnv);
+  console.error = () => {};
+  globalThis.fetch = async (target, init) => {
+    if (String(target) !== RESEND_URL) return realFetch(target, init);
+    mails.push(JSON.parse(init.body));
+    return resend();
+  };
+  try {
+    const answer = await onReport(
+      new Request('http://on-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-cron-secret': secret },
+        body: JSON.stringify({ reportId }),
+      }),
+    );
+    return { status: answer.status, body: await answer.json(), mails };
+  } finally {
+    globalThis.fetch = realFetch;
+    console.error = realConsoleError;
+  }
+}
+const resendTakes = () => Response.json({ id: 'mail' });
+const reportId = reports[0].id;
+const sent = await runOnReport(reportId, resendTakes);
+check(sent.status === 200 && sent.body.emailed === true, 'with a key and an address the report is emailed');
+check(sent.mails.length === 1 && sent.mails[0].to[0] === 'dev@gozali.test', 'to the developer');
+const refused = await runOnReport(reportId, () =>
+  Response.json({ name: 'validation_error', message: 'You can only send testing emails to your own email address' }, { status: 403 }),
+);
+check(
+  refused.status === 502 && refused.body.reportId === reportId && refused.body.reason.includes('testing emails'),
+  'a mail Resend refuses answers 502, naming the report and why',
+);
+const unreachable = await runOnReport(reportId, () => {
+  throw new TypeError('fetch failed');
+});
+check(unreachable.status === 502 && unreachable.body.reportId === reportId, 'and so does a mail that never reached Resend');
+const noKey = await runOnReport(reportId, resendTakes, { mailEnv: { REPORT_EMAIL: 'dev@gozali.test' } });
+check(noKey.status === 503 && noKey.body.reportId === reportId && noKey.mails.length === 0, 'without a key it answers 503, naming the report');
+const noAddress = await runOnReport(reportId, resendTakes, { mailEnv: { RESEND_API_KEY: 'resend-key' } });
+check(noAddress.status === 503 && noAddress.body.reportId === reportId, 'and without an address too');
+const goneId = '00000000-0000-0000-0000-000000000000';
+const gone = await runOnReport(goneId, resendTakes);
+check(gone.status === 404 && gone.body.reportId === goneId, 'a report that is gone answers 404, by its id');
+const wrongSecret = await runOnReport(reportId, resendTakes, { secret: 'wrong' });
+check(wrongSecret.status === 403 && wrongSecret.body.reportId === reportId && wrongSecret.mails.length === 0, 'a call with the wrong secret is refused, naming the report');
 
 const details = async (report) => (await admin.rpc('report_details', { report: report.id })).data;
 const onPhoto = await details(reports.find((report) => report.feed_id));
