@@ -709,7 +709,7 @@
     "reportMemberBody": "For anything about them: their name, their photo or how they treat you. We look at every report within 24 hours.",
     "block": "Block {{name}}",
     "blockTitle": "Block {{name}}?",
-    "blockBody": "You won't see their photos or reactions, and they can't nudge you. They can still see what you post in a pack you share.",
+    "blockBody": "You won't see their photos or reactions, and they can't nudge you. A 🤨 of theirs still counts in the 🤨 number, which names nobody. They can still see what you post in a pack you share.",
     "blockedLeave": "Blocked. You can also leave this pack from its settings, where its admin can remove them.",
     "cancel": "Cancel",
     "nudgeTitle": "Nudge {{name}}?",
