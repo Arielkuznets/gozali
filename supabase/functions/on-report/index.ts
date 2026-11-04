@@ -1,5 +1,5 @@
-// Emails the developer about every report (spec section 11: handled within 24 hours). Called by
-// the report trigger through pg_net with the shared secret. Sends through Resend when
+// Emails the developer about a report (spec section 11: handled within 24 hours). Called by the
+// report trigger through pg_net with the shared secret, for up to 20 reports a day from one person. Sends through Resend when
 // RESEND_API_KEY and REPORT_EMAIL are set; otherwise the report only goes to the function log.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 

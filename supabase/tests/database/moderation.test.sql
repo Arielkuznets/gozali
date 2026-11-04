@@ -1,7 +1,7 @@
 -- Word filtering, reports on photos and on members, and the helpers of account deletion.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(66);
+select plan(73);
 
 select ok(public.is_clean('Leg day, done'), 'ordinary captions pass');
 select ok(not public.is_clean('what the fuuuck'), 'repeated letters don''t get around the filter');
@@ -337,6 +337,60 @@ delete from public.blocks where blocked_id = '00000000-0000-0000-0000-0000000000
 insert into public.blocks (blocker_id, blocked_id) values ('00000000-0000-0000-0000-0000000000d7', '00000000-0000-0000-0000-0000000000b7');
 reset role;
 select is((select count(*) from pg_temp.mailed()), 2::bigint, 'a day later, blocking again reaches the developer again');
+
+-- One person's reports email the developer up to 20 a day. Past that each is still saved and still
+-- counts toward hiding a photo and in the daily summary, which is how the developer hears of it.
+insert into public.feeds (pack_id, user_id, day, is_extra)
+select (select id from pack), '00000000-0000-0000-0000-0000000000b7', current_date, true from generate_series(1, 22);
+create temp table extras as select id, row_number() over (order by id) as n from public.feeds where is_extra;
+grant select on extras to authenticated;
+create function pg_temp.mailed_from(reporter uuid) returns bigint language sql as $$
+  select count(*) from pg_temp.mailed() m join public.reports r on r.id = m where r.reporter_id = reporter;
+$$;
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000a7');
+insert into public.reports (feed_id, reporter_id) select id, '00000000-0000-0000-0000-0000000000a7' from extras where n <= 20;
+reset role;
+select is(pg_temp.mailed_from('00000000-0000-0000-0000-0000000000a7'), 20::bigint, 'twenty reports in a day each email the developer');
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000a7');
+insert into public.reports (feed_id, reporter_id) select id, '00000000-0000-0000-0000-0000000000a7' from extras where n = 21;
+reset role;
+select is(
+  (select count(*) from public.reports where reporter_id = '00000000-0000-0000-0000-0000000000a7'), 21::bigint,
+  'the twenty-first is saved'
+);
+select is(pg_temp.mailed_from('00000000-0000-0000-0000-0000000000a7'), 20::bigint, 'but sends no email');
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000c7');
+insert into public.reports (feed_id, reporter_id) select id, '00000000-0000-0000-0000-0000000000c7' from extras where n = 21;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000d7');
+insert into public.reports (feed_id, reporter_id) select id, '00000000-0000-0000-0000-0000000000d7' from extras where n = 21;
+reset role;
+select is(
+  (select count(*) from pg_temp.mailed() m join public.reports r on r.id = m
+   where r.feed_id = (select id from extras where n = 21) and r.reporter_id <> '00000000-0000-0000-0000-0000000000a7'),
+  2::bigint, 'other people''s reports on the same photo still email the developer'
+);
+select ok(
+  (select hidden_at is not null from public.feeds where id = (select id from extras where n = 21)),
+  'and with the one past the cap, three reports hide it'
+);
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000a7');
+insert into public.blocks (blocker_id, blocked_id) values ('00000000-0000-0000-0000-0000000000a7', '00000000-0000-0000-0000-0000000000f7');
+reset role;
+select is(
+  (select count(*) from public.reports where reporter_id = '00000000-0000-0000-0000-0000000000a7' and member_id = '00000000-0000-0000-0000-0000000000f7')
+  || ' ' || pg_temp.mailed_from('00000000-0000-0000-0000-0000000000a7'),
+  '1 20', 'a block past the cap is still a report, with no email'
+);
+update public.reports set created_at = now() - interval '25 hours' where reporter_id = '00000000-0000-0000-0000-0000000000a7';
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000a7');
+insert into public.reports (feed_id, reporter_id) select id, '00000000-0000-0000-0000-0000000000a7' from extras where n = 22;
+reset role;
+select is(pg_temp.mailed_from('00000000-0000-0000-0000-0000000000a7'), 21::bigint, 'a day later their reports email the developer again');
 
 select is(
   (select count(*) from public.account_photo_paths('00000000-0000-0000-0000-0000000000a7')), 2::bigint,
