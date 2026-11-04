@@ -15,6 +15,7 @@ let mockReads = 0;
 let mockReadFails = false;
 let mockLinksFail = false;
 let mockHeld: Promise<void> = Promise.resolve();
+let mockNoRecap = false;
 
 const mockRecap = {
   week_start: '2026-10-18',
@@ -37,7 +38,7 @@ jest.mock('@/lib/supabase', () => ({
   requireSupabase: () => ({
     from: (table: string) => ({
       select: () => ({
-        eq: () => ({ order: () => ({ limit: async () => ({ data: [mockRecap], error: null }) }) }),
+        eq: () => ({ order: () => ({ limit: async () => ({ data: mockNoRecap ? [] : [mockRecap], error: null }) }) }),
         in: async () => {
           await mockHeld;
           mockReads += 1;
@@ -66,7 +67,7 @@ jest.mock('@/features/auth/AuthProvider', () => ({ useAuth: () => ({ session: { 
 jest.mock('@/features/critter/Critter', () => ({ Critter: () => null }));
 jest.mock('@/features/feeds/PhotoViewer', () => ({ PhotoViewer: () => null }));
 jest.mock('@/features/feeds/send', () => ({ PHOTO_BUCKET: 'photos' }));
-let mockMembers: { user_id: string; profiles: { display_name: string } }[];
+let mockMembers: { user_id: string; status?: 'left'; profiles: { display_name: string } }[];
 const mockPackName = "Noa and Dan's gym";
 jest.mock('@/features/packs/api', () => ({
   usePack: () => ({
@@ -134,6 +135,7 @@ beforeEach(() => {
   mockReadFails = false;
   mockLinksFail = false;
   mockHeld = Promise.resolve();
+  mockNoRecap = false;
   // No garbage collection, whose timers would outlive the test.
   client = new QueryClient({ defaultOptions: { queries: { gcTime: Infinity, retry: false } } });
 });
@@ -141,6 +143,40 @@ beforeEach(() => {
 afterEach(async () => {
   await close();
   jest.useRealTimers();
+});
+
+describe('a pack with no recap yet', () => {
+  const NOA = { user_id: 'noa', profiles: { display_name: 'Noa' } };
+  const DAN = { user_id: 'dan', profiles: { display_name: 'Dan' } };
+  const ALONE = 'Recaps start once a friend joins.';
+  const THIS_WEEK = 'Your first recap arrives when this week ends.';
+
+  beforeEach(() => {
+    mockNoRecap = true;
+  });
+
+  it('tells a member alone that recaps start once a friend joins', async () => {
+    mockMembers = [NOA];
+    await open();
+
+    expect(says(ALONE)).toBe(true);
+  });
+
+  it('says the first one comes when this week ends, once a friend is in', async () => {
+    mockMembers = [NOA, DAN];
+    await open();
+
+    expect(says(THIS_WEEK)).toBe(true);
+  });
+
+  // The days close from the day a second member joined, even one who has left since.
+  it('says the same once the friend has left', async () => {
+    mockMembers = [NOA, { ...DAN, status: 'left' }];
+    await open();
+
+    expect(says(THIS_WEEK)).toBe(true);
+    expect(says(ALONE)).toBe(false);
+  });
 });
 
 describe('a collage that does not load', () => {

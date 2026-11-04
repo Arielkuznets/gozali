@@ -822,7 +822,8 @@
   "recap": {
     "title": "Weekly recap",
     "open": "Weekly recaps",
-    "none": "The first recap arrives when your first full week closes.",
+    "none": "Your first recap arrives when this week ends.",
+    "noneAlone": "Recaps start once a friend joins.",
     "weekOf": "Week of {{date}}",
     "goodDays": "good days",
     "health": "health",

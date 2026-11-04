@@ -56,7 +56,8 @@ export default function RecapScreen() {
         <LoadFailed onRetry={() => void recaps.refetch()} />
       ) : !recap ? (
         <View style={styles.center}>
-          <AppText style={styles.muted}>{t('recap.none')}</AppText>
+          {/* Days close once a second member has joined, even one who has left since. */}
+          <AppText style={styles.muted}>{t(pack.pack_members.length < 2 ? 'recap.noneAlone' : 'recap.none')}</AppText>
         </View>
       ) : (
         <>
