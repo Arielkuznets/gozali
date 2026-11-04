@@ -219,15 +219,22 @@ const cronSecret = 'smoke-push';
 const functionEnv = { SUPABASE_URL: url, SUPABASE_SERVICE_ROLE_KEY: secretKey, CRON_SECRET: cronSecret };
 let sendPush;
 globalThis.Deno = { env: { get: (name) => functionEnv[name] }, serve: (handler) => (sendPush = handler) };
-const { REQUEST_TIMEOUT_MS, SEND_BUDGET_MS } = await import('../supabase/functions/send-push/index.ts');
+const { REQUEST_TIMEOUT_MS, SEND_BUDGET_MS, HEARTBEAT_TIMEOUT_MS } = await import('../supabase/functions/send-push/index.ts');
 
 const realFetch = globalThis.fetch;
 const realConsoleError = console.error;
+// How the outside check at HEARTBEAT_URL answers a ping.
+let heartbeat = () => new Response('OK');
 async function runFunction(rowIds, expo, database = () => null) {
   const logged = [];
+  const pings = [];
   console.error = (...line) => logged.push(format(...line));
   globalThis.fetch = async (target, init) => {
     if (String(target) === EXPO_PUSH_URL) return expo(JSON.parse(init.body), init);
+    if (String(target) === functionEnv.HEARTBEAT_URL) {
+      pings.push(init ?? {});
+      return heartbeat(init);
+    }
     const rpc = /\/rpc\/(\w+)$/.exec(String(target))?.[1];
     const answered = rpc ? database(rpc, JSON.parse(init.body)) : null;
     if (answered) return answered;
@@ -237,7 +244,7 @@ async function runFunction(rowIds, expo, database = () => null) {
   };
   try {
     const answer = await sendPush(new Request('http://send-push', { method: 'POST', headers: { 'x-cron-secret': cronSecret } }));
-    return { status: answer.status, report: await answer.json(), logged };
+    return { status: answer.status, report: await answer.json(), logged, pings };
   } finally {
     globalThis.fetch = realFetch;
     console.error = realConsoleError;
@@ -454,6 +461,38 @@ check(
   'a request that hangs is given up on time, and its rows go back',
 );
 check(hung.report.failure === 'timed out', 'and the run says the request timed out');
+
+// HEARTBEAT_URL is an outside check that mails the owner when its pings stop. Only a run that went
+// well pings it, with nothing in the ping, and the ping can't change how the run answers.
+check([idle, hung, forgotten].every((result) => result.pings.length === 0), 'without HEARTBEAT_URL no run pings anything');
+functionEnv.HEARTBEAT_URL = 'https://heartbeat.test/ping';
+const pinged = await runFunction([], () => expoFails());
+check(pinged.status === 200 && pinged.pings.length === 1, 'with it, a run that went well pings the check');
+check(!pinged.pings[0].body && (pinged.pings[0].method ?? 'GET') === 'GET', 'with nothing in the ping');
+const sentAndPinged = await runFunction(await addRows(signUpFor(dan)), expoTakes());
+check(sentAndPinged.status === 200 && sentAndPinged.report.sent === 1 && sentAndPinged.pings.length === 1, 'and so does one that sent something');
+const unpinged = [
+  await runFunction([], () => expoFails(), databaseFails('claim_notifications')),
+  await runFunction(await addRows(signUpFor(dan)), () => expoFails(401)),
+  await runFunction(await addRows(signUpFor(dan)), () => new Response('{}', { status: 400 })),
+];
+check(unpinged.every((result) => result.status !== 200 && result.pings.length === 0), "a run that failed doesn't ping, so the check hears silence");
+const pastBudget = await runFunction(await addRows(twoBatches), (batch) => {
+  Date.now = () => realNow() + SEND_BUDGET_MS + 1;
+  return expoTakes()(batch);
+});
+Date.now = realNow;
+check(pastBudget.status === 200 && pastBudget.pings.length === 0, "nor does one past its budget, which has no time to spare");
+heartbeat = () => Promise.reject(new Error('heartbeat down'));
+const checkDown = await runFunction([], () => expoFails());
+check(checkDown.status === 200 && checkDown.pings.length === 1, 'a check that is down changes nothing about the answer');
+heartbeat = (init) => new Promise((_, reject) => init.signal.addEventListener('abort', () => reject(init.signal.reason)));
+allowed.length = 0;
+const checkHangs = await givingUpAtOnce(() => runFunction([], () => expoFails()));
+check(checkHangs.status === 200 && allowed.includes(HEARTBEAT_TIMEOUT_MS), 'nor does one that hangs, which is given up on');
+check(HEARTBEAT_TIMEOUT_MS <= 5_000, 'within five seconds');
+heartbeat = () => new Response('OK');
+delete functionEnv.HEARTBEAT_URL;
 
 // Owner alerts: someone finishing the profile setup tells the owner, in plain words.
 const owned = await admin.from('app_owners').insert({ user_id: noa });

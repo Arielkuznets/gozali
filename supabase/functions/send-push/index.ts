@@ -12,6 +12,11 @@ import { EXPO_PUSH_URL, RefusedRequest, runFailed, sendAll, type PushMessage, ty
 // leaves time to put back what wasn't sent.
 export const REQUEST_TIMEOUT_MS = 20_000;
 export const SEND_BUDGET_MS = 50_000;
+// HEARTBEAT_URL, when set, is an outside check that mails the owner when its pings stop. A wrong
+// secret, a missing Vault value or Expo turning everything down fails the run or keeps it from
+// starting, and the owners' alerts go out through this function too, so only a run that went well
+// pings it. A run past its budget leaves it to the next one.
+export const HEARTBEAT_TIMEOUT_MS = 5_000;
 
 async function expoSend(batch: PushMessage[]): Promise<PushTicket[]> {
   const token = Deno.env.get('EXPO_ACCESS_TOKEN');
@@ -34,6 +39,18 @@ async function expoSend(batch: PushMessage[]): Promise<PushTicket[]> {
   const { data } = (await response.json()) as { data?: PushTicket[] };
   if (!Array.isArray(data)) throw new Error(`expo push ${response.status} without tickets`);
   return data;
+}
+
+/** The ping carries nothing, and a check that is down or slow changes nothing about the run. */
+async function pingHeartbeat(): Promise<void> {
+  const target = Deno.env.get('HEARTBEAT_URL');
+  if (!target) return;
+  try {
+    const response = await fetch(target, { signal: AbortSignal.timeout(HEARTBEAT_TIMEOUT_MS) });
+    await response.body?.cancel();
+  } catch (error) {
+    console.error('heartbeat failed', error instanceof Error ? error.message : String(error));
+  }
 }
 
 Deno.serve(async (request) => {
@@ -72,5 +89,6 @@ Deno.serve(async (request) => {
   // Any answer but 200 reaches the owners' daily summary, through collect_service_errors.
   const failed = serverBehind || Boolean(requeued?.error) || runFailed(result);
   if (failed) console.error('send-push failed', report);
+  else if (Date.now() - started <= SEND_BUDGET_MS) await pingHeartbeat();
   return Response.json(report, { status: failed ? 502 : 200 });
 });

@@ -1,7 +1,7 @@
 -- Owner alerts: a push when someone finishes signing up, and the day's summary at 21:00.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(34);
+select plan(36);
 
 delete from public.notifications;
 
@@ -204,6 +204,30 @@ insert into public.service_errors (response_id, status, detail, at)
 values (-17, 502, 'first hour', (date '2027-10-30' + time '21:30') at time zone 'Asia/Jerusalem');
 select public.queue_daily_summaries(pg_temp.at_local('21:05'));
 select is(pg_temp.trouble() ->> 'serverErrors', '1', 'a day with an extra hour leaves no hour out');
+update today set day = (now() at time zone 'Asia/Jerusalem')::date;
+
+-- A collector that fails can't hold the summary back: its own job runs every five minutes, and the
+-- summary counts those runs among the failed jobs.
+create or replace function public.collect_service_errors()
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  raise exception 'collector broken';
+end;
+$$;
+update today set day = day + 30;
+select lives_ok(
+  $$ select public.queue_daily_summaries(pg_temp.at_local('21:05')) $$,
+  'a summary can be made while collecting the failed calls fails'
+);
+select is(
+  (select count(*) from public.notifications where type = 'daily_summary' and day = (select day from today)),
+  1::bigint,
+  'and it is queued'
+);
 update today set day = (now() at time zone 'Asia/Jerusalem')::date;
 
 -- Sending: no cap for the owner alerts, and nothing at night.

@@ -25,7 +25,7 @@ Everything runs locally without accounts (see the README). This is the one-time 
    npx supabase secrets set CRON_SECRET=<random> EXPO_ACCESS_TOKEN=<token> RESEND_API_KEY=<key> REPORT_EMAIL=<your email> REPORT_EMAIL_FROM="Gozali <reports@<verified domain>>"
    ```
 
-   Check them with `npx supabase secrets list`, then report a photo from the app and see that the email arrives.
+   Check them with `npx supabase secrets list`, then report a photo from the app and see that the email arrives. `HEARTBEAT_URL` is optional: an outside check that mails you when the pushes stop (section 5).
 
 5. Let pg_cron reach the functions: in the SQL editor, with the same `CRON_SECRET`:
 
@@ -100,6 +100,15 @@ Alerts on your own phone: add your profile to the owners, once, and you get a pu
 ```sh
 npx supabase db query --linked "insert into public.app_owners (user_id) values ('<your profile id>')"
 ```
+
+These alerts go out through send-push like every other push, so whatever stops the pushes stops them too: a `cron_secret` in the Vault that doesn't match `CRON_SECRET`, a missing `functions_url`, send-push failing, or Expo turning the pushes down. Silence then looks like a quiet day, so two checks stay off that road:
+
+- No summary by 21:15 means something on the way is broken: run the health queries below.
+- An outside check mails you within minutes. Create one on a dead-man service, for example a free check on healthchecks.io with a period of 1 minute and a grace time of 15 minutes, and give send-push its ping URL. Every run that went well pings it, a quiet one too, and a run that failed or never started doesn't, so the service hears silence and mails you. The ping carries nothing about the members, and without the secret send-push works the same and pings nothing. After setting it, the check's page shows a ping every minute.
+
+  ```sh
+  npx supabase secrets set HEARTBEAT_URL=https://hc-ping.com/<check uuid>
+  ```
 
 The success numbers of spec sections 1 and 15 (active packs, active packs 14 days after they were created, pack size, and invited users who opened a pack of their own):
 
