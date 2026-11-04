@@ -1,7 +1,7 @@
 -- Notifications: rows from feeds and the clock, and the rules applied before sending.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(28);
+select plan(30);
 
 -- Reminders are queued for every pack, so this test runs alone (all rolled back at the end).
 delete from public.packs;
@@ -249,6 +249,24 @@ select is(
   (select count(*) from public.notifications
    where pack_id = '10000000-0000-0000-0000-000000000015' and user_id = '00000000-0000-0000-0000-0000000000a5'), 1::bigint,
   'and with a friend back in the egg, so does the member who was alone'
+);
+
+-- "Still in?" from a close in the night waits for 07:00. Dan is still asleep then; Maya fed before
+-- 07:00, which woke her.
+delete from public.notifications;
+insert into public.notifications (user_id, pack_id, type, payload, send_after)
+select u, '10000000-0000-0000-0000-000000000005', 'still_in', '{"event": "member_slept"}', timestamptz '2000-01-01'
+from unnest(array['00000000-0000-0000-0000-0000000000b5', '00000000-0000-0000-0000-0000000000c5']::uuid[]) u;
+create temp table morning as
+select (((select day from today)::timestamp + interval '7 hours') at time zone 'Asia/Jerusalem') as at;
+select is(
+  (select array_agg(user_id) from public.claim_notifications((select at from morning))),
+  array['00000000-0000-0000-0000-0000000000b5'::uuid],
+  'at 07:00 "still in?" goes to a member still asleep'
+);
+select is(
+  (select status::text from public.notifications where user_id = '00000000-0000-0000-0000-0000000000c5'), 'dropped',
+  'and is dropped for one who woke while it waited'
 );
 
 select * from finish();
