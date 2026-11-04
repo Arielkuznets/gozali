@@ -907,6 +907,46 @@ describe('a new code reaching the join screen that is open', () => {
   });
 });
 
+describe('a code the server turns down for this member', () => {
+  beforeEach(() => {
+    // The app's own retries, which a refusal that can't change must not wait for.
+    client = new QueryClient();
+  });
+
+  it.each([
+    ['removed_from_pack', "The pack admin removed you from this pack, so this code can't bring you back."],
+    ['too_many_attempts', "Too many codes that didn't match. Try again in an hour."],
+  ])('says why at once for %s, and asks no more', async (refusal, text) => {
+    mockRpc.mockImplementation(async (name: string) =>
+      name === 'pack_preview' ? { data: null, error: { code: 'P0001', message: refusal } } : { error: null },
+    );
+    await start('/');
+    await open('/join?code=ABCD2345');
+
+    expect(shows(text)).toBe(true);
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(10_000);
+    });
+    expect(mockRpc.mock.calls.filter(([name]) => name === 'pack_preview')).toHaveLength(1);
+    expect(shows(text)).toBe(true);
+  });
+
+  it('still tries again when the preview did not get through', async () => {
+    mockRpc.mockImplementation(async (name: string) =>
+      name === 'pack_preview' ? { data: null, error: { message: 'TypeError: Network request failed' } } : { error: null },
+    );
+    await start('/');
+    await open('/join?code=ABCD2345');
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(10_000);
+    });
+    await settle();
+
+    expect(mockRpc.mock.calls.filter(([name]) => name === 'pack_preview')).toHaveLength(4);
+    expect(shows("This didn't load. Check the connection and try again.")).toBe(true);
+  });
+});
+
 describe('Open pack on the join screen', () => {
   it('goes back to the pack when it is open underneath', async () => {
     await start('/pack/p1');

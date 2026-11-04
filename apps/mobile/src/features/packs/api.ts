@@ -151,10 +151,17 @@ export function usePack(id: string) {
   });
 }
 
+/** The preview's refusal of this member, which another try would only repeat. */
+export function previewRefusal(error: unknown) {
+  const key = packErrorKey(error);
+  return key === 'packs.errors.removed' || key === 'packs.errors.tooManyAttempts' ? key : null;
+}
+
 export function usePackPreview(code: string) {
   return useQuery({
     queryKey: ['pack-preview', code],
     enabled: code.length === 8,
+    retry: (failures, error) => failures < 3 && previewRefusal(error) === null,
     queryFn: async (): Promise<PackPreview | null> => {
       const { data, error } = await requireSupabase().rpc('pack_preview', { code });
       if (error) throw error;

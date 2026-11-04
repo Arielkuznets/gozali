@@ -11,7 +11,7 @@ import { Screen } from '@/components/Screen';
 import { TextField } from '@/components/TextField';
 import { Critter } from '@/features/critter/Critter';
 import { critterArt } from '@/features/critter/art';
-import { packErrorKey, refreshJoinedPack, useJoinPack, usePackPreview } from '@/features/packs/api';
+import { packErrorKey, previewRefusal, refreshJoinedPack, useJoinPack, usePackPreview } from '@/features/packs/api';
 import { INVITE_CODE_LENGTH, categoryInfo, inviteCodeFrom, normalizeInviteCode } from '@/features/packs/constants';
 import { notify } from '@/lib/confirm';
 import { haptics } from '@/lib/haptics';
@@ -91,9 +91,7 @@ function JoinForm({ linkCode }: { linkCode: string }) {
           <AppText style={styles.error}>{t('packs.errors.notFound')}</AppText>
         )}
         {complete && preview.isError && (
-          <AppText style={styles.error}>
-            {t(packErrorKey(preview.error) === 'packs.errors.tooManyAttempts' ? 'packs.errors.tooManyAttempts' : 'errors.loadFailed')}
-          </AppText>
+          <AppText style={styles.error}>{t(previewRefusal(preview.error) ?? 'errors.loadFailed')}</AppText>
         )}
         {pack && (
           <View style={styles.preview}>
