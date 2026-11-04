@@ -1,5 +1,5 @@
 import { usePathname, type ErrorBoundaryProps } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 
@@ -16,7 +16,10 @@ const MAX_SCALE = 2;
 export function ErrorScreen({ error, retry }: ErrorBoundaryProps) {
   const { t } = useTranslation();
   const pathname = usePathname();
-  useEffect(() => reportError(error, pathname), [error, pathname]);
+  // The screen that crashed: in its place this one unmounts the stack under it, whose path then
+  // turns to the home screen's.
+  const [screen] = useState(pathname);
+  useEffect(() => reportError(error, screen), [error, screen]);
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
       <Text style={styles.title} maxFontSizeMultiplier={MAX_SCALE}>
