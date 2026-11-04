@@ -719,6 +719,8 @@
     "suggestPlaceholder": "A name",
     "suggest": "Suggest",
     "pick": "Pick",
+    "pickConfirm": "Name it {{name}}?",
+    "pickBody": "A name can't be changed later.",
     "by": "by {{name}}",
     "errors": {
       "already_nudged": "You already nudged them today.",

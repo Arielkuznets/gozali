@@ -7,7 +7,7 @@ import { Button } from '@/components/Button';
 import { LoadFailed } from '@/components/ScreenStates';
 import { TextField } from '@/components/TextField';
 import { socialErrorKey, useChooseName, useNameSuggestions, useSuggestName } from '@/features/social/api';
-import { notify } from '@/lib/confirm';
+import { confirm, notify } from '@/lib/confirm';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 const NAME_MAX = 20;
@@ -28,6 +28,15 @@ export function NameMeCard({ packId, critter, isAdmin, adminName, names }: Props
   const suggest = useSuggestName(packId);
   const choose = useChooseName(packId);
   const fail = (error: unknown) => notify(t(socialErrorKey(error)));
+  // choose_name sets the name only while there is none, so a pick can't be taken back.
+  const onPick = (suggestion: { id: string; name: string }) =>
+    confirm({
+      title: t('social.pickConfirm', { name: suggestion.name }),
+      message: t('social.pickBody'),
+      confirm: t('social.pick'),
+      cancel: t('social.cancel'),
+      onConfirm: () => choose.mutate(suggestion.id, { onError: fail }),
+    });
 
   return (
     <View style={styles.card}>
@@ -47,7 +56,7 @@ export function NameMeCard({ packId, critter, isAdmin, adminName, names }: Props
               label={t('social.pick')}
               size="small"
               disabled={choose.isPending}
-              onPress={() => choose.mutate(suggestion.id, { onError: fail })}
+              onPress={() => onPick(suggestion)}
             />
           )}
         </View>
