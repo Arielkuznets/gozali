@@ -18,7 +18,9 @@ We do **not** collect your location or contacts, we don't use advertising or tra
 
 ## Who can see what
 
-- Your photos, captions and reactions are visible **only to the members of that pack**, unless something is reported. Photos are stored privately and shown through links that expire within an hour.
+- Your photos, captions and reactions are visible **only to the members of that pack**, unless something is reported. Photos are stored privately, and the app shows them through links that expire within an hour; anyone in the pack can keep what they were shown.
+- Someone who joins a pack can see what the pack kept from before they joined: the photos not yet deleted, the captions and reactions, the weekly recaps and each day's results.
+- Anyone signed in to Gozali who has a pack's invite code can see, before joining, the pack's name, its habit, its pet and the names of its members.
 - When someone reports a photo or a caption, or a member for their name or profile photo, or blocks a member, the developer gets an email to review it. It holds the names and account ids of both people, the caption, and a link to the photo that works for 7 days. The email stays in the developer's mailbox after the link stops working.
 - The 🤨 reaction is shown only as a number, without names.
 - Pack members see who fed, rested, used a joker, was paused or missed on each day, because that is how the pack works together. Notifications never say who missed.
@@ -56,7 +58,7 @@ Gozali is for people aged **13 and over**. You confirm your age when you set up 
 
 ## Security
 
-Access to data is enforced in the database, so a member can only ever read the packs they belong to. Connections are encrypted, and tokens for widgets are stored only in scrambled form.
+Access to data is enforced in the database, so a member can only ever read the packs they belong to, apart from what a pack's invite code shows before joining. Connections are encrypted, and tokens for widgets are stored only in scrambled form.
 
 ## Changes
 

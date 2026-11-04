@@ -407,7 +407,8 @@ The app includes content that users upload (photos), so it must meet Apple's and
 
 **Privacy:**
 
-- Photos are visible only to pack members. Storage in a private bucket, access only through short-lived signed links. In the app, the photo cache is keyed by the photo id, because the signed link changes every time.
+- Photos are visible only to pack members. Storage in a private bucket, access only through signed links: the app signs them for an hour, but Storage sets no ceiling, so a member can sign a longer one, and anyone in the pack can keep what they were shown. Holding every link to an hour would mean signing them in an Edge Function instead. In the app, the photo cache is keyed by the photo id, because the signed link changes every time.
+- Someone who joins a pack reads what it kept from before: the photos not yet deleted, captions, reactions, recaps and day results. Before joining, an invite code shows the pack's name, habit, critter and members' names (`pack_preview`).
 - Photos are deleted automatically after 30 days; photos that went into a weekly recap collage stay 8 weeks after that week, and then the recap keeps its numbers without the collage. The collage is stored as a list of references to photos and not as one image, so deleting an account removes them too.
 - Sharing a story doesn't include photos of other members (section 7).
 - The widgets don't show photos or names of members (section 9).
