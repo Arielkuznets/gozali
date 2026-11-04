@@ -1,7 +1,7 @@
 -- Notifications: rows from feeds and the clock, and the rules applied before sending.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(21);
+select plan(25);
 
 -- Reminders are queued for every pack, so this test runs alone (all rolled back at the end).
 delete from public.packs;
@@ -187,6 +187,35 @@ insert into public.notifications (user_id, pack_id, type, payload, send_after) v
 select is(
   (select count(*) from public.claim_notifications((select at from noon))), 0::bigint,
   'and nobody gets one once they fed'
+);
+
+-- A block holds from the moment it is made: a row queued before it sends nothing from or about the
+-- person blocked when it comes due, and a merged "friend fed" names only the others.
+delete from public.notifications;
+insert into public.blocks (blocker_id, blocked_id) values ('00000000-0000-0000-0000-0000000000a5', '00000000-0000-0000-0000-0000000000b5');
+insert into public.notifications (user_id, pack_id, type, payload, send_after) values
+  ('00000000-0000-0000-0000-0000000000a5', '10000000-0000-0000-0000-000000000005', 'friend_fed',
+   jsonb_build_object('feeders', jsonb_build_array('00000000-0000-0000-0000-0000000000b5')), timestamptz '2000-01-01');
+select is(
+  (select count(*) from public.claim_notifications((select at from noon))), 0::bigint,
+  'a "friend fed" about nobody but someone the member blocked after it was queued isn''t sent'
+);
+select is((select status::text from public.notifications), 'dropped', 'and is dropped for good');
+delete from public.notifications;
+insert into public.notifications (user_id, pack_id, type, payload, send_after) values
+  ('00000000-0000-0000-0000-0000000000a5', '10000000-0000-0000-0000-000000000005', 'friend_fed',
+   jsonb_build_object('feeders', jsonb_build_array('00000000-0000-0000-0000-0000000000b5', '00000000-0000-0000-0000-0000000000c5')), timestamptz '2000-01-01');
+select is(
+  (select array_to_string(names, ',') from public.claim_notifications((select at from noon))), 'maya',
+  'one that also covers someone else names only them'
+);
+delete from public.notifications;
+insert into public.notifications (user_id, pack_id, type, payload, send_after) values
+  ('00000000-0000-0000-0000-0000000000a5', '10000000-0000-0000-0000-000000000005', 'nudge',
+   jsonb_build_object('from', '00000000-0000-0000-0000-0000000000b5'), timestamptz '2000-01-01');
+select is(
+  (select count(*) from public.claim_notifications((select at from noon))), 0::bigint,
+  'and a nudge from someone the member blocked after it was queued isn''t sent'
 );
 
 select * from finish();
