@@ -225,6 +225,7 @@ export default function PackScreen() {
             name: member.profiles?.display_name ?? null,
             state: memberState(member, fed, today),
             avatarUrl: avatarOf(member),
+            self: member.user_id === userId,
             nudgeable:
               member.user_id !== userId &&
               !fed.has(member.user_id) &&

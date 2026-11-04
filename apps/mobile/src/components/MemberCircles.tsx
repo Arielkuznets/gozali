@@ -8,7 +8,7 @@ import { colors, fonts } from '@/theme/tokens';
 
 export type MemberState = 'fed' | 'pass' | 'waiting' | 'asleep' | 'paused';
 
-type Member = { id: string; name: string | null; state: MemberState; nudgeable?: boolean; avatarUrl?: string };
+type Member = { id: string; name: string | null; state: MemberState; nudgeable?: boolean; avatarUrl?: string; self?: boolean };
 
 /**
  * The row of member circles on the pack screen (spec section 9): filled = fed today, dashed =
@@ -19,7 +19,7 @@ type Props = {
   members: Member[];
   color: string;
   onNudge?: (member: Member) => void;
-  /** A long press opens the member's menu (nudge, report, block). */
+  /** A long press opens the member's menu (nudge, report, block). The viewer's own circle has none. */
   onMenu?: (member: Member) => void;
 };
 
@@ -32,17 +32,18 @@ export function MemberCircles({ members, color, onNudge, onMenu }: Props) {
         const label = t(`pack.member.${member.state}`, { name });
         const resting = member.state === 'asleep' || member.state === 'paused';
         const nudges = Boolean(member.nudgeable && onNudge);
+        const menu = onMenu !== undefined && !member.self;
         return (
           <Pressable
             key={member.id}
             style={styles.item}
-            accessibilityRole={nudges || onMenu ? 'button' : undefined}
+            accessibilityRole={nudges || menu ? 'button' : undefined}
             accessibilityLabel={label}
             accessibilityHint={nudges ? t('social.nudge') : undefined}
             // A screen reader can't long-press, so the menu is also an action there.
-            accessibilityActions={nudges && onMenu ? [{ name: 'longpress', label: t('social.more') }] : undefined}
+            accessibilityActions={nudges && menu ? [{ name: 'longpress', label: t('social.more') }] : undefined}
             onAccessibilityAction={() => onMenu?.(member)}
-            disabled={!nudges && !onMenu}
+            disabled={!nudges && !menu}
             onPress={() => (nudges ? onNudge?.(member) : onMenu?.(member))}
             onLongPress={() => onMenu?.(member)}>
             <View
