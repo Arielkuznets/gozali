@@ -156,6 +156,18 @@ test('finishing the profile setup opens the home screen', async ({ page }) => {
   await removeUsers(maya);
 });
 
+test('a surname that begins with a blocked word finishes the profile setup', async ({ page }) => {
+  const noa = await createSignedUpUser('Noa');
+  await signIn(page, noa);
+  await page.goto('/');
+  await page.getByPlaceholder('What do your friends call you?').fill('Noa Shitrit');
+  await page.getByRole('checkbox').click();
+  await page.getByRole('button', { name: 'Continue' }).click();
+
+  await expect(page.getByRole('button', { name: 'Create a pack' })).toBeVisible();
+  await removeUsers(noa);
+});
+
 /** A link opening in the running app: the web build hears of it through the browser history. */
 async function openLink(page: Page, path: string) {
   await page.evaluate((target) => {

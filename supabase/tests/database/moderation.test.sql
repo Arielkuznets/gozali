@@ -1,7 +1,7 @@
 -- Word filtering, reports on photos and on members, and the helpers of account deletion.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(78);
+select plan(82);
 
 select ok(public.is_clean('Leg day, done'), 'ordinary captions pass');
 select ok(not public.is_clean('what the fuuuck'), 'repeated letters don''t get around the filter');
@@ -23,6 +23,19 @@ select ok(not public.is_clean('sh1t 455'), 'a number next to a word doesn''t cle
 select ok(public.is_clean('קראתי עד עמוד 455'), 'Hebrew with a number passes');
 select ok(public.is_clean('עמוד455 מתוך 800'), 'also with the number stuck to a word');
 select ok(not public.is_clean('היום a55 ממש'), 'and a blocked word among Hebrew is still caught');
+
+-- Shit and slut are blocked as words, with the longer forms the list names, since common surnames
+-- begin with them.
+select ok(public.is_clean('Noa Shitrit'), 'a surname that begins with a blocked word passes');
+select ok(public.is_clean('Dana Slutsky, Avi Slutzky'), 'and so do others');
+select ok(public.is_clean('Shiitake risotto'), 'and a word that reads as one with its doubled letter undone');
+select is(
+  (select array_agg(form) from unnest(array[
+    'shit', 'Shit.', 'sh1t', 'shiiit', 'shits', 'shitty', 'shithead', 'shitheads', 'shitting', 'slut', 'sluts', 'slutty'
+  ]) form where public.is_clean(form)),
+  null,
+  'the words themselves and the forms the list names are still refused'
+);
 
 -- Every word on the list, in every mix of letters and the digits that stand for them, is blocked.
 -- The one spelling that is all digits is the number.
