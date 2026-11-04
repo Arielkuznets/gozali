@@ -39,6 +39,7 @@ export default function CreatePackScreen() {
   // would create a second pack.
   const creating = useRef(false);
   const created = createPack.data;
+  const body = useRef<ScrollView>(null);
 
   // Only from the front: it takes the place of what is in front. Whoever opened something over the
   // form during the wait comes back to the invite, not to a form that makes a second pack.
@@ -93,7 +94,12 @@ export default function CreatePackScreen() {
         <AppText variant="caption">{t('create.step', { step })}</AppText>
       </View>
 
-      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+      {/* The field for a habit of one's own opens under the habits, out of sight on a small phone. */}
+      <ScrollView
+        ref={body}
+        contentContainerStyle={styles.body}
+        keyboardShouldPersistTaps="handled"
+        onContentSizeChange={() => step === 2 && category === 'custom' && body.current?.scrollToEnd()}>
         {step === 1 && (
           <TextField
             label={t('create.nameLabel')}

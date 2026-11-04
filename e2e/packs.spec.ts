@@ -76,6 +76,18 @@ test('creating a pack takes four steps and ends on the invite', async ({ page })
   await expect(page).toHaveURL(new RegExp(`/pack/${created.id}$`));
 });
 
+test('a habit of your own shows its field on a small phone, under the habits', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  await signIn(page, noa);
+  await page.goto('/create-pack');
+  await page.getByLabel('Pack name').fill('Clay club');
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  await page.getByRole('radio', { name: 'Custom' }).click();
+
+  await expect(page.getByLabel('Your habit')).toBeInViewport({ ratio: 1 });
+});
+
 test('joining with a code shows the pack first, then opens it', async ({ page }) => {
   const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' });
   await signIn(page, dan);
