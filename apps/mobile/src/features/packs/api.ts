@@ -128,6 +128,8 @@ export function useMyPacks() {
       // Row level security returns only the caller's packs.
       const { data, error } = await requireSupabase().from('packs').select(PACK_FIELDS).gte(PAUSE_END, pausesFrom()).order('created_at');
       if (error) throw error;
+      // A list is never null: no data is an answer cut off before its body, and kept it would stay.
+      if (!data) throw new Error('no_answer');
       return data as unknown as Pack[];
     },
   });

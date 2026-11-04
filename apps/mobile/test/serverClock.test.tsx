@@ -349,17 +349,35 @@ describe('how long a request waits for its answer', () => {
   });
 
   describe('once the answer has started', () => {
-    let signal: AbortSignal | null | undefined;
+    const date = () => new Date().toUTCString();
+    /** Its headers and then nothing, as on a connection lost after them: the body never ends. */
+    const headersOnly = async () => new Response(new ReadableStream(), { headers: { date: date() } });
 
-    beforeEach(() => {
-      signal = undefined;
-      globalThis.fetch = (async (_input: unknown, init?: RequestInit) => {
-        signal = init?.signal;
-        return new Response('[]', { headers: { date: new Date().toUTCString() } });
-      }) as unknown as typeof fetch;
+    it('goes on counting while the body comes', async () => {
+      globalThis.fetch = headersOnly as unknown as typeof fetch;
+      expect(await secondsUntilItGivesUp(READ)).toBe(30);
+      expect(await secondsUntilItGivesUp(PHOTO, { method: 'POST', body: new ArrayBuffer(8) })).toBe(160);
     });
 
-    it('stops counting, as a body cut off halfway would read as a good answer with no data', async () => {
+    it('ends when the caller aborts while the body comes', async () => {
+      globalThis.fetch = headersOnly as unknown as typeof fetch;
+      const caller = new AbortController();
+      const failed = jest.fn();
+      void clockedFetch(READ, { signal: caller.signal }).catch(failed);
+      await jest.advanceTimersByTimeAsync(1_000);
+      expect(failed).not.toHaveBeenCalled();
+
+      caller.abort();
+      await jest.advanceTimersByTimeAsync(0);
+      expect(failed).toHaveBeenCalledTimes(1);
+    });
+
+    it('stops counting once the whole answer is in', async () => {
+      let signal: AbortSignal | null | undefined;
+      globalThis.fetch = (async (_input: unknown, init?: RequestInit) => {
+        signal = init?.signal;
+        return new Response('[]', { headers: { date: date() } });
+      }) as unknown as typeof fetch;
       const before = jest.getTimerCount();
       await clockedFetch(READ);
       expect(signal).toBeDefined();
@@ -369,11 +387,25 @@ describe('how long a request waits for its answer', () => {
       expect(signal?.aborted).toBe(false);
     });
 
-    it('still lets the caller end the body', async () => {
-      const caller = new AbortController();
-      await clockedFetch(READ, { signal: caller.signal });
-      caller.abort();
-      expect(signal?.aborted).toBe(true);
+    it('hands on the answer as it came', async () => {
+      globalThis.fetch = (async () =>
+        new Response('[{"id":"pack"}]', {
+          status: 206,
+          statusText: 'Partial Content',
+          headers: { 'content-range': '0-0/2', date: date() },
+        })) as unknown as typeof fetch;
+      const response = await clockedFetch(READ);
+      expect(response.status).toBe(206);
+      expect(response.statusText).toBe('Partial Content');
+      expect(response.headers.get('content-range')).toBe('0-0/2');
+      expect(await response.json()).toEqual([{ id: 'pack' }]);
+    });
+
+    it('hands on an answer that has no body', async () => {
+      globalThis.fetch = (async () => new Response(null, { status: 204, headers: { date: date() } })) as unknown as typeof fetch;
+      const response = await clockedFetch(READ, { method: 'PATCH', body: '{}' });
+      expect(response.status).toBe(204);
+      expect(await response.text()).toBe('');
     });
   });
 });

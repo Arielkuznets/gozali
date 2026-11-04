@@ -52,10 +52,10 @@ jest.mock('@/lib/push', () => ({ unregisterPushToken: async () => undefined }));
 
 // Required here, for the environment above to be in place first.
 const { AUTH_STORAGE_KEY, requireSupabase } = jest.requireActual<typeof import('@/lib/supabase')>('@/lib/supabase');
-const { usePack } = jest.requireActual<typeof import('@/features/packs/api')>('@/features/packs/api');
+const { packsKey, useMyPacks, usePack } = jest.requireActual<typeof import('@/features/packs/api')>('@/features/packs/api');
 const { useCountedFeeds, useFeedQueue, usePackFeed, usePendingFeeds, useSendFeed } = jest.requireActual<typeof import('@/features/feeds/api')>('@/features/feeds/api');
 const { enqueue, flushQueue, pendingFeeds } = jest.requireActual<typeof import('@/features/feeds/queue')>('@/features/feeds/queue');
-const { useDayPass } = jest.requireActual<typeof import('@/features/days/api')>('@/features/days/api');
+const { daysKey, useDayPass, useDayStatus } = jest.requireActual<typeof import('@/features/days/api')>('@/features/days/api');
 const { useBuy, useNudge } = jest.requireActual<typeof import('@/features/social/api')>('@/features/social/api');
 const { deleteAccount } = jest.requireActual<typeof import('@/features/auth/signIn')>('@/features/auth/signIn');
 // What expo/fetch rejects with on a phone when a request is aborted.
@@ -94,6 +94,8 @@ let fedOnAnotherPhone = false;
 let unanswered: (url: URL, init?: RequestInit) => boolean = () => false;
 /** The server's answer to these starts, and stops after the headers. */
 let answeredHalfway: (url: URL) => boolean = () => false;
+/** The answer to these comes with its headers and no body, as an Android phone reads one cut off after them. */
+let answeredEmpty: (url: URL) => boolean = () => false;
 /** How long the server takes over a request, if it isn't at once. */
 let slowBy: (url: URL) => number = () => 0;
 /** The server does the work of these at once, and the answer takes this long to get back. */
@@ -153,6 +155,7 @@ function server(url: URL, init: RequestInit | undefined, caller: string | null) 
   }
   if (path === '/rest/v1/packs') return reply(200, { id: 'pack', name: 'Gym squad', timezone: 'UTC', pack_members: [], critters: null });
   if (path === '/rest/v1/feeds') return reply(200, []);
+  if (path === '/rest/v1/rpc/my_day_status') return reply(200, { day: '2026-11-01' });
   if (`${path}/` === UPLOAD && init?.method === 'DELETE') {
     const { prefixes } = JSON.parse(String(init.body)) as { prefixes: string[] };
     for (const name of prefixes) photos.delete(`${UPLOAD}${name}`);
@@ -225,6 +228,7 @@ beforeAll(() => {
     const late = lateBy(url);
     if (late > 0) return new Promise((resolve) => setTimeout(() => resolve(answer), late));
     if (answeredHalfway(url)) return Promise.resolve(new Response(new ReadableStream(), { headers: answer.headers }));
+    if (answeredEmpty(url)) return Promise.resolve(new Response('', { headers: answer.headers }));
     if (!unanswered(url, init)) return Promise.resolve(answer);
     return new Promise((_resolve, reject) => {
       init?.signal?.addEventListener('abort', () => reject(new FetchError('Fetch request has been canceled')));
@@ -247,6 +251,7 @@ beforeEach(async () => {
   fedOnAnotherPhone = false;
   unanswered = () => false;
   answeredHalfway = () => false;
+  answeredEmpty = () => false;
   slowBy = () => 0;
   lateBy = () => 0;
   losesTheRace = false;
@@ -337,6 +342,63 @@ describe('a token refresh with no answer', () => {
     expect(answered).toBe(4);
     expect(requested('/auth/v1/token')).toBe(2);
     expect(requested('/rest/v1/packs by noa')).toBe(1);
+  });
+});
+
+describe('a token refresh whose answer stops after its headers', () => {
+  it('lets the requests behind it go, and the next one goes out as the member', async () => {
+    await AsyncStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(sessionOf(nowSeconds() - 60)));
+    answeredHalfway = firstOf('/auth/v1/token');
+    let answered = 0;
+    const read = () =>
+      void requireSupabase()
+        .from('packs')
+        .select('id')
+        .then(() => {
+          answered += 1;
+        });
+
+    read();
+    read();
+    read();
+    await advance(60_000);
+    expect(requested('/auth/v1/token')).toBe(1);
+    expect(answered).toBe(3);
+
+    await advance(60_000);
+    read();
+    await advance(1_000);
+    expect(answered).toBe(4);
+    expect(requested('/auth/v1/token')).toBe(2);
+    expect(requested('/rest/v1/packs by noa')).toBe(1);
+  });
+});
+
+describe('an answer that came with no body', () => {
+  it('is a failed read of the packs list, which is read again, and never an empty list', async () => {
+    function Home() {
+      useMyPacks();
+      return null;
+    }
+    answeredEmpty = firstOf('/rest/v1/packs');
+    await open(Home);
+    await advance(5_000);
+
+    expect(requested('/rest/v1/packs')).toBe(2);
+    expect(client.getQueryData(packsKey)).toMatchObject({ id: 'pack' });
+  });
+
+  it('is a failed read of the day, which is read again', async () => {
+    function Pack() {
+      useDayStatus('pack');
+      return null;
+    }
+    answeredEmpty = firstOf('/rest/v1/rpc/my_day_status');
+    await open(Pack);
+    await advance(5_000);
+
+    expect(requested('/rest/v1/rpc/my_day_status')).toBe(2);
+    expect(client.getQueryData([...daysKey, 'status', 'pack', '2026-11-01'])).toEqual({ day: '2026-11-01' });
   });
 });
 

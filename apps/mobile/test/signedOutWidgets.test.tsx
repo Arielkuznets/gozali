@@ -87,12 +87,7 @@ beforeEach(async () => {
   mockRpc.mockReset().mockResolvedValue({ data: null, error: { code: '42501', message: 'permission denied' } });
   mockAuth = { session: null, loading: false };
   fetched.mockReset();
-  globalThis.fetch = fetched.mockImplementation(async () => ({
-    status: 200,
-    ok: true,
-    headers: new Headers(),
-    json: async () => JSON.parse(snapshot),
-  })) as unknown as typeof fetch;
+  globalThis.fetch = fetched.mockImplementation(async () => new Response(snapshot)) as unknown as typeof fetch;
 });
 
 describe('a start with nobody signed in', () => {

@@ -71,12 +71,9 @@ describe('a widget refresh on Android', () => {
     jest.useFakeTimers({ now: PHONE_EVENING });
     await AsyncStorage.setItem(TOKEN_KEY, 'token');
     fetched.mockReset();
-    globalThis.fetch = fetched.mockImplementation(async () => ({
-      status: 200,
-      ok: true,
-      headers: new Headers(),
-      json: async () => ({ timezone: 'UTC', fetchedAt: new Date(Date.now()).toISOString(), packs: [pack] }),
-    })) as unknown as typeof fetch;
+    globalThis.fetch = fetched.mockImplementation(
+      async () => new Response(JSON.stringify({ timezone: 'UTC', fetchedAt: new Date(Date.now()).toISOString(), packs: [pack] })),
+    ) as unknown as typeof fetch;
   });
 
   it('fetches what the phone got half an hour ago, however new the time on it looks', async () => {
@@ -119,7 +116,7 @@ describe('a widget refresh on Android', () => {
 
   it('draws nothing of the account once the server no longer knows the token, and keeps nothing of it', async () => {
     await saveSnapshot(PHONE_EVENING - 2 * HOUR, PHONE_EVENING - 2 * HOUR);
-    fetched.mockImplementation(async () => ({ status: 401, ok: false, headers: new Headers(), text: async () => 'unknown token' }));
+    fetched.mockImplementation(async () => new Response('unknown token', { status: 401 }));
 
     await refresh();
     await refresh();

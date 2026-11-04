@@ -62,13 +62,12 @@ export function onServerClockChange(listener: () => void): () => void {
 }
 
 /**
- * How long a request waits for its answer to start. Nothing else ends one: the phones' network
- * clients have no time limit, so a connection that died quietly leaves a request open for as long
- * as the phone keeps the socket, and a token refresh left open holds back every request behind it.
- * The database ends a statement well before this, so an answer this late is one the connection
- * lost. A photo's answer comes after the whole photo went up, and a function can run for 150 s and
- * should get to say how it ended. The limit stops at the headers: cut off later, an empty body reads
- * as a good answer with no data.
+ * How long a request waits for its whole answer. Nothing else ends one: the phones' network clients
+ * have no time limit, so a connection that died quietly leaves a request open for as long as the
+ * phone keeps the socket, and a token refresh left open holds back every request behind it. The
+ * database ends a statement well before this, so an answer this late is one the connection lost. A
+ * photo's answer comes after the whole photo went up, and a function can run for 150 s and should
+ * get to say how it ended.
  */
 const ANSWER_LIMIT_MS = 30_000;
 const LONG_ANSWER_LIMIT_MS = 160_000;
@@ -78,7 +77,14 @@ function answerLimit(input: unknown, init: RequestInit | undefined): number {
   return uploading || String(input).includes('/functions/v1/') ? LONG_ANSWER_LIMIT_MS : ANSWER_LIMIT_MS;
 }
 
-/** A fetch that notes the server's time from every answer and gives up on one that doesn't come. */
+/** Statuses that come with no body, for which a Response refuses one. */
+const NO_BODY = new Set([204, 205, 304]);
+
+/**
+ * A fetch that notes the server's time from every answer and gives up on one that doesn't come.
+ * The body is read here, within the limit: Expo's fetch hands over the response at its headers,
+ * and on iOS its text() never settles once the connection is lost after them, nor on an abort.
+ */
 export const clockedFetch: typeof fetch = async (input, init) => {
   const limit = new AbortController();
   const timer = setTimeout(() => limit.abort(), answerLimit(input, init));
@@ -88,7 +94,14 @@ export const clockedFetch: typeof fetch = async (input, init) => {
   try {
     const response = await fetch(input, { ...init, signal: limit.signal });
     noteServerDate(response.headers.get('date'), sentAt, Date.now());
-    return response;
+    const given = new Promise<never>((_resolve, reject) => {
+      const giveUp = () => reject(new TypeError('Network request failed'));
+      if (limit.signal.aborted) giveUp();
+      limit.signal.addEventListener('abort', giveUp);
+    });
+    const body = await Promise.race([response.text(), given]);
+    const { status, statusText, headers } = response;
+    return new Response(NO_BODY.has(status) ? null : body, { status, statusText, headers });
   } finally {
     clearTimeout(timer);
   }

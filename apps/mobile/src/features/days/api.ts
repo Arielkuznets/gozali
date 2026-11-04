@@ -95,6 +95,8 @@ export function useDayStatus(packId: string) {
     queryFn: async (): Promise<DayStatus> => {
       const { data, error } = await requireSupabase().rpc('my_day_status', { target: packId });
       if (error) throw error;
+      // The server always answers with the day: no data is an answer cut off before its body.
+      if (!data) throw new Error('no_answer');
       return data as DayStatus;
     },
     // A phone a little fast asks just before the server's 03:00 and gets yesterday back: it asks
