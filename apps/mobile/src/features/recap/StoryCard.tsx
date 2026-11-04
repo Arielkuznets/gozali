@@ -29,6 +29,9 @@ type Props = {
 /**
  * The story leaves the pack: besides the logo and the link, it holds only the pet, the pack's
  * numbers and the member's own photos (spec section 7).
+ *
+ * It is a picture of a fixed size, so its text keeps its size whatever the phone's text setting:
+ * grown text would push the link and the photos off its bottom.
  */
 export const StoryCard = forwardRef<View, Props>(function StoryCard({ category, stats, photos, onPhotoLoadEnd }, ref) {
   const { t } = useTranslation();
@@ -37,11 +40,11 @@ export const StoryCard = forwardRef<View, Props>(function StoryCard({ category, 
   return (
     <View ref={ref} collapsable={false} style={styles.card}>
       <View style={styles.top}>
-        <AppText style={styles.brand}>Gozali</AppText>
-        <AppText variant="caption">{t('recap.weekOf', { date: formatDay(stats.weekStart) })}</AppText>
+        <AppText style={styles.brand} maxFontSizeMultiplier={1}>Gozali</AppText>
+        <AppText variant="caption" maxFontSizeMultiplier={1}>{t('recap.weekOf', { date: formatDay(stats.weekStart) })}</AppText>
       </View>
       <SvgXml xml={renderCritter(art)} width={220} height={220} />
-      <AppText style={styles.name}>{stats.critter.name ?? t(`packs.species.${stats.critter.species}`)}</AppText>
+      <AppText style={styles.name} maxFontSizeMultiplier={1}>{stats.critter.name ?? t(`packs.species.${stats.critter.species}`)}</AppText>
       <View style={styles.numbers}>
         <Stat value={`${stats.successDays}/${stats.days}`} label={t('recap.goodDays')} />
         <Stat value={`${change >= 0 ? '+' : ''}${change}`} label={t('recap.health')} />
@@ -61,7 +64,7 @@ export const StoryCard = forwardRef<View, Props>(function StoryCard({ category, 
           ))}
         </View>
       )}
-      <AppText style={styles.footer}>{t('recap.storyFooter')}</AppText>
+      <AppText style={styles.footer} maxFontSizeMultiplier={1}>{t('recap.storyFooter')}</AppText>
     </View>
   );
 });
@@ -69,8 +72,8 @@ export const StoryCard = forwardRef<View, Props>(function StoryCard({ category, 
 function Stat({ value, label }: { value: string; label: string }) {
   return (
     <View style={styles.number}>
-      <AppText style={styles.value}>{value}</AppText>
-      <AppText variant="caption">{label}</AppText>
+      <AppText style={styles.value} maxFontSizeMultiplier={1}>{value}</AppText>
+      <AppText variant="caption" maxFontSizeMultiplier={1}>{label}</AppText>
     </View>
   );
 }

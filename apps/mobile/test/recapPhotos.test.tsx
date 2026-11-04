@@ -297,6 +297,16 @@ describe('the story image', () => {
     expect(storyTexts().filter((text) => text.includes(mockPackName))).toEqual([]);
   });
 
+  // A picture of a fixed size: text grown with the phone's setting pushes the link and the photos
+  // off its bottom.
+  it("keeps its text at its own size, whatever the phone's text setting", async () => {
+    await open();
+    const texts = tree!.root.findByType(StoryCard).findAll((node) => node.type === 'Text');
+
+    expect(texts.length).toBeGreaterThan(0);
+    expect(texts.filter((node) => node.props.maxFontSizeMultiplier !== 1).map((node) => [node.props.children].flat().join(''))).toEqual([]);
+  });
+
   it('keeps a loaded photo on its link when a read brings a new one, and a photo still loading takes it', async () => {
     mockPoster = 'noa';
     await open();
