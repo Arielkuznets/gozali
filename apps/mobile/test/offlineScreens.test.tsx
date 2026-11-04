@@ -316,7 +316,7 @@ describe('a pause, with only the pack copy to go by', () => {
     const pack = await open(<PackScreen />);
 
     expect(lines(pack).join()).toContain("You're on a pause until");
-    expect(buttons(pack)).toContain('noa, on a pause');
+    expect(hasLabel(pack, 'noa, on a pause')).toBe(true);
     for (const offer of ['Feed', 'Not today', 'Focus', 'Post another photo']) expect(buttons(pack)).not.toContain(offer);
   });
 
