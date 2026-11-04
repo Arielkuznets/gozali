@@ -3,7 +3,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 import { hasCronSecret } from '../_shared/secret.ts';
-import { closeDueDays, runCleanups } from './close.ts';
+import { closeAfterHeartbeat, runCleanups } from './close.ts';
 
 const REMOVE_BATCH = 100;
 
@@ -13,10 +13,15 @@ Deno.serve(async (request) => {
     auth: { persistSession: false },
   });
   const now = new Date();
-  // First, so a long gap since the last run is recorded as an outage before its days close.
-  const heartbeat = await client.rpc('note_heartbeat', { job_name: 'close-days', at_time: now.toISOString() });
-  if (heartbeat.error) console.error('close-days heartbeat', heartbeat.error.message);
-  const { closed, failed, deferred } = await closeDueDays(client, now);
+  let days: Awaited<ReturnType<typeof closeAfterHeartbeat>>;
+  try {
+    days = await closeAfterHeartbeat(client, now);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('close-days', message);
+    return Response.json({ error: message }, { status: 500 });
+  }
+  const { outage, closed, failed, deferred } = days;
   // Before the cleanups: a worker can run out of time in them and this line would go with it.
   if (failed.length > 0) console.error('close-days failures', JSON.stringify(failed));
   const remover = (bucket: string) => async (paths: string[]) => {
@@ -33,7 +38,7 @@ Deno.serve(async (request) => {
       closed: closed.length,
       failed: failed.length,
       deferred,
-      outage: heartbeat.data === true,
+      outage,
       photos: cleanups.photos,
       droppedPacks: cleanups.droppedPacks,
       failedCleanups: cleanups.failed.map((row) => row.step),

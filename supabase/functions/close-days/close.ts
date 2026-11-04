@@ -128,6 +128,19 @@ export async function closeDueDays(
 }
 
 /**
+ * A run's heartbeat (note_heartbeat), then its day closes. The heartbeat saves a long gap since the
+ * last run as an outage, which the days in it need to know of, so it goes first, and a run whose
+ * heartbeat fails closes nothing: it throws, and the next run tries again with the gap still open.
+ */
+export async function closeAfterHeartbeat(
+  client: RpcClient,
+  now: Date,
+): Promise<{ outage: boolean } & Awaited<ReturnType<typeof closeDueDays>>> {
+  const outage = await call<boolean>(client, 'note_heartbeat', { job_name: 'close-days', at_time: now.toISOString() });
+  return { outage: outage === true, ...(await closeDueDays(client, now)) };
+}
+
+/**
  * Deletes photo files older than 30 days (spec section 11) and forgets their paths, then files
  * no feed points at.
  */
