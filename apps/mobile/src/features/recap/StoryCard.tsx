@@ -18,7 +18,6 @@ export const STORY_HEIGHT = 640;
 export const STORY_PHOTOS = 3;
 
 type Props = {
-  packName: string;
   category: Category;
   stats: RecapStats;
   /** Only the sharing member's own photos: the story leaves the pack (spec section 7). */
@@ -27,15 +26,18 @@ type Props = {
   onPhotoLoadEnd?: (id: string) => void;
 };
 
-export const StoryCard = forwardRef<View, Props>(function StoryCard({ packName, category, stats, photos, onPhotoLoadEnd }, ref) {
+/**
+ * The story leaves the pack: besides the logo and the link, it holds only the pet, the pack's
+ * numbers and the member's own photos (spec section 7).
+ */
+export const StoryCard = forwardRef<View, Props>(function StoryCard({ category, stats, photos, onPhotoLoadEnd }, ref) {
   const { t } = useTranslation();
   const art = critterArtFor(stats.critter, { category, mood: 1, sleeping: false });
   const change = stats.healthEnd - stats.healthStart;
   return (
     <View ref={ref} collapsable={false} style={styles.card}>
-      <AppText style={styles.brand}>Gozali</AppText>
       <View style={styles.top}>
-        <AppText style={styles.pack}>{packName}</AppText>
+        <AppText style={styles.brand}>Gozali</AppText>
         <AppText variant="caption">{t('recap.weekOf', { date: formatDay(stats.weekStart) })}</AppText>
       </View>
       <SvgXml xml={renderCritter(art)} width={220} height={220} />
@@ -85,7 +87,6 @@ const styles = StyleSheet.create({
   },
   brand: { fontFamily: fonts.heading, fontSize: 22, lineHeight: 30, color: colors.accent },
   top: { alignItems: 'center', gap: 2 },
-  pack: { fontFamily: fonts.heading, fontSize: 26, lineHeight: 32 },
   name: { fontFamily: fonts.heading, fontSize: 20, lineHeight: 28 },
   numbers: { flexDirection: 'row', gap: spacing.sm },
   number: {

@@ -67,9 +67,10 @@ jest.mock('@/features/critter/Critter', () => ({ Critter: () => null }));
 jest.mock('@/features/feeds/PhotoViewer', () => ({ PhotoViewer: () => null }));
 jest.mock('@/features/feeds/send', () => ({ PHOTO_BUCKET: 'photos' }));
 let mockMembers: { user_id: string; profiles: { display_name: string } }[];
+const mockPackName = "Noa and Dan's gym";
 jest.mock('@/features/packs/api', () => ({
   usePack: () => ({
-    data: { id: 'pack', name: 'Pack', category: 'gym', pack_members: mockMembers },
+    data: { id: 'pack', name: mockPackName, category: 'gym', pack_members: mockMembers },
     isPending: false,
     isError: false,
     refetch: async () => undefined,
@@ -246,6 +247,20 @@ describe('the most consistent members', () => {
 });
 
 describe('the story image', () => {
+  const storyTexts = () =>
+    tree!.root
+      .findByType(StoryCard)
+      .findAll((node) => node.type === 'Text')
+      .map((node) => [node.props.children].flat().join(''));
+
+  // It leaves the pack, and a pack's name can name friends.
+  it("holds the pack's numbers but not its name", async () => {
+    await open();
+
+    expect(storyTexts()).toContain('6/7');
+    expect(storyTexts().filter((text) => text.includes(mockPackName))).toEqual([]);
+  });
+
   it('keeps a loaded photo on its link when a read brings a new one, and a photo still loading takes it', async () => {
     mockPoster = 'noa';
     await open();

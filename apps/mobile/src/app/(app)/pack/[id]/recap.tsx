@@ -73,7 +73,7 @@ export default function RecapScreen() {
               ))}
             </ScrollView>
           )}
-          <RecapView recap={recap} packName={pack.name} category={pack.category} names={new Map(pack.pack_members.map((m) => [m.user_id, m.profiles?.display_name ?? null]))} />
+          <RecapView recap={recap} category={pack.category} names={new Map(pack.pack_members.map((m) => [m.user_id, m.profiles?.display_name ?? null]))} />
         </>
       )}
     </Screen>
@@ -85,12 +85,11 @@ const STORY_PHOTOS_LIMIT_MS = 8000;
 
 type ViewProps = {
   recap: Recap;
-  packName: string;
   category: Parameters<typeof critterArtFor>[1]['category'];
   names: Map<string, string | null>;
 };
 
-function RecapView({ recap, packName, category, names }: ViewProps) {
+function RecapView({ recap, category, names }: ViewProps) {
   const { t } = useTranslation();
   const { session } = useAuth();
   const photos = useRecapPhotos(recap);
@@ -190,7 +189,6 @@ function RecapView({ recap, packName, category, names }: ViewProps) {
       <View style={styles.offscreen} pointerEvents="none">
         <StoryCard
           ref={story}
-          packName={packName}
           category={category}
           stats={stats}
           photos={mine}
