@@ -134,7 +134,9 @@ describe('a block from a photo on the whole screen', () => {
     await settle();
 
     expect(openModals().length).toBe(0);
-    expect(jest.mocked(Alert.alert).mock.lastCall?.[0]).toBe('Blocked. You can also leave this pack from its settings.');
+    expect(jest.mocked(Alert.alert).mock.lastCall?.[0]).toBe(
+      'Blocked. You can also leave this pack from its settings, where its admin can remove them.',
+    );
 
     await openPhoto(0);
 

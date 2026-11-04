@@ -81,6 +81,9 @@ test('members nudge, report and block from the pack screen', async ({ page }) =>
   await expect(page.getByRole('menuitem')).toHaveText(['Nudge', 'Report Maya', 'Block Maya']);
   await page.getByRole('menuitem', { name: 'Block Maya' }).click();
   await expect.poll(() => dialogs.at(-1)).toContain('Blocked.');
+  // A block hides Maya from Noa, not Noa from Maya, and the answer names the ways out of her sight.
+  expect(dialogs.at(-2)).toContain('They can still see what you post in a pack you share.');
+  expect(dialogs.at(-1)).toContain('leave this pack from its settings, where its admin can remove them');
   const { data: blocks } = await admin.from('blocks').select('blocked_id').eq('blocker_id', noa.id);
   expect(blocks).toEqual([{ blocked_id: maya.id }]);
 });

@@ -30,7 +30,7 @@ jest.mock('@/lib/supabase', () => ({
   }),
 }));
 
-const BLOCKED = 'Blocked. You can also leave this pack from its settings.';
+const BLOCKED = 'Blocked. You can also leave this pack from its settings, where its admin can remove them.';
 const REPORTED = 'Thanks. We will look at it within 24 hours.';
 const FAILED = "Saving didn't work. Please try again.";
 const PHOTO = { id: 'photo', userId: 'dan', name: 'Dan', url: 'https://photo/1', caption: null };
