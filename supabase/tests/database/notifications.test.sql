@@ -1,7 +1,7 @@
 -- Notifications: rows from feeds and the clock, and the rules applied before sending.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(30);
+select plan(32);
 
 -- Reminders are queued for every pack, so this test runs alone (all rolled back at the end).
 delete from public.packs;
@@ -267,6 +267,22 @@ select is(
 select is(
   (select status::text from public.notifications where user_id = '00000000-0000-0000-0000-0000000000c5'), 'dropped',
   'and is dropped for one who woke while it waited'
+);
+
+-- After a night with no send-push run, Noa's reminder and "last one" from yesterday are still due in
+-- the morning. Nobody can feed for that day any more.
+delete from public.notifications;
+insert into public.notifications (user_id, pack_id, type, send_after, day)
+select '00000000-0000-0000-0000-0000000000a5', '10000000-0000-0000-0000-000000000015', kind, timestamptz '2000-01-01',
+  (select day - 1 from today)
+from unnest(array['evening_reminder', 'last_one']::public.notification_type[]) kind;
+select is(
+  (select count(*) from public.claim_notifications((select at from noon))), 0::bigint,
+  'a reminder and a "last one" for a day that ended aren''t sent the day after'
+);
+select is(
+  (select array_agg(distinct status::text) from public.notifications), array['dropped'],
+  'they are dropped'
 );
 
 select * from finish();
