@@ -1,9 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { router } from 'expo-router';
 import { Alert, AppState, Platform } from 'react-native';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import '@/i18n';
+import OnboardingScreen from '@/app/onboarding';
 import WelcomeScreen from '@/app/welcome';
 import { ONBOARDED_KEY } from '@/features/profile/onboarding';
 import { suggestName, suggestedName } from '@/features/profile/suggestedName';
@@ -487,5 +489,47 @@ describe('a request Apple leaves unanswered', () => {
     expect(mockOpenAuthSession).toHaveBeenCalledTimes(1);
     expect(reports()).toEqual([]);
     expect(shown()).not.toContain("Sign-in didn't finish");
+  });
+});
+
+describe('the rules on a first launch', () => {
+  let rules: ReactTestRenderer;
+
+  beforeEach(async () => {
+    jest.mocked(router.replace).mockClear();
+    await act(async () => {
+      rules = create(<OnboardingScreen />);
+    });
+  });
+
+  afterEach(() => {
+    act(() => rules.unmount());
+  });
+
+  const press = (text: string) =>
+    act(async () => {
+      const [button] = rules.root.findAll(
+        (node) => typeof node.type !== 'string' && node.props.onPress && (node.props.label === text || node.findAll((child) => child.props.children === text).length > 0),
+      );
+      await button?.props.onPress();
+    });
+
+  // A full phone refuses to note that the rules were seen; they show again at the next launch.
+  it('go on to sign-in on Skip when the phone refuses to note that they were seen', async () => {
+    jest.mocked(AsyncStorage.setItem).mockRejectedValueOnce(new Error('database or disk is full'));
+
+    await press('Skip');
+
+    expect(AsyncStorage.setItem).toHaveBeenCalledWith(ONBOARDED_KEY, '1');
+    expect(router.replace).toHaveBeenCalledWith('/welcome');
+  });
+
+  it("go on to sign-in on Let's go when the phone refuses to note that they were seen", async () => {
+    for (let card = 1; card < 4; card++) await press('Next');
+    jest.mocked(AsyncStorage.setItem).mockRejectedValueOnce(new Error('database or disk is full'));
+
+    await press("Let's go");
+
+    expect(router.replace).toHaveBeenCalledWith('/welcome');
   });
 });

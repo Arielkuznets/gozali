@@ -11,7 +11,9 @@ export default function OnboardingScreen() {
   const { t } = useTranslation();
 
   const finish = async () => {
-    await AsyncStorage.setItem(ONBOARDED_KEY, '1');
+    // A phone that can't note it (a full disk) shows the rules again at the next launch, which is
+    // better than no way on to sign-in.
+    await AsyncStorage.setItem(ONBOARDED_KEY, '1').catch(() => undefined);
     router.replace('/welcome');
   };
 
