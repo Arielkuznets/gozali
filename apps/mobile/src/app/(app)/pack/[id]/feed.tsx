@@ -69,10 +69,15 @@ export default function FeedScreen() {
   const camera = useRef<CameraView>(null);
   const [facing, setFacing] = useState<CameraType>('back');
   const [ready, setReady] = useState(false);
+  // The camera says when it can't start: another app holds it, or there is no camera that works.
+  const [cameraFailed, setCameraFailed] = useState(false);
   const [shot, setShot] = useState<Shot | null>(null);
   // The camera is gone under another screen and while a photo is shown. The one that comes back, on
-  // Retake too, has to report ready again.
-  if ((!focused || shot) && ready) setReady(false);
+  // Retake too, starts over and has to report ready again.
+  if ((!focused || shot) && (ready || cameraFailed)) {
+    setReady(false);
+    setCameraFailed(false);
+  }
   const [caption, setCaption] = useState('');
   const [result, setResult] = useState<'sent' | 'queued' | null>(null);
   // Set from the tap on Send, so a second tap while the photo is compressed doesn't send it twice.
@@ -288,7 +293,20 @@ export default function FeedScreen() {
         <View style={styles.iconSpace} />
       </View>
       <View style={styles.frame}>
-        {focused && <CameraView ref={camera} style={styles.fill} facing={facing} onCameraReady={() => setReady(true)} />}
+        {focused && (
+          <CameraView
+            ref={camera}
+            style={styles.fill}
+            facing={facing}
+            onCameraReady={() => setReady(true)}
+            onMountError={() => setCameraFailed(true)}
+          />
+        )}
+        {cameraFailed && (
+          <View style={[StyleSheet.absoluteFill, styles.frameNotice]}>
+            <AppText style={[styles.light, styles.centerText]}>{t('feed.cameraFailed')}</AppText>
+          </View>
+        )}
         {focusMinutes !== null && <FocusChip minutes={focusMinutes} emoji={pack ? categoryInfo(pack.category).emoji : '⏱'} />}
       </View>
       <View style={styles.controls}>
@@ -305,7 +323,11 @@ export default function FeedScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('feed.flip')}
-          onPress={() => setFacing((side) => (side === 'back' ? 'front' : 'back'))}
+          onPress={() => {
+            // The other camera is another try.
+            setCameraFailed(false);
+            setFacing((side) => (side === 'back' ? 'front' : 'back'));
+          }}
           hitSlop={12}
           style={styles.iconSpace}>
           <AppText style={[styles.light, styles.flip]}>⟲</AppText>
@@ -345,6 +367,7 @@ const styles = StyleSheet.create({
   title: { flex: 1, textAlign: 'center', fontFamily: fonts.bodyMedium },
   topBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
   frame: { flex: 1, marginHorizontal: spacing.sm, borderRadius: radii.lg, overflow: 'hidden', backgroundColor: '#000' },
+  frameNotice: { alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
   controls: {
     flexDirection: 'row',
     alignItems: 'center',

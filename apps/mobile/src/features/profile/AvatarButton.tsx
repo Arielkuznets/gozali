@@ -39,7 +39,8 @@ export function AvatarButton({ name }: { name: string | null | undefined }) {
   const pickFrom = (source: 'camera' | 'library') => () =>
     void pickAvatar(source).then(
       (uri) => uri && setAvatar.mutate(uri, { onError: saveFailed }),
-      (error: unknown) => (errorMessage(error) === 'camera_blocked' ? cameraOff() : saveFailed()),
+      (error: unknown) =>
+        errorMessage(error) === 'camera_blocked' ? cameraOff() : notify(t(source === 'camera' ? 'me.cameraFailed' : 'me.libraryFailed')),
     );
   const open = () =>
     setMenu({

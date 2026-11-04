@@ -363,6 +363,48 @@ describe('the camera after Retake', () => {
   });
 });
 
+describe("a camera that doesn't start", () => {
+  const FAILED = "The camera didn't start. Close other apps using it and try again.";
+  const cameraFails = () =>
+    act(async () => screen.root.findByType('CameraView' as never).props.onMountError?.({ message: 'Camera could not be started' }));
+
+  beforeEach(() => {
+    mockGet.mockResolvedValue(allowed);
+  });
+
+  it('says so in the frame, with Close still there', async () => {
+    await open();
+    await cameraFails();
+
+    expect(shown()).toContain(FAILED);
+    expect(buttons()).toContain('Close');
+  });
+
+  it('tries again on a flip', async () => {
+    await open();
+    await cameraFails();
+    await press('Switch camera');
+
+    expect(shown()).not.toContain(FAILED);
+  });
+
+  it('starts over with the camera that comes back after a photo', async () => {
+    await act(async () => {
+      screen = create(<FeedScreen />, {
+        createNodeMock: (element) =>
+          element.type === 'CameraView' ? { takePictureAsync: async () => ({ uri: 'file:/photo.jpg', width: 1000 }) } : null,
+      });
+    });
+    await act(async () => screen.root.findByType('CameraView' as never).props.onCameraReady());
+    await cameraFails();
+    await press('Take photo');
+    await press('Retake');
+
+    expect(hasCamera()).toBe(true);
+    expect(shown()).not.toContain(FAILED);
+  });
+});
+
 describe('a pause reaching the camera', () => {
   beforeEach(() => {
     mockGet.mockResolvedValue(allowed);

@@ -522,6 +522,7 @@
     "failed": "The feed didn't go through. Please try again.",
     "tooManyPosts": "That's all the photos for today. You can post up to 5 extras a day.",
     "captureFailed": "The photo wasn't taken. Please try again.",
+    "cameraFailed": "The camera didn't start. Close other apps using it and try again.",
     "permissionTitle": "Camera needed",
     "permissionBody": "Feeding takes a live photo in the app. Only your pack sees it, unless it's reported.",
     "openSettings": "Open settings"
@@ -793,6 +794,8 @@
     "takePhoto": "Take a photo",
     "choosePhoto": "Choose from library",
     "cameraOff": "Gozali can't use the camera. Allow it in your phone's settings, or choose a photo from your library.",
+    "cameraFailed": "The camera didn't open. You can choose a photo from your library instead.",
+    "libraryFailed": "Your photo library didn't open. Please try again.",
     "removePhoto": "Remove photo",
     "boardDay": "{{day}}, {{status}}"
   },

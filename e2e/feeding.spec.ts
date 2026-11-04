@@ -189,6 +189,23 @@ test("a camera link for a pack you're not in doesn't open the camera", async ({ 
   await expect(page.getByRole('button', { name: 'Join with a code' })).toBeVisible();
 });
 
+test('a camera another app holds says why nothing shows, and Close still works', async ({ context, page }) => {
+  await context.grantPermissions(['camera']);
+  const pack = await createPack(noa, { name: 'Study buddies', habit: 'study', species: 'mochi' });
+  // What a browser answers while another app has the camera.
+  await page.addInitScript(() => {
+    navigator.mediaDevices.getUserMedia = () => Promise.reject(new DOMException('Could not start video source', 'NotReadableError'));
+  });
+
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+  await page.getByRole('button', { name: 'Feed', exact: true }).click();
+
+  await expect(page.getByText("The camera didn't start. Close other apps using it and try again.")).toBeVisible();
+  await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/pack/${pack.id}$`));
+});
+
 test.describe('the first tap on Feed, before the camera was ever allowed', () => {
   test('goes straight to the question, and yes opens the camera', async ({ page }) => {
     // This browser answers yes by itself, and only once it is asked.
