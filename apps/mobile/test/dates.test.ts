@@ -1,7 +1,7 @@
 import { packDayOf } from '@gozali/game-engine';
 import { getCalendars, type Calendar } from 'expo-localization';
 
-import { deviceTimeZone, readableZone, shiftMonth } from '@/lib/dates';
+import { deviceTimeZone, formatMoment, readableZone, shiftMonth } from '@/lib/dates';
 import { reportError } from '@/lib/reportError';
 
 jest.mock('expo-localization', () => ({ ...jest.requireActual('expo-localization'), getCalendars: jest.fn() }));
@@ -10,6 +10,38 @@ jest.mock('@/lib/reportError', () => ({ reportError: jest.fn() }));
 const phoneSetTo = (timeZone: string | null) => {
   jest.mocked(getCalendars).mockReturnValue([{ timeZone } as Calendar]);
 };
+
+describe('formatMoment', () => {
+  const clockOf24Hours = (uses24hourClock: boolean | null) => {
+    jest.mocked(getCalendars).mockReturnValue([{ timeZone: 'Asia/Jerusalem', uses24hourClock } as Calendar]);
+  };
+  // Times on the clock of wherever the tests run, as the feed shows them.
+  const evening = new Date(2026, 10, 2, 20, 45).toISOString();
+  const pastMidnight = new Date(2026, 10, 2, 0, 5).toISOString();
+  const sameDay = new Date(2026, 10, 2, 12).toDateString();
+
+  it('is on a 24-hour clock on a phone set to one, from midnight on', () => {
+    clockOf24Hours(true);
+    expect(formatMoment(evening, sameDay)).toBe('20:45');
+    expect(formatMoment(pastMidnight, sameDay)).toBe('00:05');
+  });
+
+  it('is on a 12-hour clock on a phone set to one', () => {
+    clockOf24Hours(false);
+    expect(formatMoment(evening, sameDay)).toMatch(/^08:45\sPM$/);
+    expect(formatMoment(pastMidnight, sameDay)).toMatch(/^12:05\sAM$/);
+  });
+
+  it("is on the app language's clock on a phone that doesn't say", () => {
+    clockOf24Hours(null);
+    expect(formatMoment(evening, sameDay)).toMatch(/^08:45\sPM$/);
+  });
+
+  it('comes after the date on another day', () => {
+    clockOf24Hours(true);
+    expect(formatMoment(evening, new Date(2026, 10, 3, 12).toDateString())).toBe('Nov 2, 20:45');
+  });
+});
 
 describe('deviceTimeZone', () => {
   it('is the name the phone gives', () => {

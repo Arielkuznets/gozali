@@ -22,10 +22,21 @@ export function formatDay(day: string): string {
   return formatter({ weekday: 'short', month: 'short', day: 'numeric' }).format(new Date(`${day}T12:00:00`));
 }
 
+/**
+ * The phone's choice of a 12 or 24-hour clock, which is no language, or the language's own where it
+ * says nothing. A cycle and not hour12: Hermes takes hour12 false in English for h24, so 00:05 would
+ * read 24:05.
+ */
+function phoneClock(): Pick<Intl.DateTimeFormatOptions, 'hourCycle'> {
+  const uses24hourClock = getCalendars()[0]?.uses24hourClock;
+  if (uses24hourClock === null || uses24hourClock === undefined) return {};
+  return { hourCycle: uses24hourClock ? 'h23' : 'h12' };
+}
+
 /** A moment as a time today, or with the date on other days. `today` is a `Date.toDateString`. */
 export function formatMoment(at: string, today: string): string {
   const date = new Date(at);
-  const time = formatter({ hour: '2-digit', minute: '2-digit' }).format(date);
+  const time = formatter({ hour: '2-digit', minute: '2-digit', ...phoneClock() }).format(date);
   if (date.toDateString() === today) return time;
   return `${formatter({ month: 'short', day: 'numeric' }).format(date)}, ${time}`;
 }
