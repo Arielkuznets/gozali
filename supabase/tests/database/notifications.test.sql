@@ -1,7 +1,7 @@
 -- Notifications: rows from feeds and the clock, and the rules applied before sending.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(34);
+select plan(36);
 
 -- Reminders are queued for every pack, so this test runs alone (all rolled back at the end).
 delete from public.packs;
@@ -284,6 +284,25 @@ select is(
   (select array_agg(distinct status::text) from public.notifications), array['dropped'],
   'they are dropped'
 );
+
+-- The day ends at 03:00 where the pack is, wherever the member is: at 03:02 in Jerusalem the day
+-- before is over, though for Noa, in New York, it is evening and no quiet hours hold anything back.
+delete from public.notifications;
+update public.profiles set timezone = 'America/New_York' where id = '00000000-0000-0000-0000-0000000000a5';
+insert into public.notifications (user_id, pack_id, type, send_after, day)
+select '00000000-0000-0000-0000-0000000000a5', '10000000-0000-0000-0000-000000000015', kind, timestamptz '2000-01-01',
+  (select day - 1 from today)
+from unnest(array['evening_reminder', 'last_one']::public.notification_type[]) kind;
+select is(
+  (select count(*) from public.claim_notifications(((select day from today)::timestamp + interval '3 hours 2 minutes') at time zone 'Asia/Jerusalem')),
+  0::bigint,
+  'two minutes after the pack''s day ended, its reminder and "last one" aren''t sent'
+);
+select is(
+  (select array_agg(distinct status::text) from public.notifications), array['dropped'],
+  'they are dropped too'
+);
+update public.profiles set timezone = 'Asia/Jerusalem' where id = '00000000-0000-0000-0000-0000000000a5';
 
 -- Pet state tells the pack when the pet gets worse. A good day that lifts it from Sick to Weak
 -- tells nobody; a day it goes from Hungry down to Weak tells every member.
