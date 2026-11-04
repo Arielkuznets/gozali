@@ -76,7 +76,7 @@ A new pack starts as an egg, which hatches at the end of the first day on which 
 
 To see a hatched pet, a friend's photos, the outfit shop and a weekly recap, tap "Join with a code" on the home screen and enter <invite code>. To hatch your own egg, a second account joins with the pack's code (Invite on the pack screen) and feeds the same day; the day closes around 04:00 in the pack's time zone.
 
-Feed photos are taken in the app only (no gallery uploads); the photo library is only for the optional profile photo. Photos are visible only to the pack, unless one is reported. Another member's photo can be reported from its ⋯ menu, in the feed, opened full screen or in a weekly recap. Press and hold a member in the members row to report them (for their name, their profile photo or how they treat others) or block them. Reports and blocks reach the developer by email and are handled within 24 hours.
+Feed photos are taken in the app only (no gallery uploads); the photo library is only for the optional profile photo. Photos are visible only to the pack, unless one is reported. Another member's photo can be reported from its ⋯ menu, in the feed, opened full screen or in a weekly recap. Press and hold a member in the members row to report them (for their name, their profile photo or how they treat others) or block them; the ⋯ menu of a photo offers both for its poster, also after they left the pack. Reports and blocks reach the developer by email and are handled within 24 hours.
 
 Captions, names (of members, packs and pets) and habit texts are checked against a list of offensive words, and text with one is refused. Users reach the developer at hello@gozali.app, shown in Me → Settings and in the terms.
 

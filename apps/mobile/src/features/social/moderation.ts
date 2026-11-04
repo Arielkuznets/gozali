@@ -56,7 +56,16 @@ export function useModeration(onBlocked?: () => void) {
     });
   };
 
-  /** The menu of a photo someone else posted. Past its 30 days only a caption is left to report. */
+  /** What the menu of someone else offers wherever they are listed. */
+  const memberActions = (memberId: string, name: string): MenuAction[] => [
+    { label: t('social.reportMember', { name }), onPress: () => reportMember(memberId, name) },
+    { label: t('social.block', { name }), destructive: true, onPress: () => block(memberId, name) },
+  ];
+
+  /**
+   * The menu of a photo someone else posted, with their own actions too: someone who left or was
+   * removed has no circle left to press. Past its 30 days only a caption is left to report.
+   */
   const photoMenu = (photo: { id: string; userId: string; name: string; url: string | null; caption: string | null }): Menu => {
     const action = t(photo.url ? 'social.report' : 'social.reportCaption');
     const title = t(photo.url ? 'social.reportTitle' : 'social.reportCaptionTitle');
@@ -64,16 +73,10 @@ export function useModeration(onBlocked?: () => void) {
       title: photo.name,
       actions: [
         ...(photo.url || photo.caption ? [{ label: action, onPress: () => reportFeed(photo.id, title, action) }] : []),
-        { label: t('social.block', { name: photo.name }), destructive: true, onPress: () => block(photo.userId, photo.name) },
+        ...memberActions(photo.userId, photo.name),
       ],
     };
   };
-
-  /** What the menu of someone else offers wherever they are listed. */
-  const memberActions = (memberId: string, name: string): MenuAction[] => [
-    { label: t('social.reportMember', { name }), onPress: () => reportMember(memberId, name) },
-    { label: t('social.block', { name }), destructive: true, onPress: () => block(memberId, name) },
-  ];
 
   return { memberActions, photoMenu, blocking };
 }

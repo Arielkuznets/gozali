@@ -69,7 +69,7 @@ test('members nudge, report and block from the pack screen', async ({ page }) =>
 
   // Dan's photo has a menu with every choice.
   await page.getByRole('button', { name: 'More' }).click();
-  await expect(page.getByRole('menuitem')).toHaveText(['Report photo', 'Block Dan']);
+  await expect(page.getByRole('menuitem')).toHaveText(['Report photo', 'Report Dan', 'Block Dan']);
   await page.getByRole('menuitem', { name: 'Report photo' }).click();
   await expect.poll(() => dialogs.at(-1)).toContain('We will look at it');
   await expect(page.getByRole('menuitem')).toHaveCount(0);
@@ -120,6 +120,28 @@ test('a member reported from their menu reaches the developer', async ({ page })
   expect(reports).toEqual([{ feed_id: null, member_id: dan.id, reporter_id: noa.id }]);
 });
 
+test('a member removed from the pack is reported from a post they left behind', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' }, [dan]);
+  await feed(dan, pack.id, await photo(page, '🏋️'), 'Leg day');
+  const removed = await noa.client.rpc('remove_member', { target: pack.id, member: dan.id });
+  if (removed.error) throw removed.error;
+
+  const dialogs = answerDialogs(page);
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+  // Out of the pack, Dan has no circle to press.
+  await expect(page.getByText('Leg day')).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Dan, / })).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'More' }).click();
+  await page.getByRole('menuitem', { name: 'Report Dan' }).click();
+
+  await expect.poll(() => dialogs.at(-1)).toContain('We will look at it');
+  expect(dialogs.at(-2)).toContain('Report Dan?');
+  const { data: reports } = await admin.from('reports').select('feed_id, member_id, reporter_id').eq('reporter_id', noa.id);
+  expect(reports).toEqual([{ feed_id: null, member_id: dan.id, reporter_id: noa.id }]);
+});
+
 test('a photo that reports just hid can still be reported from a screen that shows it', async ({ page }) => {
   const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'axo' }, [dan]);
   await feed(dan, pack.id, await photo(page, '🏋️'), 'Leg day');
@@ -157,7 +179,7 @@ test('the menu of a photo stays on the screen beside a long name', async ({ page
   }
 
   await more.click();
-  await expect(page.getByRole('menuitem')).toHaveText(['Report photo', 'Block Bartholomew Montgomery-Smithso']);
+  await expect(page.getByRole('menuitem')).toHaveText(['Report photo', 'Report Bartholomew Montgomery-Smithso', 'Block Bartholomew Montgomery-Smithso']);
 });
 
 test('a photo keeps its name and its menu at the largest text', async ({ page }) => {
@@ -201,7 +223,7 @@ test('a photo on the whole screen has the same menu', async ({ page }) => {
   const viewer = page.getByRole('dialog');
 
   await viewer.getByRole('button', { name: 'More' }).click();
-  await expect(page.getByRole('menuitem')).toHaveText(['Report photo', 'Block Dan']);
+  await expect(page.getByRole('menuitem')).toHaveText(['Report photo', 'Report Dan', 'Block Dan']);
   await page.getByRole('menuitem', { name: 'Report photo' }).click();
   await expect.poll(() => dialogs.at(-1)).toContain('We will look at it');
   const { data: reports } = await admin.from('reports').select('feed_id, reporter_id').eq('reporter_id', noa.id);
@@ -278,7 +300,7 @@ test('a recap photo can be reported and its poster blocked', async ({ page }) =>
 
   const viewer = page.getByRole('dialog');
   await viewer.getByRole('button', { name: 'More' }).click();
-  await expect(page.getByRole('menuitem')).toHaveText(['Report photo', 'Block Dan']);
+  await expect(page.getByRole('menuitem')).toHaveText(['Report photo', 'Report Dan', 'Block Dan']);
   await page.getByRole('menuitem', { name: 'Report photo' }).click();
   await expect.poll(() => dialogs.at(-1)).toContain('We will look at it');
   const { data: reports } = await admin.from('reports').select('feed_id, reporter_id').eq('reporter_id', noa.id);
@@ -309,7 +331,7 @@ test.describe('a photo past its 30 days', () => {
     await expect(page.getByText('Leg day')).toBeVisible();
 
     await page.getByRole('button', { name: 'More' }).click();
-    await expect(page.getByRole('menuitem')).toHaveText(['Report caption', 'Block Dan']);
+    await expect(page.getByRole('menuitem')).toHaveText(['Report caption', 'Report Dan', 'Block Dan']);
     await page.getByRole('menuitem', { name: 'Report caption' }).click();
     await expect.poll(() => dialogs.at(-1)).toContain('We will look at it');
     expect(dialogs.at(-2)).toContain('Report this caption?');
@@ -317,7 +339,7 @@ test.describe('a photo past its 30 days', () => {
     expect(reports).toEqual([{ feed_id: feedId, reporter_id: noa.id }]);
   });
 
-  test('with no caption has nothing left to report', async ({ page }) => {
+  test('with no caption leaves only its poster to report', async ({ page }) => {
     const { pack } = await postAndExpire(page, '');
 
     await signIn(page, noa);
@@ -325,7 +347,7 @@ test.describe('a photo past its 30 days', () => {
     await expect(page.getByText('Photos are kept for 30 days.')).toBeVisible();
 
     await page.getByRole('button', { name: 'More' }).click();
-    await expect(page.getByRole('menuitem')).toHaveText(['Block Dan']);
+    await expect(page.getByRole('menuitem')).toHaveText(['Report Dan', 'Block Dan']);
   });
 });
 

@@ -84,11 +84,21 @@ afterEach(async () => {
   jest.restoreAllMocks();
 });
 
+const photoAction = (label: string) => moderation.photoMenu(PHOTO).actions.find((action) => action.label === label)!;
+
+describe('the menu of a photo someone else posted', () => {
+  // Someone who left or was removed has no circle to press, only their posts.
+  it('offers to report its poster too', () => {
+    expect(moderation.photoMenu(PHOTO).actions.map((action) => action.label)).toEqual(['Report photo', 'Report Dan', 'Block Dan']);
+  });
+});
+
 describe.each<[string, () => MenuAction, string]>([
   ['a block from a member menu', () => moderation.memberActions('dan', 'Dan')[1]!, BLOCKED],
-  ['a block from a photo menu', () => moderation.photoMenu(PHOTO).actions[1]!, BLOCKED],
+  ['a block from a photo menu', () => photoAction('Block Dan'), BLOCKED],
   ['a report of a member', () => moderation.memberActions('dan', 'Dan')[0]!, REPORTED],
-  ['a report of a photo', () => moderation.photoMenu(PHOTO).actions[0]!, REPORTED],
+  ['a report of a member from a photo menu', () => photoAction('Report Dan'), REPORTED],
+  ['a report of a photo', () => photoAction('Report photo'), REPORTED],
 ])('%s', (_name, action, saved) => {
   it('says it saved, once, with the screen still open', async () => {
     await choose(action());

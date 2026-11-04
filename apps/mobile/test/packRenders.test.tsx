@@ -290,7 +290,7 @@ describe('the menu of a row', () => {
 
   it('blocks the member of that row', async () => {
     const menu = await openMenu();
-    await act(async () => menu.actions[1]?.onPress());
+    await act(async () => menu.actions.find((action) => action.label === 'Block Member 1')?.onPress());
     await advance(10);
 
     expect(mockSaved).toHaveBeenCalledWith({ blocker_id: 'u0', blocked_id: 'u1' });
