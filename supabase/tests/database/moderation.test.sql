@@ -1,7 +1,7 @@
 -- Word filtering, reports on photos and on members, and the helpers of account deletion.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(57);
+select plan(59);
 
 select ok(public.is_clean('Leg day, done'), 'ordinary captions pass');
 select ok(not public.is_clean('what the fuuuck'), 'repeated letters don''t get around the filter');
@@ -267,6 +267,26 @@ select lives_ok(
   $$ insert into public.reports (feed_id, reporter_id) values ((select id from feed), '00000000-0000-0000-0000-0000000000c7')
      on conflict (feed_id, reporter_id) do nothing $$,
   'a member can report the photo of someone they just blocked'
+);
+
+-- Name suggestions carry their author's name, so those of someone a member blocked are out of that
+-- member's sight, and only theirs.
+reset role;
+update public.critters set status = 'active', stage = 'baby', xp = 1, health = 80 where pack_id = (select id from pack);
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000a7');
+select public.suggest_name((select id from pack), 'Pixel');
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000b7');
+select public.suggest_name((select id from pack), 'Blobby');
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000c7');
+select is(
+  (select array_agg(name order by name) from public.name_suggestions), array['Blobby'],
+  'a member doesn''t read the name suggestions of someone they blocked'
+);
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000d7');
+select is(
+  (select array_agg(name order by name) from public.name_suggestions), array['Blobby', 'Pixel'],
+  'the rest of the pack still reads them'
 );
 reset role;
 
