@@ -4,7 +4,7 @@ import * as Sharing from 'expo-sharing';
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, PixelRatio, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 
 import { AppText } from '@/components/AppText';
@@ -122,7 +122,10 @@ function RecapView({ recap, category, names }: ViewProps) {
     if (!story.current) return;
     setSharing(true);
     try {
-      const uri = await captureRef(story, { format: 'png', quality: 1, width: 1080, height: 1920 });
+      // A story is 1080 x 1920 pixels. iOS takes the size in points and draws at the screen's scale;
+      // Android takes pixels.
+      const scale = Platform.OS === 'ios' ? PixelRatio.get() : 1;
+      const uri = await captureRef(story, { format: 'png', quality: 1, width: 1080 / scale, height: 1920 / scale });
       await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: t('recap.share'), UTI: 'public.png' });
     } catch {
       notify(t('recap.shareFailed'));

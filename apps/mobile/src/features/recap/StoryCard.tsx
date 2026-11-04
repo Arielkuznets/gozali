@@ -11,7 +11,7 @@ import type { Category } from '@/features/packs/constants';
 import { formatDay } from '@/lib/dates';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
-/** Drawn at 360 x 640 and captured at 3x, the 1080 x 1920 story size. */
+/** Drawn at 360 x 640, a third of the 1080 x 1920 pixels the story is captured at. */
 export const STORY_WIDTH = 360;
 export const STORY_HEIGHT = 640;
 /** How many of the member's photos fit in the story's row. */

@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import type { ReactNode } from 'react';
+import { PixelRatio, Platform } from 'react-native';
 import { act, create, type ReactTestInstance, type ReactTestRenderer } from 'react-test-renderer';
 
 import '@/i18n';
@@ -16,6 +17,8 @@ let mockReadFails = false;
 let mockLinksFail = false;
 let mockHeld: Promise<void> = Promise.resolve();
 let mockNoRecap = false;
+/** What Share asked view-shot for, one entry a capture. */
+let mockCaptures: unknown[] = [];
 
 const mockRecap = {
   week_start: '2026-10-18',
@@ -58,8 +61,13 @@ jest.mock('@/lib/supabase', () => ({
   }),
 }));
 jest.mock('expo-router', () => ({ useLocalSearchParams: () => ({ id: 'pack' }) }));
-jest.mock('expo-sharing', () => ({}));
-jest.mock('react-native-view-shot', () => ({}));
+jest.mock('expo-sharing', () => ({ shareAsync: async () => undefined }));
+jest.mock('react-native-view-shot', () => ({
+  captureRef: async (_view: unknown, options: unknown) => {
+    mockCaptures.push(options);
+    return 'file:///story.png';
+  },
+}));
 jest.mock('react-native-svg', () => ({ SvgXml: () => null }));
 jest.mock('@gozali/critter-art', () => ({ critterArtFor: () => ({}), renderCritter: () => '' }));
 jest.mock('@/components/Screen', () => ({ Screen: ({ children }: { children: ReactNode }) => children }));
@@ -113,6 +121,8 @@ async function open() {
       <QueryClientProvider client={client}>
         <RecapScreen />
       </QueryClientProvider>,
+      // The story card's view, the one Share captures, is there to capture.
+      { createNodeMock: (element) => (element.props.collapsable === false ? {} : null) },
     );
   });
   // The photos are asked for once the recap is in.
@@ -136,6 +146,7 @@ beforeEach(() => {
   mockLinksFail = false;
   mockHeld = Promise.resolve();
   mockNoRecap = false;
+  mockCaptures = [];
   // No garbage collection, whose timers would outlive the test.
   client = new QueryClient({ defaultOptions: { queries: { gcTime: Infinity, retry: false } } });
 });
@@ -143,6 +154,7 @@ beforeEach(() => {
 afterEach(async () => {
   await close();
   jest.useRealTimers();
+  jest.restoreAllMocks();
 });
 
 describe('a pack with no recap yet', () => {
@@ -305,6 +317,23 @@ describe('the story image', () => {
 
     expect(texts.length).toBeGreaterThan(0);
     expect(texts.filter((node) => node.props.maxFontSizeMultiplier !== 1).map((node) => [node.props.children].flat().join(''))).toEqual([]);
+  });
+
+  // A story is 1080 x 1920 pixels. iOS takes the size in points and draws at the screen's scale;
+  // Android takes it in pixels.
+  it.each([
+    ['ios', 3, { width: 360, height: 640 }],
+    ['ios', 2, { width: 540, height: 960 }],
+    ['android', 3, { width: 1080, height: 1920 }],
+  ] as const)('is asked of %s at %dx in the units it takes', async (os, scale, size) => {
+    jest.replaceProperty(Platform, 'OS', os);
+    jest.spyOn(PixelRatio, 'get').mockReturnValue(scale);
+    await open();
+    expect(held()).toBe(false);
+
+    await act(async () => button(SHARE)?.props.onPress());
+
+    expect(mockCaptures).toEqual([expect.objectContaining(size)]);
   });
 
   it('keeps a loaded photo on its link when a read brings a new one, and a photo still loading takes it', async () => {
