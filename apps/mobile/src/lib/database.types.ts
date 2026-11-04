@@ -1093,6 +1093,7 @@ export type Database = {
       };
       blocked_by_me: { Args: { other_user: string }; Returns: boolean };
       buy_item: { Args: { target: string; wanted: string }; Returns: number };
+      bytes_held: { Args: { bucket: string }; Returns: number };
       call_edge_function:
         | { Args: { name: string }; Returns: undefined }
         | { Args: { body: Json; name: string }; Returns: undefined };
