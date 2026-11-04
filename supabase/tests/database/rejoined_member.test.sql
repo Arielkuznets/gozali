@@ -263,9 +263,9 @@ select is(
   'so they get no membership'
 );
 select is(
-  (select count(*) from public.code_misses where user_id = '00000000-0000-0000-0000-0000000000c9'),
-  2::bigint,
-  'and both count as misses, as for a code no pack has'
+  (select array_agg(code) from public.code_misses where user_id = '00000000-0000-0000-0000-0000000000c9'),
+  array['CLME3456'],
+  'and the code counts as a miss, once, as a code no pack has does'
 );
 
 -- At the limit of packs a refusal would tell the code is real.

@@ -194,14 +194,17 @@ export type Database = {
       code_misses: {
         Row: {
           at: string;
+          code: string | null;
           user_id: string;
         };
         Insert: {
           at?: string;
+          code?: string | null;
           user_id: string;
         };
         Update: {
           at?: string;
+          code?: string | null;
           user_id?: string;
         };
         Relationships: [
@@ -1249,6 +1252,7 @@ export type Database = {
         Args: { emoji: Database['public']['Enums']['reaction_emoji']; target_feed: string };
         Returns: undefined;
       };
+      record_code_miss: { Args: { caller: string; tried: string }; Returns: undefined };
       register_push_token: {
         Args: { device: Database['public']['Enums']['push_platform']; device_token: string };
         Returns: undefined;
