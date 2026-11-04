@@ -81,6 +81,7 @@ function SettingsForm({ pack, leavePack }: { pack: Pack; leavePack: ReturnType<t
   const onRemove = (memberId: string, memberName: string) => {
     confirm({
       title: t('settings.removeConfirm', { name: memberName }),
+      message: t('settings.removeBody'),
       confirm: t('settings.remove'),
       cancel: t('settings.cancel'),
       destructive: true,

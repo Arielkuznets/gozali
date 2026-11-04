@@ -160,6 +160,24 @@ test("a member who isn't the admin is told the settings are the admin's", async 
   await expect(page.getByRole('radio', { name: 'Monday' })).toBeDisabled();
 });
 
+test("the admin is told before a removal that the member can't come back", async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
+  const asked: string[] = [];
+  page.on('dialog', (dialog) => {
+    asked.push(dialog.message());
+    void dialog.accept();
+  });
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}/settings`);
+
+  await page.getByRole('button', { name: 'Remove', exact: true }).click();
+
+  await expect.poll(() => asked).toEqual([expect.stringContaining("They can't come back")]);
+  await expect(page.getByRole('button', { name: 'Remove', exact: true })).toBeHidden();
+  const { data: removed } = await admin.from('pack_members').select('removed_at').eq('pack_id', pack.id).eq('user_id', dan.id).single();
+  expect(removed?.removed_at).not.toBeNull();
+});
+
 test('the buttons at the top of a pack stay on the screen at the largest text', async ({ page }) => {
   const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
   await signIn(page, noa);
