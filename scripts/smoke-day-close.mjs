@@ -146,7 +146,9 @@ await dropEmptyPacks(admin, removeFiles, new Date());
 const kept = await admin.from('packs').select('id').eq('id', packId);
 check(kept.data.length === 1, 'a pack everyone left is kept for now');
 const monthAgo = new Date(Date.now() - 31 * 86_400_000).toISOString();
+// Its days closed while they were in it, so those move back too.
 await admin.from('pack_members').update({ left_at: monthAgo }).eq('pack_id', packId);
+await admin.from('day_results').update({ closed_at: monthAgo }).eq('pack_id', packId);
 await dropEmptyPacks(admin, removeFiles, new Date());
 const gone = await admin.from('packs').select('id').eq('id', packId);
 check(gone.data.length === 0, 'after 30 days it is deleted');
