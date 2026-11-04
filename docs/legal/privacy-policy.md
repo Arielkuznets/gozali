@@ -24,7 +24,7 @@ We do **not** collect your location or contacts, we don't use advertising or tra
 - Pack members see who fed, rested, used a joker, was paused or missed on each day, because that is how the pack works together. Notifications never say who missed.
 - Widgets on your home screen and lock screen show only the pet and numbers, never photos or names.
 - A weekly recap you share as a story contains the pet, the pack's numbers and **only your own** photos.
-- You don't see the photos, profile photo and reactions of people you block, and they can't nudge you. If you share a pack with them, they can still see what you post there; you can leave the pack at any time.
+- You don't see the photos, profile photo and reactions of people you block, and they can't nudge you. A 🤨 of theirs still counts in the 🤨 number, which names nobody. If you share a pack with them, they can still see what you post there; you can leave the pack at any time.
 - Everyone who is now in a pack you are in, or were in before, can read your profile: the name and profile photo the app shows them, and also your time zone, language, reminder time, which notifications you turned on, and when you made your account and accepted the terms, which the app doesn't show. It stays readable to them after you leave the pack, are removed from it or block them, and to people who join that pack later, for as long as your account and the pack exist.
 
 ## How long we keep it

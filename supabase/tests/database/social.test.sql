@@ -1,7 +1,7 @@
 -- Feed events, reactions, nudges, naming, the wardrobe and personal stats.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(47);
+select plan(48);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a4', 'noa@test.local'),
@@ -153,6 +153,14 @@ select is(
   'null takes a reaction back'
 );
 insert into public.blocks (blocker_id, blocked_id) values ('00000000-0000-0000-0000-0000000000a4', '00000000-0000-0000-0000-0000000000b4');
+select is(
+  (select total || ' ' || mine || ' ' || cardinality(names) from public.feed_reactions(array['20000000-0000-0000-0000-000000000001'::uuid]) where emoji = 'suspicious'),
+  '1 false 0',
+  'a blocked member''s suspicious emoji still counts, so blocking people one by one can''t tell whose it is'
+);
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000b4');
+select public.react('20000000-0000-0000-0000-000000000001', 'fire');
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000a4');
 select is(
   (select count(*) from public.feed_reactions(array['20000000-0000-0000-0000-000000000001'::uuid])), 0::bigint,
   'reactions from a blocked member are hidden'
