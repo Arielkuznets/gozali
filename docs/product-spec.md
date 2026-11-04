@@ -98,10 +98,10 @@ The critter is the heart of the product: its state reflects the pack's commitmen
 | Creature | Color | Personality | Example line when hungry |
 | --- | --- | --- | --- |
 | Mochi (a dumpling puppy) | Apricot | Lazy and sleepy, complains in a cute way | "I was napping but also... starving?" |
-| Kit (a fox-cat) | Yellow | Dramatic and easily offended | "Wow. Nobody fed me. I see how it is." |
+| Kit (a fox-cat) | Yellow | Dramatic and easily offended | "Wow. Am I invisible? I see how it is." |
 | Axo (an axolotl) | Blue | Cheerful, always smiling | "Snack time? Snack time!" |
 | Ribbit (a mossy frog) | Green | Calm and peaceful | "A calm frog is a fed frog. Just saying." |
-| Hoot (an owlet) | Dark brown | Nerdy, loves facts | "Fun fact: I haven't eaten in 14 hours." |
+| Hoot (an owlet) | Dark brown | Nerdy, loves facts | "Fun fact: hungry owls hoot louder." |
 | Bun (a bunny) | White | Shy and sweet | "Um... sorry... is there food?" |
 
 **Health:** 0–100. Starts at 70.
