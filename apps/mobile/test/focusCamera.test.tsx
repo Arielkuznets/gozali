@@ -51,7 +51,11 @@ jest.mock('@/features/packs/api', () => ({
 jest.mock('@/features/profile/useProfile', () => ({ useAccountSync: () => undefined }));
 jest.mock('@/features/widgets/sync', () => ({ useWidgetSync: () => undefined }));
 jest.mock('@/lib/haptics', () => ({ haptics: { bump: jest.fn(), success: jest.fn() } }));
-jest.mock('@/lib/notifications', () => ({ allowNotifications: async () => true, useNotificationRoutes: () => undefined }));
+jest.mock('@/lib/notifications', () => ({
+  allowNotifications: async () => true,
+  useNotificationPermission: () => ({ permission: 'granted', request: jest.fn() }),
+  useNotificationRoutes: () => undefined,
+}));
 
 const routes = {
   _layout: { default: () => <Stack screenOptions={{ headerShown: false }} /> },

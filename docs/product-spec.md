@@ -272,7 +272,7 @@ A user feeds the creature with a photo taken inside the app right now; this is t
 **Focus timer (Study, Reading, Meditation, Language and Music practice):**
 
 - In packs of habits done in sittings (Study, Reading, Meditation, Language, Music practice), next to the Feed button there is also Focus: a timer of 15, 25, 45 or 60 minutes, or an open timer.
-- When the time is up a local notification is sent and the camera opens, and the feed shows the length of the session ("📖 45 min"). With another screen open over the timer the camera holds back, so nothing on that screen is lost. Back on the timer within a minute it opens, and after that the session waits for Done.
+- When the time is up a local notification is sent and the camera opens, and the feed shows the length of the session ("📖 45 min"). With notifications turned off for the app in the phone's settings, the timer says so and asks to check back when time is up. With another screen open over the timer the camera holds back, so nothing on that screen is lost. Back on the timer within a minute it opens, and after that the session waits for Done.
 - The timer is optional, and a photo is still required as proof. It keeps running while the app is in the background.
 - Done stops the clock at the camera, and the photo that goes out ends the session. A camera refused or closed without a photo leaves the session paused on the Focus screen, with its minutes.
 - During a pause no photo counts, so Focus is hidden like Feed. A session the pause overtook keeps Focus in reach until it is over, and the link at its end ends it and opens the pack.

@@ -537,6 +537,7 @@
     "openRunning": "Open session",
     "paused": "Paused",
     "otherRunning": "A session for another pack is running; starting here ends it.",
+    "notificationsOff": "Notifications are off, so check back here when time is up.",
     "pause": "Pause",
     "resume": "Resume",
     "cancel": "Cancel",

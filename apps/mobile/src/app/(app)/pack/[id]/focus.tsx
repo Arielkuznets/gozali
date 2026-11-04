@@ -15,7 +15,7 @@ import { useCritterText } from '@/features/critter/useCritterText';
 import { FOCUS_LENGTHS, elapsedMs, focusedMinutes, remainingMs, useFocusSession } from '@/features/focus/session';
 import { usePack } from '@/features/packs/api';
 import { confirm } from '@/lib/confirm';
-import { allowNotifications } from '@/lib/notifications';
+import { allowNotifications, useNotificationPermission } from '@/lib/notifications';
 import { goBack } from '@/lib/navigation';
 import { useNow } from '@/lib/useNow';
 import { serverNow } from '@/lib/serverClock';
@@ -41,6 +41,8 @@ export default function FocusScreen() {
   const now = useNow(1000, 'phone');
   const inFront = useIsFocused();
   const opened = useRef(false);
+  // Turned off in the phone's settings, nothing marks the end of the time while the app is away.
+  const unannounced = useNotificationPermission().permission === 'blocked';
 
   const session = focus.session?.packId === id ? focus.session : null;
   const otherSession = focus.session !== null && session === null;
@@ -85,7 +87,8 @@ export default function FocusScreen() {
     });
 
   const start = async (minutes: number | null) => {
-    await allowNotifications();
+    // The timer runs without notifications too, and the screen says what that means.
+    await allowNotifications().catch(() => false);
     await focus.start(id, minutes);
   };
 
@@ -110,6 +113,11 @@ export default function FocusScreen() {
                   ? t('focus.openRunning')
                   : t('focus.running', { minutes: session.minutes })}
             </AppText>
+            {unannounced && session.minutes !== null && (
+              <AppText variant="caption" style={styles.centerText}>
+                {t('focus.notificationsOff')}
+              </AppText>
+            )}
           </>
         ) : (
           <>
@@ -117,6 +125,11 @@ export default function FocusScreen() {
               {t('focus.title')}
             </AppText>
             <AppText style={[styles.centerText, styles.muted]}>{t('focus.body')}</AppText>
+            {unannounced && (
+              <AppText variant="caption" style={styles.centerText}>
+                {t('focus.notificationsOff')}
+              </AppText>
+            )}
             {otherSession && <AppText variant="caption">{t('focus.otherRunning')}</AppText>}
             <View style={styles.lengths}>
               {FOCUS_LENGTHS.map((minutes) => (
