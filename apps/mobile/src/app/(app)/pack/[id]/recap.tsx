@@ -2,7 +2,7 @@ import { ACHIEVEMENTS } from '@gozali/game-engine';
 import { critterArtFor } from '@gozali/critter-art';
 import * as Sharing from 'expo-sharing';
 import { useLocalSearchParams } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
@@ -19,7 +19,7 @@ import { Critter } from '@/features/critter/Critter';
 import { PhotoViewer, type ViewedPhoto } from '@/features/feeds/PhotoViewer';
 import { SignedPhoto } from '@/features/feeds/SignedPhoto';
 import { usePack } from '@/features/packs/api';
-import { StoryCard, STORY_HEIGHT, STORY_WIDTH } from '@/features/recap/StoryCard';
+import { StoryCard, STORY_HEIGHT, STORY_PHOTOS, STORY_WIDTH } from '@/features/recap/StoryCard';
 import { useRecapPhotos, useRecaps, type Recap } from '@/features/recap/api';
 import { notify } from '@/lib/confirm';
 import { formatDay } from '@/lib/dates';
@@ -80,6 +80,9 @@ export default function RecapScreen() {
   );
 }
 
+/** How long Share waits for the story's photos: one that never answers can't hold it for good. */
+const STORY_PHOTOS_LIMIT_MS = 8000;
+
 type ViewProps = {
   recap: Recap;
   packName: string;
@@ -99,6 +102,18 @@ function RecapView({ recap, packName, category, names }: ViewProps) {
   const change = stats.healthEnd - stats.healthStart;
   const mine = (photos.data ?? []).filter((photo) => photo.userId === session?.user.id);
   const photosFailed = photos.isError && !photos.data;
+  // A photo still on its way would be an empty box in the image, so Share waits for each of the
+  // story's photos to load or fail.
+  const [loadEnded, setLoadEnded] = useState<ReadonlySet<string>>(() => new Set());
+  const inStory = mine.slice(0, STORY_PHOTOS);
+  const storyIds = inStory.map((photo) => photo.id).join();
+  const [waitedFor, setWaitedFor] = useState<string | null>(null);
+  useEffect(() => {
+    if (storyIds === '') return;
+    const timer = setTimeout(() => setWaitedFor(storyIds), STORY_PHOTOS_LIMIT_MS);
+    return () => clearTimeout(timer);
+  }, [storyIds]);
+  const storyLoading = photos.isLoading || (waitedFor !== storyIds && inStory.some((photo) => !loadEnded.has(photo.id)));
   // A deleted account takes its member row along, and the recap keeps its id: only those still
   // here are named.
   const top = stats.topMembers.flatMap((member) => (names.has(member) ? [names.get(member) ?? '…'] : []));
@@ -168,12 +183,19 @@ function RecapView({ recap, packName, category, names }: ViewProps) {
 
       {/* The story holds the member's own photos, so it waits for them. */}
       {Platform.OS !== 'web' && (
-        <Button label={t('recap.share')} loading={sharing} disabled={photos.isLoading || photosFailed} onPress={() => void share()} />
+        <Button label={t('recap.share')} loading={sharing || storyLoading} disabled={photosFailed} onPress={() => void share()} />
       )}
 
       {/* Off screen: the story image that gets captured. */}
       <View style={styles.offscreen} pointerEvents="none">
-        <StoryCard ref={story} packName={packName} category={category} stats={stats} photos={mine} />
+        <StoryCard
+          ref={story}
+          packName={packName}
+          category={category}
+          stats={stats}
+          photos={mine}
+          onPhotoLoadEnd={(id) => setLoadEnded((ended) => (ended.has(id) ? ended : new Set(ended).add(id)))}
+        />
       </View>
     </>
   );

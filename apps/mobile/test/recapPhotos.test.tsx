@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import type { ReactNode } from 'react';
-import { act, create, type ReactTestRenderer } from 'react-test-renderer';
+import { act, create, type ReactTestInstance, type ReactTestRenderer } from 'react-test-renderer';
 
 import '@/i18n';
 import RecapScreen from '@/app/(app)/pack/[id]/recap';
@@ -89,8 +89,21 @@ const storyPhotos = () => tree!.root.findByType(StoryCard).findAllByType(Image);
 const SHARE = 'Share as a story';
 const LOAD_FAILED = "This didn't load. Check the connection and try again.";
 const button = (label: string) => tree!.root.findAll((node) => node.props.label === label && node.props.onPress)[0];
+/** Share can't be pressed yet, whether it waits with a spinner or is greyed out. */
+const held = () => Boolean(button(SHARE)?.props.disabled || button(SHARE)?.props.loading);
 const says = (text: string) => tree!.root.findAll((node) => node.type === 'Text' && [node.props.children].flat().join() === text).length > 0;
 const link = (id: string, read: number) => `https://photos.test/feeds/${id}.jpg?read=${read}`;
+// What expo-image calls once a picture is in, or once it couldn't load.
+const loads = (photo: ReactTestInstance) =>
+  act(async () => {
+    photo.props.onLoad?.({ cacheType: 'disk' });
+    photo.props.onLoadEnd?.();
+  });
+const fails = (photo: ReactTestInstance) =>
+  act(async () => {
+    photo.props.onError?.({ error: 'gone' });
+    photo.props.onLoadEnd?.();
+  });
 
 async function open() {
   await act(async () => {
@@ -126,6 +139,7 @@ beforeEach(() => {
 
 afterEach(async () => {
   await close();
+  jest.useRealTimers();
 });
 
 describe('a collage that does not load', () => {
@@ -161,12 +175,12 @@ describe('a collage that does not load', () => {
       release = resolve;
     });
     await open();
-    expect(button(SHARE)?.props.disabled).toBe(true);
+    expect(held()).toBe(true);
 
     await act(async () => release());
     await settle();
 
-    expect(button(SHARE)?.props.disabled).toBe(false);
+    expect(held()).toBe(false);
   });
 
   it('holds Share while the collage has failed', async () => {
@@ -244,5 +258,42 @@ describe('the story image', () => {
 
     expect(mockReads).toBe(2);
     expect(storyPhotos().map((photo) => photo.props.source.uri)).toEqual([link('a', 1), link('b', 2)]);
+  });
+
+  it('holds Share until each of its photos has loaded or failed', async () => {
+    mockPoster = 'noa';
+    await open();
+    expect(storyPhotos()).toHaveLength(2);
+    expect(button(SHARE)?.props.loading).toBe(true);
+
+    await loads(storyPhotos()[0]!);
+    expect(button(SHARE)?.props.loading).toBe(true);
+
+    await fails(storyPhotos()[1]!);
+    expect(held()).toBe(false);
+  });
+
+  it('waits only for the photos it holds', async () => {
+    mockPoster = 'noa';
+    mockVisible = ['a', 'b', 'c', 'd'];
+    await open();
+    expect(storyPhotos()).toHaveLength(3);
+
+    for (const photo of storyPhotos()) await loads(photo);
+
+    expect(held()).toBe(false);
+  });
+
+  it('lets Share go after a few seconds when a photo never answers', async () => {
+    jest.useFakeTimers({ advanceTimers: true });
+    mockPoster = 'noa';
+    await open();
+    expect(held()).toBe(true);
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(10_000);
+    });
+
+    expect(held()).toBe(false);
   });
 });

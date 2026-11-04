@@ -14,6 +14,8 @@ import { colors, fonts, radii, spacing } from '@/theme/tokens';
 /** Drawn at 360 x 640 and captured at 3x, the 1080 x 1920 story size. */
 export const STORY_WIDTH = 360;
 export const STORY_HEIGHT = 640;
+/** How many of the member's photos fit in the story's row. */
+export const STORY_PHOTOS = 3;
 
 type Props = {
   packName: string;
@@ -21,9 +23,11 @@ type Props = {
   stats: RecapStats;
   /** Only the sharing member's own photos: the story leaves the pack (spec section 7). */
   photos: RecapPhoto[];
+  /** One of the story's photos has loaded, or couldn't. */
+  onPhotoLoadEnd?: (id: string) => void;
 };
 
-export const StoryCard = forwardRef<View, Props>(function StoryCard({ packName, category, stats, photos }, ref) {
+export const StoryCard = forwardRef<View, Props>(function StoryCard({ packName, category, stats, photos, onPhotoLoadEnd }, ref) {
   const { t } = useTranslation();
   const art = critterArtFor(stats.critter, { category, mood: 1, sleeping: false });
   const change = stats.healthEnd - stats.healthStart;
@@ -43,8 +47,15 @@ export const StoryCard = forwardRef<View, Props>(function StoryCard({ packName, 
       </View>
       {photos.length > 0 && (
         <View style={styles.photos}>
-          {photos.slice(0, 3).map((photo) => (
-            <SignedPhoto key={photo.id} id={photo.id} url={photo.url} style={styles.photo} contentFit="cover" />
+          {photos.slice(0, STORY_PHOTOS).map((photo) => (
+            <SignedPhoto
+              key={photo.id}
+              id={photo.id}
+              url={photo.url}
+              style={styles.photo}
+              contentFit="cover"
+              onLoadEnd={() => onPhotoLoadEnd?.(photo.id)}
+            />
           ))}
         </View>
       )}
