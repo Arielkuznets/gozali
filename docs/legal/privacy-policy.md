@@ -1,6 +1,6 @@
 # Gozali Privacy Policy
 
-Last updated: November 3, 2026
+Last updated: November 4, 2026
 
 Gozali is an app where a small group of friends (a "pack") raises a shared pet by doing a habit every day and proving it with a photo. This policy explains what we collect, why, who can see it, and how to delete it. Questions: hello@gozali.app.
 
@@ -47,7 +47,7 @@ They process data only to provide these services to Gozali.
 
 ## Your rights
 
-You can see and change your profile in the app, and delete your account from Settings ("How long we keep it" says what that removes and what stays for a while). You can also ask us at hello@gozali.app for a copy of your data or to correct it, and we will answer within 30 days. If you live in the European Union or the UK, you may also complain to your data protection authority. The data is stored in the European Union (Ireland), apart from the backups and report emails, which the developer keeps outside it.
+You can see and change your profile in the app, and delete your account from Settings ("How long we keep it" says what that removes and what stays for a while). If you no longer have the app, write to hello@gozali.app with the email address you signed in with, and we will delete the account the same way within 30 days. You can also ask us there for a copy of your data or to correct it, and we will answer within 30 days. If you live in the European Union or the UK, you may also complain to your data protection authority. The data is stored in the European Union (Ireland), apart from the backups and report emails, which the developer keeps outside it.
 
 ## Age
 

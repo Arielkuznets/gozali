@@ -36,6 +36,15 @@ test('the pages the stores link to carry no draft notice', () => {
   }
 });
 
+test('the support page tells someone without the app how to have the account deleted', () => {
+  const { status, stderr } = build(FINGERPRINT);
+  expect(status, stderr).toBe(0);
+  // Google Play takes this page as the link for deleting an account only if it works without the app.
+  const deletion = /<li><strong>Deleting your account:<\/strong>(.*?)<\/li>/.exec(page('support/index.html'))?.[1];
+  expect(deletion).toContain('Settings → Delete account');
+  expect(deletion).toContain('hello@gozali.app');
+});
+
 test('the real fingerprint goes into the file Android reads', () => {
   const { status, stderr } = build(FINGERPRINT);
   expect(status, stderr).toBe(0);

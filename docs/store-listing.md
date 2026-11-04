@@ -53,14 +53,16 @@ What the app collects (see docs/legal/privacy-policy.md). No tracking, no ads, n
 | Feed photos and captions | User content: photos, other user content, linked | Photos; other user-generated content, shared with pack members | App functionality |
 | Reactions, nudges, name suggestions, reports and blocks | User content: other, linked | Other user-generated content | App functionality |
 | Focus session lengths, rest days, jokers, pauses and outfit changes | Usage data: product interaction, linked | App activity: other actions | App functionality |
-| User ID | Identifiers: user ID, linked | App info: other IDs | App functionality |
+| User ID | Identifiers: user ID, linked | Personal info: user IDs | App functionality |
 | Push token and widget token | Identifiers: device ID, linked | Device or other IDs | App functionality |
-| Time zone and reminder settings | Other data, linked | App info: other | App functionality |
+| Time zone, language and reminder settings | Other data, linked | Personal info: other info (time zone and language); App activity: other actions (reminder settings) | App functionality |
 | Error reports (the error, stack trace, the screen, the app version, iPhone or Android, whether the app crashed, and on a sign-in report the system name and version) | Diagnostics: crash data, other diagnostic data, linked | App info and performance: crash logs, diagnostics, collected | App functionality |
 | Network address and user agent of each signed-in phone (kept by the sign-in service until that phone signs out or the account is deleted) | Other data, linked | Device or other IDs, collected | App functionality |
 | Scrambled network address when a sign-in fails (a keyed hash kept apart from the report, used for an hour, deleted within about a day) | Other data, not linked | Device or other IDs, collected | App functionality; on Google Play: fraud prevention, security and compliance |
 
 Data is encrypted in transit, and users can delete their account inside the app (Settings → Delete account). That removes the account and its data right away, apart from what the privacy policy lists: copies in the daily backups on the developer's computer, outside the EU, for about 14 days (the 14 newest are kept), the account id in the packs' past results, the name or account id in records of notifications sent to others for up to 30 days, the sign-in service's security log, and report emails. Photos are deleted after 30 days (a photo in a weekly recap collage 8 weeks after that week). A reported photo reaches the developer by email, through a link that works for 7 days.
+
+Google Play's form also asks for a web link where people can ask for their account to be deleted, and a page that only sends them back to the app doesn't count. Give `https://gozali.app/support`: its "Deleting your account" line tells someone without the app to write to hello@gozali.app, and the developer then deletes the account within 30 days.
 
 ## Notes for Apple's review
 
