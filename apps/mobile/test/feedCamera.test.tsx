@@ -343,6 +343,26 @@ describe('the sent screen', () => {
   });
 });
 
+describe('the camera after Retake', () => {
+  beforeEach(() => {
+    mockGet.mockResolvedValue(allowed);
+  });
+
+  const shutterOff = () =>
+    screen.root.findAll((node) => node.props.accessibilityLabel === 'Take photo' && node.props.onPress)[0]?.props.disabled;
+
+  it('keeps the shutter off until the new camera reports ready', async () => {
+    await takePhoto();
+    await press('Retake');
+
+    expect(hasCamera()).toBe(true);
+    expect(shutterOff()).toBe(true);
+
+    await act(async () => screen.root.findByType('CameraView' as never).props.onCameraReady());
+    expect(shutterOff()).toBe(false);
+  });
+});
+
 describe('a pause reaching the camera', () => {
   beforeEach(() => {
     mockGet.mockResolvedValue(allowed);

@@ -1,0 +1,31 @@
+diff --git a/node_modules/expo-camera/ios/Current/CameraPhotoCapture.swift b/node_modules/expo-camera/ios/Current/CameraPhotoCapture.swift
+index fc9a9bb..106762e 100644
+--- a/node_modules/expo-camera/ios/Current/CameraPhotoCapture.swift
++++ b/node_modules/expo-camera/ios/Current/CameraPhotoCapture.swift
+@@ -65,6 +65,11 @@ class CameraPhotoCapture: NSObject, AVCapturePhotoCaptureDelegate {
+     guard photoCapturedContinuation == nil else {
+       throw CameraNotReadyException()
+     }
++    // capturePhoto raises an NSException, which ends the app, with no active video connection:
++    // before the session runs, during a camera switch, or while iPad multitasking interrupts it
++    guard let connection = photoOutput.connection(with: .video), connection.isActive, connection.isEnabled else {
++      throw CameraNotReadyException()
++    }
+ 
+     return try await withCheckedThrowingContinuation { continuation in
+       photoCapturedContinuation = continuation
+diff --git a/node_modules/expo-camera/ios/Current/CameraSessionManager.swift b/node_modules/expo-camera/ios/Current/CameraSessionManager.swift
+index 7a6568c..7828518 100644
+--- a/node_modules/expo-camera/ios/Current/CameraSessionManager.swift
++++ b/node_modules/expo-camera/ios/Current/CameraSessionManager.swift
+@@ -403,6 +403,10 @@ class CameraSessionManager: NSObject, DeviceDiscoveryDelegate {
+     let photoOutput = AVCapturePhotoOutput()
+     photoOutput.isLivePhotoCaptureEnabled = false
+     session.beginConfiguration()
++    // Without this iPadOS stops the camera for an app in a window beside another one
++    if session.isMultitaskingCameraAccessSupported {
++      session.isMultitaskingCameraAccessEnabled = true
++    }
+     if session.canAddOutput(photoOutput) {
+       session.addOutput(photoOutput)
+       self.photoOutput = photoOutput

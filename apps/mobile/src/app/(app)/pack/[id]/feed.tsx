@@ -69,9 +69,10 @@ export default function FeedScreen() {
   const camera = useRef<CameraView>(null);
   const [facing, setFacing] = useState<CameraType>('back');
   const [ready, setReady] = useState(false);
-  // The camera that comes back has to report ready again.
-  if (!focused && ready) setReady(false);
   const [shot, setShot] = useState<Shot | null>(null);
+  // The camera is gone under another screen and while a photo is shown. The one that comes back, on
+  // Retake too, has to report ready again.
+  if ((!focused || shot) && ready) setReady(false);
   const [caption, setCaption] = useState('');
   const [result, setResult] = useState<'sent' | 'queued' | null>(null);
   // Set from the tap on Send, so a second tap while the photo is compressed doesn't send it twice.
