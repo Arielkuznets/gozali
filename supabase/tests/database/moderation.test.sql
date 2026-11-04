@@ -1,7 +1,7 @@
 -- Word filtering, reports on photos and on members, and the helpers of account deletion.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(77);
+select plan(78);
 
 select ok(public.is_clean('Leg day, done'), 'ordinary captions pass');
 select ok(not public.is_clean('what the fuuuck'), 'repeated letters don''t get around the filter');
@@ -50,9 +50,26 @@ insert into auth.users (id, email) values
 create function pg_temp.act_as(member uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', member, 'role', 'authenticated')::text, true);
 $$;
+-- The error a statement ends with. A time limit has to be named: others doesn't catch it.
+create function pg_temp.error_of(statement text) returns text language plpgsql as $$
+begin
+  execute statement;
+  return 'none';
+exception when query_canceled or others then
+  return sqlstate;
+end;
+$$;
 
 set local role authenticated;
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000a7');
+-- Filtering costs time by the word, and every column filtered holds 80 characters at most.
+set local statement_timeout = '1s';
+select is(
+  pg_temp.error_of($$ update public.profiles set display_name = repeat('ab ', 700000) where id = '00000000-0000-0000-0000-0000000000a7' $$),
+  '23514',
+  'a display name of two megabytes fails its length check within a second'
+);
+reset statement_timeout;
 select throws_ok(
   $$ select public.create_pack('Shit squad', 'gym', 1::smallint, 'mochi', 'UTC') $$,
   '22023', 'text_not_allowed', 'pack names are filtered'
