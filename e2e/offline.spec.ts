@@ -169,10 +169,12 @@ test('a pack on the home list that was never opened opens without a connection',
   const feedButton = page.getByRole('button', { name: 'Feed', exact: true });
   await expect(feedButton).toBeVisible();
 
-  // The pack's own read gives up after its retries; what the list held stays on screen.
+  // The pack's own read gives up after its retries; what the list held stays on screen. Only the
+  // feed, which the phone never held, says it didn't load.
   await page.waitForTimeout(12_000);
   await expect(feedButton).toBeVisible();
-  await expect(page.getByText("This didn't load")).toBeHidden();
+  await expect(page.getByText('Pack feed', { exact: true })).toBeVisible();
+  await expect(page.getByText("This didn't load")).toHaveCount(1);
 
   await page.reload();
   await expect(feedButton).toBeVisible();
