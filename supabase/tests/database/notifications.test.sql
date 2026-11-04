@@ -1,7 +1,7 @@
 -- Notifications: rows from feeds and the clock, and the rules applied before sending.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(32);
+select plan(34);
 
 -- Reminders are queued for every pack, so this test runs alone (all rolled back at the end).
 delete from public.packs;
@@ -283,6 +283,34 @@ select is(
 select is(
   (select array_agg(distinct status::text) from public.notifications), array['dropped'],
   'they are dropped'
+);
+
+-- Pet state tells the pack when the pet gets worse. A good day that lifts it from Sick to Weak
+-- tells nobody; a day it goes from Hungry down to Weak tells every member.
+delete from public.notifications;
+create temp table better_day as select jsonb_build_object(
+  'type', 'success', 'applied', true, 'healthBefore', 15, 'coins', 0,
+  'critter', jsonb_build_object('status', 'active', 'health', 25, 'xp', 10, 'stage', 'kid', 'streak', 1, 'marks', '[]'::jsonb),
+  'outcomes', '[]'::jsonb, 'newlySleeping', '[]'::jsonb,
+  'events', jsonb_build_array(jsonb_build_object('type', 'health_state_changed', 'from', 'sick', 'to', 'weak')),
+  'facts', jsonb_build_object('earlyBird', false, 'fullHouse', false, 'nightOwlFeeds', 0)
+) as body;
+select public.apply_day_result(
+  '10000000-0000-0000-0000-000000000005', public.pack_first_day('10000000-0000-0000-0000-000000000005'),
+  (select body from better_day)
+);
+select is(
+  (select count(*) from public.notifications where type = 'pet_state'), 0::bigint,
+  'a pet getting better from Sick to Weak tells nobody'
+);
+delete from public.notifications;
+select public.apply_day_result(
+  '10000000-0000-0000-0000-000000000005', public.pack_first_day('10000000-0000-0000-0000-000000000005') + 1,
+  jsonb_set((select body from better_day), '{events,0,from}', '"hungry"') || '{"type": "fail", "healthBefore": 41}'
+);
+select is(
+  (select count(*) from public.notifications where type = 'pet_state' and payload ->> 'to' = 'weak'), 3::bigint,
+  'one getting worse from Hungry to Weak tells every member'
 );
 
 select * from finish();

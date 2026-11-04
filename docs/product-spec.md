@@ -309,7 +309,7 @@ Few notifications, and only ones that change behavior; each type can be turned o
 | Evening reminder | At the time the user chose (default 20:00), if they haven't fed yet. If that time is after the pack's day end (a member in another time zone), it is sent two hours before the day ends | On |
 | Last one | All the other counted members already fed, and only this user hasn't | On |
 | Nudge | A member nudged | On |
-| Pet state | The creature moved to Weak, Sick, Ran away, or came back | On |
+| Pet state | The creature moved down to Weak or Sick, ran away, or came back | On |
 | Evolution | The creature hatched, moved up a stage or unlocked an achievement | On |
 | Still in? | The user went to sleep, if they are still asleep when it goes out | On |
 | Timer done | The focus timer ended (a local notification) | On |
