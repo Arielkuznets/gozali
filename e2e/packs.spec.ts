@@ -407,7 +407,7 @@ test('a member who dozed off is told how to come back', async ({ page }) => {
   await signIn(page, noa);
   await page.goto(`/pack/${pack.id}`);
   await expect(page.getByText("One photo and you're back.", { exact: false })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Noa, asleep' })).toBeVisible();
+  await expect(page.getByLabel('Noa, asleep')).toBeVisible();
 });
 
 test('a member who dozed off stays asleep until a pause starts, and through one they cancel', async ({ page }) => {
@@ -424,7 +424,7 @@ test('a member who dozed off stays asleep until a pause starts, and through one 
 
   await page.goto(`/pack/${pack.id}`);
   await expect(page.getByText("One photo and you're back.", { exact: false })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Noa, asleep' })).toBeVisible();
+  await expect(page.getByLabel('Noa, asleep')).toBeVisible();
   await expect(page.getByText('0/1 fed today').last()).toBeVisible();
   await expect(page.getByRole('button', { name: 'Feed', exact: true })).toBeVisible();
 
@@ -434,7 +434,7 @@ test('a member who dozed off stays asleep until a pause starts, and through one 
 
   await page.goto(`/pack/${pack.id}`);
   await expect(page.getByText("One photo and you're back.", { exact: false })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Noa, asleep' })).toBeVisible();
+  await expect(page.getByLabel('Noa, asleep')).toBeVisible();
   await expect(page.getByText('0/1 fed today').last()).toBeVisible();
 });
 
@@ -492,7 +492,7 @@ test.describe('a member on a pause', () => {
     await page.goto(`/pack/${pack.id}`);
 
     await expect(page.getByText(onPause, { exact: false })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Noa, on a pause' })).toBeVisible();
+    await expect(page.getByLabel('Noa, on a pause')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Feed', exact: true })).toBeHidden();
     await expect(page.getByRole('button', { name: 'Focus', exact: true })).toBeHidden();
     await expect(page.getByRole('button', { name: 'Not today' })).toBeHidden();
@@ -530,7 +530,7 @@ test.describe('a member on a pause', () => {
     await page.goto(`/pack/${pack.id}`);
 
     await expect(page.getByText(onPause, { exact: false })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Noa, on a pause' })).toBeVisible();
+    await expect(page.getByLabel('Noa, on a pause')).toBeVisible();
     await expect(page.getByText('Your part is done for today', { exact: false })).toBeHidden();
     await expect(page.getByRole('button', { name: 'Post another photo' })).toBeHidden();
   });

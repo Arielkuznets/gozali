@@ -60,6 +60,10 @@ test('members nudge, report and block from the pack screen', async ({ page }) =>
   await signIn(page, noa);
   await page.goto(`/pack/${pack.id}`);
 
+  // Noa's own circle tells how she stands, and is no button: it has no menu.
+  await expect(page.getByLabel('Noa, not yet today')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Noa, not yet today' })).toHaveCount(0);
+
   // Maya hasn't fed: a tap on her circle nudges her.
   await page.getByRole('button', { name: 'Maya, not yet today' }).click();
   await expect.poll(() => dialogs.at(-1)).toBe('Sent!');
