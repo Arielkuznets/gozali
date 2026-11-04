@@ -186,9 +186,16 @@ run(`update public.pack_members m set role = 'admin'
      from (
        select distinct on (x.pack_id) x.pack_id, x.user_id
        from public.pack_members x
+       join public.packs p on p.id = x.pack_id
        where x.status <> 'left'
          and not exists (select 1 from public.pack_members a where a.pack_id = x.pack_id and a.role = 'admin')
-       order by x.pack_id, x.joined_at, x.user_id
+       order by x.pack_id, (x.status = 'active') desc,
+         exists (
+           select 1 from public.feeds f
+           where f.pack_id = x.pack_id and f.user_id = x.user_id and not f.is_extra
+             and f.day >= public.pack_day(p.timezone, x.joined_at)
+         ) desc,
+         x.joined_at, x.user_id
      ) next
      where m.pack_id = next.pack_id and m.user_id = next.user_id`);
 

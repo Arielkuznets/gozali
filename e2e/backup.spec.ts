@@ -342,23 +342,30 @@ test.describe('a restore', () => {
     expect(psql(target, `select actor_id from public.pack_events where kind = 'bought'`)).toBe(noa.id);
   });
 
-  test('a pack whose admin the backup missed passes to its longest-standing member', async () => {
+  test('a pack whose admin the backup missed passes to the longest-standing member who plays', async () => {
     const sam = await createUser('Sam');
+    const eve = await createUser('Eve');
     const ana = await createUser('Ana');
-    others = [sam, ana];
-    // Sam joined first and left, so Noa has stood longest of those still in the pack.
-    const pack = await createPack(dan, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [sam, noa, ana]);
+    others = [sam, eve, ana];
+    // Sam joined first and left, Noa is asleep and Eve never fed, so Ana is the one who plays.
+    const pack = await createPack(dan, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [sam, noa, eve, ana]);
     const left = await sam.client.rpc('leave_pack', { target: pack.id });
     expect(left.error).toBeNull();
+    const today = psql('postgres', `select public.pack_day('Asia/Jerusalem')`);
+    const fed = await admin.from('feeds').insert({ pack_id: pack.id, user_id: ana.id, day: today });
+    expect(fed.error).toBeNull();
     const settled = await createPack(ana, { name: 'Morning runs', habit: 'running', species: 'hoot' }, [noa]);
-    const backup = backUp([noa, dan, sam, ana], pack.id, settled.id);
+    const backup = backUp([noa, dan, sam, eve, ana], pack.id, settled.id);
+    for (const row of backup.tables['public.pack_members']!) {
+      if (row.pack_id === pack.id && row.user_id === noa.id) row.status = 'sleeping';
+    }
     // Dan deleted the account after the backup read the members, and before it read the profiles.
     backup.tables['public.profiles'] = backup.tables['public.profiles']!.filter((row) => row.id !== dan.id);
 
     restore(backup);
 
     const admins = (id: string) => psql(target, `select user_id from public.pack_members where pack_id = '${id}' and role = 'admin'`);
-    expect(admins(pack.id)).toBe(noa.id);
+    expect(admins(pack.id)).toBe(ana.id);
     expect(admins(settled.id)).toBe(ana.id);
     expect(psql(target, 'select count(*) from public.pack_events')).toBe('0');
   });

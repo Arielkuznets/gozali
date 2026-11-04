@@ -76,7 +76,7 @@ Each pack is an independent unit with one habit, one creature and its own rules;
 
 - **The pack creator is the admin:** changes the name, rest days and week start, chooses the creature's name once (from the suggestions), and removes members.
 - A change to rest days takes effect from the start of next week.
-- **Leaving:** any member can leave. If the admin leaves, admin passes to the longest-standing member.
+- **Leaving:** any member can leave. If the admin leaves or their account goes, admin passes to the longest-standing member who plays: someone awake comes before someone asleep, and someone who has fed since joining before someone who hasn't. A pack of only sleepers still gets an admin.
 - A pack with no members is deleted after 30 days. Until then only someone who was in it can come back with its code, and the first one back becomes the admin; a member the admin removed stays out. To anyone else the code is one no pack has, so an emptied pack can't be seen or taken over (decision D25).
 
 **Week:** starts on Sunday by default; the admin can change it to Monday. The change takes effect at the end of the current week, which ends as it would have, with its recap (decision D24). The days until the new start day comes round join the first week under it: moving from Sunday to Monday, that week has 8 days; moving from Monday to Sunday, 13. Its rest-day quota grows with its length, rounded up (2 instead of 1 in 8 days, 4 instead of 2 in 13), so the change costs nobody a rest.
@@ -513,7 +513,7 @@ Important: the widgets and some of the modules require a **development build**, 
   - `join_pack`: joining with an invite code, with locking and a check for a free spot; a member the admin removed can't rejoin this way, and a pack with no members takes back only someone who was in it.
   - `update_pack` (admin): the name changes right away; rest days and week start are stored as pending and apply from the next week start.
   - `remove_member` (admin) and `renew_invite_code` (admin: a new code; the old code and link stop working).
-  - `leave_pack`: leaving, including passing admin to the longest-standing member.
+  - `leave_pack`: leaving, including passing admin on (awake first, then fed since joining, then the longest-standing member).
   - `use_day_pass` (joker or declaring a rest, today only) and `cancel_day_pass`; `start_pause` and `end_pause`; `my_day_status` (rest days left this week, the month's joker, today's pass, the current pause and when the next one is allowed).
   - `counted_feeds`: who fed in the last few days in the member's packs, for the circles and counts; like the day close it ignores blocks and hidden photos, and it returns no photo or caption.
   - `react` (one reaction per member per item, changeable) and `feed_reactions` (totals for a page of items, names for every emoji but 🤨; someone the caller blocked counts only toward 🤨).
