@@ -68,13 +68,15 @@ Deno.serve(async (request) => {
   let requeued = ids.length > 0 ? await client.rpc('requeue_notifications', { ids, refused, unsent }) : null;
   // A server behind this function takes the rows back as far as it can: without the rows no phone
   // has, which then wait as if Expo might have them, or also without the refusals, each row spending
-  // a try. The run still answers 502, so the missing migration gets noticed.
-  const serverBehind = requeued?.error?.code === 'PGRST202';
-  if (serverBehind) {
-    console.error('requeue_notifications has no unsent argument on this server', requeued?.error?.message);
+  // a try. The run still answers 502, naming what is missing, so the migration gets noticed.
+  let missing: string | undefined;
+  if (requeued?.error?.code === 'PGRST202') {
+    missing = 'requeue_notifications(ids, refused, unsent) is missing on this server';
+    console.error(missing, requeued.error.message);
     requeued = await client.rpc('requeue_notifications', { ids, refused });
     if (requeued.error?.code === 'PGRST202') {
-      console.error('requeue_notifications has no refused argument on this server', requeued.error.message);
+      missing = 'requeue_notifications(ids, refused) is missing on this server';
+      console.error(missing, requeued.error.message);
       requeued = await client.rpc('requeue_notifications', { ids });
     }
   }
@@ -91,9 +93,11 @@ Deno.serve(async (request) => {
     requeued: requeued?.error ? 0 : ids.length,
     ticketErrors: result.ticketErrors,
     failure: result.failure,
+    // Why the rows couldn't go back, or went back the old way: Expo may have taken all it was offered.
+    requeueError: requeued?.error?.message ?? missing,
   };
   // Any answer but 200 reaches the owners' daily summary, through collect_service_errors.
-  const failed = serverBehind || Boolean(requeued?.error) || runFailed(result);
+  const failed = Boolean(missing) || Boolean(requeued?.error) || runFailed(result);
   if (failed) console.error('send-push failed', report);
   else if (Date.now() - started <= SEND_BUDGET_MS) await pingHeartbeat();
   return Response.json(report, { status: failed ? 502 : 200 });

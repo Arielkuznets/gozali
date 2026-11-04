@@ -409,6 +409,7 @@ const noArgument = () =>
   Response.json({ code: 'PGRST202', message: 'Could not find the function public.requeue_notifications(ids, refused)' }, { status: 404 });
 const behind = await runFunction(behindRows, firstBatchOnly(), (rpc, args) => (rpc === 'requeue_notifications' && args.refused ? noArgument() : null));
 check(behind.status === 502 && behind.report.sent === 100 && behind.report.requeued === 1, 'a server without the migration makes the run answer 502');
+check(behind.report.requeueError === 'requeue_notifications(ids, refused) is missing on this server', 'and its body names what is missing');
 check(behind.logged.some((line) => line.includes('requeue_notifications')), 'and it says so in the log');
 const behindAfter = (await queueRows(behindRows)).filter((row) => row.status === 'pending');
 check(behindAfter.length === 1 && behindAfter[0].attempts === 1, 'and the rows go back all the same');
@@ -440,6 +441,7 @@ const noUnsent = () =>
   Response.json({ code: 'PGRST202', message: 'Could not find the function public.requeue_notifications(ids, refused, unsent)' }, { status: 404 });
 const halfBehind = await runFunction(halfBehindRows, firstBatchOnly(), (rpc, args) => (rpc === 'requeue_notifications' && args.unsent ? noUnsent() : null));
 check(halfBehind.status === 502 && halfBehind.report.requeued === 1, 'a server without the unsent list makes the run answer 502');
+check(halfBehind.report.requeueError === 'requeue_notifications(ids, refused, unsent) is missing on this server', 'naming that');
 const halfBehindAfter = (await queueRows(halfBehindRows)).filter((row) => row.status === 'pending');
 check(halfBehindAfter.length === 1 && halfBehindAfter[0].attempts === 0, 'and takes the row back without spending a try');
 
@@ -469,6 +471,7 @@ const stranded = await runFunction(strandedRows, firstBatchOnly(), databaseFails
 check(stranded.status === 502 && stranded.report.sent === 100 && stranded.report.requeued === 0, "rows that can't go back make a run with deliveries answer 502");
 const strandedLog = stranded.logged.find((line) => line.startsWith('requeue failed')) ?? '';
 check(strandedLog.includes('database down') && strandedRows.filter((id) => strandedLog.includes(id)).length === 1, 'and the log names them, all that is left of them');
+check(stranded.report.requeueError === 'database down', 'and the body says why they couldn\'t go back');
 
 const goneTicket = (batch) => Response.json({ data: batch.map(() => ({ status: 'error', details: { error: 'DeviceNotRegistered' } })) });
 await admin.from('push_tokens').insert({ token: `ExponentPushToken[Maya-again-${run}]`, user_id: maya, platform: 'ios' });
@@ -491,6 +494,20 @@ const overBudget = await runFunction(lateClock, (batch) => {
 Date.now = realNow;
 check(clockRequests === 1 && overBudget.report.sent === 100 && overBudget.report.requeued === 1, 'a run past its budget starts no other request and puts the rest back');
 check((await queueRows(lateClock)).every((row) => row.attempts === 0), 'at no cost to the rows');
+const lostRows = await addRows(twoBatches);
+const lost = await runFunction(
+  lostRows,
+  (batch) => {
+    Date.now = () => realNow() + SEND_BUDGET_MS + 1;
+    return expoTakes()(batch);
+  },
+  databaseFails('requeue_notifications'),
+);
+Date.now = realNow;
+check(
+  lost.status === 502 && lost.report.failure === undefined && lost.report.requeueError === 'database down',
+  "a run Expo took all it was offered from, whose rest can't go back, says why it answers 502",
+);
 
 const hungRows = await addRows(signUpFor(dan));
 const hung = await givingUpAtOnce(() => runFunction(hungRows, expoHangs));
