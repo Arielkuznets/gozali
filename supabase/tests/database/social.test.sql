@@ -1,7 +1,7 @@
 -- Feed events, reactions, nudges, naming, the wardrobe and personal stats.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(51);
+select plan(55);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a4', 'noa@test.local'),
@@ -125,6 +125,18 @@ select is(
 );
 select public.dress_critter((select id from pack), 'neck', null);
 select is((select outfit from public.critters), '{}'::jsonb, 'null takes the item off');
+create function pg_temp.dress_and_undress(changes integer) returns void language plpgsql as $$
+begin
+  for n in 1..changes loop
+    perform public.dress_critter((select id from pack), 'neck', case when n % 2 = 1 then 'scarf' end);
+  end loop;
+end;
+$$;
+select lives_ok($$ select pg_temp.dress_and_undress(25) $$, 'a member changes the outfit as often as they like');
+select is(
+  (select count(*) from public.pack_events where kind = 'dressed' and actor_id = '00000000-0000-0000-0000-0000000000a4'), 20::bigint,
+  'but 20 of their changes a day show in the feed'
+);
 
 -- A feed from Dan to react to and to nudge around.
 reset role;
@@ -172,6 +184,32 @@ select is(
   (select array_agg(kind::text order by created_at) from public.pack_events where actor_id = '00000000-0000-0000-0000-0000000000b4'),
   array['joined'],
   'of a blocked member''s feed lines only their join still shows, so whoever blocked them knows they are in the pack'
+);
+create function pg_temp.leave_and_rejoin(times integer) returns void language plpgsql as $$
+begin
+  for n in 1..times loop
+    perform public.leave_pack((select id from pack));
+    perform public.join_pack((select invite_code from code));
+  end loop;
+end;
+$$;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000b4');
+select pg_temp.leave_and_rejoin(3);
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000a4');
+select is(
+  (select count(*) from public.pack_events where kind = 'joined' and actor_id = '00000000-0000-0000-0000-0000000000b4'), 1::bigint,
+  'leaving and coming back the same day shows no new join, so a blocked member can''t fill the feed with them'
+);
+reset role;
+update public.pack_events set created_at = now() - interval '25 hours'
+where kind = 'joined' and actor_id = '00000000-0000-0000-0000-0000000000b4';
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000b4');
+select pg_temp.leave_and_rejoin(1);
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000a4');
+select is(
+  (select count(*) from public.pack_events where kind = 'joined' and actor_id = '00000000-0000-0000-0000-0000000000b4'), 2::bigint,
+  'coming back a day after the last join shows again'
 );
 delete from public.blocks;
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000c4');

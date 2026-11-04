@@ -283,7 +283,7 @@ A user feeds the creature with a photo taken inside the app right now; this is t
 
 The social part creates the positive pressure and the reason to open the app even after you fed.
 
-**Pack feed:** all feeds and extra posts, newest first. Each item shows a photo, caption, name, time and reactions. System events are mixed into the feed: "Pixel evolved to Teen", "Noa is taking a joker", "Pixel ran away", achievements ("Pixel unlocked Two weeks strong"), wardrobe changes ("Noa put a scarf on Pixel"), and a "Name me!" card after hatching. After 30 days the photo is deleted (section 11), and the item stays with a short line in its place.
+**Pack feed:** all feeds and extra posts, newest first. Each item shows a photo, caption, name, time and reactions. System events are mixed into the feed: "Dan joined the pack", "Pixel evolved to Teen", "Noa is taking a joker", "Pixel ran away", achievements ("Pixel unlocked Two weeks strong"), wardrobe changes ("Noa put a scarf on Pixel"), and a "Name me!" card after hatching. A member's join shows once a day, so leaving and coming back the same day adds no line, and 20 of a member's wardrobe changes a day show; past them the outfit still changes. After 30 days the photo is deleted (section 11), and the item stays with a short line in its place.
 
 **Reactions:** a fixed set of 5 emoji: 🔥 💪 😂 👏 🤨. One reaction per user per item, and it can be changed. 🤨 (for a suspicious photo) has **no effect at all on the creature**; it's only social pressure, and it is shown as a number without names, including to the person who posted. For the other reactions you can see who reacted.
 
