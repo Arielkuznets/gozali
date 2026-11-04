@@ -3,6 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 import {
   admin,
   createPack,
+  createSignedUpUser,
   createUser,
   feed,
   layOutTextLikeAPhone,
@@ -566,4 +567,65 @@ test('removing the photo on a phone that missed a change removes the photo in us
   const { data: profile } = await admin.from('profiles').select('avatar_path').eq('id', noa.id).single();
   expect(profile?.avatar_path).toBeNull();
   await secondPhone.close();
+});
+
+test('a profile photo shows that it is uploading, and the button waits for it', async ({ page }) => {
+  const picture = await photo(page, '🙂');
+  answerDialogs(page);
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route('**/storage/v1/object/avatars/**', async (route) => {
+    if (route.request().method() === 'POST') await held;
+    await route.continue();
+  });
+  await signIn(page, noa);
+  await page.goto('/me');
+  await choosePhoto(page, picture);
+
+  const button = page.getByRole('button', { name: 'Profile photo' });
+  await expect(button.getByRole('progressbar')).toBeVisible();
+  await expect(button).toBeDisabled();
+  await button.click({ force: true });
+  await expect(page.getByRole('menuitem')).toHaveCount(0);
+
+  release();
+  await expect(page.getByText('Change photo')).toBeVisible();
+  await expect(button.getByRole('progressbar')).toBeHidden();
+  expect(await photoFiles(noa)).toHaveLength(1);
+});
+
+test.describe('someone on the profile setup', () => {
+  let eve: TestUser;
+
+  test.beforeEach(async () => {
+    eve = await createSignedUpUser('Eve');
+  });
+
+  test.afterEach(async () => {
+    await removeUsers(eve);
+  });
+
+  test('hears of a profile photo that fails after the setup is done', async ({ page }) => {
+    const picture = await photo(page, '🙂');
+    const dialogs = answerDialogs(page);
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await page.route('**/storage/v1/object/avatars/**', async (route) => {
+      if (route.request().method() !== 'POST') return route.continue();
+      await held;
+      await route.fulfill({ status: 500, contentType: 'application/json', body: '{"statusCode":"500","error":"Internal","message":"boom"}' });
+    });
+    await signIn(page, eve);
+    await page.goto('/');
+    await expect(page.getByText('About you')).toBeVisible();
+
+    await choosePhoto(page, picture);
+    await page.getByPlaceholder('What do your friends call you?').fill('Eve');
+    await page.getByRole('checkbox').click();
+    await page.getByRole('button', { name: 'Continue' }).click();
+    await expect(page.getByRole('button', { name: 'Create a pack' })).toBeVisible();
+    release();
+
+    await expect.poll(() => dialogs).toContain("Saving didn't work. Please try again.");
+  });
 });
