@@ -1,7 +1,7 @@
 -- Word filtering, reports on photos and on members, and the helpers of account deletion.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(107);
+select plan(108);
 
 select ok(public.is_clean('Leg day, done'), 'ordinary captions pass');
 select ok(not public.is_clean('what the fuuuck'), 'repeated letters don''t get around the filter');
@@ -174,10 +174,24 @@ select is(
 select is(
   (select array_agg(spelled) from unnest(array[
     'Just kill yourself', 'Kill yourself, don''t', 'Don''t stop, kill yourself', 'Never mind, kill yourself',
-    'Don''t kill yourself, kill yourself'
+    'Don''t kill yourself, kill yourself', 'Never. Kill yourself', 'I won''t, kill yourself', 'Do not! Kill yourself!',
+    'Don''t, kill yourself, loser', 'Never. K1ll y0urself', 'Never 2 k1ll y0urself'
   ]) spelled where public.is_clean(spelled)),
   null,
   'and nowhere else'
+);
+
+-- The negation counts only with nothing but spaces before the phrase: a stop, a comma, a colon, a
+-- semicolon, an exclamation or question mark or a dash between them ends what it says.
+select is(
+  (select array_agg(s.spelled order by s.spelled)
+   from public.blocked_words w
+   cross join lateral (values ('Don''t'), (U&'don\2019t'), ('dont'), ('Do not'), ('Never'), ('You won''t')) as n (said)
+   cross join lateral (values ('. '), (', '), (': '), ('; '), ('! '), ('? '), (' - '), (U&' \2014 '), ('-')) as mark (sign)
+   cross join lateral (select n.said || mark.sign || w.word as spelled) s
+   where w.word ~ ' ' and public.is_clean(s.spelled)),
+  null,
+  'a mark between the negation and the phrase keeps the phrase refused'
 );
 
 -- A name that comes with a new account is kept only when it passes the filter, so a name with a
