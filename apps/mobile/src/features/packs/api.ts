@@ -324,18 +324,19 @@ export function useRenewInviteCode(packId: string) {
     mutationFn: async () => {
       const sentAt = Date.now();
       const { data, error } = await requireSupabase().rpc('renew_invite_code', { target: packId });
-      if (data) return data;
       if (error && !isNetworkFailure(error)) throw error;
+      // A read of the pack sent before this answer can come back after it with the code from before.
+      await queryClient.cancelQueries({ queryKey: packKey(packId), exact: true });
+      if (data) return data;
       // With no answer, or one cut off before its body, the code may have changed or not, and no code
       // the phone holds can tell which, as another phone can change it too. So none is taken for the
-      // new one: the pack is read as it is now, and the code that read puts on screen is the one that
-      // works. The read has its query's retries, for a link that comes back within seconds, but after
-      // a renewal that found no connection it gets one try, so the admin hears at once, not after 7 s.
+      // new one: the pack is read as it is now, whatever screens are open, and the code that read puts
+      // on screen is the one that works. The read has the retries of the pack's own read, for a link
+      // that comes back within seconds, but after a renewal that found no connection it gets one try,
+      // so the admin hears at once, not after 7 s.
       const read = await (error && Date.now() - sentAt < NO_CONNECTION_MS
         ? readPack(packId).then((pack) => queryClient.setQueryData<Pack | null>(packKey(packId), pack))
-        : queryClient
-            .refetchQueries({ queryKey: packKey(packId), exact: true }, { throwOnError: true })
-            .then(() => queryClient.getQueryData<Pack | null>(packKey(packId)))
+        : queryClient.query({ queryKey: packKey(packId), queryFn: () => readPack(packId), staleTime: 0, retry: 3 })
       ).catch(() => undefined);
       throw new Error(read ? RENEWAL_UNCONFIRMED : read === null ? RENEWAL_LEFT : RENEWAL_UNREAD);
     },

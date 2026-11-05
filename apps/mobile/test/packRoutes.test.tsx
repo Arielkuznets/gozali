@@ -1145,6 +1145,32 @@ describe('a new invite code', () => {
     return { data: code, error: null };
   };
 
+  /**
+   * Opens the pack from home while its first read is still out, asks for a new code on its invite
+   * screen, and goes back home before the answer. What it returns lets that first read come back,
+   * with the code the server had when it was sent.
+   */
+  async function renewWithFirstReadOut() {
+    holdAnswer();
+    await start('/');
+    let answerFirstRead = () => {};
+    mockPackAnswered = new Promise((resolve) => {
+      answerFirstRead = resolve;
+    });
+    await open('/pack/p1');
+    await open('/pack/p1/invite');
+    await getNewCode();
+    await press('Done');
+    await goBack();
+    return async () => {
+      const server = mockPacks;
+      mockPacks = [asAdmin(packNamed('p1'))];
+      await act(async () => answerFirstRead());
+      await settle();
+      mockPacks = server;
+    };
+  }
+
   beforeEach(() => {
     mockPacks = [asAdmin(packNamed('p1'))];
     mockRpc.mockImplementation(async (name: string) => {
@@ -1222,6 +1248,20 @@ describe('a new invite code', () => {
     mockPackAnswered = new Promise(() => undefined);
 
     await getNewCode();
+
+    expect(shows(FRESH)).toBe(true);
+    expect(shows('ABCD2345')).toBe(false);
+  });
+
+  it('keeps the new code when a read of the pack sent before the renewal comes back after the answer', async () => {
+    const answerFirstRead = await renewWithFirstReadOut();
+    mockPackAnswered = Promise.resolve();
+
+    await act(async () => answer(changedTo(FRESH)));
+    await settle();
+    await open('/pack/p1');
+    await open('/pack/p1/invite');
+    await answerFirstRead();
 
     expect(shows(FRESH)).toBe(true);
     expect(shows('ABCD2345')).toBe(false);
@@ -1380,6 +1420,10 @@ describe('a new invite code', () => {
       mockOffline = offline;
 
       await act(async () => answer(lost));
+      // Past the retries of the read after it.
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(10_000);
+      });
       await settle();
 
       expect(pathname()).toBe('/pack/p2/invite');
@@ -1463,10 +1507,38 @@ describe('a new invite code', () => {
       mockOffline = true;
 
       await getNewCode();
+      // Past the retries of the read after it.
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(10_000);
+      });
 
       expect(mockNotify.mock.calls).toEqual(MAYBE_UNREAD);
       expect(shows('ABCD2345')).toBe(true);
     });
+  });
+
+  // Whatever screens are open, the pack is read after the answer, in place of a read sent before.
+  it.each([
+    ['lost', { data: null, error: { message: 'TypeError: Network request failed', details: '', hint: '', code: '' } }],
+    ['cut off before its body', { data: null, error: null }],
+  ])('reads the pack after an answer %s with none of its screens open, and keeps that read', async (_kind, result) => {
+    const answerFirstRead = await renewWithFirstReadOut();
+    let answerReadAfter = () => {};
+    mockPackAnswered = new Promise((resolve) => {
+      answerReadAfter = resolve;
+    });
+    mockPacks = [{ ...asAdmin(packNamed('p1')), invite_code: FRESH }];
+
+    await act(async () => answer(result));
+    await settle();
+    expect(mockNotify).not.toHaveBeenCalled();
+    await act(async () => answerReadAfter());
+    await settle();
+    expect(mockNotify.mock.calls).toEqual(MAYBE);
+    expect(client.getQueryData<Pack | null>(['packs', 'p1'])?.invite_code).toBe(FRESH);
+    await answerFirstRead();
+
+    expect(client.getQueryData<Pack | null>(['packs', 'p1'])?.invite_code).toBe(FRESH);
   });
 });
 
