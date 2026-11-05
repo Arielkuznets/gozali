@@ -1,12 +1,13 @@
 // The day close, with the database stood in for, so nothing in this file needs one. The heartbeat
 // saves a long gap since the last run as an outage, which the days in it need to know of, so a run
 // whose heartbeat fails closes nothing and answers 500 for the owners' summary. An egg unlocks
-// nothing until it hatches.
+// nothing until it hatches. The database's clock, which feeds count by, says when a pack's first
+// open day is due; the runtime's Intl only lets the days after it follow in the same run.
 import assert from 'node:assert/strict';
 import { registerHooks } from 'node:module';
 import { test } from 'node:test';
 
-import { closeAfterHeartbeat, closeOneDay } from '../supabase/functions/close-days/close.ts';
+import { closeAfterHeartbeat, closeDueDays, closeOneDay } from '../supabase/functions/close-days/close.ts';
 
 const failing = { code: 'PGRST001', message: 'Database client error. Retrying the connection.' };
 
@@ -100,4 +101,66 @@ test('the day that hatches it unlocks what the pack reached before as well', asy
   const outcome = await close(eggDay(2));
   assert.equal(outcome.critter.status, 'active');
   assert.deepEqual(outcome.achievements, ['hatched', 'full_pack']);
+});
+
+/**
+ * A database whose packs_to_close finds `due`, with no outage; `refuse` gives apply_day_result's
+ * error for a pack, if any. `applied` lists the days closed, as 'pack day'.
+ */
+function closing(due, refuse = () => null) {
+  const applied = [];
+  return {
+    applied,
+    rpc: async (fn, args) => {
+      if (fn === 'packs_to_close') return { data: due, error: null };
+      if (fn === 'day_close_input') return { data: eggDay(2), error: null };
+      if (fn === 'outage_on') return { data: false, error: null };
+      const error = refuse(args.target);
+      if (!error) applied.push(`${args.target} ${args.pack_date}`);
+      return { data: !error, error };
+    },
+  };
+}
+
+test("the day packs_to_close finds due closes in a zone Intl can't read, and the next waits for the next run", async () => {
+  const client = closing([{ pack_id: 'mars', time_zone: 'Mars/Olympus', next_day: '2026-11-03' }]);
+  const run = await closeDueDays(client, new Date('2026-11-05T12:00:00Z'));
+  assert.deepEqual(run.failed, []);
+  assert.deepEqual(client.applied, ['mars 2026-11-03']);
+});
+
+test('the day packs_to_close finds due closes while Intl still puts its end later', async () => {
+  // In Etc/GMT+12 Intl closes the day at 16:00 UTC, after this run, as a runtime whose zone data
+  // is older than the database's does to Paraguay's days in winter.
+  const client = closing([{ pack_id: 'behind', time_zone: 'Etc/GMT+12', next_day: '2026-11-03' }]);
+  const run = await closeDueDays(client, new Date('2026-11-04T12:00:00Z'));
+  assert.deepEqual(run.failed, []);
+  assert.deepEqual(client.applied, ['behind 2026-11-03']);
+});
+
+test('the days after it close in the same run once they ended, oldest first, across a change of clocks', async () => {
+  // Israel's clocks go back in the night after 2026-10-24, and 2026-10-25 closes at 02:00 UTC the next night.
+  const due = [{ pack_id: 'late', time_zone: 'Asia/Jerusalem', next_day: '2026-10-23' }];
+  const before = closing(due);
+  await closeDueDays(before, new Date('2026-10-26T01:59:00Z'));
+  assert.deepEqual(before.applied, ['late 2026-10-23', 'late 2026-10-24']);
+  const after = closing(due);
+  await closeDueDays(after, new Date('2026-10-26T02:00:00Z'));
+  assert.deepEqual(after.applied, ['late 2026-10-23', 'late 2026-10-24', 'late 2026-10-25']);
+});
+
+test('a pack whose close fails is reported with its day, and the others still close', async () => {
+  const client = closing(
+    [
+      { pack_id: 'deleted', time_zone: 'Asia/Jerusalem', next_day: '2026-11-03' },
+      { pack_id: 'kept', time_zone: 'Asia/Jerusalem', next_day: '2026-11-03' },
+    ],
+    (pack) => (pack === 'deleted' ? { code: 'P0002', message: 'pack_not_found' } : null),
+  );
+  const run = await closeDueDays(client, new Date('2026-11-04T02:00:00Z'));
+  assert.deepEqual(client.applied, ['kept 2026-11-03']);
+  assert.deepEqual(
+    run.failed.map(({ packId, day }) => ({ packId, day })),
+    [{ packId: 'deleted', day: '2026-11-03' }],
+  );
 });

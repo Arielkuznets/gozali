@@ -87,6 +87,19 @@ export const CLOSE_CONCURRENCY = 8;
 export const CLOSE_BUDGET_MS = 90_000;
 
 /**
+ * Whether a day is due at `now` by this runtime's Intl. Its zone data can be older than the
+ * database's, or miss a zone the database knows: such a day waits for packs_to_close to find it.
+ */
+function dueByIntl(day: string, timeZone: string, now: Date): boolean {
+  try {
+    return closesAt(day, timeZone).getTime() <= now.getTime();
+  } catch (error) {
+    if (error instanceof RangeError) return false;
+    throw error;
+  }
+}
+
+/**
  * Closes the due days of every pack, a few packs at a time; each pack's days go in order. Packs
  * in the same time zone all come due at the same moment, and a run has 2 s of CPU, enough for a
  * few hundred closes. Past that the function is killed with a 546: what closed stays closed, and
@@ -109,13 +122,15 @@ export async function closeDueDays(
   const started = Date.now();
 
   const closePack = async (pack: (typeof queue)[number]) => {
+    // packs_to_close found the first open day due by the database's clock, the one feeds count by.
     let day = pack.next_day;
     try {
-      for (; closesAt(day, pack.time_zone).getTime() <= now.getTime(); day = addDays(day, 1)) {
+      do {
         const done = await closeOneDay(client, pack.pack_id, day);
         if (!done) break;
         closed.push(done);
-      }
+        day = addDays(day, 1);
+      } while (dueByIntl(day, pack.time_zone, now));
     } catch (error) {
       failed.push({ packId: pack.pack_id, day, error: error instanceof Error ? error.message : String(error) });
     }

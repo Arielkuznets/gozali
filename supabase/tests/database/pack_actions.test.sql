@@ -117,7 +117,7 @@ select is(
 );
 select throws_ok(
   $$ select public.create_pack('Nowhere', 'gym', 3::smallint, 'mochi', 'posix/Asia/Jerusalem') $$,
-  '22023', 'unknown_time_zone', 'a pack can''t be made in one, or its days would never close'
+  '22023', 'unknown_time_zone', 'a pack can''t be made in one, or the close could take its days only one a run'
 );
 select throws_ok(
   $$ select public.create_pack('Nowhere', 'gym', 3::smallint, 'mochi', 'Factory') $$,

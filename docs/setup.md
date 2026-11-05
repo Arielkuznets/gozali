@@ -161,6 +161,14 @@ A release goes out in this order, after a check that the alerts still reach some
 1. `npx supabase functions deploy on-report`. It reads a report as the server gives it before the migrations and after them, and the one in place may not: the on-report of build 4 fails on a report about a member, which every block makes once the migrations are in, and that email is lost.
 2. `npx supabase db push`, at about :05 or :20 past the hour. Day closes run at :00, :15, :30 and :45, and a close or a settings save caught inside a migration's commit carries on with the old function. A policy change in the push also locks Supabase's auth, storage and Realtime tables for a moment, so a sign-in or a token refresh just then can deadlock with it, and Postgres stops one of the two. When that is the push, it ends with `deadlock detected`: run it again. Each file goes in as one transaction, so the one that stopped left nothing behind, and the push carries on from it.
 3. `npx supabase functions deploy close-days send-push widget-state delete-account`, only once `npx supabase migration list` shows every file under Remote as well as under Local. These call what the migrations add, so deployed first they fail until the schema catches up.
+
+   Then look for packs in a zone the day close's Intl may not read: until step 2, build 4 could make one in America/Coyhaique, a `posix/` name or Factory.
+
+   ```sh
+   npx supabase db query --linked "select id, name, timezone, created_at from public.packs where timezone = 'America/Coyhaique' or timezone like 'posix/%' or timezone = 'Factory'"
+   ```
+
+   Where Intl can't read the zone, a run closes only the day the database found due, so a pack days behind catches up one day every 15 minutes. Under a name Intl reads with the same clock (America/Punta_Arenas for America/Coyhaique, the name after `posix/`, Etc/UTC for Factory) it catches up in one run: `npx supabase db query --linked "update public.packs set timezone = 'America/Punta_Arenas' where timezone = 'America/Coyhaique'"`.
 4. The backup job, before the site. The privacy policy tells people the database is copied once a day, so the page can't go out ahead of the job. `Get-ScheduledTask -TaskName 'Gozali backup'` has to show Ready, and `~/Gozali backups` a file from the last evening. If not, register the task (Backups, below), run it once with `Start-ScheduledTask -TaskName 'Gozali backup'` and read `backup.log`. A copy goes only once 14 newer ones exist, so after a gap delete any copy older than 14 days by hand, or it stays past what the policy says.
 5. The site, when `web/`, `docs/legal` or `docs/support.md` changed (section 3). Nothing else publishes them, so the live pages stay behind the repo until this runs. It comes before the build because App Review reads the privacy policy and the terms along with it, and they have to match the App Privacy answers.
 6. The build. People get the new app last, so it finds the server it was made for.
