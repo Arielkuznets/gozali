@@ -19,13 +19,19 @@ Everything runs locally without accounts (see the README). This is the one-time 
    npx supabase functions deploy close-days send-push widget-state on-report delete-account
    ```
 
-4. Secrets for the functions. `CRON_SECRET` is any long random string; `EXPO_ACCESS_TOKEN` is optional (Expo push security). `RESEND_API_KEY`, `REPORT_EMAIL` and `REPORT_EMAIL_FROM` send report alerts. `REPORT_EMAIL_FROM` is the sender, at a domain verified in Resend: without it Resend's test sender is used, which delivers only to the Resend account's own address. Without the key or the address a report reaches only the function log, and on-report answers 503, which the owners' daily summary counts as a server error. A report whose email fails isn't sent again; its id is in the function's answer, in `service_errors`.
+4. Secrets for the functions. `CRON_SECRET` is any long random string; `EXPO_ACCESS_TOKEN` is optional (Expo push security). `RESEND_API_KEY` and `REPORT_EMAIL` send report alerts. Until a domain is verified in Resend they go out from Resend's test sender, which delivers only to the Resend account's own address, so `REPORT_EMAIL` has to be that address. Without the key or the address a report reaches only the function log, and on-report answers 503, which the owners' daily summary counts as a server error. A report whose email fails isn't sent again; its id is in the function's answer, in `service_errors`.
 
    ```sh
-   npx supabase secrets set CRON_SECRET=<random> EXPO_ACCESS_TOKEN=<token> RESEND_API_KEY=<key> REPORT_EMAIL=<your email> REPORT_EMAIL_FROM="Gozali <reports@<verified domain>>"
+   npx supabase secrets set CRON_SECRET=<random> EXPO_ACCESS_TOKEN=<token> RESEND_API_KEY=<key> REPORT_EMAIL=<the Resend account's email>
    ```
 
-   Check them with `npx supabase secrets list`, then report a photo from the app and see that the email arrives. `HEARTBEAT_URL` is optional: an outside check that mails you when the pushes stop (section 5).
+   Once a domain is verified in Resend, set the sender at it, and `REPORT_EMAIL` can be any address. Not before: Resend refuses a sender at a domain it hasn't verified, and every report email is lost.
+
+   ```sh
+   npx supabase secrets set REPORT_EMAIL_FROM="Gozali <reports@<verified domain>>"
+   ```
+
+   Check them with `npx supabase secrets list`: `REPORT_EMAIL_FROM` is there only once the domain is verified, and `npx supabase secrets unset REPORT_EMAIL_FROM` takes away one set too soon. Then report a photo from the app and see that the email arrives. `HEARTBEAT_URL` is optional: an outside check that mails you when the pushes stop (section 5).
 
 5. Let pg_cron reach the functions: in the SQL editor, with the same `CRON_SECRET`:
 
