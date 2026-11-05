@@ -43,6 +43,27 @@ describe('invite codes', () => {
     expect(inviteCodeFrom('strength squad: WXYZABCD')).toBe('WXYZABCD');
   });
 
+  // The app and its site show a code in capitals, which a word in a sentence rarely is.
+  it('takes a code in capitals over a word of the same letters after it', () => {
+    expect(inviteCodeFrom('WXYZABCD starts next week')).toBe('WXYZABCD');
+    expect(inviteCodeFrom('WXYZABCD, Thursday 7pm')).toBe('WXYZABCD');
+    expect(inviteCodeFrom('WXYZABCD see you Saturday')).toBe('WXYZABCD');
+    expect(inviteCodeFrom('WXYZABCD for the pack name Gym squad')).toBe('WXYZABCD');
+    expect(inviteCodeFrom('pack WXYZ ABCD')).toBe('WXYZABCD');
+  });
+
+  it('finds a code written in two halves right after a short word', () => {
+    expect(inviteCodeFrom('my pack KPQR 5678')).toBe('KPQR5678');
+    expect(inviteCodeFrom('join the club kpqr 5678')).toBe('KPQR5678');
+    expect(inviteCodeFrom('here KPQR-5678')).toBe('KPQR5678');
+  });
+
+  it('finds the code in the sentence the review notes give', () => {
+    const notes =
+      'To see a hatched pet, a friend\'s photos, the outfit shop and a weekly recap, tap "Join with a code" on the home screen and enter WXYZ2345. To hatch your own egg, a second account joins with the pack\'s code (Invite on the pack screen) and feeds the same day.';
+    expect(inviteCodeFrom(notes)).toBe('WXYZ2345');
+  });
+
   it('reads anything else as the code itself', () => {
     expect(inviteCodeFrom(' abcd 2345 ')).toBe('ABCD2345');
     expect(inviteCodeFrom('ABC')).toBe('ABC');

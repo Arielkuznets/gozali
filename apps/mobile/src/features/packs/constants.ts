@@ -65,9 +65,12 @@ export function inviteCodeFrom(input: string): string {
   const found =
     /gozali(?:\.app|:\/)\/i\/([a-z0-9-]+)/i.exec(text) ?? new RegExp(`\\bcode\\s*[:=]\\s*(${CODE_SHAPE})`, 'i').exec(text);
   if (found) return normalizeInviteCode(found[1]!);
+  // Every word that could be the code, overlapping ones too: "my pack KPQR 5678" has "pack KPQR".
+  const words = [...text.matchAll(new RegExp(`(?:^|[^a-z0-9])(?=(${CODE_SHAPE}))`, 'gi'))].map((match) => match[1]!);
   // An English word can be made of the code's letters too (STRENGTH), so a word with a digit wins,
-  // and the last word otherwise, as in "my code is ...".
-  const words = [...text.matchAll(new RegExp(`(?:^|[^a-z0-9])(${CODE_SHAPE})`, 'gi'))].map((match) => match[1]!);
-  const word = words.findLast((candidate) => /[2-9]/.test(candidate)) ?? words.at(-1);
+  // then one in capitals, as the app and its site show codes, then one in a piece, and the last one
+  // otherwise, as in "my code is ...".
+  const rank = (word: string) => (/[2-9]/.test(word) ? 4 : 0) + (word === word.toUpperCase() ? 2 : 0) + (/[- ]/.test(word) ? 0 : 1);
+  const word = words.reduce<string | undefined>((best, next) => (best === undefined || rank(next) >= rank(best) ? next : best), undefined);
   return normalizeInviteCode(word ?? /\bcode\s*[:=]\s*([a-z0-9-]+)/i.exec(text)?.[1] ?? text);
 }
