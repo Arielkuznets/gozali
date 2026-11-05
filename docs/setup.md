@@ -197,7 +197,11 @@ A change to native code (a new native package, app.json plugins, the widgets) ne
 
 Build 5 is such a build: it patches expo-apple-authentication, expo-camera and expo-notifications, asks for permission to save to the photo library and changes the widgets, while `app.json` still says 1.0.0, as it did for build 4. Raise `version` before building it, for example to 1.0.1. Then an update made for one of them never reaches the other, and `min_version` can retire build 4 once build 5 is out. App Store Connect ties each upload to the version with its version number, so the rejected 1.0 version offers build 5 only once it has the same number: on that version's page, change its number to the new `version` before choosing the build. Apple lists a rejected version as editable, so it still takes a new number. If App Store Connect refuses it, ask its support rather than setting `app.json` back to 1.0.0, which would let an update for one build reach the other. An EAS Update from this branch goes out only after step 3 of the release, since its JavaScript calls what the migrations and functions add.
 
-Until testers install build 5, build 4 shows a generic message for two refusals of the new server: a nudge to someone in their quiet hours says "Saving didn't work", and a removed member who enters the pack's code gets "This didn't load". Say so in TestFlight's What to Test for build 5.
+Until testers install build 5, build 4 handles three refusals of the new server badly. Say all three in TestFlight's What to Test for build 5, and ask testers to install build 5 as soon as it is in TestFlight:
+
+- A nudge to someone in their quiet hours says "Saving didn't work".
+- A removed member who enters the pack's code gets "This didn't load".
+- From step 2 of the release, a feed waiting in build 4's offline queue whose caption the word filter refuses only from this release on, such as a word with a star in it or spaced out ("Sh*t, almost forgot"), is dropped without a word, and its photo with it, so it doesn't count for its day.
 
 A bad update can be taken back, and how depends on what came before it on the branch:
 
