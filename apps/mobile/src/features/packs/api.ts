@@ -288,14 +288,25 @@ export function useUpdatePack(packId: string) {
   });
 }
 
+/** The pack's invite code as the server has it now. A read that fails finds none. */
+async function inviteCodeNow(packId: string): Promise<string | null> {
+  const { data } = await requireSupabase().from('packs').select('invite_code').eq('id', packId).maybeSingle();
+  return data?.invite_code ?? null;
+}
+
 /** A new invite code for the pack (admin only); the old code and link stop working. */
 export function useRenewInviteCode(packId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
+      const shown = queryClient.getQueryData<Pack | null>(packKey(packId))?.invite_code;
       const { data, error } = await requireSupabase().rpc('renew_invite_code', { target: packId });
-      if (error) throw error;
-      return data;
+      if (!error) return data;
+      // A renewal with no answer may have changed the code all the same: a code the server has that
+      // isn't the one on screen at the tap is the new one.
+      const code = isNetworkFailure(error) ? await inviteCodeNow(packId) : null;
+      if (code && code !== shown) return code;
+      throw error;
     },
     // The old code stopped working with this answer, so the screen takes the new one from it: a
     // stalled reload must not leave a dead code up to be shared.

@@ -81,6 +81,11 @@ jest.mock('@/lib/supabase', () => ({
         eq: (_column: string, value: string) => ({
           // As row level security has it: the photos are there for someone in the pack.
           order: () => ({ limit: async () => ({ data: mockPacks.some((pack) => pack.id === value) ? mockPhotos : [], error: null }) }),
+          // The pack by its id, read for a part of it.
+          maybeSingle: async () => {
+            await mockPackAnswered;
+            return mockOffline ? mockNoConnection : { data: mockPacks.find((pack) => pack.id === value) ?? null, error: null };
+          },
           // The packs of this name made since then, newest first.
           gte: (_made: string, since: string) => ({
             order: async () => ({
@@ -1048,6 +1053,39 @@ describe('a new invite code', () => {
 
     expect(shows(FRESH)).toBe(true);
     expect(shows('ABCD2345')).toBe(false);
+  });
+
+  describe('with the answer lost', () => {
+    const lost = { data: null, error: { message: 'TypeError: Network request failed', details: '', hint: '', code: '' } };
+
+    it('counts as done once the server has another code, and the copied one is no longer Copied!', async () => {
+      mockRpc.mockImplementation(async (name: string) => {
+        if (name !== 'renew_invite_code') return { error: null };
+        mockPacks = [{ ...asAdmin(packNamed('p1')), invite_code: FRESH }];
+        return lost;
+      });
+      await start('/pack/p1/invite');
+      await press('Copy code');
+      expect(hasButton('Copied!')).toBe(true);
+
+      await getNewCode();
+
+      expect(shows(FRESH)).toBe(true);
+      expect(hasButton('Copy code')).toBe(true);
+      expect(mockNotify).not.toHaveBeenCalled();
+    });
+
+    it('says saving failed when the server still has the code from before', async () => {
+      mockRpc.mockImplementation(async (name: string) => (name === 'renew_invite_code' ? lost : { error: null }));
+      await start('/pack/p1/invite');
+      await press('Copy code');
+
+      await getNewCode();
+
+      expect(mockNotify).toHaveBeenCalledWith("Saving didn't work. Please try again.");
+      expect(shows('ABCD2345')).toBe(true);
+      expect(hasButton('Copied!')).toBe(true);
+    });
   });
 });
 

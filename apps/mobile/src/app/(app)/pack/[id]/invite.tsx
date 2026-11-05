@@ -21,7 +21,8 @@ export default function InviteScreen() {
   const { height } = useWindowDimensions();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: pack, isPending, isError, refetch } = usePack(id);
-  const [copied, setCopied] = useState(false);
+  // The code copied last: Copied! stands only while it is the one on screen, as a new code ends it.
+  const [copied, setCopied] = useState<string | null>(null);
   const { session } = useAuth();
   const renew = useRenewInviteCode(id);
   const backToPack = useBackToPack();
@@ -49,7 +50,6 @@ export default function InviteScreen() {
       cancel: t('settings.cancel'),
       onConfirm: () =>
         renew.mutate(undefined, {
-          onSuccess: () => setCopied(false),
           onError: (error) => notify(t(packErrorKey(error))),
         }),
     });
@@ -60,7 +60,7 @@ export default function InviteScreen() {
 
   const onCopy = async () => {
     await Clipboard.setStringAsync(pack.invite_code);
-    setCopied(true);
+    setCopied(pack.invite_code);
   };
 
   return (
@@ -94,7 +94,7 @@ export default function InviteScreen() {
       <View style={styles.actions}>
         <Button label={t('invite.share')} onPress={onShare} />
         <Button
-          label={copied ? t('invite.copied') : t('invite.copy')}
+          label={copied === pack.invite_code ? t('invite.copied') : t('invite.copy')}
           variant="secondary"
           onPress={() => void onCopy()}
         />
