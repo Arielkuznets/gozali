@@ -291,6 +291,16 @@ describe('a feed waiting on this phone', () => {
   });
 });
 
+describe('home with as many packs as an account can be in', () => {
+  it('says how to make room for another', async () => {
+    client.setQueryData(packsKey, ['gym', 'run', 'read'].map((id) => ({ ...PACK, id, name: id })));
+
+    const home = await open(<HomeScreen />);
+
+    expect(lines(home)).toContain("You're in 3 packs, the most for now. To join or start another, leave one in its Settings.");
+  });
+});
+
 const running = (): PackPause => ({ starts_on: addDays(packDay(), -1), ends_on: addDays(packDay(), 5) });
 const onPause = (pause: PackPause, pack = PACK): Pack => ({
   ...pack,

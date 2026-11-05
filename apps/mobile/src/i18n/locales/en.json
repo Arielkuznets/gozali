@@ -40,7 +40,7 @@
     "eggLabel": "An egg waiting for a pack",
     "createPack": "Create a pack",
     "joinPack": "Join with a code",
-    "limitReached": "You're in 3 packs, the most for now.",
+    "limitReached": "You're in 3 packs, the most for now. To join or start another, leave one in its Settings.",
     "feedPack": "Feed {{name}}",
     "loadFailed": "Your packs didn't load. Check the connection and try again.",
     "retry": "Try again"
