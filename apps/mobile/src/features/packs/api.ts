@@ -5,7 +5,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { isNetworkFailure } from '@/features/feeds/send';
 import type { Category, CritterStage, CritterStatus, Species, WeekStart } from '@/features/packs/constants';
 import { deviceTimeZone } from '@/lib/dates';
-import { isBlockedText } from '@/lib/errors';
+import { errorMessage, isBlockedText } from '@/lib/errors';
 import { serverNow } from '@/lib/serverClock';
 import { requireSupabase } from '@/lib/supabase';
 
@@ -299,10 +299,11 @@ export function useUpdatePack(packId: string) {
   });
 }
 
-/** The pack's invite code as the server has it now. A read that fails finds none. */
-async function inviteCodeNow(packId: string): Promise<string | null> {
-  const { data } = await requireSupabase().from('packs').select('invite_code').eq('id', packId).maybeSingle();
-  return data?.invite_code ?? null;
+const RENEWAL_UNCONFIRMED = 'renewal_unconfirmed';
+
+/** A renewal with no answer, once the pack has been read again: the code on screen works, new or not. */
+export function isUnconfirmedRenewal(error: unknown): boolean {
+  return errorMessage(error) === RENEWAL_UNCONFIRMED;
 }
 
 /** A new invite code for the pack (admin only); the old code and link stop working. */
@@ -310,22 +311,24 @@ export function useRenewInviteCode(packId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      const shown = queryClient.getQueryData<Pack | null>(packKey(packId))?.invite_code;
       const { data, error } = await requireSupabase().rpc('renew_invite_code', { target: packId });
       if (data) return data;
-      // A renewal with no answer, or with one cut off before its body, may have changed the code all
-      // the same: a code the server has that isn't the one on screen at the tap is the new one.
-      const code = !error || isNetworkFailure(error) ? await inviteCodeNow(packId) : null;
-      if (code && code !== shown) return code;
-      throw error ?? new Error('no_answer');
+      if (error && !isNetworkFailure(error)) throw error;
+      // With no answer, or one cut off before its body, the code may have changed or not, and no code
+      // the phone holds can tell which, as another phone can change it too. So none is taken for the
+      // new one: the pack is read as it is now, with its query's retries, and the code that read puts
+      // on screen is the one that works.
+      const read = await queryClient
+        .refetchQueries({ queryKey: packKey(packId), exact: true }, { throwOnError: true })
+        .then(() => queryClient.getQueryData<Pack | null>(packKey(packId)), () => null);
+      throw read ? new Error(RENEWAL_UNCONFIRMED) : (error ?? new Error('no_answer'));
     },
     // The old code stopped working with this answer, so the screen takes the new one from it: a
     // stalled reload must not leave a dead code up to be shared.
     onSuccess: (code) => {
       queryClient.setQueryData<Pack | null>(packKey(packId), (pack) => pack && { ...pack, invite_code: code });
     },
-    // An answer that was lost may have come after the code changed, so the pack is read again
-    // either way.
+    // The list holds the code too, and a refusal can come from a pack that changed since it was read.
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: packsKey });
     },

@@ -10,7 +10,7 @@ import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { LoadingScreen, LoadFailedScreen, PackMissingScreen } from '@/components/ScreenStates';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { currentMembers, packErrorKey, usePack, useRenewInviteCode } from '@/features/packs/api';
+import { currentMembers, isUnconfirmedRenewal, packErrorKey, usePack, useRenewInviteCode } from '@/features/packs/api';
 import { PACK_SIZE_MAX, inviteLink } from '@/features/packs/constants';
 import { confirm, notify } from '@/lib/confirm';
 import { useBackToPack } from '@/lib/navigation';
@@ -50,7 +50,10 @@ export default function InviteScreen() {
       cancel: t('settings.cancel'),
       onConfirm: () =>
         renew.mutate(undefined, {
-          onError: (error) => notify(t(packErrorKey(error))),
+          onError: (error) =>
+            isUnconfirmedRenewal(error)
+              ? notify(t('invite.renewUnconfirmed'), t('invite.renewUnconfirmedDetail'))
+              : notify(t(packErrorKey(error))),
         }),
     });
 

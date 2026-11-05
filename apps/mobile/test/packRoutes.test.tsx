@@ -50,7 +50,7 @@ jest.mock('expo-clipboard', () => ({ getStringAsync: () => mockClipboard(), setS
 const mockNotify = jest.fn();
 jest.mock('@/lib/confirm', () => ({
   confirm: ({ onConfirm }: { onConfirm: () => void }) => onConfirm(),
-  notify: (message: string) => mockNotify(message),
+  notify: (...lines: string[]) => mockNotify(...lines),
 }));
 
 let mockPacks: Pack[] = [];
@@ -81,11 +81,6 @@ jest.mock('@/lib/supabase', () => ({
         eq: (_column: string, value: string) => ({
           // As row level security has it: the photos are there for someone in the pack.
           order: () => ({ limit: async () => ({ data: mockPacks.some((pack) => pack.id === value) ? mockPhotos : [], error: null }) }),
-          // The pack by its id, read for a part of it.
-          maybeSingle: async () => {
-            await mockPackAnswered;
-            return mockOffline ? mockNoConnection : { data: mockPacks.find((pack) => pack.id === value) ?? null, error: null };
-          },
           // The packs of this name made since then, newest first.
           gte: (_made: string, since: string) => ({
             order: async () => ({
@@ -1160,10 +1155,14 @@ describe('a new invite code', () => {
     expect(shows('ABCD2345')).toBe(false);
   });
 
+  // No code is taken for the new one without the answer: the pack is read as it is now, and the
+  // admin hears what holds either way.
+  const MAYBE = [['The new code may not have gone through.', 'The code on screen is the one that works now.']];
+
   describe('with the answer lost', () => {
     const lost = { data: null, error: { message: 'TypeError: Network request failed', details: '', hint: '', code: '' } };
 
-    it('counts as done once the server has another code, and the copied one is no longer Copied!', async () => {
+    it('shows the code the server made, says the change may not have gone through, and the copied one is no longer Copied!', async () => {
       mockRpc.mockImplementation(async (name: string) => {
         if (name !== 'renew_invite_code') return { error: null };
         mockPacks = [{ ...asAdmin(packNamed('p1')), invite_code: FRESH }];
@@ -1177,26 +1176,71 @@ describe('a new invite code', () => {
 
       expect(shows(FRESH)).toBe(true);
       expect(hasButton('Copy code')).toBe(true);
-      expect(mockNotify).not.toHaveBeenCalled();
+      expect(mockNotify.mock.calls).toEqual(MAYBE);
     });
 
-    it('says saving failed when the server still has the code from before', async () => {
+    it('says the same with the code from before still on screen, and still Copied!, when the server has it', async () => {
       mockRpc.mockImplementation(async (name: string) => (name === 'renew_invite_code' ? lost : { error: null }));
       await start('/pack/p1/invite');
       await press('Copy code');
 
       await getNewCode();
 
-      expect(mockNotify).toHaveBeenCalledWith("Saving didn't work. Please try again.");
+      expect(mockNotify.mock.calls).toEqual(MAYBE);
       expect(shows('ABCD2345')).toBe(true);
       expect(hasButton('Copied!')).toBe(true);
     });
+
+    it('says the same when the screen had an older code than the server, which a renewal elsewhere made', async () => {
+      mockRpc.mockImplementation(async (name: string) => (name === 'renew_invite_code' ? lost : { error: null }));
+      await start('/pack/p1/invite');
+      mockPacks = [{ ...asAdmin(packNamed('p1')), invite_code: FRESH }];
+
+      await getNewCode();
+
+      expect(shows(FRESH)).toBe(true);
+      expect(mockNotify.mock.calls).toEqual(MAYBE);
+    });
+
+    it('reads the pack again with its retries, when the first read after the answer fails', async () => {
+      // The app's own client, whose reads try again.
+      client = new QueryClient();
+      mockRpc.mockImplementation(async (name: string) => {
+        if (name !== 'renew_invite_code') return { error: null };
+        mockPacks = [{ ...asAdmin(packNamed('p1')), invite_code: FRESH }];
+        mockOffline = true;
+        setTimeout(() => {
+          mockOffline = false;
+        }, 500);
+        return lost;
+      });
+      await start('/pack/p1/invite');
+
+      await getNewCode();
+      await settle();
+      await settle();
+
+      expect(shows(FRESH)).toBe(true);
+      expect(mockNotify.mock.calls).toEqual(MAYBE);
+    });
+  });
+
+  it('says a refusal at once, without waiting for a read of the pack', async () => {
+    const refused = { data: null, error: { message: 'admin_only', details: '', hint: '', code: '42501' } };
+    mockRpc.mockImplementation(async (name: string) => (name === 'renew_invite_code' ? refused : { error: null }));
+    await start('/pack/p1/invite');
+    mockPackAnswered = new Promise(() => undefined);
+    mockListAnswered = mockPackAnswered;
+
+    await getNewCode();
+
+    expect(mockNotify.mock.calls).toEqual([['Only the pack admin can do that.']]);
   });
 
   // Android's fetch can hand over an answer cut off after its headers, which supabase-js reads as
   // no data and no error.
   describe('with the answer cut off before its body', () => {
-    it('keeps a code on screen, then shows the one the server has once the read is back', async () => {
+    it('keeps a code on screen, then shows the one the server has once the read is back, and says so then', async () => {
       mockRpc.mockImplementation(async (name: string) => {
         if (name !== 'renew_invite_code') return { error: null };
         mockPacks = [{ ...asAdmin(packNamed('p1')), invite_code: FRESH }];
@@ -1211,12 +1255,13 @@ describe('a new invite code', () => {
 
       await getNewCode();
       expect(shows('ABCD2345')).toBe(true);
+      expect(mockNotify).not.toHaveBeenCalled();
       await act(async () => answerReads());
       await settle();
 
       expect(shows(FRESH)).toBe(true);
       expect(shows('ABCD2345')).toBe(false);
-      expect(mockNotify).not.toHaveBeenCalled();
+      expect(mockNotify.mock.calls).toEqual(MAYBE);
     });
 
     it('says saving failed when the read fails too', async () => {
