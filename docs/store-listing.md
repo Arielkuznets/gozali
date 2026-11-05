@@ -91,6 +91,7 @@ Before submitting:
 - The demo pack has everything the notes promise: a hatched pet, a few days of feeds, a weekly recap, and room for one more (a pack holds 8). Use Demo Friend's pack once it has all that, or a pack from TestFlight testing. If it falls short, take what is missing out of the notes.
 - Post fresh Demo Friend photos the day you submit, and keep the pack fed until the review ends. Demo Friend has no Apple ID: it signs in with an email and a password, and that is how its photos are posted, so the Email provider in Supabase Auth stays on while it is in use. Build 4 waited 13 days for its review. A feed photo is deleted 30 days after it was posted, and the reviewer would find a line in its place. A pack of three or more that stops feeding can lose its pet within a week.
 - Tell the pack a reviewer may join.
+- Sign in with Apple works with the TestFlight build on an iPad. Turn on `apple_web_sign_in` only once `docs/setup.md` section 8 is done, never before: the browser sign-in it offers can't work until then.
 
 Once the app is approved, the admin removes the reviewer's account from Pack settings → Members. A removed member can't join again, so not before. Then delete Demo Friend, as an account is deleted by hand (`docs/setup.md` section 5, steps 3 and 4), and after that the Email provider can go off (section 1, step 8).
 
