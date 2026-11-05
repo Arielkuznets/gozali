@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState } from 'react-native';
 
-import { enqueue, flushQueue, forgetFeedsOf, forgetFeedsOfOthers, pendingFeeds } from '@/features/feeds/queue';
+import { enqueue, flushQueue, forgetFeedsOf, forgetFeedsOfOthers, holdForSend, pendingFeeds, releaseFromSend } from '@/features/feeds/queue';
 import type { OutgoingFeed } from '@/features/feeds/send';
 
 // The queue keeps photos in the app's documents folder; here files are just names.
@@ -419,6 +419,29 @@ describe('offline feed queue', () => {
     await enqueue(feed('a'));
     await enqueue({ ...feed('b'), packId: 'other' });
     expect((await pendingFeeds('pack')).map((item) => item.id)).toEqual(['a']);
+  });
+});
+
+describe('a feed Send is trying', () => {
+  it('is left to Send by every run, and the start after the app was killed sends it', async () => {
+    mockSendFeed.mockResolvedValue('feed-id');
+    expect(await holdForSend(feed('a'))).toBe(true);
+    await enqueue(feed('b'));
+
+    expect((await flushQueue()).handled).toBe(1);
+    expect(await waiting()).toEqual(['a']);
+
+    expect((await afterRestart().flushQueue()).handled).toBe(1);
+    expect(mockSendFeed.mock.calls.map(([sent]) => sent.id)).toEqual(['b', 'a']);
+  });
+
+  it('goes to the next run when the list fails as Send lets go of it', async () => {
+    await holdForSend(feed('a'));
+    jest.mocked(AsyncStorage.getItem).mockRejectedValueOnce(new Error('disk I/O error'));
+    await expect(releaseFromSend('a', null)).resolves.toBeUndefined();
+
+    mockSendFeed.mockResolvedValue('feed-id');
+    expect((await flushQueue()).handled).toBe(1);
   });
 });
 

@@ -15,6 +15,8 @@ process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY = 'publishable';
 
 /** How long reading a photo takes, if it isn't at once. */
 let mockReadTakes = 0;
+/** The copies the queue keeps of photos, for as long as they are there. */
+const mockKept = new Set<string>();
 jest.mock('expo-file-system', () => {
   class File {
     uri: string;
@@ -22,8 +24,12 @@ jest.mock('expo-file-system', () => {
     constructor(...parts: (string | { uri: string })[]) {
       this.uri = parts.map((part) => (typeof part === 'string' ? part : part.uri)).join('/');
     }
-    async copy() {}
-    delete() {}
+    async copy(to: { uri: string }) {
+      mockKept.add(to.uri);
+    }
+    delete() {
+      mockKept.delete(this.uri);
+    }
     async arrayBuffer() {
       if (mockReadTakes > 0) await new Promise((resolve) => setTimeout(resolve, mockReadTakes));
       return new ArrayBuffer(8);
@@ -36,7 +42,9 @@ jest.mock('expo-file-system', () => {
       this.uri = parts.map((part) => (typeof part === 'string' ? part : part.uri)).join('/');
     }
     create() {}
-    delete() {}
+    delete() {
+      for (const uri of mockKept) if (uri.startsWith(`${this.uri}/`)) mockKept.delete(uri);
+    }
   }
   return { File, Directory, Paths: { document: { uri: 'documents' } } };
 });
@@ -57,7 +65,7 @@ const { useCountedFeeds, useFeedQueue, usePackFeed, usePendingFeeds, useSendFeed
 const { enqueue, flushQueue, pendingFeeds } = jest.requireActual<typeof import('@/features/feeds/queue')>('@/features/feeds/queue');
 const { daysKey, useDayPass, useDayStatus } = jest.requireActual<typeof import('@/features/days/api')>('@/features/days/api');
 const { useBuy, useNudge } = jest.requireActual<typeof import('@/features/social/api')>('@/features/social/api');
-const { deleteAccount } = jest.requireActual<typeof import('@/features/auth/signIn')>('@/features/auth/signIn');
+const { deleteAccount, signOut } = jest.requireActual<typeof import('@/features/auth/signIn')>('@/features/auth/signIn');
 // What expo/fetch rejects with on a phone when a request is aborted.
 const { FetchError } = jest.requireActual<typeof import('expo/src/winter/fetch/FetchErrors')>('expo/src/winter/fetch/FetchErrors');
 
@@ -258,6 +266,7 @@ beforeEach(async () => {
   noConnection = () => false;
   askingMeets = null;
   mockReadTakes = 0;
+  mockKept.clear();
 });
 
 afterEach(async () => {
@@ -903,8 +912,54 @@ describe('Send on a dead connection', () => {
 
     expect(await tapSend()).toEqual({ outcome: 'sent', seconds: 0 });
     expect(await pendingFeeds()).toEqual([]);
+    expect(mockKept.size).toBe(0);
     expect(feeds.size).toBe(1);
     expect(requested('HEAD')).toBe(0);
+  });
+});
+
+describe('Send on a link where the photo takes 20 s to go up', () => {
+  let send: ReturnType<typeof useSendFeed>['mutateAsync'];
+
+  function Camera() {
+    send = useSendFeed().mutateAsync;
+    return null;
+  }
+
+  /** Send is tapped, and this many seconds go by. */
+  async function tapSend(seconds: number) {
+    await open(Camera);
+    slowBy = firstBy(UPLOAD, 20_000);
+    void send(feed('a'));
+    await advance(seconds * 1000);
+  }
+
+  it('has the feed and its photo kept on the phone from the tap, for a start after the app is killed', async () => {
+    await tapSend(10);
+
+    expect(await pendingFeeds()).toEqual([{ ...feed('a'), photoUri: 'documents/feed-queue/a.jpg' }]);
+    expect([...mockKept]).toEqual(['documents/feed-queue/a.jpg']);
+  });
+
+  it('is tried by no run meanwhile, and leaves nothing behind once it lands', async () => {
+    await tapSend(5);
+    void flushQueue();
+    await advance(30_000);
+
+    expect(requested(`POST ${UPLOAD}`)).toBe(1);
+    expect(feeds.size).toBe(1);
+    expect(await pendingFeeds()).toEqual([]);
+    expect(mockKept.size).toBe(0);
+  });
+
+  it('goes with the account that signs out meanwhile, and stays gone', async () => {
+    await tapSend(5);
+    void signOut();
+    await advance(30_000);
+
+    expect(await AsyncStorage.getItem(AUTH_STORAGE_KEY)).toBeNull();
+    expect(await pendingFeeds()).toEqual([]);
+    expect(mockKept.size).toBe(0);
   });
 });
 

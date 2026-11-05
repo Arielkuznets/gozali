@@ -7,7 +7,7 @@ import { AppState } from 'react-native';
 
 import { useAuth } from '@/features/auth/AuthProvider';
 import type { Pack } from '@/features/packs/api';
-import { enqueue, flushQueue, hasConnection, isOnline, pendingFeeds } from '@/features/feeds/queue';
+import { enqueue, flushQueue, hasConnection, holdForSend, isOnline, pendingFeeds, releaseFromSend } from '@/features/feeds/queue';
 import { PHOTO_BUCKET, feedErrorCode, inTime, isFinalRejection, sendFeed, type OutgoingFeed } from '@/features/feeds/send';
 import type { ReactionTotal } from '@/features/social/api';
 import { notify } from '@/lib/confirm';
@@ -164,24 +164,37 @@ export function usePendingFeeds(packId: string) {
  * An extra can hear the same, once: before the day's first feed the server counts it, and another
  * phone can get there first.
  */
-async function sendOrKeep(feed: OutgoingFeed, retried = false): Promise<'sent' | 'queued'> {
+async function sendOrKeep(feed: OutgoingFeed, keep: (tried: OutgoingFeed) => Promise<boolean>, retried = false): Promise<'sent' | 'queued'> {
   try {
     await inTime((givenUp) => sendFeed(feed, givenUp));
     return 'sent';
   } catch (error) {
-    if (feedErrorCode(error) === 'already_fed' && !retried) return sendOrKeep({ ...feed, extra: true }, true);
-    if (!isFinalRejection(error) && (await enqueue(feed))) return 'queued';
+    if (feedErrorCode(error) === 'already_fed' && !retried) return sendOrKeep({ ...feed, extra: true }, keep, true);
+    if (!isFinalRejection(error) && (await keep(feed))) return 'queued';
     throw error;
   }
 }
 
-/** Sends a feed, or keeps it for later when there is no connection. */
+/**
+ * Sends a feed, or keeps it for later when there is no connection. The feed waits in the queue
+ * from before the first try: on a weak link a send takes its time, the app can be killed
+ * meanwhile, and the next start clears the shot.
+ */
 export function useSendFeed() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (feed: OutgoingFeed): Promise<'sent' | 'queued'> => {
       if (!(await isOnline()) && (await enqueue(feed))) return 'queued';
-      return sendOrKeep(feed);
+      if (!(await holdForSend(feed))) return sendOrKeep(feed, enqueue);
+      let waiting: OutgoingFeed | null = null;
+      try {
+        return await sendOrKeep(feed, async (tried) => {
+          waiting = tried;
+          return true;
+        });
+      } finally {
+        await releaseFromSend(feed.id, waiting);
+      }
     },
     // Not returned: the camera covers the pack, and these reads can die with the same connection.
     onSettled: () => {

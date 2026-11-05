@@ -73,6 +73,36 @@ export async function enqueue(feed: OutgoingFeed): Promise<boolean> {
   return true;
 }
 
+/**
+ * Feeds Send is trying now. Each waits in the list from before its first try, as the app can be
+ * killed while a send takes its time, and no run tries it beside Send. Only in memory: after a
+ * kill nobody is trying it, and the next run sends it.
+ */
+const sendingNow = new Set<string>();
+
+/** Keeps a feed in the list while Send tries it. False when it can't be kept, and Send goes on without. */
+export async function holdForSend(feed: OutgoingFeed): Promise<boolean> {
+  sendingNow.add(feed.id);
+  const held = await enqueue(feed).catch(() => false);
+  if (!held) sendingNow.delete(feed.id);
+  return held;
+}
+
+/**
+ * Ends Send's try at a feed. One that is to wait for a later try stays as Send last tried it, an
+ * extra if it went as one; any other goes, with its photo.
+ */
+export async function releaseFromSend(id: string, waiting: OutgoingFeed | null): Promise<void> {
+  try {
+    if (waiting) await update((queue) => queue.map((item) => (item.id === id ? { ...item, extra: waiting.extra } : item)));
+    else await forgetFeeds((item) => item.id === id);
+  } catch {
+    // The feed stays as it was held, for the next run to settle.
+  } finally {
+    sendingNow.delete(id);
+  }
+}
+
 /** Forgets all that waits, with the folder of photos and anything a stopped app left in it. */
 async function clearQueue(): Promise<void> {
   await inTurn(() => AsyncStorage.removeItem(STORAGE_KEY));
@@ -155,7 +185,7 @@ let storageFailureReported = false;
 /** What can go out now: the server would turn down another account's feed for good. */
 async function sendable(): Promise<QueuedFeed[]> {
   const userId = (await storedSession())?.user.id;
-  return (await read()).filter((feed) => feed.userId === userId && !feed.droppedFor);
+  return (await read()).filter((feed) => feed.userId === userId && !feed.droppedFor && !sendingNow.has(feed.id));
 }
 
 /**
