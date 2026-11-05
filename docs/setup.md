@@ -124,7 +124,7 @@ The row goes with the account. Deleting that account, even to try Settings → D
 These alerts go out through send-push like every other push, so whatever stops the pushes stops them too: a `cron_secret` in the Vault that doesn't match `CRON_SECRET`, a missing `functions_url`, send-push failing, or Expo turning the pushes down. Silence then looks like a quiet day, so two checks stay off that road:
 
 - No summary by 21:15 means something on the way is broken: run the health queries below.
-- An outside check mails you within minutes. Create one on a dead-man service, for example a free check on healthchecks.io with a period of 1 minute and a grace time of 15 minutes, and give send-push its ping URL. Every run that went well pings it, a quiet one too, and a run that failed or never started doesn't, so the service hears silence and mails you. The ping carries nothing about the members, and without the secret send-push works the same and pings nothing. After setting it, the check's page shows a ping every minute.
+- An outside check mails you within minutes. Create one on a dead-man service, for example a free check on healthchecks.io with a period of 1 minute and a grace time of 15 minutes, and give send-push its ping URL. Every run that went well pings it, a quiet one too, and a run that failed or never started doesn't, so the service hears silence and mails you. The ping carries nothing about the members, and without the secret send-push works the same and pings nothing. After setting it, the check's page shows a ping every minute once this branch's send-push is deployed (release step 3): the send-push in production now doesn't ping, so until then the check hears silence and mails you.
 
   ```sh
   npx supabase secrets set HEARTBEAT_URL=https://hc-ping.com/<check uuid>
@@ -207,7 +207,7 @@ A few hours before step 2, the evening before for example, tell build 4's tester
    The database reads CET, EET, MET and WET as fixed offsets with no summer time, while phones and Intl read them with it, as Europe/Brussels (CET and MET), Europe/Athens (EET) and Europe/Lisbon (WET). So from the last Sunday in March to the last Sunday in October, such a pack's day ends an hour later on the server than on the phones, and a feed between 03:00 and 04:00 counts for the day the phone already shows as over. Move such a pack to its city zone between the last Sunday in October and the last Sunday in March, while the two readings agree, so no day moves: `npx supabase db query --linked "update public.packs set timezone = 'Europe/Brussels' where timezone in ('CET', 'MET') returning id, name, timezone"`, and the same with Europe/Athens for EET and Europe/Lisbon for WET.
 4. The backup job, before the site. The privacy policy tells people the database is copied once a day, so the page can't go out ahead of the job. `Get-ScheduledTask -TaskName 'Gozali backup'` has to show Ready, and `~/Gozali backups` a file from the last evening. If not, register the task (Backups, below), run it once with `Start-ScheduledTask -TaskName 'Gozali backup'` and read `backup.log`. A copy goes only once 14 newer ones exist, so after a gap delete any copy older than 14 days by hand, or it stays past what the policy says.
 5. The site, when `web/`, `docs/legal` or `docs/support.md` changed (section 3). Nothing else publishes them, so the live pages stay behind the repo until this runs. It comes before the build because App Review reads the privacy policy and the terms along with it, and they have to match the App Privacy answers.
-6. The build. People get the new app last, so it finds the server it was made for.
+6. The build, after raising the version in app.json (Build 5, below). People get the new app last, so it finds the server it was made for.
 
 A fix that touches only JavaScript reaches the installed apps without a new build or a store review, through EAS Update. Each build profile has its own channel, and the runtime version is the app version in `app.json`, so an update only goes to builds of that version:
 
@@ -242,10 +242,10 @@ A bad update can be taken back, and how depends on what came before it on the br
 
 A store release can go out as a phased release in App Store Connect.
 
-When a server change would break versions still installed on people's phones, raise the minimum version: older apps show "Time to update" with a button to the store instead of the app. Set the store links once the app is in the stores:
+When a server change would break versions still installed on people's phones, raise the minimum version: older apps show "Time to update" with a button to the store instead of the app. Set it to the version of the oldest build that should still run, 1.0.1 to retire build 4 for example, and never above the newest build in the stores. Set the store links once the app is in the stores:
 
 ```sh
-npx supabase db query --linked "update public.app_config set min_version = '1.1.0'"
+npx supabase db query --linked "update public.app_config set min_version = '1.0.1' returning min_version"
 npx supabase db query --linked "update public.app_config set ios_url = 'https://apps.apple.com/app/id<id>', android_url = 'https://play.google.com/store/apps/details?id=app.gozali' returning ios_url, android_url"
 ```
 
