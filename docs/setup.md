@@ -195,6 +195,10 @@ Both flags are required. Without `--environment` the CLI bundles `apps/mobile/.e
 
 A change to native code (a new native package, app.json plugins, the widgets) needs a new build instead, and a new `version` in `app.json` first, so updates for the old builds and the new ones stay apart. (A fingerprint of the native code would do this by itself, but it came out different on Windows and on the EAS servers and failed the build.)
 
+Build 5 is such a build: it patches expo-apple-authentication, expo-camera and expo-notifications, asks for permission to save to the photo library and changes the widgets, while `app.json` still says 1.0.0, as it did for build 4. Raise `version` before building it, for example to 1.0.1. Then an update made for one of them never reaches the other, and `min_version` can retire build 4 once build 5 is out. An EAS Update from this branch goes out only after step 3 of the release, since its JavaScript calls what the migrations and functions add.
+
+Until testers install build 5, build 4 shows a generic message for two refusals of the new server: a nudge to someone in their quiet hours says "Saving didn't work", and a removed member who enters the pack's code gets "This didn't load". Say so in TestFlight's What to Test for build 5.
+
 A bad update can be taken back, and how depends on what came before it on the branch:
 
 - **It is the first update since a store build.** Send every phone back to the JavaScript inside its own build:
