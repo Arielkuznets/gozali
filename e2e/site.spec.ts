@@ -103,10 +103,14 @@ test('the privacy policy confirms the services it names protect the data as well
   const { status, stderr } = build(FINGERPRINT);
   expect(status, stderr).toBe(0);
   // App Review guideline 5.1.1(i) asks the policy to confirm it of everyone who gets members' data.
+  // The services that process it for Gozali are bound to that by their terms; Apple's and Google's
+  // sign-in work under each one's own privacy policy instead.
   const privacy = page('privacy/index.html');
   const services = privacy.slice(privacy.indexOf('<h2>Services we use</h2>'), privacy.indexOf('<h2>Your rights</h2>'));
-  expect(services).toContain('Supabase');
-  expect(services).toMatch(/same or equal protection/i);
+  const bound = /[^<>.]*same or equal protection[^<.]*/i.exec(services)?.[0];
+  for (const service of ['Supabase', 'Expo', 'Resend', 'Cloudflare']) expect(bound).toContain(service);
+  expect(bound).not.toMatch(/sign(-| you )in/i);
+  expect(services).toMatch(/Apple and Google sign you in under their own privacy policies/);
 });
 
 test('the real fingerprint goes into the file Android reads', () => {

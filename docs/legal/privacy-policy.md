@@ -46,7 +46,7 @@ We do **not** collect your location or contacts, we don't use advertising or tra
 - **Resend** delivers report emails to the developer, with what was reported.
 - **Cloudflare** hosts the gozali.app website and forwards email sent to hello@gozali.app.
 
-They process data only to provide these services to Gozali, and each is bound to give your data the same or equal protection as this policy does.
+Supabase, Expo with Apple's and Google's push services, Resend and Cloudflare process data only to provide these services to Gozali, and each is bound to give your data the same or equal protection as this policy does. Apple and Google sign you in under their own privacy policies, which you accepted with your Apple or Google account.
 
 ## Your rights
 
