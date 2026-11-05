@@ -230,12 +230,13 @@ export function useCreatePack() {
         species: pack.species,
         time_zone: deviceTimeZone(),
       });
-      if (!error) return data as string;
-      // A create with no answer may have made the pack all the same, and a second try would make
-      // another, so it goes on with the one it finds.
-      const made = isNetworkFailure(error) ? await packMadeSince(pack, since, known, userId) : null;
+      if (data) return data;
+      // A create with no answer, or with one cut off before its body (no data and no error), may
+      // have made the pack all the same, and a second try would make another, so it goes on with
+      // the one it finds.
+      const made = !error || isNetworkFailure(error) ? await packMadeSince(pack, since, known, userId) : null;
       if (made) return made;
-      throw error;
+      throw error ?? new Error('no_answer');
     },
     // Not returned here or on a join: the next screen reads the pack itself, and with the pack made
     // nobody should be held on this one by a stalled list.
@@ -311,12 +312,12 @@ export function useRenewInviteCode(packId: string) {
     mutationFn: async () => {
       const shown = queryClient.getQueryData<Pack | null>(packKey(packId))?.invite_code;
       const { data, error } = await requireSupabase().rpc('renew_invite_code', { target: packId });
-      if (!error) return data;
-      // A renewal with no answer may have changed the code all the same: a code the server has that
-      // isn't the one on screen at the tap is the new one.
-      const code = isNetworkFailure(error) ? await inviteCodeNow(packId) : null;
+      if (data) return data;
+      // A renewal with no answer, or with one cut off before its body, may have changed the code all
+      // the same: a code the server has that isn't the one on screen at the tap is the new one.
+      const code = !error || isNetworkFailure(error) ? await inviteCodeNow(packId) : null;
       if (code && code !== shown) return code;
-      throw error;
+      throw error ?? new Error('no_answer');
     },
     // The old code stopped working with this answer, so the screen takes the new one from it: a
     // stalled reload must not leave a dead code up to be shared.

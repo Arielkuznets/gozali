@@ -936,6 +936,36 @@ describe('a pack whose answer was lost', () => {
     expect(mockNotify).not.toHaveBeenCalled();
   });
 
+  // Android's fetch can hand over an answer cut off after its headers, which supabase-js reads as
+  // no data and no error.
+  describe('with the answer cut off before its body', () => {
+    it('goes on to the invite of the pack the server made, once', async () => {
+      mockRpc.mockImplementation(async (name: string) => {
+        if (name !== 'create_pack') return { error: null };
+        mockPacks = [...mockPacks, likeTheForm('cut-1')];
+        mockMadeAt.set('cut-1', minutesAgo(0));
+        return { data: null, error: null };
+      });
+      await start('/');
+
+      await fillInAndCreate();
+
+      expect(pathname()).toBe('/pack/cut-1/invite');
+      expect(creates()).toBe(1);
+      expect(mockNotify).not.toHaveBeenCalled();
+    });
+
+    it('says saving failed when no pack it made is found', async () => {
+      mockRpc.mockImplementation(async (name: string) => (name === 'create_pack' ? { data: null, error: null } : { error: null }));
+      await start('/');
+
+      await fillInAndCreate();
+
+      expect(mockNotify).toHaveBeenCalledWith("Saving didn't work. Please try again.");
+      expect(pathname()).toBe('/create-pack');
+    });
+  });
+
   it('says saving failed when the server made none, beside a pack of the same name made just before', async () => {
     mockPacks = [likeTheForm('p1')];
     mockMadeAt.set('p1', minutesAgo(1));
@@ -1160,6 +1190,44 @@ describe('a new invite code', () => {
       expect(mockNotify).toHaveBeenCalledWith("Saving didn't work. Please try again.");
       expect(shows('ABCD2345')).toBe(true);
       expect(hasButton('Copied!')).toBe(true);
+    });
+  });
+
+  // Android's fetch can hand over an answer cut off after its headers, which supabase-js reads as
+  // no data and no error.
+  describe('with the answer cut off before its body', () => {
+    it('keeps a code on screen, then shows the one the server has once the read is back', async () => {
+      mockRpc.mockImplementation(async (name: string) => {
+        if (name !== 'renew_invite_code') return { error: null };
+        mockPacks = [{ ...asAdmin(packNamed('p1')), invite_code: FRESH }];
+        return { data: null, error: null };
+      });
+      await start('/pack/p1/invite');
+      let answerReads = () => {};
+      mockPackAnswered = new Promise((resolve) => {
+        answerReads = resolve;
+      });
+      mockListAnswered = mockPackAnswered;
+
+      await getNewCode();
+      expect(shows('ABCD2345')).toBe(true);
+      await act(async () => answerReads());
+      await settle();
+
+      expect(shows(FRESH)).toBe(true);
+      expect(shows('ABCD2345')).toBe(false);
+      expect(mockNotify).not.toHaveBeenCalled();
+    });
+
+    it('says saving failed when the read fails too', async () => {
+      mockRpc.mockImplementation(async (name: string) => (name === 'renew_invite_code' ? { data: null, error: null } : { error: null }));
+      await start('/pack/p1/invite');
+      mockOffline = true;
+
+      await getNewCode();
+
+      expect(mockNotify).toHaveBeenCalledWith("Saving didn't work. Please try again.");
+      expect(shows('ABCD2345')).toBe(true);
     });
   });
 });
