@@ -143,9 +143,15 @@ export function useFocusSession(text: { title: string; body: string }) {
     };
   }, []);
 
+  // The screen holds the session as it read it, while a camera opened over the screen can since have
+  // named the feed with its photo in the stored one. A save of the same session keeps that name, so
+  // the queue still ends the session after a kill.
   const update = useCallback(async (next: FocusSession | null) => {
-    setSession(next);
-    await save(next);
+    const stored = next ? await load() : null;
+    const named = next && stored?.packId === next.packId && stored.startedAt === next.startedAt ? stored.feedId : undefined;
+    const kept = next && named ? { ...next, feedId: named } : next;
+    setSession(kept);
+    await save(kept);
   }, []);
 
   const start = async (packId: string, minutes: number | null) => {

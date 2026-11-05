@@ -4,7 +4,17 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import '@/i18n';
 import FocusScreen from '@/app/(app)/pack/[id]/focus';
-import { clearFocusSession, elapsedMs, focusedMinutes, remainingMs, useFocusSession, type FocusSession } from '@/features/focus/session';
+import {
+  clearFocusSession,
+  elapsedMs,
+  endFocusSessionOf,
+  focusedMinutes,
+  nameFocusFeed,
+  remainingMs,
+  storedFocusSession,
+  useFocusSession,
+  type FocusSession,
+} from '@/features/focus/session';
 
 // The phone's side of notifications. It keeps one request per identifier, as iOS and Android do,
 // and a request whose time came moves to the delivered ones in Notification Center.
@@ -238,5 +248,27 @@ describe('the notice at the end of a session', () => {
     deliver();
     await act(() => clearFocusSession('p1'));
     expect(mockDelivered.size).toBe(0);
+  });
+
+  // A tapped notice opens the camera over the screen in front, so the Focus screen stays open under
+  // it with the session as it read it, while Send names the feed in the stored session.
+  describe('with the photo on its way from a camera over the Focus screen', () => {
+    it.each([
+      ['Pause', false],
+      ['Done, take the photo', false],
+      ['Resume', true],
+    ])('leaves the session for that feed to end after a tap on %s', async (label, paused) => {
+      const now = Date.now();
+      const ended = session({ packId: 'p1', startedAt: now - 29 * minute, pausedAt: paused ? now - minute : null });
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(ended));
+      await open();
+      await act(() => nameFocusFeed('p1', 'feed-1'));
+
+      await act(async () => press(label));
+      await settle();
+      await act(() => endFocusSessionOf('feed-1'));
+
+      expect(await storedFocusSession()).toBeNull();
+    });
   });
 });
