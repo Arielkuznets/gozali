@@ -36,7 +36,10 @@ jest.mock('@/features/days/PauseSection', () => ({ PauseSection: () => null }));
 jest.mock('@/features/critter/Critter', () => ({ Critter: () => null }));
 jest.mock('@/features/feeds/api', () => ({ ...jest.requireActual('@/features/feeds/api'), useFeedQueue: () => undefined }));
 jest.mock('@/features/feeds/queue', () => ({}));
-jest.mock('@/features/feeds/send', () => ({ PHOTO_BUCKET: 'photos' }));
+jest.mock('@/features/feeds/send', () => ({
+  PHOTO_BUCKET: 'photos',
+  isNetworkFailure: (error: unknown) => jest.requireActual<typeof import('@/features/feeds/send')>('@/features/feeds/send').isNetworkFailure(error),
+}));
 jest.mock('@react-native-community/netinfo', () => ({}));
 jest.mock('@/features/profile/useProfile', () => ({ useAccountSync: () => undefined }));
 jest.mock('@/features/widgets/sync', () => ({ useWidgetSync: () => undefined }));
@@ -55,6 +58,8 @@ let mockListAnswered: Promise<void> = Promise.resolve();
 let mockPackAnswered: Promise<void> = Promise.resolve();
 let mockOffline = false;
 let mockPhotos: { id: string }[] = [];
+/** When the stand-in server made a pack; one not here was made long ago. */
+const mockMadeAt = new Map<string, string>();
 const mockNoConnection = { data: null, error: new TypeError('Network request failed') };
 const mockRpc = jest.fn();
 jest.mock('@/lib/supabase', () => ({
@@ -73,9 +78,16 @@ jest.mock('@/lib/supabase', () => ({
             return mockOffline ? mockNoConnection : { data: mockPacks, error: null };
           },
         }),
-        eq: (_column: string, id: string) => ({
+        eq: (_column: string, value: string) => ({
           // As row level security has it: the photos are there for someone in the pack.
-          order: () => ({ limit: async () => ({ data: mockPacks.some((pack) => pack.id === id) ? mockPhotos : [], error: null }) }),
+          order: () => ({ limit: async () => ({ data: mockPacks.some((pack) => pack.id === value) ? mockPhotos : [], error: null }) }),
+          // The packs of this name made since then, newest first.
+          gte: (_made: string, since: string) => ({
+            order: async () => ({
+              data: mockPacks.filter((pack) => pack.name === value && (mockMadeAt.get(pack.id) ?? '') >= since).reverse(),
+              error: null,
+            }),
+          }),
         }),
       }),
     }),
@@ -215,6 +227,7 @@ beforeEach(() => {
   mockPackAnswered = Promise.resolve();
   mockOffline = false;
   mockPhotos = [];
+  mockMadeAt.clear();
   mockNotify.mockClear();
   mockClipboard.mockReset().mockResolvedValue('');
   mockRpc.mockReset();
@@ -850,6 +863,64 @@ describe('a pack that takes its time to be created', () => {
       expect(pathname()).toBe('/pack/p2/invite');
       expect(hasButton('Create pack')).toBe(false);
     });
+  });
+});
+
+describe('a pack whose answer was lost', () => {
+  const NAME = 'Morning runs';
+  const noAnswer = { data: null, error: { message: 'TypeError: Network request failed', details: '', hint: '', code: '' } };
+  const creates = () => mockRpc.mock.calls.filter(([name]) => name === 'create_pack').length;
+  const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+
+  async function fillInAndCreate() {
+    await open('/create-pack');
+    await act(async () => app.root.findByType(TextInput).props.onChangeText(NAME));
+    await press('Next');
+    await press('Next');
+    await press('Next');
+    await press('Create pack');
+  }
+
+  beforeEach(() => {
+    mockRpc.mockImplementation(async (name: string) => (name === 'create_pack' ? noAnswer : { error: null }));
+  });
+
+  it('goes on to the invite of the pack the server made, once', async () => {
+    mockRpc.mockImplementation(async (name: string) => {
+      if (name !== 'create_pack') return { error: null };
+      mockPacks = [...mockPacks, { ...asAdmin(packNamed('p2')), name: NAME }];
+      mockMadeAt.set('p2', minutesAgo(0));
+      return noAnswer;
+    });
+    await start('/');
+
+    await fillInAndCreate();
+
+    expect(pathname()).toBe('/pack/p2/invite');
+    expect(creates()).toBe(1);
+    expect(mockNotify).not.toHaveBeenCalled();
+  });
+
+  it('says saving failed when the server made none, beside a pack of the same name made just before', async () => {
+    mockPacks = [{ ...asAdmin(packNamed('p1')), name: NAME }];
+    mockMadeAt.set('p1', minutesAgo(1));
+    await start('/');
+
+    await fillInAndCreate();
+
+    expect(mockNotify).toHaveBeenCalledWith("Saving didn't work. Please try again.");
+    expect(pathname()).toBe('/create-pack');
+  });
+
+  it('says saving failed when the server made none, beside one of the same name the list here lacks', async () => {
+    await start('/');
+    mockPacks = [...mockPacks, { ...asAdmin(packNamed('p3')), name: NAME }];
+    mockMadeAt.set('p3', minutesAgo(10));
+
+    await fillInAndCreate();
+
+    expect(mockNotify).toHaveBeenCalledWith("Saving didn't work. Please try again.");
+    expect(pathname()).toBe('/create-pack');
   });
 });
 

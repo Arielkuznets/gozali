@@ -1,6 +1,8 @@
 import { addDays } from '@gozali/game-engine';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 
+import { useAuth } from '@/features/auth/AuthProvider';
+import { isNetworkFailure } from '@/features/feeds/send';
 import type { Category, CritterStage, CritterStatus, Species, WeekStart } from '@/features/packs/constants';
 import { deviceTimeZone } from '@/lib/dates';
 import { isBlockedText } from '@/lib/errors';
@@ -181,10 +183,36 @@ export type NewPack = {
   species: Species;
 };
 
+/**
+ * How long before a create the pack it made can be dated: the phone's clock can be a minute off the
+ * server's, and an answer can take half a minute to fail.
+ */
+const MADE_WITHIN_MS = 5 * 60_000;
+
+/**
+ * The newest pack of this name the caller made since then and the phone didn't know of. A read that
+ * fails finds none.
+ */
+async function packMadeSince(name: string, since: string, known: ReadonlySet<string>, userId: string | undefined): Promise<string | null> {
+  const { data } = await requireSupabase()
+    .from('packs')
+    .select('id, pack_members ( user_id, role )')
+    .eq('name', name)
+    .gte('created_at', since)
+    .order('created_at', { ascending: false });
+  const made = data?.find(
+    (pack) => !known.has(pack.id) && pack.pack_members.some((member) => member.user_id === userId && member.role === 'admin'),
+  );
+  return made?.id ?? null;
+}
+
 export function useCreatePack() {
   const queryClient = useQueryClient();
+  const userId = useAuth().session?.user.id;
   return useMutation({
     mutationFn: async (pack: NewPack): Promise<string> => {
+      const known = new Set(queryClient.getQueryData<Pack[]>(packsKey)?.map((item) => item.id));
+      const since = new Date(serverNow().getTime() - MADE_WITHIN_MS).toISOString();
       const { data, error } = await requireSupabase().rpc('create_pack', {
         pack_name: pack.name,
         habit: pack.category,
@@ -193,8 +221,12 @@ export function useCreatePack() {
         species: pack.species,
         time_zone: deviceTimeZone(),
       });
-      if (error) throw error;
-      return data as string;
+      if (!error) return data as string;
+      // A create with no answer may have made the pack all the same, and a second try would make
+      // another, so it goes on with the one it finds.
+      const made = isNetworkFailure(error) ? await packMadeSince(pack.name, since, known, userId) : null;
+      if (made) return made;
+      throw error;
     },
     // Not returned here or on a join: the next screen reads the pack itself, and with the pack made
     // nobody should be held on this one by a stalled list.
