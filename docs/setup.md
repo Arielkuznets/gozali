@@ -192,6 +192,8 @@ A few hours before step 2, the evening before for example, tell build 4's tester
    ```
 
    After a pet's new name, the delete takes its naming lines out of the pack's feed: the old one still shows the old name, and the rename itself shows as made by Someone, since no member made it.
+
+   In a new name, write an apostrophe twice ('Noa''s run'). The shell reads a `$` inside the double quotes and drops it with what follows, so write it as `\$` in Git Bash or `` `$ `` in PowerShell, or run that update in the dashboard's SQL editor.
 3. `npx supabase functions deploy close-days send-push widget-state delete-account`, only once `npx supabase migration list` shows every file under Remote as well as under Local. These call what the migrations add, so deployed first they fail until the schema catches up.
 
    Then look for packs in a zone the day close's Intl may not read, or reads with another clock than the database: until step 2, build 4 could make one in America/Coyhaique, a `posix/` name or Factory, and a phone or a request that gives CET, EET, MET or WET can still make one.
