@@ -56,6 +56,21 @@ describe('invite codes', () => {
     expect(inviteCodeFrom('my pack KPQR 5678')).toBe('KPQR5678');
     expect(inviteCodeFrom('join the club kpqr 5678')).toBe('KPQR5678');
     expect(inviteCodeFrom('here KPQR-5678')).toBe('KPQR5678');
+    expect(inviteCodeFrom('my pack k7qr 5m8x')).toBe('K7QR5M8X');
+  });
+
+  // Its second half and the word after it make a code of the same rank, which starts inside it.
+  it('finds a code written in two halves before a short word', () => {
+    expect(inviteCodeFrom('kpqr 5678 then tap Join')).toBe('KPQR5678');
+    expect(inviteCodeFrom('kpqr 5678 have fun')).toBe('KPQR5678');
+    expect(inviteCodeFrom("kpqr-5678 here's the code")).toBe('KPQR5678');
+    expect(inviteCodeFrom('abcd 2345 next week')).toBe('ABCD2345');
+    expect(inviteCodeFrom('KPQR 5678 ASAP')).toBe('KPQR5678');
+    expect(inviteCodeFrom('wxyz abcd then')).toBe('WXYZABCD');
+  });
+
+  it('takes the later of two words of the same rank that are apart', () => {
+    expect(inviteCodeFrom('strength squad: wxyzabcd')).toBe('WXYZABCD');
   });
 
   it('finds the code in the sentence the review notes give', () => {
