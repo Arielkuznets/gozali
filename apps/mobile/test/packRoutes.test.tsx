@@ -1386,6 +1386,32 @@ describe('a new invite code', () => {
       expect(shows('QRST2345')).toBe(true);
       expect(mockNotify.mock.calls).toEqual(said);
     });
+
+    // A sign-out clears the phone of everything the account had, and nothing of it reaches the next one.
+    it('says nothing after a sign-out while the answer was on its way', async () => {
+      holdAnswer();
+      await start('/pack/p1/invite');
+      await getNewCode();
+      await act(async () => client.clear());
+
+      await act(async () => answer(lost));
+      await settle();
+
+      expect(mockNotify).not.toHaveBeenCalled();
+    });
+
+    it('says nothing when the read after it finds that she left the pack meanwhile', async () => {
+      holdAnswer();
+      await start('/pack/p1/invite');
+      await getNewCode();
+      mockPacks = [];
+
+      await act(async () => answer(lost));
+      await settle();
+
+      expect(shows(MISSING)).toBe(true);
+      expect(mockNotify).not.toHaveBeenCalled();
+    });
   });
 
   // A refusal is an answer: the code didn't change.

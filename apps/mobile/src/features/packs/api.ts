@@ -307,6 +307,8 @@ export function useUpdatePack(packId: string) {
 const RENEWAL_UNCONFIRMED = 'renewal_unconfirmed';
 /** A renewal with no answer, when the pack couldn't be read after it either: the code on screen may no longer work. */
 const RENEWAL_UNREAD = 'renewal_unread';
+/** A renewal with no answer, when the read after it finds the pack gone (left or removed): no code of it is hers to hand out. */
+const RENEWAL_LEFT = 'renewal_left';
 
 /** Without a connection a request fails at once, so one that fails this soon is taken to have had none. */
 const NO_CONNECTION_MS = 1000;
@@ -334,11 +336,10 @@ export function useRenewInviteCode(packId: string) {
         : queryClient
             .refetchQueries({ queryKey: packKey(packId), exact: true }, { throwOnError: true })
             .then(() => queryClient.getQueryData<Pack | null>(packKey(packId)))
-      ).catch(() => null);
-      throw new Error(read ? RENEWAL_UNCONFIRMED : RENEWAL_UNREAD);
+      ).catch(() => undefined);
+      throw new Error(read ? RENEWAL_UNCONFIRMED : read === null ? RENEWAL_LEFT : RENEWAL_UNREAD);
     },
-    // The name as the phone has it at the tap, for an alert that can come on any screen: the read
-    // after a lost answer can find the pack gone.
+    // The name as the phone has it at the tap, for an alert that can come on any screen.
     onMutate: () => queryClient.getQueryData<Pack | null>(packKey(packId))?.name,
     // The old code stopped working with this answer, so the screen takes the new one from it: a
     // stalled reload must not leave a dead code up to be shared.
@@ -351,6 +352,9 @@ export function useRenewInviteCode(packId: string) {
     // cuts an alert's title after two lines, so the pack's name goes under it.
     onError: (error, _variables, name) => {
       const outcome = errorMessage(error);
+      // A sign-out takes the renewal off the phone with everything else of the account, and the next
+      // one mustn't hear of its packs.
+      if (outcome === RENEWAL_LEFT || queryClient.isMutating({ mutationKey: renewKey(packId) }) === 0) return;
       if (outcome === RENEWAL_UNCONFIRMED) notify(t('invite.renewUnconfirmed'), t('invite.renewUnconfirmedDetail', { name }));
       else if (outcome === RENEWAL_UNREAD) notify(t('invite.renewUnconfirmed'), t('invite.renewUnreadDetail', { name }));
       else notify(t(packErrorKey(error)));
