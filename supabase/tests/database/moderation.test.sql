@@ -1,7 +1,7 @@
 -- Word filtering, reports on photos and on members, and the helpers of account deletion.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(100);
+select plan(104);
 
 select ok(public.is_clean('Leg day, done'), 'ordinary captions pass');
 select ok(not public.is_clean('what the fuuuck'), 'repeated letters don''t get around the filter');
@@ -105,6 +105,45 @@ select is(
   ]) spelled where not public.is_clean(spelled)),
   null,
   'ordinary words and names still pass'
+);
+
+-- A star between letters stands for any letter but the first, single letters spaced out read as one
+-- word, and a '!' after a word is a mark even where digits spell it. A phrase on the list is refused
+-- with its words in order, apart or together.
+select is(
+  (select array_agg(spelled) from unnest(array[
+    'f*ck', 'what the f**k', 'sh*t happens', 'a**hole', 'f u c k', 'f.u.c.k', 'F-U-C-K you', 'k y s', 's_h_i_t',
+    'f * c k', 'sh1t!', 'a55!', 'fuk', 'fck', 'fcuk', 'fvck', 'phuck', 'cocksucker', 'kill yourself',
+    'Go KILL yourself!', 'killyourself', 'k1ll y0urself!', 'k i l l y o u r s e l f'
+  ]) spelled where public.is_clean(spelled)),
+  null,
+  'starred, spaced-out and short spellings are refused, and so is a phrase on the list'
+);
+select is(
+  (select array_agg(s.spelled order by s.spelled)
+   from public.blocked_words w
+   cross join lateral (values (' '), ('.'), ('-'), ('_'), ('*')) as mark (sign)
+   cross join lateral (select regexp_replace(w.word, '(.)(?!$)', '\1' || mark.sign, 'g') as spelled) s
+   where w.word !~ ' ' and public.is_clean(s.spelled)),
+  null,
+  'no word on the list passes spaced out'
+);
+select is(
+  (select array_agg(s.spelled order by s.spelled)
+   from public.blocked_words w
+   cross join lateral generate_series(2, char_length(w.word) - 1) letter
+   cross join lateral (select overlay(w.word placing '*' from letter for 1) as spelled) s
+   where w.word !~ ' ' and public.is_clean(s.spelled)),
+  null,
+  'nor with a star for a letter between its first and its last'
+);
+select is(
+  (select array_agg(spelled) from unnest(array[
+    'Fukuda and Fukuoka', 'Phuket', 'J. K. Rowling', 'U.S.A.', 'T-shirt day', 'Plan B', 'Not *as* bad as yesterday',
+    'a*b', 'Kill your self-doubt', 'Upskill yourself', 'Dad''s hit song', 'Cocksfoot grass', 'Paid 45$!', '455!'
+  ]) spelled where not public.is_clean(spelled)),
+  null,
+  'names, prices and words near those spellings still pass'
 );
 
 -- A name that comes with a new account is kept only when it passes the filter, so a name with a
