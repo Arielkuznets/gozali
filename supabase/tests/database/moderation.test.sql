@@ -1,7 +1,7 @@
 -- Word filtering, reports on photos and on members, and the helpers of account deletion.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(104);
+select plan(107);
 
 select ok(public.is_clean('Leg day, done'), 'ordinary captions pass');
 select ok(not public.is_clean('what the fuuuck'), 'repeated letters don''t get around the filter');
@@ -45,10 +45,10 @@ select is(
   'the words themselves and the forms the list names are still refused'
 );
 
--- Every word on the list, in every mix of letters and the digits that stand for them, is blocked.
--- The one spelling that is all digits is the number.
+-- Every word on the list that is refused as written, in every mix of letters and the digits that
+-- stand for them, is blocked. The one spelling that is all digits is the number.
 with recursive spelled (done, rest) as (
-  select '', word from public.blocked_words
+  select '', word from public.blocked_words where match <> 'masked'
   union
   select s.done || c.letter, substr(s.rest, 2)
   from spelled s
@@ -76,7 +76,7 @@ select is(
      (left(w.word, 1) || U&'\0301' || substr(w.word, 2)),
      (w.word || case w.match when 'prefix' then 'ing' else '' end)
    ) as s (spelled)
-   where public.is_clean(s.spelled)),
+   where w.match <> 'masked' and public.is_clean(s.spelled)),
   null,
   'no other spelling of a word on the list passes'
 );
@@ -113,7 +113,7 @@ select is(
 select is(
   (select array_agg(spelled) from unnest(array[
     'f*ck', 'what the f**k', 'sh*t happens', 'a**hole', 'f u c k', 'f.u.c.k', 'F-U-C-K you', 'k y s', 's_h_i_t',
-    'f * c k', 'sh1t!', 'a55!', 'fuk', 'fck', 'fcuk', 'fvck', 'phuck', 'cocksucker', 'kill yourself',
+    'f * c k', 'sh1t!', 'a55!', 'f*k', 'F U K', 'fck', 'fcuk', 'fvck', 'phuck', 'cocksucker', 'kill yourself',
     'Go KILL yourself!', 'killyourself', 'k1ll y0urself!', 'k i l l y o u r s e l f'
   ]) spelled where public.is_clean(spelled)),
   null,
@@ -140,10 +140,44 @@ select is(
 select is(
   (select array_agg(spelled) from unnest(array[
     'Fukuda and Fukuoka', 'Phuket', 'J. K. Rowling', 'U.S.A.', 'T-shirt day', 'Plan B', 'Not *as* bad as yesterday',
-    'a*b', 'Kill your self-doubt', 'Upskill yourself', 'Dad''s hit song', 'Cocksfoot grass', 'Paid 45$!', '455!'
+    'a*b', 'Kill your self-doubt', 'Upskill yourself', 'Dad''s hit song', 'Cocksfoot grass', 'Paid 45$!', '455!',
+    'Wong Fuk Hing', 'Chan Fuk-wing', 'Flying to FUK tomorrow', 'Don''t kill yourself', 'Rest day, don''t kill yourself'
   ]) spelled where not public.is_clean(spelled)),
   null,
   'names, prices and words near those spellings still pass'
+);
+
+-- A word on the list as masked, like Fuk, a given name too, passes as written. Spaced out or with a
+-- star for a letter it is refused, as every word on the list is above.
+select is(
+  (select array_agg(s.spelled order by s.spelled)
+   from public.blocked_words w
+   cross join lateral (values (w.word), (upper(w.word)), ('Hi ' || initcap(w.word) || '!')) as s (spelled)
+   where w.match = 'masked' and not public.is_clean(s.spelled)),
+  null,
+  'a word refused only masked passes as written'
+);
+
+-- A phrase on the list after don't, dont, do not, never or won't says the opposite of what the list
+-- refuses, so it passes there, and only there.
+select is(
+  (select array_agg(s.spelled order by s.spelled)
+   from public.blocked_words w
+   cross join lateral (values
+     ('Don''t '), (U&'don\2019t '), ('dont '), ('Do not '), ('Never '), ('You won''t '), ('Rest day, don''t ')
+   ) as n (said)
+   cross join lateral (select n.said || w.word || '!' as spelled) s
+   where w.word ~ ' ' and not public.is_clean(s.spelled)),
+  null,
+  'a phrase on the list passes after don''t, dont, do not, never or won''t'
+);
+select is(
+  (select array_agg(spelled) from unnest(array[
+    'Just kill yourself', 'Kill yourself, don''t', 'Don''t stop, kill yourself', 'Never mind, kill yourself',
+    'Don''t kill yourself, kill yourself'
+  ]) spelled where public.is_clean(spelled)),
+  null,
+  'and nowhere else'
 );
 
 -- A name that comes with a new account is kept only when it passes the filter, so a name with a
@@ -151,11 +185,15 @@ select is(
 insert into auth.users (id, email, raw_user_meta_data) values
   ('00000000-0000-0000-0000-0000000001a7', 'one@test.local', '{"full_name": "Fuck You"}'),
   ('00000000-0000-0000-0000-0000000001b7', 'two@test.local', '{"name": "you ass!"}'),
-  ('00000000-0000-0000-0000-0000000001c7', 'three@test.local', '{"full_name": "Noa Shitrit"}');
+  ('00000000-0000-0000-0000-0000000001c7', 'three@test.local', '{"full_name": "Noa Shitrit"}'),
+  ('00000000-0000-0000-0000-0000000001d7', 'four@test.local', '{"full_name": "Wong Fuk Hing"}');
 select is(
   (select array_agg(display_name order by id) from public.profiles
-   where id in ('00000000-0000-0000-0000-0000000001a7', '00000000-0000-0000-0000-0000000001b7', '00000000-0000-0000-0000-0000000001c7')),
-  array[null, null, 'Noa Shitrit'],
+   where id in (
+     '00000000-0000-0000-0000-0000000001a7', '00000000-0000-0000-0000-0000000001b7', '00000000-0000-0000-0000-0000000001c7',
+     '00000000-0000-0000-0000-0000000001d7'
+   )),
+  array[null, null, 'Noa Shitrit', 'Wong Fuk Hing'],
   'a new account keeps the name it came with only when the name passes the filter'
 );
 
