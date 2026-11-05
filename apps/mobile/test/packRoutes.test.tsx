@@ -18,6 +18,7 @@ import PackSettingsScreen from '@/app/(app)/pack/[id]/settings';
 import { LoadingScreen, PackMissingScreen } from '@/components/ScreenStates';
 import { usePackFeed } from '@/features/feeds/api';
 import { packsKey, useMyPacks, usePack, type Pack, type PackPreview } from '@/features/packs/api';
+import { PACK_NAME_MAX } from '@/features/packs/constants';
 import { NEW_SCREEN } from '@/lib/navigation';
 
 // The real router, the app's own stack and the real pack screens over a stand-in for the server,
@@ -1241,10 +1242,11 @@ describe('a new invite code', () => {
   });
 
   // No code is taken for the new one without the answer: the pack is read as it is now, and the
-  // admin hears what holds either way. She can be on any screen by then, so it names the pack.
-  const MAYBE = [['The new code for "Pack p1" may not have gone through.', 'Its invite screen shows the code that works now.']];
+  // admin hears what holds either way. She can be on any screen by then, so it names the pack, under
+  // a title that stays the same: Android cuts a title after two lines.
+  const MAYBE = [['The new code may not have gone through.', 'The invite screen for "Pack p1" shows the code that works now.']];
   // The same when the pack can't be read after it either, as the code on screen may have stopped working.
-  const MAYBE_UNREAD = [['The new code for "Pack p1" may not have gone through.', "Check its invite screen once you're back online."]];
+  const MAYBE_UNREAD = [['The new code may not have gone through.', 'Check the invite screen for "Pack p1" once you\'re back online.']];
 
   describe('with the answer lost', () => {
     const lost = { data: null, error: { message: 'TypeError: Network request failed', details: '', hint: '', code: '' } };
@@ -1287,6 +1289,20 @@ describe('a new invite code', () => {
 
       expect(shows(FRESH)).toBe(true);
       expect(mockNotify.mock.calls).toEqual(MAYBE);
+    });
+
+    it('keeps the same title for a pack name as long as a name can be', async () => {
+      const name = 'Saturday morning running club!';
+      mockPacks = [{ ...asAdmin(packNamed('p1')), name }];
+      mockRpc.mockImplementation(async (rpc: string) => (rpc === 'renew_invite_code' ? lost : { error: null }));
+      await start('/pack/p1/invite');
+
+      await getNewCode();
+
+      expect(name).toHaveLength(PACK_NAME_MAX);
+      expect(mockNotify.mock.calls).toEqual([
+        ['The new code may not have gone through.', `The invite screen for "${name}" shows the code that works now.`],
+      ]);
     });
 
     it('reads the pack again with its retries when the answer was lost on its way back, and the first read fails', async () => {

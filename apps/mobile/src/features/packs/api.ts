@@ -347,11 +347,12 @@ export function useRenewInviteCode(packId: string) {
     },
     // Said here, not at the tap: callbacks of the tap don't run for a screen that closed meanwhile,
     // and an admin who left it taking the old code for dead has to hear that it may still let people in.
-    // Without the answer it may have gone through or not, so only a refusal says it didn't.
+    // Without the answer it may have gone through or not, so only a refusal says it didn't. Android
+    // cuts an alert's title after two lines, so the pack's name goes under it.
     onError: (error, _variables, name) => {
       const outcome = errorMessage(error);
-      if (outcome === RENEWAL_UNCONFIRMED) notify(t('invite.renewUnconfirmed', { name }), t('invite.renewUnconfirmedDetail'));
-      else if (outcome === RENEWAL_UNREAD) notify(t('invite.renewUnconfirmed', { name }), t('invite.renewUnreadDetail'));
+      if (outcome === RENEWAL_UNCONFIRMED) notify(t('invite.renewUnconfirmed'), t('invite.renewUnconfirmedDetail', { name }));
+      else if (outcome === RENEWAL_UNREAD) notify(t('invite.renewUnconfirmed'), t('invite.renewUnreadDetail', { name }));
       else notify(t(packErrorKey(error)));
     },
     // The list holds the code too, and a refusal can come from a pack that changed since it was read.
