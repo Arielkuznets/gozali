@@ -1,7 +1,7 @@
 -- Word filtering, reports on photos and on members, and the helpers of account deletion.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(108);
+select plan(115);
 
 select ok(public.is_clean('Leg day, done'), 'ordinary captions pass');
 select ok(not public.is_clean('what the fuuuck'), 'repeated letters don''t get around the filter');
@@ -252,7 +252,47 @@ select throws_ok(
 create temp table pack as select public.create_pack('Gym squad', 'gym', 1::smallint, 'mochi', 'UTC') as id;
 create temp table code as select invite_code from public.packs;
 grant select on pack, code to authenticated;
+
+-- A text an update leaves as it was isn't filtered again, so a name or a habit saved before the
+-- filter refused it, written here with the filter off, doesn't stop the rest of its row from saving.
+-- A changed one is filtered as a new one is.
+create temp table old_pack as select public.create_pack('Morning run', 'custom', 1::smallint, 'mochi', 'UTC', 'Run 5k') as id;
 reset role;
+set local session_replication_role = replica;
+update public.packs set name = 'Get Sh*t Done', custom_habit = 'Kick ass!' where id = (select id from old_pack);
+update public.profiles set display_name = 'Dumbass Runner', terms_accepted_at = now() where id = '00000000-0000-0000-0000-0000000000a7';
+reset session_replication_role;
+set local role authenticated;
+select lives_ok(
+  $$ select public.update_pack((select id from old_pack), 'Get Sh*t Done', 2::smallint, 'sunday') $$,
+  'a pack name saved before the filter refused it doesn''t stop the pack''s settings from saving'
+);
+select is(
+  (select pending_rest_days_per_week || ' ' || pending_week_start from public.packs where id = (select id from old_pack)),
+  '2 sunday', 'they are saved'
+);
+select throws_ok(
+  $$ select public.update_pack((select id from old_pack), 'F*ck Mondays', 2::smallint, 'sunday') $$,
+  '22023', 'text_not_allowed', 'a new pack name is still filtered'
+);
+select lives_ok(
+  $$ update public.profiles set display_name = 'Dumbass Runner', reminder_time = '07:30' where id = '00000000-0000-0000-0000-0000000000a7' $$,
+  'nor does a display name saved before stop its profile from saving'
+);
+select throws_ok(
+  $$ update public.profiles set display_name = 'Dipshit' where id = '00000000-0000-0000-0000-0000000000a7' $$,
+  '22023', 'text_not_allowed', 'and a new display name is still filtered'
+);
+reset role;
+select lives_ok(
+  $$ update public.packs set custom_habit = 'Kick ass!', rest_days_per_week = 2 where id = (select id from old_pack) $$,
+  'nor does a habit saved before stop its pack from saving'
+);
+select throws_ok(
+  $$ update public.packs set custom_habit = 'Fck this rain' where id = (select id from old_pack) $$,
+  '22023', 'text_not_allowed', 'and a new habit is still filtered'
+);
+
 insert into public.pack_members (pack_id, user_id)
 select id, u from pack, unnest(array['00000000-0000-0000-0000-0000000000b7', '00000000-0000-0000-0000-0000000000c7', '00000000-0000-0000-0000-0000000000d7']::uuid[]) u;
 insert into storage.objects (bucket_id, name)
