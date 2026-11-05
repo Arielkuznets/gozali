@@ -1,9 +1,11 @@
 import { addDays } from '@gozali/game-engine';
-import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { useIsMutating, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
 import { useAuth } from '@/features/auth/AuthProvider';
 import { isNetworkFailure } from '@/features/feeds/send';
 import type { Category, CritterStage, CritterStatus, Species, WeekStart } from '@/features/packs/constants';
+import { notify } from '@/lib/confirm';
 import { deviceTimeZone } from '@/lib/dates';
 import { errorMessage, isBlockedText } from '@/lib/errors';
 import { serverNow } from '@/lib/serverClock';
@@ -137,6 +139,12 @@ export function useMyPacks() {
   });
 }
 
+async function readPack(id: string): Promise<Pack | null> {
+  const { data, error } = await requireSupabase().from('packs').select(PACK_FIELDS).gte(PAUSE_END, pausesFrom()).eq('id', id).maybeSingle();
+  if (error) throw error;
+  return data as unknown as Pack | null;
+}
+
 export function usePack(id: string) {
   const queryClient = useQueryClient();
   return useQuery({
@@ -147,11 +155,7 @@ export function usePack(id: string) {
     initialDataUpdatedAt: () => queryClient.getQueryState(packsKey)?.dataUpdatedAt,
     // Null once the pack isn't visible (left or removed), so screens can say so instead of
     // keeping the last copy on screen.
-    queryFn: async (): Promise<Pack | null> => {
-      const { data, error } = await requireSupabase().from('packs').select(PACK_FIELDS).gte(PAUSE_END, pausesFrom()).eq('id', id).maybeSingle();
-      if (error) throw error;
-      return data as unknown as Pack | null;
-    },
+    queryFn: () => readPack(id),
   });
 }
 
@@ -302,25 +306,37 @@ export function useUpdatePack(packId: string) {
 const RENEWAL_UNCONFIRMED = 'renewal_unconfirmed';
 
 /** A renewal with no answer, once the pack has been read again: the code on screen works, new or not. */
-export function isUnconfirmedRenewal(error: unknown): boolean {
+function isUnconfirmedRenewal(error: unknown): boolean {
   return errorMessage(error) === RENEWAL_UNCONFIRMED;
 }
+
+/** Without a connection a request fails at once, so one that fails this soon is taken to have had none. */
+const NO_CONNECTION_MS = 1000;
+
+const renewKey = (packId: string) => ['renew-invite-code', packId] as const;
 
 /** A new invite code for the pack (admin only); the old code and link stop working. */
 export function useRenewInviteCode(packId: string) {
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
   return useMutation({
+    mutationKey: renewKey(packId),
     mutationFn: async () => {
+      const sentAt = Date.now();
       const { data, error } = await requireSupabase().rpc('renew_invite_code', { target: packId });
       if (data) return data;
       if (error && !isNetworkFailure(error)) throw error;
       // With no answer, or one cut off before its body, the code may have changed or not, and no code
       // the phone holds can tell which, as another phone can change it too. So none is taken for the
-      // new one: the pack is read as it is now, with its query's retries, and the code that read puts
-      // on screen is the one that works.
-      const read = await queryClient
-        .refetchQueries({ queryKey: packKey(packId), exact: true }, { throwOnError: true })
-        .then(() => queryClient.getQueryData<Pack | null>(packKey(packId)), () => null);
+      // new one: the pack is read as it is now, and the code that read puts on screen is the one that
+      // works. The read has its query's retries, for a link that comes back within seconds, but after
+      // a renewal that found no connection it gets one try, so the admin hears at once, not after 7 s.
+      const read = await (error && Date.now() - sentAt < NO_CONNECTION_MS
+        ? readPack(packId).then((pack) => queryClient.setQueryData<Pack | null>(packKey(packId), pack))
+        : queryClient
+            .refetchQueries({ queryKey: packKey(packId), exact: true }, { throwOnError: true })
+            .then(() => queryClient.getQueryData<Pack | null>(packKey(packId)))
+      ).catch(() => null);
       throw read ? new Error(RENEWAL_UNCONFIRMED) : (error ?? new Error('no_answer'));
     },
     // The old code stopped working with this answer, so the screen takes the new one from it: a
@@ -328,11 +344,22 @@ export function useRenewInviteCode(packId: string) {
     onSuccess: (code) => {
       queryClient.setQueryData<Pack | null>(packKey(packId), (pack) => pack && { ...pack, invite_code: code });
     },
+    // Said here, not at the tap: callbacks of the tap don't run for a screen that closed meanwhile,
+    // and an admin who left it taking the old code for dead has to hear that it may still let people in.
+    onError: (error) =>
+      isUnconfirmedRenewal(error)
+        ? notify(t('invite.renewUnconfirmed'), t('invite.renewUnconfirmedDetail'))
+        : notify(t(packErrorKey(error))),
     // The list holds the code too, and a refusal can come from a pack that changed since it was read.
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: packsKey });
     },
   });
+}
+
+/** Whether a new invite code for the pack is on its way, also one asked for on a screen closed since. */
+export function useRenewingInviteCode(packId: string): boolean {
+  return useIsMutating({ mutationKey: renewKey(packId) }) > 0;
 }
 
 export function useRemoveMember(packId: string) {

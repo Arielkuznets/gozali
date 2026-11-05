@@ -1104,6 +1104,8 @@ describe("the phone's own way back on Create pack", () => {
 
 describe('a new invite code', () => {
   const FRESH = 'EFGH6789';
+  const WAIT = 'Getting a new code…';
+  const SAVE_FAILED = [["Saving didn't work. Please try again."]];
 
   async function getNewCode() {
     let link = app.root.find((node) => typeof node.type === 'string' && node.props.children === 'Get a new code');
@@ -1111,6 +1113,23 @@ describe('a new invite code', () => {
     await act(async () => link.props.onPress());
     await settle();
   }
+
+  const off = (label: string) => app.root.findAll((node) => node.props.label === label)[0]?.props.disabled === true;
+
+  /** The renewal's answer waits until the test lets it go with what the server says. */
+  let answer: (result: unknown) => void = () => undefined;
+  const holdAnswer = () =>
+    mockRpc.mockImplementation((name: string) =>
+      name === 'renew_invite_code'
+        ? new Promise((resolve) => {
+            answer = resolve;
+          })
+        : Promise.resolve({ error: null }),
+    );
+  const changedTo = (code: string) => {
+    mockPacks = [{ ...asAdmin(packNamed('p1')), invite_code: code }];
+    return { data: code, error: null };
+  };
 
   beforeEach(() => {
     mockPacks = [asAdmin(packNamed('p1'))];
@@ -1128,6 +1147,52 @@ describe('a new invite code', () => {
 
     expect(shows(FRESH)).toBe(true);
     expect(shows('ABCD2345')).toBe(false);
+  });
+
+  // The code on screen may be about to change, so nothing hands it out until the answer is in.
+  it('shows the wait in place of the link, with Share and Copy off, until the answer', async () => {
+    holdAnswer();
+    await start('/pack/p1/invite');
+
+    await getNewCode();
+
+    expect(shows(WAIT)).toBe(true);
+    expect(spinners()).toHaveLength(1);
+    expect(shows('Get a new code')).toBe(false);
+    expect(off('Share invite')).toBe(true);
+    expect(off('Copy code')).toBe(true);
+    expect(off('Done')).toBe(false);
+
+    await act(async () => answer(changedTo(FRESH)));
+    await settle();
+
+    expect(shows(FRESH)).toBe(true);
+    expect(shows(WAIT)).toBe(false);
+    expect(shows('Get a new code')).toBe(true);
+    expect(off('Share invite')).toBe(false);
+    expect(off('Copy code')).toBe(false);
+  });
+
+  it('shows the wait on the invite screen opened again while the answer is on its way', async () => {
+    holdAnswer();
+    await start('/pack/p1');
+    await open('/pack/p1/invite');
+    await getNewCode();
+    await press('Done');
+
+    await open('/pack/p1/invite');
+
+    expect(shows(WAIT)).toBe(true);
+    expect(shows('Get a new code')).toBe(false);
+    expect(off('Share invite')).toBe(true);
+    expect(off('Copy code')).toBe(true);
+
+    await act(async () => answer(changedTo(FRESH)));
+    await settle();
+
+    expect(shows(FRESH)).toBe(true);
+    expect(shows('Get a new code')).toBe(true);
+    expect(off('Share invite')).toBe(false);
   });
 
   it('shows with the server answer, while the reads are stalled', async () => {
@@ -1202,11 +1267,13 @@ describe('a new invite code', () => {
       expect(mockNotify.mock.calls).toEqual(MAYBE);
     });
 
-    it('reads the pack again with its retries, when the first read after the answer fails', async () => {
+    it('reads the pack again with its retries when the answer was lost on its way back, and the first read fails', async () => {
       // The app's own client, whose reads try again.
       client = new QueryClient();
       mockRpc.mockImplementation(async (name: string) => {
         if (name !== 'renew_invite_code') return { error: null };
+        // The renewal reached the server, and the link dropped for a moment as the answer came back.
+        await new Promise((resolve) => setTimeout(resolve, 1500));
         mockPacks = [{ ...asAdmin(packNamed('p1')), invite_code: FRESH }];
         mockOffline = true;
         setTimeout(() => {
@@ -1222,6 +1289,39 @@ describe('a new invite code', () => {
 
       expect(shows(FRESH)).toBe(true);
       expect(mockNotify.mock.calls).toEqual(MAYBE);
+    });
+
+    // A renewal that fails at once found no connection: the read after it gets one try, not 7 s of retries.
+    it('says saving failed within a second when every request fails at once', async () => {
+      client = new QueryClient();
+      mockRpc.mockImplementation(async (name: string) => (name === 'renew_invite_code' ? lost : { error: null }));
+      await start('/pack/p1/invite');
+      mockOffline = true;
+
+      await getNewCode();
+
+      expect(mockNotify.mock.calls).toEqual(SAVE_FAILED);
+      expect(shows('ABCD2345')).toBe(true);
+      expect(shows('Get a new code')).toBe(true);
+      expect(off('Share invite')).toBe(false);
+    });
+
+    it.each([
+      ['saving failed, when the pack can no longer be read', true, SAVE_FAILED],
+      ['the new code may not have gone through, when the pack can be read', false, MAYBE],
+    ])('tells an admin who left the screen before the answer that %s', async (_name, offline, said) => {
+      holdAnswer();
+      await start('/pack/p1');
+      await open('/pack/p1/invite');
+      await getNewCode();
+      await press('Done');
+      mockOffline = offline;
+
+      await act(async () => answer(lost));
+      await settle();
+
+      expect(pathname()).toBe('/pack/p1');
+      expect(mockNotify.mock.calls).toEqual(said);
     });
   });
 

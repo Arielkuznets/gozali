@@ -2,7 +2,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, ScrollView, Share, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Share, StyleSheet, useWindowDimensions, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
 import { AppText } from '@/components/AppText';
@@ -10,9 +10,9 @@ import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { LoadingScreen, LoadFailedScreen, PackMissingScreen } from '@/components/ScreenStates';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { currentMembers, isUnconfirmedRenewal, packErrorKey, usePack, useRenewInviteCode } from '@/features/packs/api';
+import { currentMembers, usePack, useRenewInviteCode, useRenewingInviteCode } from '@/features/packs/api';
 import { PACK_SIZE_MAX, inviteLink } from '@/features/packs/constants';
-import { confirm, notify } from '@/lib/confirm';
+import { confirm } from '@/lib/confirm';
 import { useBackToPack } from '@/lib/navigation';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
@@ -25,6 +25,9 @@ export default function InviteScreen() {
   const [copied, setCopied] = useState<string | null>(null);
   const { session } = useAuth();
   const renew = useRenewInviteCode(id);
+  // Also when the new code was asked for on a screen closed since. Until the answer is in, the code
+  // on screen may be about to stop working, so nothing hands it out.
+  const renewing = useRenewingInviteCode(id);
   const backToPack = useBackToPack();
 
   if (isPending) return <LoadingScreen back />;
@@ -48,13 +51,7 @@ export default function InviteScreen() {
       message: t('invite.renewBody'),
       confirm: t('invite.renewConfirm'),
       cancel: t('settings.cancel'),
-      onConfirm: () =>
-        renew.mutate(undefined, {
-          onError: (error) =>
-            isUnconfirmedRenewal(error)
-              ? notify(t('invite.renewUnconfirmed'), t('invite.renewUnconfirmedDetail'))
-              : notify(t(packErrorKey(error))),
-        }),
+      onConfirm: () => renew.mutate(),
     });
 
   const onShare = () => {
@@ -85,20 +82,27 @@ export default function InviteScreen() {
         <View style={styles.qr}>
           <QRCode value={link} size={height < 700 ? 136 : 180} color={colors.ink} backgroundColor={colors.surface} />
         </View>
-        {isAdmin && (
-          <Pressable accessibilityRole="button" onPress={onRenew} disabled={renew.isPending} hitSlop={8}>
-            <AppText variant="caption" style={styles.link}>
-              {t('invite.renew')}
-            </AppText>
-          </Pressable>
-        )}
+        {isAdmin &&
+          (renewing ? (
+            <View style={styles.renewing}>
+              <ActivityIndicator color={colors.inkMuted} />
+              <AppText variant="caption">{t('invite.renewing')}</AppText>
+            </View>
+          ) : (
+            <Pressable accessibilityRole="button" onPress={onRenew} hitSlop={8}>
+              <AppText variant="caption" style={styles.link}>
+                {t('invite.renew')}
+              </AppText>
+            </Pressable>
+          ))}
       </ScrollView>
 
       <View style={styles.actions}>
-        <Button label={t('invite.share')} onPress={onShare} />
+        <Button label={t('invite.share')} onPress={onShare} disabled={renewing} />
         <Button
           label={copied === pack.invite_code ? t('invite.copied') : t('invite.copy')}
           variant="secondary"
+          disabled={renewing}
           onPress={() => void onCopy()}
         />
         <Button label={t('invite.done')} variant="secondary" onPress={() => backToPack(id)} />
@@ -115,5 +119,6 @@ const styles = StyleSheet.create({
   qr: { padding: spacing.md, borderRadius: radii.lg, backgroundColor: colors.surface },
   code: { fontFamily: fonts.bodyBold, fontSize: 32, lineHeight: 40, letterSpacing: 4 },
   link: { color: colors.accentText },
+  renewing: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   actions: { gap: spacing.sm },
 });

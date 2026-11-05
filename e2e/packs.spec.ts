@@ -236,12 +236,28 @@ test('the admin replaces a leaked invite code, and only the admin can', async ({
   await signIn(page, noa);
   await page.goto(`/pack/${pack.id}/invite`);
   await expect(page.getByText(pack.inviteCode)).toBeVisible();
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route('**/rest/v1/rpc/renew_invite_code', async (route) => {
+    await held;
+    await route.continue();
+  });
 
+  // Until the answer is in, the code on screen may be about to stop working, so nothing hands it out.
   await page.getByRole('button', { name: 'Get a new code' }).click();
+  await expect(page.getByText('Getting a new code…')).toBeVisible();
+  await expect(page.getByRole('progressbar')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Share invite' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Copy code' })).toBeDisabled();
+
+  release();
   await expect(page.getByText(pack.inviteCode)).toBeHidden();
   const { data } = await noa.client.from('packs').select('invite_code').eq('id', pack.id).single();
   expect(data!.invite_code).not.toBe(pack.inviteCode);
   await expect(page.getByText(data!.invite_code)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Get a new code' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Share invite' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Copy code' })).toBeEnabled();
 
   // Other members can't replace it.
   const { error } = await dan.client.rpc('renew_invite_code', { target: pack.id });
