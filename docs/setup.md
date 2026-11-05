@@ -169,6 +169,8 @@ Nothing takes a deletion back: a restore goes only into an empty project.
 
 A release goes out in this order, after a check that the alerts still reach someone: `npx supabase db query --linked "select count(*) from public.app_owners"` answers 1 or more.
 
+Before step 2, tell build 4's testers directly, by a message or in build 4's own What to Test in TestFlight. Build 5's notes reach them only once build 5 is in TestFlight, hours or days after step 2, and from step 2 build 4 drops a waiting feed whose caption the word filter refuses only from this release on (the third of build 4's refusals, below). Ask them to open the app once with a connection, so any feed waiting on the phone goes out before the release, and to keep stars and spaced-out letters out of captions until they have build 5.
+
 1. `npx supabase functions deploy on-report`. It reads a report as the server gives it before the migrations and after them, and the one in place may not: the on-report of build 4 fails on a report about a member, which every block makes once the migrations are in, and that email is lost.
 2. `npx supabase db push`, at about :05 or :20 past the hour. Day closes run at :00, :15, :30 and :45, and a close or a settings save caught inside a migration's commit carries on with the old function. A policy change in the push also locks Supabase's auth, storage and Realtime tables for a moment, so a sign-in or a token refresh just then can deadlock with it, and Postgres stops one of the two. When that is the push, it ends with `deadlock detected`: run it again. Each file goes in as one transaction, so the one that stopped left nothing behind, and the push carries on from it.
 3. `npx supabase functions deploy close-days send-push widget-state delete-account`, only once `npx supabase migration list` shows every file under Remote as well as under Local. These call what the migrations add, so deployed first they fail until the schema catches up.
@@ -203,7 +205,7 @@ Until testers install build 5, build 4 handles three refusals of the new server 
 
 - A nudge to someone in their quiet hours says "Saving didn't work".
 - A removed member who enters the pack's code gets "This didn't load".
-- From step 2 of the release, a feed waiting in build 4's offline queue whose caption the word filter refuses only from this release on, such as a word with a star in it or spaced out ("Sh*t, almost forgot"), is dropped without a word, and its photo with it, so it doesn't count for its day.
+- From step 2 of the release, a feed waiting in build 4's offline queue whose caption the word filter refuses only from this release on, such as a word with a star in it or spaced out ("Sh*t, almost forgot"), is dropped without a word, and its photo with it, so it doesn't count for its day. Build 5's notes come only after that has started, so tell the testers before step 2 as well (above the release steps).
 
 A bad update can be taken back, and how depends on what came before it on the branch:
 
