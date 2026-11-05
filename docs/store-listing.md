@@ -100,7 +100,7 @@ Once the app is approved, the admin removes the reviewer's account from Pack set
 1. App Information: name `Gozali: Habit Pet`, subtitle, category Health & Fitness (secondary Lifestyle), content rights: no third-party content, the age rating questionnaire (User-Generated Content and Messaging and Chat: yes; everything else: no; then Override to Higher Age Rating, 13+, as in Categories and age), privacy policy URL `https://gozali.app/privacy`.
 2. Pricing and Availability: free, all countries.
 3. App Privacy: the answers above; data is not used for tracking.
-4. The 1.0 version: the five screenshots from `e2e/store/output/app-store` (6.9"), the promotional text, description and keywords above, support URL `https://gozali.app/support`, marketing URL `https://gozali.app`, copyright `2026 Ariel Kuznets`, the build (after Apple processes it), the review notes above, and the contact details.
+4. The version, numbered as `version` in `apps/mobile/app.json` (1.0.1 for build 5: first change the rejected 1.0 version's number to it, as `docs/setup.md` section 5 says, or build 5 isn't offered): the five screenshots from `e2e/store/output/app-store` (6.9"), the promotional text, description and keywords above, support URL `https://gozali.app/support`, marketing URL `https://gozali.app`, copyright `2026 Ariel Kuznets`, the build (after Apple processes it), the review notes above, and the contact details.
 5. Add for Review, then Submit to App Review. The encryption question is already answered in the app (`ITSAppUsesNonExemptEncryption`: no).
 
 Once it's live: set `APP_STORE_URL` for the site (`docs/setup.md` section 3) and the store link in `app_config` (section 5).
