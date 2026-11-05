@@ -46,7 +46,7 @@ Everything runs locally without accounts (see the README). This is the one-time 
 7. Auth → providers:
    - **Apple:** an App ID with Sign in with Apple (bundle id `app.gozali`), and the bundle id in the provider's client IDs: that is all the native sign-in on iPhones needs. Signing in with Apple in the browser (on Android, and as the fallback on iPhones) also needs a Services ID and a secret, see section 8.
    - **Google:** the app signs in with Google through the browser, so one OAuth client of type Web application is enough (Google Cloud → APIs & Services → Credentials, in the Google Cloud project Firebase creates). Its authorized redirect URI is `https://<project-ref>.supabase.co/auth/v1/callback`; paste its client ID and secret into the Google provider. The app shows its Google button only while this provider is on (it reads the project's public auth settings), so turning it on needs no new build.
-8. The email code template (`supabase/templates/sign_in_code.html`) is only for the development login; it can stay off in production.
+8. The email code template (`supabase/templates/sign_in_code.html`) is only for the development login, but the Email provider stays on in production while App Review's demo account is in use. Demo Friend has no Apple ID: it signs in with an email and a password, and that is how its photos are posted (docs/store-listing.md, Notes for Apple's review). Once the app is approved and Demo Friend is deleted, nothing uses the provider, and it can go off.
 9. Storage settings: turn off the connection via the S3 protocol. Nothing uses it, and its multipart uploads go around the upload limits (spec section 14); `config.toml` has it off for the local stack.
 
 ## 2. EAS builds
