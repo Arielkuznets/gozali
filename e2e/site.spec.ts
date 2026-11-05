@@ -99,6 +99,16 @@ test('the privacy policy names the update check the app sends Expo on every star
   expect(expo).toContain('error');
 });
 
+test('the privacy policy confirms the services it names protect the data as well as it does', () => {
+  const { status, stderr } = build(FINGERPRINT);
+  expect(status, stderr).toBe(0);
+  // App Review guideline 5.1.1(i) asks the policy to confirm it of everyone who gets members' data.
+  const privacy = page('privacy/index.html');
+  const services = privacy.slice(privacy.indexOf('<h2>Services we use</h2>'), privacy.indexOf('<h2>Your rights</h2>'));
+  expect(services).toContain('Supabase');
+  expect(services).toMatch(/same or equal protection/i);
+});
+
 test('the real fingerprint goes into the file Android reads', () => {
   const { status, stderr } = build(FINGERPRINT);
   expect(status, stderr).toBe(0);

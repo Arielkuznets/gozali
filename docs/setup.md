@@ -91,6 +91,17 @@ Everything runs locally without accounts (see the README). This is the one-time 
 
    The Android fingerprint is in `eas credentials` (Android → keystore). Once the app is on Google Play, use the one under the app signing key in the Play Console's App signing page instead: Play signs what it delivers with its own key, and the upload key's fingerprint doesn't match the app on people's phones. Without a real fingerprint the build refuses to run, because the invite links would open the browser instead of the app. Keep the build and the deploy on one line: after a refused build the `&&` stops there, where a separate line would publish the old `web/dist` again. `node web/build.mjs --preview` needs none of these values and builds into `web/dist-preview`, which is never deployed, to look at the pages. The landing page shows a store button only for the store URLs that are set. Until the app is in the App Store, `APP_STORE_URL` can be the TestFlight invite link.
 3. The site has the privacy policy (/privacy), the terms (/terms) and the support page (/support) that App Store Connect asks for. Mail to hello@gozali.app is forwarded by Cloudflare Email Routing.
+
+   The privacy policy says each service it names is bound to give members' data the same or equal protection as the policy does, as App Review guideline 5.1.1(i) asks. Each is bound by the data processing terms that come with the project's account there, so before the site goes out, check these are in force:
+
+   - **Supabase:** its Data Processing Addendum, part of its Terms of Service (supabase.com/legal/dpa).
+   - **Expo:** section 3.2 of its Terms of Service, under which it processes members' data as Gozali's processor, with the EU standard contractual clauses (expo.dev/terms).
+   - **Apple:** the Apple Developer Program License Agreement, accepted with the developer account that holds the push key EAS made (section 2). Its push notification terms keep Apple from reading or passing on a notification's content, but for the law, security or safety.
+   - **Google:** the Firebase Data Processing and Security Terms, accepted with the Firebase terms when the project was made. They cover Cloud Messaging, which carries the Android pushes under the project's key (section 2).
+   - **Resend:** its Data Processing Addendum, which Resend signed and which is in force from sign-up (Settings → Documents).
+   - **Cloudflare:** its Data Processing Addendum, part of the Self-Serve Subscription Agreement (cloudflare.com/cloudflare-customer-dpa).
+
+   Sign in with Apple and with Google work under each one's own privacy policy, which the member accepted with that account. A service that would get members' data and has no such terms stays out of the app and the policy.
 4. Check `https://gozali.app/.well-known/apple-app-site-association` and `https://gozali.app/.well-known/assetlinks.json` load, then an invite link opens the installed app.
 
 ## 4. Before the pilot

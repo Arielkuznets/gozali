@@ -1,6 +1,6 @@
 # Gozali Privacy Policy
 
-Last updated: November 4, 2026
+Last updated: November 5, 2026
 
 Gozali is an app where a small group of friends (a "pack") raises a shared pet by doing a habit every day and proving it with a photo. This policy explains what we collect, why, who can see it, and how to delete it. Questions: hello@gozali.app.
 
@@ -46,7 +46,7 @@ We do **not** collect your location or contacts, we don't use advertising or tra
 - **Resend** delivers report emails to the developer, with what was reported.
 - **Cloudflare** hosts the gozali.app website and forwards email sent to hello@gozali.app.
 
-They process data only to provide these services to Gozali.
+They process data only to provide these services to Gozali, and each is bound to give your data the same or equal protection as this policy does.
 
 ## Your rights
 
