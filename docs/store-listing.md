@@ -48,7 +48,7 @@ What the app collects (see docs/legal/privacy-policy.md), including what Expo's 
 
 | Data | App Store label | Google Play data safety | Purpose |
 | --- | --- | --- | --- |
-| Email address (from Apple or Google sign-in) | Contact info, linked to the user | Personal info: email, collected | Account |
+| Email address (from Apple or Google sign-in) | Contact info, linked to the user | Personal info: email, collected | App functionality; on Google Play also Account management |
 | Display name and profile photo | Contact info: name; User content: photos, linked | Personal info: name; Photos, collected, shared with pack members | App functionality |
 | Feed photos and captions | User content: photos, other user content, linked | Photos; other user-generated content, shared with pack members | App functionality |
 | Reactions, nudges, name suggestions, reports and blocks | User content: other, linked | Other user-generated content | App functionality |
