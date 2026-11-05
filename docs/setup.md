@@ -173,6 +173,21 @@ Before step 2, tell build 4's testers directly, by a message or in build 4's own
 
 1. `npx supabase functions deploy on-report`. It reads a report as the server gives it before the migrations and after them, and the one in place may not: the on-report of build 4 fails on a report about a member, which every block makes once the migrations are in, and that email is lost.
 2. `npx supabase db push`, at about :05 or :20 past the hour. Day closes run at :00, :15, :30 and :45, and a close or a settings save caught inside a migration's commit carries on with the old function. A policy change in the push also locks Supabase's auth, storage and Realtime tables for a moment, so a sign-in or a token refresh just then can deadlock with it, and Postgres stops one of the two. When that is the push, it ends with `deadlock detected`: run it again. Each file goes in as one transaction, so the one that stopped left nothing behind, and the push carries on from it.
+
+   Then list what was saved before the release that the word filter refuses now: pack names, habits, pets' names and members' names. Each stays as it is until someone changes it, and the rest of its row still saves. `ask` is the account to write to, at the address Auth → Users shows for it: the pack's admin, or the member.
+
+   ```sh
+   npx supabase db query --linked "with admins as (select pack_id, user_id from public.pack_members where role = 'admin') select 'pack' as kind, p.id, p.name as text, a.user_id as ask from public.packs p left join admins a on a.pack_id = p.id where not public.is_clean(p.name) union all select 'habit', p.id, p.custom_habit, a.user_id from public.packs p left join admins a on a.pack_id = p.id where not public.is_clean(p.custom_habit) union all select 'pet', c.pack_id, c.name, a.user_id from public.critters c left join admins a on a.pack_id = c.pack_id where not public.is_clean(c.name) union all select 'member', u.id, u.display_name, u.id from public.profiles u where not public.is_clean(u.display_name)"
+   ```
+
+   Where the app can change the text, ask for a new one: the admin renames the pack in its settings, and a member changes their name in Settings. It can't change a habit or a pet's name, so for those ask the admin for a new one and set it yourself. Change an abusive one yourself, without asking. Clearing a member's name, as after a report, makes the app ask them for another:
+
+   ```sh
+   npx supabase db query --linked "update public.packs set name = '<new name>' where id = '<id>'"
+   npx supabase db query --linked "update public.packs set custom_habit = '<new habit>' where id = '<id>'"
+   npx supabase db query --linked "update public.critters set name = '<new name>' where pack_id = '<id>'"
+   npx supabase db query --linked "update public.profiles set display_name = null where id = '<id>'"
+   ```
 3. `npx supabase functions deploy close-days send-push widget-state delete-account`, only once `npx supabase migration list` shows every file under Remote as well as under Local. These call what the migrations add, so deployed first they fail until the schema catches up.
 
    Then look for packs in a zone the day close's Intl may not read, or reads with another clock than the database: until step 2, build 4 could make one in America/Coyhaique, a `posix/` name or Factory, and a phone or a request that gives CET, EET, MET or WET can still make one.
