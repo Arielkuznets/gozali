@@ -831,6 +831,7 @@
     "none": "Your first recap arrives when this week ends.",
     "noneAlone": "Recaps start once a friend joins.",
     "weekOf": "Week of {{date}}",
+    "earlierWeeks": "Earlier weeks",
     "goodDays": "good days",
     "health": "health",
     "streak": "streak",

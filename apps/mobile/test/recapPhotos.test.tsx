@@ -108,6 +108,11 @@ const settle = () => act(() => new Promise((resolve) => setTimeout(resolve, 20))
 const tiles = () => tree!.root.findAllByType(Image);
 const shown = () => tiles().map((tile) => tile.props.source.cacheKey);
 const storyPhotos = () => tree!.root.findByType(StoryCard).findAllByType(Image);
+const storyTexts = () =>
+  tree!.root
+    .findByType(StoryCard)
+    .findAll((node) => node.type === 'Text')
+    .map((node) => [node.props.children].flat().join(''));
 const SHARE = 'Share as a story';
 const LOAD_FAILED = "This didn't load. Check the connection and try again.";
 const button = (label: string) => tree!.root.findAll((node) => node.props.label === label && node.props.onPress)[0];
@@ -205,21 +210,53 @@ describe('a pack with no recap yet', () => {
 });
 
 describe('the weeks of a pack', () => {
-  // The recap of every week back from mockRecap's, the oldest more than three months before it.
-  const recapsBack = (count: number) =>
+  const EARLIER = 'Earlier weeks';
+  // The recap of every week back from the newest given, mockRecap's by default.
+  const recapsBack = (count: number, newest = '2026-10-18') =>
     Array.from({ length: count }, (_, index) => {
-      const week = new Date(Date.UTC(2026, 9, 18 - 7 * index)).toISOString().slice(0, 10);
+      const week = new Date(Date.parse(newest) - 7 * index * 86_400_000).toISOString().slice(0, 10);
       return { ...mockRecap, week_start: week, stats: { ...mockRecap.stats, weekStart: week } };
     });
   const weekChips = () =>
     tree!.root.findAll((node) => typeof node.type === 'string' && node.props.accessibilityRole === 'radio').map((node) => node.props.accessibilityLabel);
 
-  it('offer every recap the server keeps, the oldest too', async () => {
+  // A phone in the year of the weeks, which then carry no year.
+  beforeEach(() => {
+    jest.useFakeTimers({ now: new Date('2026-11-05T12:00:00'), advanceTimers: true });
+  });
+
+  it('offer every recap the server keeps, the oldest too, the earlier ones behind a button', async () => {
     mockRecaps = recapsBack(14);
     await open();
+    // Each chip is a stop for a screen reader on the way to the recap.
+    expect(weekChips()).toEqual(mockRecaps.slice(0, 12).map((recap) => formatDay(recap.week_start)));
+
+    await act(async () => button(EARLIER)?.props.onPress());
 
     expect(weekChips()).toEqual(mockRecaps.map((recap) => formatDay(recap.week_start)));
     expect(weekChips().at(-1)).toBe(formatDay('2026-07-19'));
+    expect(button(EARLIER)).toBeUndefined();
+  });
+
+  it('have no button for earlier weeks when there are none', async () => {
+    mockRecaps = recapsBack(12);
+    await open();
+
+    expect(weekChips()).toHaveLength(12);
+    expect(button(EARLIER)).toBeUndefined();
+  });
+
+  it('give the year of a week in another year, on its chip and in its recap', async () => {
+    jest.useFakeTimers({ now: new Date('2027-11-10T12:00:00'), advanceTimers: true });
+    mockRecaps = recapsBack(60, '2027-11-07');
+    await open();
+    await act(async () => button(EARLIER)?.props.onPress());
+
+    expect(weekChips()[0]).toBe('Sun, Nov 7');
+    expect(weekChips()[52]).toBe('Sun, Nov 8, 2026');
+    await act(async () => button('Sun, Nov 8, 2026')?.props.onPress());
+    expect(says('Week of Sun, Nov 8, 2026')).toBe(true);
+    expect(storyTexts()).toContain('Week of Sun, Nov 8, 2026');
   });
 });
 
@@ -327,12 +364,6 @@ describe('the most consistent members', () => {
 });
 
 describe('the story image', () => {
-  const storyTexts = () =>
-    tree!.root
-      .findByType(StoryCard)
-      .findAll((node) => node.type === 'Text')
-      .map((node) => [node.props.children].flat().join(''));
-
   // It leaves the pack, and a pack's name can name friends.
   it("holds the pack's numbers but not its name", async () => {
     await open();

@@ -22,6 +22,13 @@ export function formatDay(day: string): string {
   return formatter({ weekday: 'short', month: 'short', day: 'numeric' }).format(new Date(`${day}T12:00:00`));
 }
 
+/** As formatDay, with the year for a day of another year than this one, like "Sun, Nov 8, 2026". */
+export function formatDayAcrossYears(day: string): string {
+  const date = new Date(`${day}T12:00:00`);
+  const year = date.getFullYear() === new Date().getFullYear() ? {} : ({ year: 'numeric' } as const);
+  return formatter({ weekday: 'short', month: 'short', day: 'numeric', ...year }).format(date);
+}
+
 /**
  * The phone's choice of a 12 or 24-hour clock, which is no language, or the language's own where it
  * says nothing. A cycle and not hour12: Hermes takes hour12 false in English for h24, so 00:05 would

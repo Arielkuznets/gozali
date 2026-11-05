@@ -22,9 +22,12 @@ import { usePack } from '@/features/packs/api';
 import { StoryCard, STORY_HEIGHT, STORY_PHOTOS, STORY_WIDTH } from '@/features/recap/StoryCard';
 import { useRecapPhotos, useRecaps, type Recap } from '@/features/recap/api';
 import { notify } from '@/lib/confirm';
-import { formatDay } from '@/lib/dates';
+import { formatDayAcrossYears } from '@/lib/dates';
 import { goBack } from '@/lib/navigation';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
+
+/** The weeks a screen reader passes on its way to the recap; the earlier ones wait behind a button. */
+const RECENT_WEEKS = 12;
 
 /** The weekly recap (spec section 7) and sharing it as a story. */
 export default function RecapScreen() {
@@ -33,6 +36,7 @@ export default function RecapScreen() {
   const { data: pack, isPending, isError, refetch } = usePack(id);
   const recaps = useRecaps(id);
   const [week, setWeek] = useState<string | null>(null);
+  const [allWeeks, setAllWeeks] = useState(false);
 
   const recap = recaps.data?.find((item) => item.week_start === week) ?? recaps.data?.[0];
 
@@ -63,15 +67,18 @@ export default function RecapScreen() {
         <>
           {recaps.data && recaps.data.length > 1 && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.weekRow} contentContainerStyle={styles.weeks}>
-              {recaps.data.map((item) => (
+              {(allWeeks ? recaps.data : recaps.data.slice(0, RECENT_WEEKS)).map((item) => (
                 <Choice
                   key={item.week_start}
-                  label={formatDay(item.week_start)}
+                  label={formatDayAcrossYears(item.week_start)}
                   selected={item.week_start === recap.week_start}
                   onPress={() => setWeek(item.week_start)}>
-                  <AppText variant="caption">{formatDay(item.week_start)}</AppText>
+                  <AppText variant="caption">{formatDayAcrossYears(item.week_start)}</AppText>
                 </Choice>
               ))}
+              {!allWeeks && recaps.data.length > RECENT_WEEKS && (
+                <Button label={t('recap.earlierWeeks')} variant="secondary" size="small" onPress={() => setAllWeeks(true)} />
+              )}
             </ScrollView>
           )}
           <RecapView recap={recap} category={pack.category} names={new Map(pack.pack_members.map((m) => [m.user_id, m.profiles?.display_name ?? null]))} />
@@ -138,7 +145,7 @@ function RecapView({ recap, category, names }: ViewProps) {
     <>
       <ScrollView contentContainerStyle={styles.body}>
         <AppText style={styles.centerText} variant="caption">
-          {t('recap.weekOf', { date: formatDay(stats.weekStart) })}
+          {t('recap.weekOf', { date: formatDayAcrossYears(stats.weekStart) })}
         </AppText>
         <View style={styles.hero}>
           <Critter art={art} size={160} label={stats.critter.name ?? t(`packs.species.${stats.critter.species}`)} animated={false} />

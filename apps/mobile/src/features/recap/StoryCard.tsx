@@ -8,7 +8,7 @@ import { AppText } from '@/components/AppText';
 import { SignedPhoto } from '@/features/feeds/SignedPhoto';
 import type { RecapPhoto, RecapStats } from '@/features/recap/api';
 import type { Category } from '@/features/packs/constants';
-import { formatDay } from '@/lib/dates';
+import { formatDayAcrossYears } from '@/lib/dates';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 /** Drawn at 360 x 640, a third of the 1080 x 1920 pixels the story is captured at. */
@@ -41,7 +41,7 @@ export const StoryCard = forwardRef<View, Props>(function StoryCard({ category, 
     <View ref={ref} collapsable={false} style={styles.card}>
       <View style={styles.top}>
         <AppText style={styles.brand} maxFontSizeMultiplier={1}>Gozali</AppText>
-        <AppText variant="caption" maxFontSizeMultiplier={1}>{t('recap.weekOf', { date: formatDay(stats.weekStart) })}</AppText>
+        <AppText variant="caption" maxFontSizeMultiplier={1}>{t('recap.weekOf', { date: formatDayAcrossYears(stats.weekStart) })}</AppText>
       </View>
       <SvgXml xml={renderCritter(art)} width={220} height={220} />
       <AppText style={styles.name} maxFontSizeMultiplier={1}>{stats.critter.name ?? t(`packs.species.${stats.critter.species}`)}</AppText>
