@@ -63,6 +63,14 @@ describe('how to add a widget', () => {
     expect(text).not.toContain('iPhone');
   });
 
+  // The app is an iPhone app, which an iPad runs as well, and an iPad's home screen may not offer
+  // the widget of an iPhone app.
+  it('tells how to add the widget on a phone, which holds on an iPad too', async () => {
+    const text = await settingsOn('ios', '27.0');
+
+    expect(text).toContain('Add a widget on your phone: long-press its home screen');
+  });
+
   // The widget extension needs iOS 17, and the app runs on iOS 16 as well.
   it('says on iOS 16 that widgets need iOS 17, instead of steps to a widget that is not there', async () => {
     const text = await settingsOn('ios', '16.7.10');

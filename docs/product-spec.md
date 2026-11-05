@@ -360,6 +360,7 @@ Reporting and blocking are in the menu of every feed item and of every member.
 
 - For single-pack widgets you choose which pack to show, in the widget settings.
 - On iOS the widgets need iOS 17 or later, for that choice and their background. The app runs on older versions too, and there Settings says widgets need iOS 17 instead of how to add one.
+- The iOS app is for iPhone, and an iPad runs it too, but an iPad's home screen may not offer the widgets of an iPhone app. So Settings tells how to add a widget on your phone, and the store text promises the widgets on phones.
 - The creature in the widget is a static image by creature, stage and state (no animation), including wardrobe items, and it sleeps at night like in the app.
 - **Privacy:** the home screen and the lock screen are visible to others, so the widget shows no photos and no names of members, only the creature and numbers, and on the large one each pack's name.
 - **Updates:** right after every action in the app, at the end of the day (03:00), and from the server about every 30 minutes, subject to the operating system's refresh limits.
