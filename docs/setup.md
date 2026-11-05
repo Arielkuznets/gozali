@@ -116,7 +116,7 @@ Everything runs locally without accounts (see the README). This is the one-time 
 Alerts on your own phone: add your profile to the owners, once, and you get a push for every new sign-up and a summary of the day at 21:00 (spec section 8). Your profile id is in the Auth dashboard, or from the profile that has your push token:
 
 ```sh
-npx supabase db query --linked "insert into public.app_owners (user_id) values ('<your profile id>')"
+npx supabase db query --linked "insert into public.app_owners (user_id) values ('<your profile id>') returning user_id"
 ```
 
 The row goes with the account. Deleting that account, even to try Settings → Delete account, ends every alert, and signing in again with the same Apple ID makes a new profile with a new id, so add that one. With no owner left there is nobody to tell, so the release below starts by counting the owners.
@@ -139,7 +139,7 @@ npx supabase db query --linked "select public.pilot_metrics()"
 The daily summary on your phone already counts failed function calls, failed scheduled jobs, outages and packs behind on closing days. When something else broke for a while (sign-in or storage down while the functions ran), add it as an outage so the pack days it covered can't fail; days already closed stay as they were:
 
 ```sh
-npx supabase db query --linked "insert into public.outages (starts_at, ends_at, note) values ('2026-10-01 08:00+03', '2026-10-01 14:00+03', 'storage down')"
+npx supabase db query --linked "insert into public.outages (starts_at, ends_at, note) values ('2026-10-01 08:00+03', '2026-10-01 14:00+03', 'storage down') returning id, starts_at, ends_at"
 ```
 
 Plan limits: the summary adds "📦 612 MB of files (free plan: 1 GB)" once this project's stored files reach 500 MB. Egress and database size can't be read that way: they show only on the organization's Usage page, so look there every week. Supabase's own notice goes to the billing email and only after a quota is passed, so make sure that is an address you read. When the line shows up, the choice is Pro or keeping less. After a move to Pro, change the line in `summaryLine` (`supabase/functions/send-push/messages.ts`) or it shows every evening.
@@ -183,12 +183,12 @@ A few hours before step 2, the evening before for example, tell build 4's tester
    Where the app can change the text, ask for a new one: the admin renames the pack in its settings, and a member on build 5 changes their name in Settings. Build 4 has no name field, so until a member has build 5, clear their name or set the one they send you. The app can't change a habit or a pet's name, so for those ask the admin for a new one and set it yourself. Change an abusive one yourself, without asking. Clearing a member's name, as after a report, makes the app ask them for another:
 
    ```sh
-   npx supabase db query --linked "update public.packs set name = '<new name>' where id = '<id>'"
-   npx supabase db query --linked "update public.packs set custom_habit = '<new habit>' where id = '<id>'"
-   npx supabase db query --linked "update public.critters set name = '<new name>' where pack_id = '<id>'"
-   npx supabase db query --linked "delete from public.pack_events where pack_id = '<id>' and kind = 'named'"
-   npx supabase db query --linked "update public.profiles set display_name = null where id = '<id>'"
-   npx supabase db query --linked "update public.profiles set display_name = '<new name>' where id = '<id>'"
+   npx supabase db query --linked "update public.packs set name = '<new name>' where id = '<id>' returning id, name"
+   npx supabase db query --linked "update public.packs set custom_habit = '<new habit>' where id = '<id>' returning id, custom_habit"
+   npx supabase db query --linked "update public.critters set name = '<new name>' where pack_id = '<id>' returning pack_id, name"
+   npx supabase db query --linked "delete from public.pack_events where pack_id = '<id>' and kind = 'named' returning id, payload"
+   npx supabase db query --linked "update public.profiles set display_name = null where id = '<id>' returning id, display_name"
+   npx supabase db query --linked "update public.profiles set display_name = '<new name>' where id = '<id>' returning id, display_name"
    ```
 
    After a pet's new name, the delete takes its naming lines out of the pack's feed: the old one still shows the old name, and the rename itself shows as made by Someone, since no member made it.
@@ -202,9 +202,9 @@ A few hours before step 2, the evening before for example, tell build 4's tester
    npx supabase db query --linked "select id, name, timezone, created_at from public.packs where timezone in ('America/Coyhaique', 'Factory', 'CET', 'EET', 'MET', 'WET') or timezone like 'posix/%'"
    ```
 
-   Where Intl can't read the zone, a run closes only the day the database found due, so a pack days behind catches up one day every 15 minutes. Under a name Intl reads with the same clock (America/Punta_Arenas for America/Coyhaique, the name after `posix/`, Etc/UTC for Factory) it catches up in one run: `npx supabase db query --linked "update public.packs set timezone = 'America/Punta_Arenas' where timezone = 'America/Coyhaique'"`.
+   Where Intl can't read the zone, a run closes only the day the database found due, so a pack days behind catches up one day every 15 minutes. Under a name Intl reads with the same clock (America/Punta_Arenas for America/Coyhaique, the name after `posix/`, Etc/UTC for Factory) it catches up in one run: `npx supabase db query --linked "update public.packs set timezone = 'America/Punta_Arenas' where timezone = 'America/Coyhaique' returning id, name, timezone"`.
 
-   The database reads CET, EET, MET and WET as fixed offsets with no summer time, while phones and Intl read them with it, as Europe/Brussels (CET and MET), Europe/Athens (EET) and Europe/Lisbon (WET). So from the last Sunday in March to the last Sunday in October, such a pack's day ends an hour later on the server than on the phones, and a feed between 03:00 and 04:00 counts for the day the phone already shows as over. Move such a pack to its city zone between the last Sunday in October and the last Sunday in March, while the two readings agree, so no day moves: `npx supabase db query --linked "update public.packs set timezone = 'Europe/Brussels' where timezone in ('CET', 'MET')"`, and the same with Europe/Athens for EET and Europe/Lisbon for WET.
+   The database reads CET, EET, MET and WET as fixed offsets with no summer time, while phones and Intl read them with it, as Europe/Brussels (CET and MET), Europe/Athens (EET) and Europe/Lisbon (WET). So from the last Sunday in March to the last Sunday in October, such a pack's day ends an hour later on the server than on the phones, and a feed between 03:00 and 04:00 counts for the day the phone already shows as over. Move such a pack to its city zone between the last Sunday in October and the last Sunday in March, while the two readings agree, so no day moves: `npx supabase db query --linked "update public.packs set timezone = 'Europe/Brussels' where timezone in ('CET', 'MET') returning id, name, timezone"`, and the same with Europe/Athens for EET and Europe/Lisbon for WET.
 4. The backup job, before the site. The privacy policy tells people the database is copied once a day, so the page can't go out ahead of the job. `Get-ScheduledTask -TaskName 'Gozali backup'` has to show Ready, and `~/Gozali backups` a file from the last evening. If not, register the task (Backups, below), run it once with `Start-ScheduledTask -TaskName 'Gozali backup'` and read `backup.log`. A copy goes only once 14 newer ones exist, so after a gap delete any copy older than 14 days by hand, or it stays past what the policy says.
 5. The site, when `web/`, `docs/legal` or `docs/support.md` changed (section 3). Nothing else publishes them, so the live pages stay behind the repo until this runs. It comes before the build because App Review reads the privacy policy and the terms along with it, and they have to match the App Privacy answers.
 6. The build. People get the new app last, so it finds the server it was made for.
@@ -246,7 +246,7 @@ When a server change would break versions still installed on people's phones, ra
 
 ```sh
 npx supabase db query --linked "update public.app_config set min_version = '1.1.0'"
-npx supabase db query --linked "update public.app_config set ios_url = 'https://apps.apple.com/app/id<id>', android_url = 'https://play.google.com/store/apps/details?id=app.gozali'"
+npx supabase db query --linked "update public.app_config set ios_url = 'https://apps.apple.com/app/id<id>', android_url = 'https://play.google.com/store/apps/details?id=app.gozali' returning ios_url, android_url"
 ```
 
 Crashes in native code (not JavaScript) don't reach `app_errors`: App Store Connect (TestFlight → Crashes, and Xcode → Organizer) and the Play Console (Android vitals) show them.
@@ -260,7 +260,7 @@ Register-ScheduledTask -TaskName 'Gozali backup' -Action $action -Trigger (New-S
 
 A run that saved its file leaves a heartbeat in the project (`heartbeats`, job `backup`), and the daily summary reads it: "💾 last backup 3 days ago" once the newest is two days old, so one missed night shows the next evening, and "💾 no backup yet" until the first one reports. `backup.log` and Task Scheduler's Last Run Result say why it stopped. Only a crafted request can nest a value too deep for the file, in an account's metadata or identity: the run saves `{}` for that one value, keeps the rest of the row, and names the table, the row and the column at the end of its `saved` line.
 
-To restore after a disaster: create a new project, link it and `npx supabase db push` the schema, then `node scripts/restore.mjs "<backup file>"`. A backup holds neither the functions nor their setup, so deploy the functions and set the function secrets, the Vault values and the Auth settings again (section 1, steps 3 to 7), the Apple key (section 6) and the Apple web provider (section 8). The `apple_revocation` and `apple_web_sign_in` switches come back as they were, so turn off any whose setup isn't back yet, or an iPhone deletes accounts without revoking them and offers a browser sign-in that can't work: `npx supabase db query --linked "update public.app_config set apple_revocation = false"` until the Apple key is back, and `npx supabase db query --linked "update public.app_config set apple_web_sign_in = false"` until the web provider is. The restore refuses a project that already has data. So a run that stops partway, because one call kept failing through nearly three minutes of tries or the window was closed, can't be run again on that project, which holds only part of the backup, for example accounts and packs with no critters. Don't use it or try to finish it: delete it, create a new one and start again from `db push` (on the local stack, `npx supabase db reset`). A backup reads one table after another while people use the app, so a row can be in it without its parent, like a reaction to a feed posted after `feeds` was read. The restore skips such a row, and it prints how many it skipped per table and in total at the end. The exception is a key the database empties when its parent goes, like the buyer of a pack's item: that row stays, with the key empty. When the skipped row was a pack's admin, the role passes on as it does when an admin's account goes: to the longest-standing member who plays. A pack made while the backup ran can be in it without its critter, and no day of such a pack can close, so the restore leaves it out with everything it holds and prints which packs. A pack from before the backup can't lose its critter that way: the restore keeps it and prints it, and before people use the project it needs its row in `critters` back by hand, from an older backup. A row the migrations seeded stays when the backup lacks it, since a migration can be newer than the backup, and the restore lists such rows at the end: delete any blocked word or shop item you had removed by hand. The privacy policy says accounts we can tell were deleted are deleted again. An account deleted while the backup ran is in it without its profile: the backup reads the accounts first and the profiles last, and a profile is made with its account and goes only with it. The restore deletes such an account, with whatever of it the backup read, and prints which. Accounts deleted after the backup finished come back with it whole: before people use the restored project, delete every account the old project no longer has, in Auth → Users, which takes its rows with it. Compare the backup's `auth.users` with the old project, or with its Auth logs, for as long as they can still be read. Nothing else records a deletion made after the backup finished, so once neither can be read those accounts stay. Try it on the local stack first: `node scripts/backup.mjs --local`, `npx supabase db reset`, then the restore with `--local`.
+To restore after a disaster: create a new project, link it and `npx supabase db push` the schema, then `node scripts/restore.mjs "<backup file>"`. A backup holds neither the functions nor their setup, so deploy the functions and set the function secrets, the Vault values and the Auth settings again (section 1, steps 3 to 7), the Apple key (section 6) and the Apple web provider (section 8). The `apple_revocation` and `apple_web_sign_in` switches come back as they were, so turn off any whose setup isn't back yet, or an iPhone deletes accounts without revoking them and offers a browser sign-in that can't work: `npx supabase db query --linked "update public.app_config set apple_revocation = false returning apple_revocation"` until the Apple key is back, and `npx supabase db query --linked "update public.app_config set apple_web_sign_in = false returning apple_web_sign_in"` until the web provider is. The restore refuses a project that already has data. So a run that stops partway, because one call kept failing through nearly three minutes of tries or the window was closed, can't be run again on that project, which holds only part of the backup, for example accounts and packs with no critters. Don't use it or try to finish it: delete it, create a new one and start again from `db push` (on the local stack, `npx supabase db reset`). A backup reads one table after another while people use the app, so a row can be in it without its parent, like a reaction to a feed posted after `feeds` was read. The restore skips such a row, and it prints how many it skipped per table and in total at the end. The exception is a key the database empties when its parent goes, like the buyer of a pack's item: that row stays, with the key empty. When the skipped row was a pack's admin, the role passes on as it does when an admin's account goes: to the longest-standing member who plays. A pack made while the backup ran can be in it without its critter, and no day of such a pack can close, so the restore leaves it out with everything it holds and prints which packs. A pack from before the backup can't lose its critter that way: the restore keeps it and prints it, and before people use the project it needs its row in `critters` back by hand, from an older backup. A row the migrations seeded stays when the backup lacks it, since a migration can be newer than the backup, and the restore lists such rows at the end: delete any blocked word or shop item you had removed by hand. The privacy policy says accounts we can tell were deleted are deleted again. An account deleted while the backup ran is in it without its profile: the backup reads the accounts first and the profiles last, and a profile is made with its account and goes only with it. The restore deletes such an account, with whatever of it the backup read, and prints which. Accounts deleted after the backup finished come back with it whole: before people use the restored project, delete every account the old project no longer has, in Auth → Users, which takes its rows with it. Compare the backup's `auth.users` with the old project, or with its Auth logs, for as long as they can still be read. Nothing else records a deletion made after the backup finished, so once neither can be read those accounts stay. Try it on the local stack first: `node scripts/backup.mjs --local`, `npx supabase db reset`, then the restore with `--local`.
 
 ## 6. Sign in with Apple revocation
 
@@ -277,7 +277,7 @@ Apple asks apps with Sign in with Apple to revoke the user's tokens when they de
 4. Otherwise turn it on, so deleting an account on an iPhone or iPad asks Apple for a fresh code first:
 
    ```sh
-   npx supabase db query --linked "update public.app_config set apple_revocation = true"
+   npx supabase db query --linked "update public.app_config set apple_revocation = true returning apple_revocation"
    ```
 
    Closing Apple's sheet keeps the account. If the sheet fails, or gives no answer for 15 seconds with the app active and the app is still active 2 seconds later, the deletion goes on without the code, so that token stays unrevoked. The same goes when Apple takes more than 10 seconds to answer the server, for its two calls together, and the function's log says `apple revocation TimeoutError`.
@@ -285,7 +285,7 @@ Apple asks apps with Sign in with Apple to revoke the user's tokens when they de
 5. Try it right away, on the same iPhone and iPad, signed in with Apple to a test account. The app reads the switch when it starts and then every hour, and one that hasn't read it yet deletes without asking Apple, so close the app and open it again first. On each, Settings → Delete account → Delete for good, stay on Apple's sheet past 20 seconds, then close it: the account must still be there. Then delete it for real: the function's log must show no `apple revocation` line, which would say where the revocation stopped. If a check fails, turn the switch off again:
 
    ```sh
-   npx supabase db query --linked "update public.app_config set apple_revocation = false"
+   npx supabase db query --linked "update public.app_config set apple_revocation = false returning apple_revocation"
    ```
 
 ## 7. Dependency warnings
@@ -307,7 +307,7 @@ On iPhones and iPads the app signs in with Apple's own sheet. Where that sheet f
 4. Turn on the fallback for iPhones:
 
    ```sh
-   npx supabase db query --linked "update public.app_config set apple_web_sign_in = true"
+   npx supabase db query --linked "update public.app_config set apple_web_sign_in = true returning apple_web_sign_in"
    ```
 
    The button shows only after Apple's sheet failed, was closed or gave no answer for 15 seconds, under Continue with Apple.
