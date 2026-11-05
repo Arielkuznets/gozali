@@ -244,10 +244,10 @@ To restore after a disaster: create a new project, link it and `npx supabase db 
 Apple asks apps with Sign in with Apple to revoke the user's tokens when they delete their account. The code is ready and waits for a key:
 
 1. In Apple Developer → Certificates, IDs & Profiles → Keys, create a key with Sign in with Apple, configured for `app.gozali`, and download the `.p8` file (it can be downloaded once).
-2. Put it in the function secrets, typing the values yourself (the key ID is on the key's page):
+2. Put it in the function secrets, typing the values yourself (the key ID is on the key's page). The key goes in as one line: on Windows, npx cuts a value at its first line break and would keep only `-----BEGIN PRIVATE KEY-----`, and the function reads the key without its line breaks anyway:
 
    ```sh
-   npx supabase secrets set APPLE_TEAM_ID=3DYA8J45VJ APPLE_KEY_ID=<key id> APPLE_PRIVATE_KEY="$(cat AuthKey_<key id>.p8)"
+   npx supabase secrets set APPLE_TEAM_ID=3DYA8J45VJ APPLE_KEY_ID=<key id> APPLE_PRIVATE_KEY="$(tr -d '\r\n' < AuthKey_<key id>.p8)"
    ```
 
 3. Before turning it on, see whether the app goes inactive under Apple's sheet, on an iPhone and on an iPad with build 5 or later (build 4 has no 15-second limit and writes no such row). A sign-in left on the sheet past 15 seconds writes a row in `app_errors`, with `No answer yet, app inactive` the first time in each run of the app, or with `app active` every time. With `app active`, nothing tells that sheet from a silent Apple, and a deletion would go on with someone still on it, so leave the switch off.
