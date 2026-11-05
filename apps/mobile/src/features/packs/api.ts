@@ -269,6 +269,10 @@ export function useRenewInviteCode(packId: string) {
     // stalled reload must not leave a dead code up to be shared.
     onSuccess: (code) => {
       queryClient.setQueryData<Pack | null>(packKey(packId), (pack) => pack && { ...pack, invite_code: code });
+    },
+    // An answer that was lost may have come after the code changed, so the pack is read again
+    // either way.
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: packsKey });
     },
   });

@@ -964,6 +964,20 @@ describe('a new invite code', () => {
     expect(shows(FRESH)).toBe(true);
     expect(shows('ABCD2345')).toBe(false);
   });
+
+  it("shows the server's code when the answer was lost after the code changed", async () => {
+    mockRpc.mockImplementation(async (name: string) => {
+      if (name !== 'renew_invite_code') return { error: null };
+      mockPacks = [{ ...asAdmin(packNamed('p1')), invite_code: FRESH }];
+      return { data: null, error: { message: 'TypeError: Network request failed', details: '', hint: '', code: '' } };
+    });
+    await start('/pack/p1/invite');
+
+    await getNewCode();
+
+    expect(shows(FRESH)).toBe(true);
+    expect(shows('ABCD2345')).toBe(false);
+  });
 });
 
 describe('a new code reaching the join screen that is open', () => {
