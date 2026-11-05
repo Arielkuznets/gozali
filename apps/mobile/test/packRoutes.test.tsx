@@ -1105,7 +1105,6 @@ describe("the phone's own way back on Create pack", () => {
 describe('a new invite code', () => {
   const FRESH = 'EFGH6789';
   const WAIT = 'Getting a new code…';
-  const SAVE_FAILED = [["Saving didn't work. Please try again."]];
 
   async function getNewCode() {
     let link = app.root.find((node) => typeof node.type === 'string' && node.props.children === 'Get a new code');
@@ -1221,8 +1220,10 @@ describe('a new invite code', () => {
   });
 
   // No code is taken for the new one without the answer: the pack is read as it is now, and the
-  // admin hears what holds either way.
-  const MAYBE = [['The new code may not have gone through.', 'The code on screen is the one that works now.']];
+  // admin hears what holds either way. She can be on any screen by then, so it names the pack.
+  const MAYBE = [['The new code for "Pack p1" may not have gone through.', 'Its invite screen shows the code that works now.']];
+  // The same when the pack can't be read after it either, as the code on screen may have stopped working.
+  const MAYBE_UNREAD = [['The new code for "Pack p1" may not have gone through.', "Check its invite screen once you're back online."]];
 
   describe('with the answer lost', () => {
     const lost = { data: null, error: { message: 'TypeError: Network request failed', details: '', hint: '', code: '' } };
@@ -1291,8 +1292,29 @@ describe('a new invite code', () => {
       expect(mockNotify.mock.calls).toEqual(MAYBE);
     });
 
+    it('says it may not have gone through, and to check once back online, when the read after an answer lost at once fails, then shows the new code', async () => {
+      client = new QueryClient();
+      mockRpc.mockImplementation(async (name: string) => {
+        if (name !== 'renew_invite_code') return { error: null };
+        mockPacks = [{ ...asAdmin(packNamed('p1')), invite_code: FRESH }];
+        mockOffline = true;
+        setTimeout(() => {
+          mockOffline = false;
+        }, 500);
+        return lost;
+      });
+      await start('/pack/p1/invite');
+
+      await getNewCode();
+      await settle();
+      await settle();
+
+      expect(shows(FRESH)).toBe(true);
+      expect(mockNotify.mock.calls).toEqual(MAYBE_UNREAD);
+    });
+
     // A renewal that fails at once found no connection: the read after it gets one try, not 7 s of retries.
-    it('says saving failed within a second when every request fails at once', async () => {
+    it('says within a second that the new code may not have gone through, when every request fails at once', async () => {
       client = new QueryClient();
       mockRpc.mockImplementation(async (name: string) => (name === 'renew_invite_code' ? lost : { error: null }));
       await start('/pack/p1/invite');
@@ -1300,33 +1322,41 @@ describe('a new invite code', () => {
 
       await getNewCode();
 
-      expect(mockNotify.mock.calls).toEqual(SAVE_FAILED);
+      expect(mockNotify.mock.calls).toEqual(MAYBE_UNREAD);
       expect(shows('ABCD2345')).toBe(true);
       expect(shows('Get a new code')).toBe(true);
       expect(off('Share invite')).toBe(false);
     });
 
     it.each([
-      ['saving failed, when the pack can no longer be read', true, SAVE_FAILED],
-      ['the new code may not have gone through, when the pack can be read', false, MAYBE],
-    ])('tells an admin who left the screen before the answer that %s', async (_name, offline, said) => {
+      ['its invite screen shows the code that works now, when the pack can be read', false, MAYBE],
+      ['to check its invite screen once back online, when the pack can no longer be read', true, MAYBE_UNREAD],
+    ])('names the pack for an admin on the invite screen of another pack by the answer, and says %s', async (_name, offline, said) => {
+      mockPacks = [asAdmin(packNamed('p1')), { ...asAdmin(packNamed('p2')), invite_code: 'QRST2345' }];
       holdAnswer();
       await start('/pack/p1');
       await open('/pack/p1/invite');
       await getNewCode();
       await press('Done');
+      await open('/pack/p2');
+      await open('/pack/p2/invite');
       mockOffline = offline;
 
       await act(async () => answer(lost));
       await settle();
 
-      expect(pathname()).toBe('/pack/p1');
+      expect(pathname()).toBe('/pack/p2/invite');
+      expect(shows('QRST2345')).toBe(true);
       expect(mockNotify.mock.calls).toEqual(said);
     });
   });
 
-  it('says a refusal at once, without waiting for a read of the pack', async () => {
-    const refused = { data: null, error: { message: 'admin_only', details: '', hint: '', code: '42501' } };
+  // A refusal is an answer: the code didn't change.
+  it.each([
+    ['admin_only', '42501', 'Only the pack admin can do that.'],
+    ['canceling statement due to statement timeout', '57014', "Saving didn't work. Please try again."],
+  ])('says a refusal at once, without waiting for a read of the pack: %s', async (message, code, said) => {
+    const refused = { data: null, error: { message, details: '', hint: '', code } };
     mockRpc.mockImplementation(async (name: string) => (name === 'renew_invite_code' ? refused : { error: null }));
     await start('/pack/p1/invite');
     mockPackAnswered = new Promise(() => undefined);
@@ -1334,7 +1364,7 @@ describe('a new invite code', () => {
 
     await getNewCode();
 
-    expect(mockNotify.mock.calls).toEqual([['Only the pack admin can do that.']]);
+    expect(mockNotify.mock.calls).toEqual([[said]]);
   });
 
   // Android's fetch can hand over an answer cut off after its headers, which supabase-js reads as
@@ -1364,14 +1394,14 @@ describe('a new invite code', () => {
       expect(mockNotify.mock.calls).toEqual(MAYBE);
     });
 
-    it('says saving failed when the read fails too', async () => {
+    it('says to check once back online when the read fails too', async () => {
       mockRpc.mockImplementation(async (name: string) => (name === 'renew_invite_code' ? { data: null, error: null } : { error: null }));
       await start('/pack/p1/invite');
       mockOffline = true;
 
       await getNewCode();
 
-      expect(mockNotify).toHaveBeenCalledWith("Saving didn't work. Please try again.");
+      expect(mockNotify.mock.calls).toEqual(MAYBE_UNREAD);
       expect(shows('ABCD2345')).toBe(true);
     });
   });

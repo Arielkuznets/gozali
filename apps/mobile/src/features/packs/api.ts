@@ -303,12 +303,10 @@ export function useUpdatePack(packId: string) {
   });
 }
 
-const RENEWAL_UNCONFIRMED = 'renewal_unconfirmed';
-
 /** A renewal with no answer, once the pack has been read again: the code on screen works, new or not. */
-function isUnconfirmedRenewal(error: unknown): boolean {
-  return errorMessage(error) === RENEWAL_UNCONFIRMED;
-}
+const RENEWAL_UNCONFIRMED = 'renewal_unconfirmed';
+/** A renewal with no answer, when the pack couldn't be read after it either: the code on screen may no longer work. */
+const RENEWAL_UNREAD = 'renewal_unread';
 
 /** Without a connection a request fails at once, so one that fails this soon is taken to have had none. */
 const NO_CONNECTION_MS = 1000;
@@ -337,8 +335,11 @@ export function useRenewInviteCode(packId: string) {
             .refetchQueries({ queryKey: packKey(packId), exact: true }, { throwOnError: true })
             .then(() => queryClient.getQueryData<Pack | null>(packKey(packId)))
       ).catch(() => null);
-      throw read ? new Error(RENEWAL_UNCONFIRMED) : (error ?? new Error('no_answer'));
+      throw new Error(read ? RENEWAL_UNCONFIRMED : RENEWAL_UNREAD);
     },
+    // The name as the phone has it at the tap, for an alert that can come on any screen: the read
+    // after a lost answer can find the pack gone.
+    onMutate: () => queryClient.getQueryData<Pack | null>(packKey(packId))?.name,
     // The old code stopped working with this answer, so the screen takes the new one from it: a
     // stalled reload must not leave a dead code up to be shared.
     onSuccess: (code) => {
@@ -346,10 +347,13 @@ export function useRenewInviteCode(packId: string) {
     },
     // Said here, not at the tap: callbacks of the tap don't run for a screen that closed meanwhile,
     // and an admin who left it taking the old code for dead has to hear that it may still let people in.
-    onError: (error) =>
-      isUnconfirmedRenewal(error)
-        ? notify(t('invite.renewUnconfirmed'), t('invite.renewUnconfirmedDetail'))
-        : notify(t(packErrorKey(error))),
+    // Without the answer it may have gone through or not, so only a refusal says it didn't.
+    onError: (error, _variables, name) => {
+      const outcome = errorMessage(error);
+      if (outcome === RENEWAL_UNCONFIRMED) notify(t('invite.renewUnconfirmed', { name }), t('invite.renewUnconfirmedDetail'));
+      else if (outcome === RENEWAL_UNREAD) notify(t('invite.renewUnconfirmed', { name }), t('invite.renewUnreadDetail'));
+      else notify(t(packErrorKey(error)));
+    },
     // The list holds the code too, and a refusal can come from a pack that changed since it was read.
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: packsKey });

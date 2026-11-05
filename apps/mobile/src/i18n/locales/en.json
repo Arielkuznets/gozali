@@ -134,8 +134,9 @@
     "renewBody": "The current code and link stop working. Anyone who hasn't joined yet needs the new one.",
     "renewConfirm": "New code",
     "renewing": "Getting a new code…",
-    "renewUnconfirmed": "The new code may not have gone through.",
-    "renewUnconfirmedDetail": "The code on screen is the one that works now."
+    "renewUnconfirmed": "The new code for \"{{name}}\" may not have gone through.",
+    "renewUnconfirmedDetail": "Its invite screen shows the code that works now.",
+    "renewUnreadDetail": "Check its invite screen once you're back online."
   },
   "join": {
     "title": "Join a pack",
