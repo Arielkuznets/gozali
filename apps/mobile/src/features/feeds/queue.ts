@@ -4,6 +4,7 @@ import { Directory, File, Paths } from 'expo-file-system';
 import { AppState, Platform } from 'react-native';
 
 import { QUEUE_LIMIT_MS, feedErrorCode, inTime, isFinalRejection, isNetworkFailure, sendFeed, type OutgoingFeed } from '@/features/feeds/send';
+import { endFocusSessionOf, nameFocusFeed } from '@/features/focus/session';
 import { isBlockedText } from '@/lib/errors';
 import { errorText } from '@/lib/reportError';
 import { storedSession } from '@/lib/supabase';
@@ -61,6 +62,7 @@ export async function isOnline(): Promise<boolean> {
 /** Keeps a feed for later. Web has no durable file storage, so there it is dropped. */
 export async function enqueue(feed: OutgoingFeed): Promise<boolean> {
   if (Platform.OS === 'web') return false;
+  if (feed.focusMinutes !== null) await nameFocusFeed(feed.packId, feed.id);
   const kept = new File(queueDirectory(), `${feed.id}.jpg`);
   try {
     await new File(feed.photoUri).copy(kept);
@@ -278,6 +280,8 @@ async function run(): Promise<FlushResult> {
         const droppedFor = errorText(attempt.error);
         await update((list) => list.map((item) => (item.id === feed.id ? { ...item, droppedFor } : item)));
       } else {
+        // A kill can stop Send before it ends the focus session this photo was for.
+        if (feed.focusMinutes !== null) await endFocusSessionOf(feed.id);
         await update((list) => list.filter((item) => item.id !== feed.id));
       }
       result.handled += 1;

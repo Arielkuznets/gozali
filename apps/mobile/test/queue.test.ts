@@ -3,6 +3,7 @@ import { AppState } from 'react-native';
 
 import { enqueue, flushQueue, forgetFeedsOf, forgetFeedsOfOthers, holdForSend, pendingFeeds, releaseFromSend } from '@/features/feeds/queue';
 import type { OutgoingFeed } from '@/features/feeds/send';
+import { storedFocusSession, type FocusSession } from '@/features/focus/session';
 
 // The queue keeps photos in the app's documents folder; here files are just names.
 jest.mock('expo-file-system', () => {
@@ -42,6 +43,11 @@ const mockSendFeed = jest.fn();
 jest.mock('@/features/feeds/send', () => ({
   ...jest.requireActual('@/features/feeds/send'),
   sendFeed: (feed: OutgoingFeed) => mockSendFeed(feed),
+}));
+// A focus session that ends takes its end notice off the phone.
+jest.mock('expo-notifications', () => ({
+  cancelScheduledNotificationAsync: async () => undefined,
+  dismissNotificationAsync: async () => undefined,
 }));
 
 // Whose session the phone holds; the feeds here are Noa's unless a test says otherwise.
@@ -442,6 +448,49 @@ describe('a feed Send is trying', () => {
 
     mockSendFeed.mockResolvedValue('feed-id');
     expect((await flushQueue()).handled).toBe(1);
+  });
+
+  describe('with the photo that ends a focus session', () => {
+    // Held here and never let go of, as by a Send the app was killed in, so each has an id of its own.
+    const focusFeed = (id: string): OutgoingFeed => ({ ...feed(id), focusMinutes: 25 });
+    /** As Done leaves it while the camera is open: paused, its 25 minutes over. */
+    const doneSession = (): FocusSession => {
+      const now = Date.now();
+      return { packId: 'pack', minutes: 25, startedAt: now - 26 * 60_000, pausedAt: now - 60_000, pausedMs: 0, notificationId: null };
+    };
+    const storeSession = (session: FocusSession) => AsyncStorage.setItem('gozali.focus', JSON.stringify(session));
+
+    it('ends that session when the start after the app was killed sends it', async () => {
+      await storeSession(doneSession());
+      expect(await holdForSend(focusFeed('focus-1'))).toBe(true);
+
+      mockSendFeed.mockResolvedValue('feed-id');
+      expect((await afterRestart().flushQueue()).handled).toBe(1);
+
+      expect(await storedFocusSession()).toBeNull();
+    });
+
+    it('leaves a session started after the photo was taken', async () => {
+      await storeSession(doneSession());
+      expect(await holdForSend(focusFeed('focus-2'))).toBe(true);
+      const later: FocusSession = { packId: 'pack', minutes: 15, startedAt: Date.now(), pausedAt: null, pausedMs: 0, notificationId: null };
+      await storeSession(later);
+
+      mockSendFeed.mockResolvedValue('feed-id');
+      expect((await afterRestart().flushQueue()).handled).toBe(1);
+
+      expect(await storedFocusSession()).toEqual(later);
+    });
+
+    it('leaves the session to take the photo again when the server refuses it for good', async () => {
+      await storeSession(doneSession());
+      expect(await holdForSend(focusFeed('focus-3'))).toBe(true);
+
+      mockSendFeed.mockRejectedValue({ message: 'not_a_member', code: '42501' });
+      expect((await afterRestart().flushQueue()).dropped).toHaveLength(1);
+
+      expect(await storedFocusSession()).toMatchObject({ packId: 'pack', minutes: 25 });
+    });
   });
 });
 

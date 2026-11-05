@@ -17,6 +17,8 @@ export type FocusSession = {
   pausedAt: number | null;
   pausedMs: number;
   notificationId: string | null;
+  /** The feed with the photo that ends the session, once one is on its way. */
+  feedId?: string;
 };
 
 const STORAGE_KEY = 'gozali.focus';
@@ -106,6 +108,22 @@ export async function clearFocusSession(packId?: string): Promise<void> {
   await cancelEnd(session);
   await save(null);
   openScreens.forEach((forget) => forget());
+}
+
+/**
+ * Names the feed with the photo that ends the pack's session. The camera ends the session once Send
+ * is done; when a kill cuts Send short, the queue sends the feed later and ends the session that
+ * names it. Without the name, which a full phone can refuse, the session stays as it was.
+ */
+export async function nameFocusFeed(packId: string, feedId: string): Promise<void> {
+  const session = await load();
+  if (session?.packId === packId) await save({ ...session, feedId }).catch(() => undefined);
+}
+
+/** Ends the stored session if this feed has its photo: one started since then stays. */
+export async function endFocusSessionOf(feedId: string): Promise<void> {
+  const session = await load();
+  if (session?.feedId === feedId) await clearFocusSession(session.packId);
 }
 
 /** The one running session (at most one at a time) and its controls. */
