@@ -35,6 +35,7 @@ export default function InviteScreen() {
   if (!pack) return <PackMissingScreen />;
 
   const link = inviteLink(pack.invite_code);
+  const qrSize = height < 700 ? 136 : 180;
   const full = currentMembers(pack).length >= PACK_SIZE_MAX;
   const critterName = pack.critters?.name ?? (pack.critters ? t(`packs.species.${pack.critters.species}`) : '');
   const body = full
@@ -72,7 +73,7 @@ export default function InviteScreen() {
         <AppText style={[styles.centerText, styles.muted]}>{body}</AppText>
         {/* The code first: on a small phone the QR code is what scrolls out of view. */}
         <AppText variant="caption">{t('invite.code')}</AppText>
-        <AppText style={styles.code} selectable>
+        <AppText style={[styles.code, renewing && styles.stale]} selectable={!renewing}>
           {pack.invite_code}
         </AppText>
         {/* Whoever has the code joins at once and sees the pack's photos: nothing asks the pack first. */}
@@ -80,7 +81,11 @@ export default function InviteScreen() {
           {t('invite.anyone')}
         </AppText>
         <View style={styles.qr}>
-          <QRCode value={link} size={height < 700 ? 136 : 180} color={colors.ink} backgroundColor={colors.surface} />
+          {renewing ? (
+            <View style={{ width: qrSize, height: qrSize }} />
+          ) : (
+            <QRCode value={link} size={qrSize} color={colors.ink} backgroundColor={colors.surface} />
+          )}
         </View>
         {isAdmin &&
           (renewing ? (
@@ -118,6 +123,7 @@ const styles = StyleSheet.create({
   warning: { maxWidth: 320 },
   qr: { padding: spacing.md, borderRadius: radii.lg, backgroundColor: colors.surface },
   code: { fontFamily: fonts.bodyBold, fontSize: 32, lineHeight: 40, letterSpacing: 4 },
+  stale: { opacity: 0.3 },
   link: { color: colors.accentText },
   renewing: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   actions: { gap: spacing.sm },

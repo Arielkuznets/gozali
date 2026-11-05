@@ -4,7 +4,8 @@ import { ExpoRoot } from 'expo-router/build/ExpoRoot';
 import { store } from 'expo-router/build/global-state/router-store';
 import { getMockContext } from 'expo-router/build/testing-library/mock-config';
 import { useState } from 'react';
-import { BackHandler, Platform, Text, TextInput, type HardwareBackPressEvent } from 'react-native';
+import { BackHandler, Platform, StyleSheet, Text, TextInput, type HardwareBackPressEvent, type ViewStyle } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 
 import '@/i18n';
@@ -1114,6 +1115,19 @@ describe('a new invite code', () => {
   }
 
   const off = (label: string) => app.root.findAll((node) => node.props.label === label)[0]?.props.disabled === true;
+  /** The QR codes on screen, each as the link it carries and its size. */
+  const qrCodes = () => app.root.findAllByType(QRCode).map(({ props }) => [props.value, props.size]);
+  /** The sizes of the empty squares on screen, such as one keeping a QR code's place. */
+  const emptySquares = () =>
+    app.root
+      .findAll((node) => node.type === 'View' && node.children.length === 0)
+      .map((node) => StyleSheet.flatten(node.props.style) as ViewStyle | undefined)
+      .filter((style) => style?.width !== undefined && style.width === style.height)
+      .map((style) => style?.width);
+  const codeText = (code: string) => {
+    const text = app.root.find((node) => typeof node.type === 'string' && node.props.children === code);
+    return { selectable: text.props.selectable === true, dimmed: ((StyleSheet.flatten(text.props.style) as ViewStyle).opacity ?? 1) < 1 };
+  };
 
   /** The renewal's answer waits until the test lets it go with what the server says. */
   let answer: (result: unknown) => void = () => undefined;
@@ -1149,7 +1163,7 @@ describe('a new invite code', () => {
   });
 
   // The code on screen may be about to change, so nothing hands it out until the answer is in.
-  it('shows the wait in place of the link, with Share and Copy off, until the answer', async () => {
+  it('shows the wait in place of the link, with Share, Copy and the QR code off and the code dimmed, until the answer', async () => {
     holdAnswer();
     await start('/pack/p1/invite');
 
@@ -1161,6 +1175,10 @@ describe('a new invite code', () => {
     expect(off('Share invite')).toBe(true);
     expect(off('Copy code')).toBe(true);
     expect(off('Done')).toBe(false);
+    expect(qrCodes()).toEqual([]);
+    expect(emptySquares()).toHaveLength(1);
+    const [square] = emptySquares();
+    expect(codeText('ABCD2345')).toEqual({ selectable: false, dimmed: true });
 
     await act(async () => answer(changedTo(FRESH)));
     await settle();
@@ -1170,6 +1188,9 @@ describe('a new invite code', () => {
     expect(shows('Get a new code')).toBe(true);
     expect(off('Share invite')).toBe(false);
     expect(off('Copy code')).toBe(false);
+    expect(qrCodes()).toEqual([['https://gozali.app/i/EFGH6789', square]]);
+    expect(emptySquares()).toEqual([]);
+    expect(codeText(FRESH)).toEqual({ selectable: true, dimmed: false });
   });
 
   it('shows the wait on the invite screen opened again while the answer is on its way', async () => {
