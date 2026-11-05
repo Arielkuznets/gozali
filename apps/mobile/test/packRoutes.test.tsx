@@ -876,11 +876,26 @@ describe('a pack whose answer was lost', () => {
   const noAnswer = { data: null, error: { message: 'TypeError: Network request failed', details: '', hint: '', code: '' } };
   const creates = () => mockRpc.mock.calls.filter(([name]) => name === 'create_pack').length;
   const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+  /**
+   * A pack as the form makes it when only the name is typed: the gym, its 3 rest days and the first
+   * egg. A pack an earlier test was answered with stays known for the rest of the file, as for the
+   * rest of an app's run, so each pack made here has an id of its own.
+   */
+  const likeTheForm = (id: string): Pack => ({
+    ...asAdmin(packNamed(id)),
+    name: NAME,
+    rest_days_per_week: 3,
+    critters: { species: 'mochi', name: null, health: 100, xp: 0, stage: 'egg', status: 'egg', streak: 0, coins: 0, marks: [], outfit: null },
+  });
 
-  async function fillInAndCreate() {
+  async function fillInAndCreate(ownHabit?: string) {
     await open('/create-pack');
     await act(async () => app.root.findByType(TextInput).props.onChangeText(NAME));
     await press('Next');
+    if (ownHabit) {
+      await press('Custom');
+      await act(async () => app.root.findByType(TextInput).props.onChangeText(ownHabit));
+    }
     await press('Next');
     await press('Next');
     await press('Create pack');
@@ -893,21 +908,36 @@ describe('a pack whose answer was lost', () => {
   it('goes on to the invite of the pack the server made, once', async () => {
     mockRpc.mockImplementation(async (name: string) => {
       if (name !== 'create_pack') return { error: null };
-      mockPacks = [...mockPacks, { ...asAdmin(packNamed('p2')), name: NAME }];
-      mockMadeAt.set('p2', minutesAgo(0));
+      mockPacks = [...mockPacks, likeTheForm('lost-1')];
+      mockMadeAt.set('lost-1', minutesAgo(0));
       return noAnswer;
     });
     await start('/');
 
     await fillInAndCreate();
 
-    expect(pathname()).toBe('/pack/p2/invite');
+    expect(pathname()).toBe('/pack/lost-1/invite');
     expect(creates()).toBe(1);
     expect(mockNotify).not.toHaveBeenCalled();
   });
 
+  it('goes on to the invite of the pack the server made with a habit of its own', async () => {
+    mockRpc.mockImplementation(async (name: string) => {
+      if (name !== 'create_pack') return { error: null };
+      mockPacks = [...mockPacks, { ...likeTheForm('lost-2'), category: 'custom', custom_habit: 'Stretching', rest_days_per_week: 1 }];
+      mockMadeAt.set('lost-2', minutesAgo(0));
+      return noAnswer;
+    });
+    await start('/');
+
+    await fillInAndCreate('Stretching');
+
+    expect(pathname()).toBe('/pack/lost-2/invite');
+    expect(mockNotify).not.toHaveBeenCalled();
+  });
+
   it('says saving failed when the server made none, beside a pack of the same name made just before', async () => {
-    mockPacks = [{ ...asAdmin(packNamed('p1')), name: NAME }];
+    mockPacks = [likeTheForm('p1')];
     mockMadeAt.set('p1', minutesAgo(1));
     await start('/');
 
@@ -919,10 +949,55 @@ describe('a pack whose answer was lost', () => {
 
   it('says saving failed when the server made none, beside one of the same name the list here lacks', async () => {
     await start('/');
-    mockPacks = [...mockPacks, { ...asAdmin(packNamed('p3')), name: NAME }];
+    mockPacks = [...mockPacks, likeTheForm('p3')];
     mockMadeAt.set('p3', minutesAgo(10));
 
     await fillInAndCreate();
+
+    expect(mockNotify).toHaveBeenCalledWith("Saving didn't work. Please try again.");
+    expect(pathname()).toBe('/create-pack');
+  });
+
+  it('says saving failed when the server made none, beside one of the same name a create here was answered with', async () => {
+    mockRpc.mockImplementation(async (name: string) => {
+      if (name !== 'create_pack') return { error: null };
+      if (creates() > 1) return noAnswer;
+      mockPacks = [...mockPacks, likeTheForm('answered-1')];
+      mockMadeAt.set('answered-1', minutesAgo(0));
+      return { data: 'answered-1', error: null };
+    });
+    await start('/');
+    mockListAnswered = new Promise(() => undefined);
+    await fillInAndCreate();
+    expect(pathname()).toBe('/pack/answered-1/invite');
+
+    await fillInAndCreate();
+
+    expect(mockNotify).toHaveBeenCalledWith("Saving didn't work. Please try again.");
+    expect(pathname()).toBe('/create-pack');
+  });
+
+  it.each<[string, Partial<Pack>]>([
+    ['another egg', { critters: { ...likeTheForm('p3').critters!, species: 'kit' } }],
+    ['another habit', { category: 'running' }],
+    ['other rest days', { rest_days_per_week: 2 }],
+  ])('says saving failed when the server made none, beside one of the same name made just before with %s', async (_other, other) => {
+    await start('/');
+    mockPacks = [...mockPacks, { ...likeTheForm('p3'), ...other }];
+    mockMadeAt.set('p3', minutesAgo(1));
+
+    await fillInAndCreate();
+
+    expect(mockNotify).toHaveBeenCalledWith("Saving didn't work. Please try again.");
+    expect(pathname()).toBe('/create-pack');
+  });
+
+  it('says saving failed when the server made none, beside one of the same name made just before with another habit of its own', async () => {
+    await start('/');
+    mockPacks = [...mockPacks, { ...likeTheForm('p3'), category: 'custom', custom_habit: 'Yoga at noon', rest_days_per_week: 1 }];
+    mockMadeAt.set('p3', minutesAgo(1));
+
+    await fillInAndCreate('Stretching');
 
     expect(mockNotify).toHaveBeenCalledWith("Saving didn't work. Please try again.");
     expect(pathname()).toBe('/create-pack');
