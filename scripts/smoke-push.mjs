@@ -8,7 +8,7 @@ import { format } from 'node:util';
 
 import { createClient } from '@supabase/supabase-js';
 
-import { addDays, packDayOf, wallClock, zonedTimeToUtc } from '../packages/game-engine/src/index.ts';
+import { addDays, packDayOf, wallClock } from '../packages/game-engine/src/index.ts';
 import { render } from '../supabase/functions/send-push/messages.ts';
 import { EXPO_PUSH_URL, RefusedRequest, runFailed, sendAll } from '../supabase/functions/send-push/push.ts';
 
@@ -18,7 +18,16 @@ if (!secretKey) throw new Error('Set SUPABASE_SECRET_KEY (see `npx supabase stat
 
 const admin = createClient(url, secretKey, { auth: { persistSession: false } });
 const run = Date.now();
-const tz = 'Asia/Jerusalem';
+// The members live where it is day for the next hour. Quiet hours (23:00 to 07:00) hold the
+// pushes back to the morning, when a "last one" for a day that ended is no longer sent, so a
+// fixed zone failed this run whenever it ran at night there.
+const zones = ['Asia/Jerusalem', 'Asia/Tokyo', 'Asia/Kolkata', 'Europe/London', 'America/Sao_Paulo', 'America/New_York', 'America/Los_Angeles', 'Pacific/Auckland'];
+const daytime = (zone, time) => {
+  const { hour } = wallClock(new Date(time), zone);
+  return hour >= 8 && hour < 21;
+};
+const tz = zones.find((zone) => daytime(zone, run) && daytime(zone, run + 3600_000));
+if (!tz) throw new Error('No zone in the list has daytime for the next hour.');
 
 function check(condition, message) {
   if (!condition) throw new Error(`FAILED: ${message}`);
@@ -66,10 +75,8 @@ const { data: queued } = await admin.from('notifications').select('user_id, type
 check(queued.filter((n) => n.type === 'friend_fed').length === 3, 'two feeds make three friend-fed notifications, merged per member');
 check(queued.some((n) => n.type === 'last_one' && n.user_id === noa), 'Noa, the only one left, gets "last one"');
 
-// Claim after the 10-minute merge window, at a daytime hour for the members.
-let at = new Date(Date.now() + 11 * 60_000);
-const hour = wallClock(at, tz).hour;
-if (hour >= 23 || hour < 7) at = zonedTimeToUtc(addDays(packDayOf(at, tz), 1), 12, tz);
+// Claim after the 10-minute merge window, still in the members' daytime and on the same day.
+const at = new Date(Date.now() + 11 * 60_000);
 const { data: claimed, error } = await admin.rpc('claim_notifications', { at_time: at.toISOString() });
 if (error) throw error;
 const mine = claimed.filter((row) => row.pack_id === pack.id);
