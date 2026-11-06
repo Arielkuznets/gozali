@@ -50,12 +50,31 @@ export function memberOutcome(member: MemberDay, restDaysPerWeek: number): Membe
   return 'missed';
 }
 
+/**
+ * Whether an egg hatches when today ends whatever the members who haven't fed yet do: two of them
+ * fed, and the day succeeds even if every other member who could miss does, and those resting or
+ * on a joker leave the pack (which lowers the misses allowed). A joker, a declared rest and a pause
+ * past its first 3 days can be taken back before the day ends, so whoever would then miss counts as
+ * a miss already. A pause in those days can't, and the rules don't know its dates: the caller leaves
+ * that member out.
+ */
+export function hatchIsCertain(members: readonly MemberDay[], restDaysPerWeek: number): boolean {
+  const feeds = members.filter((member) => memberOutcome(member, restDaysPerWeek) === 'fed').length;
+  const misses = members.filter((member) => {
+    const takenBack = { ...member, jokerToday: false, restDeclaredToday: false, paused: false };
+    return memberOutcome(takenBack, restDaysPerWeek) === 'missed';
+  }).length;
+  return feeds >= FEEDERS_TO_HATCH && misses <= allowedMisses(feeds + misses);
+}
+
 /** Closes one pack day: who counted, what kind of day it was, and the critter's new state. */
 export function closeDay(input: DayInput): DayResult {
   const rows = input.members.map((member) => {
     const outcome = memberOutcome(member, input.restDaysPerWeek);
-    // On an outage day a miss counts like a pause: not counted, and no step toward sleeping.
-    return { member, outcome: input.outage && outcome === 'missed' ? ('paused' as const) : outcome };
+    // On an outage day a miss or an automatic rest counts like a pause: not counted, no step toward
+    // sleeping and no rest day used. A declared rest was the member's own choice, so it stays.
+    const excused = outcome === 'missed' || (outcome === 'rest' && !member.restDeclaredToday);
+    return { member, outcome: input.outage && excused ? ('paused' as const) : outcome };
   });
   const counted = rows.filter((row) => COUNTED_OUTCOMES.has(row.outcome)).length;
   const feeders = rows.filter((row) => row.outcome === 'fed').map((row) => row.member);

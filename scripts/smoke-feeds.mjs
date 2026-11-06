@@ -1,7 +1,15 @@
 // Feeding end to end against the local stack, with the same calls as the app: Noa uploads a
-// photo and feeds, Dan sees it live and can open the photo, Eve (not in the pack) can't.
-// Run with `npx supabase start` up: node scripts/smoke-feeds.mjs
+// photo and feeds, Dan sees it live and can open the photo, Eve (not in the pack) can't. Dan then
+// reports the photo and Noa, and the developer's alert about each goes through on-report, whose
+// every answer but a sent email names the report, with a stand-in for Resend. Reports sent at the
+// same moment keep to one person's 20 emails a day.
+// Run with `npx supabase start` and `npx supabase functions serve` up: node scripts/smoke-feeds.mjs
+import { registerHooks } from 'node:module';
+
 import { createClient } from '@supabase/supabase-js';
+
+import { reportEmail, reportedPicture } from '../supabase/functions/on-report/email.ts';
+import { as, openSession, whileOpen } from './db-session.mjs';
 
 const url = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY;
@@ -80,7 +88,11 @@ const fed = await noa.client.rpc('submit_feed', {
 });
 check(!fed.error && typeof fed.data === 'string', 'Noa feeds with a caption and a 45 minute focus session');
 const twice = await noa.client.rpc('submit_feed', { target: packId, photo: path });
-check(twice.error?.message.includes('already_fed'), 'a second counted feed the same day is refused');
+check(twice.data === fed.data, 'the same feed sent again (its answer was lost) gets back the feed it made');
+const second = `${packId}/${noa.id}/${run}-2.jpg`;
+await noa.client.storage.from('feed-photos').upload(second, photo, { contentType: 'image/jpeg' });
+const another = await noa.client.rpc('submit_feed', { target: packId, photo: second });
+check(another.error?.message.includes('already_fed'), 'a second counted feed the same day is refused');
 
 const until = Date.now() + 5000;
 while (heard.length === 0 && Date.now() < until) await new Promise((resolve) => setTimeout(resolve, 100));
@@ -98,8 +110,202 @@ check(eveLink.error !== null, 'Eve, who is not in the pack, gets no link');
 const eveFeeds = await eve.client.from('feeds').select('id').eq('pack_id', packId);
 check(eveFeeds.data?.length === 0, 'and sees no feeds');
 
+const avatar = `${noa.id}/${run}.jpg`;
+await noa.client.storage.from('avatars').upload(avatar, photo, { contentType: 'image/jpeg' });
+await noa.client.from('profiles').update({ avatar_path: avatar }).eq('id', noa.id);
+
+const reportPhoto = (client, reporter) =>
+  client
+    .from('reports')
+    .upsert({ feed_id: fed.data, reporter_id: reporter, reason: null }, { onConflict: 'feed_id,reporter_id', ignoreDuplicates: true });
+const reportMember = (client, reporter) =>
+  client
+    .from('reports')
+    .upsert({ member_id: noa.id, reporter_id: reporter }, { onConflict: 'member_id,reporter_id', ignoreDuplicates: true });
+
+check(!(await reportPhoto(dan.client, dan.id)).error, 'Dan reports the photo');
+check(!(await reportPhoto(dan.client, dan.id)).error, 'and doing it again is no error');
+check(!(await reportMember(dan.client, dan.id)).error, 'Dan reports Noa, for a name or a profile photo');
+check(!(await reportMember(dan.client, dan.id)).error, 'and doing it again is no error');
+check((await reportMember(eve.client, eve.id)).error !== null, "Eve, who is not in the pack, can't report Noa");
+const { data: reports } = await dan.client.from('reports').select('id, feed_id, member_id');
+check(reports?.length === 2, 'Dan has one report on each');
+
+// A posted photo can't change, so the photo Dan reported is the one the developer opens.
+const removed = await noa.client.storage.from('feed-photos').remove([path]);
+check(removed.data?.length === 0, "Noa can't delete the photo of her feed");
+const swapped = await noa.client.storage.from('feed-photos').upload(path, photo, { contentType: 'image/jpeg' });
+check(swapped.error !== null, 'so nothing takes its place under the same name');
+const unused = await noa.client.storage.from('feed-photos').remove([second]);
+check(unused.data?.length === 1, 'while an upload the server turned down is hers to remove');
+
+// One person's reports email the developer 20 times a day, also when hand-made calls send them at
+// the same moment: the second of two requests of 20 waits for the first, counts all 40, and emails
+// none of its own. The Vault holds no function address here, so the second request adds one in its
+// own transaction, counts what its reports queued for on-report, and is rolled back.
+const gil = await signedInUser('Gil');
+await gil.client.rpc('join_pack', { code: pack.invite_code });
+const setup = openSession();
+await setup.run(`insert into public.feeds (pack_id, user_id, day, is_extra)
+  select '${packId}', '${noa.id}', current_date, true from generate_series(1, 40);`);
+await setup.close();
+const { data: extras } = await admin.from('feeds').select('id').eq('pack_id', packId).is('photo_path', null);
+const reportAll = (feeds) =>
+  `insert into public.reports (feed_id, reporter_id) select unnest(array['${feeds.map((feed) => feed.id).join("','")}']::uuid[]), '${gil.id}'`;
+const beside = openSession();
+const queued = await whileOpen(as(gil, reportAll(extras.slice(0, 20))), () =>
+  beside.run(`begin;
+    select vault.create_secret('http://functions.smoke', 'functions_url') where not exists (select 1 from vault.secrets where name = 'functions_url');
+    select vault.create_secret('smoke-feeds', 'cron_secret') where not exists (select 1 from vault.secrets where name = 'cron_secret');
+    ${as(gil, reportAll(extras.slice(20)))}
+    select count(*) from net.http_request_queue q
+    where q.url like '%/on-report'
+      and convert_from(q.body, 'utf8') like any (select '%' || r.id || '%' from public.reports r where r.reporter_id = '${gil.id}');`),
+);
+await beside.run('rollback;');
+await beside.close();
+check(
+  extras.length === 40 && queued.split('\n').at(-1) === '0',
+  'of two requests of 20 reports at the same moment, only the first emails the developer',
+);
+
+// The same call the report trigger makes through pg_net where the Vault holds the function's address.
+// A stack without a mail key answers 503, which the owners' summary counts as a failure.
+for (const report of reports) {
+  const response = await fetch(`${url}/functions/v1/on-report`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-cron-secret': process.env.CRON_SECRET ?? 'local-cron-secret' },
+    body: JSON.stringify({ reportId: report.id }),
+  });
+  const answer = await response.json();
+  check(
+    (response.ok || response.status === 503) && answer.reportId === report.id,
+    `on-report answers about the report on ${report.feed_id ? 'the photo' : 'the member'}, by its id`,
+  );
+}
+
+// The real function, with Deno and Resend stood in for, and Storage's link signing where a check
+// needs it to fail. Only a sent email with its photo link answers 200: anything else is a failure in
+// the owners' summary, and its answer names the report.
+registerHooks({ resolve: (specifier, context, next) => next(specifier.replace(/^npm:(.+)@\d+$/, '$1'), context) });
+const functionEnv = { SUPABASE_URL: url, SUPABASE_SERVICE_ROLE_KEY: secretKey, CRON_SECRET: 'smoke-feeds' };
+let onReport;
+globalThis.Deno = { env: { get: (name) => functionEnv[name] }, serve: (handler) => (onReport = handler) };
+await import('../supabase/functions/on-report/index.ts');
+const realFetch = globalThis.fetch;
+const realConsoleError = console.error;
+const RESEND_URL = 'https://api.resend.com/emails';
+async function runOnReport(
+  reportId,
+  resend,
+  { mailEnv = { RESEND_API_KEY: 'resend-key', REPORT_EMAIL: 'dev@gozali.test' }, secret = 'smoke-feeds', sign } = {},
+) {
+  const mails = [];
+  Object.assign(functionEnv, { RESEND_API_KEY: undefined, REPORT_EMAIL: undefined }, mailEnv);
+  console.error = () => {};
+  globalThis.fetch = async (target, init) => {
+    if (sign && String(target).includes('/storage/v1/object/sign/')) return sign();
+    if (String(target) !== RESEND_URL) return realFetch(target, init);
+    mails.push(JSON.parse(init.body));
+    return resend(init);
+  };
+  try {
+    const answer = await onReport(
+      new Request('http://on-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-cron-secret': secret },
+        body: JSON.stringify({ reportId }),
+      }),
+    );
+    return { status: answer.status, body: await answer.json(), mails };
+  } finally {
+    globalThis.fetch = realFetch;
+    console.error = realConsoleError;
+  }
+}
+const resendTakes = () => Response.json({ id: 'mail' });
+const reportId = reports[0].id;
+const sent = await runOnReport(reportId, resendTakes);
+check(sent.status === 200 && sent.body.emailed === true, 'with a key and an address the report is emailed');
+check(sent.mails.length === 1 && sent.mails[0].to[0] === 'dev@gozali.test', 'to the developer');
+check(!sent.mails[0].text.includes('(no photo)'), 'with the link to what was reported');
+const unsigned = await runOnReport(reportId, resendTakes, {
+  sign: () => Response.json({ statusCode: '503', error: 'Service Unavailable', message: 'storage is restarting' }, { status: 503 }),
+});
+check(
+  unsigned.status === 502 && unsigned.body.reportId === reportId && unsigned.body.reason.includes('storage is restarting'),
+  'a link Storage fails to sign answers 502, naming the report and why',
+);
+check(
+  unsigned.mails.length === 1 && unsigned.mails[0].text.includes('(the link failed: storage is restarting)'),
+  'and the mail still goes, saying the link failed',
+);
+const refused = await runOnReport(reportId, () =>
+  Response.json({ name: 'validation_error', message: 'You can only send testing emails to your own email address' }, { status: 403 }),
+);
+check(
+  refused.status === 502 && refused.body.reportId === reportId && refused.body.reason.includes('testing emails'),
+  'a mail Resend refuses answers 502, naming the report and why',
+);
+const unreachable = await runOnReport(reportId, () => {
+  throw new TypeError('fetch failed');
+});
+check(unreachable.status === 502 && unreachable.body.reportId === reportId, 'and so does a mail that never reached Resend');
+// pg_net gives up on the answer after 60 seconds and keeps only the timeout, which names no report.
+const askedAt = Date.now();
+const unanswered = await runOnReport(
+  reportId,
+  (init) =>
+    new Promise((resolve, reject) => {
+      init.signal?.addEventListener('abort', () => reject(init.signal.reason));
+      setTimeout(() => resolve(Response.json({ id: 'too late' })), 60_000);
+    }),
+);
+check(
+  unanswered.status === 502 && unanswered.body.reportId === reportId && Date.now() - askedAt < 30_000,
+  'and so does a mail Resend never answers, well before pg_net stops waiting',
+);
+const noKey = await runOnReport(reportId, resendTakes, { mailEnv: { REPORT_EMAIL: 'dev@gozali.test' } });
+check(noKey.status === 503 && noKey.body.reportId === reportId && noKey.mails.length === 0, 'without a key it answers 503, naming the report');
+const noAddress = await runOnReport(reportId, resendTakes, { mailEnv: { RESEND_API_KEY: 'resend-key' } });
+check(noAddress.status === 503 && noAddress.body.reportId === reportId, 'and without an address too');
+const goneId = '00000000-0000-0000-0000-000000000000';
+const gone = await runOnReport(goneId, resendTakes);
+check(gone.status === 404 && gone.body.reportId === goneId, 'a report that is gone answers 404, by its id');
+const wrongSecret = await runOnReport(reportId, resendTakes, { secret: 'wrong' });
+check(wrongSecret.status === 403 && wrongSecret.body.reportId === reportId && wrongSecret.mails.length === 0, 'a call with the wrong secret is refused, naming the report');
+
+const details = async (report) => (await admin.rpc('report_details', { report: report.id })).data;
+const onPhoto = await details(reports.find((report) => report.feed_id));
+const photoEmail = reportEmail(onPhoto, 'https://link');
+check(reportedPicture(onPhoto)?.path === path, 'the alert on the photo links the photo');
+check(photoEmail.subject === 'Gozali report: Two chapters (1)', 'and is headed by its caption');
+check(photoEmail.lines.includes('Caption: Two chapters'), 'and quotes it');
+check(
+  reportEmail({ ...onPhoto, feed: { ...onPhoto.feed, photoPath: null } }, '').lines.includes('Photo (link valid 7 days): (no photo)'),
+  'an alert on a feed with no photo left says so',
+);
+check(
+  photoEmail.lines.includes(
+    `Keep it: update public.reports set handled_at = now() where feed_id = '${fed.data}'; update public.feeds set hidden_at = null where id = '${fed.data}';`,
+  ),
+  'it offers to keep the photo, its reports marked handled',
+);
+check(
+  photoEmail.lines.includes(
+    `Hide: update public.feeds set hidden_at = now() where id = '${fed.data}'; update public.reports set handled_at = now() where feed_id = '${fed.data}';`,
+  ),
+  'or to hide it, its reports marked handled too',
+);
+const onMember = await details(reports.find((report) => report.member_id));
+const memberEmail = reportEmail(onMember, 'https://link');
+check(reportedPicture(onMember)?.bucket === 'avatars' && reportedPicture(onMember)?.path === avatar, 'the alert on Noa links the profile photo');
+check(memberEmail.subject === 'Gozali report: Noa (1)', 'and is headed by the name');
+check(memberEmail.lines.includes(`Member: Noa (${noa.id})`), 'and says who it is');
+
 await dan.client.removeChannel(channel);
-await admin.storage.from('feed-photos').remove([path]);
-for (const user of [noa, dan, eve]) await admin.auth.admin.deleteUser(user.id);
+await admin.storage.from('feed-photos').remove([path, second]);
+await admin.storage.from('avatars').remove([avatar]);
+for (const user of [noa, dan, eve, gil]) await admin.auth.admin.deleteUser(user.id);
 console.log('all good');
 process.exit(0);

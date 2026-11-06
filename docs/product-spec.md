@@ -66,20 +66,20 @@ Each pack is an independent unit with one habit, one creature and its own rules;
 **Joining:**
 
 - **Invite link.** If the app is installed, the link opens the Join pack screen. If not, the landing page shows the invite code, copies it to the clipboard when the download button is tapped, and sends to the store. After installing and signing up:
-  - **Android:** the code arrives through Google Play (Install Referrer), and the user joins automatically.
-  - **iOS:** a "Have an invite code?" screen appears with a paste button or manual typing. On iOS there is no fully automatic join without a paid service, and that is a conscious trade-off.
+  - **Android:** the code arrives through Google Play (Install Referrer), so the app opens Join pack with the code filled in, and one tap joins.
+  - **iOS:** the invite page copies the code; in the app, Join with a code has a paste button or manual typing. On iOS the code can't come through the install without a paid service, and that is a conscious trade-off.
 - **QR code:** the invite link is also available as a QR code in the pack settings, for inviting face to face.
 - Maximum 8 members. A full pack shows a matching message. The limit is enforced in the database, so two people joining at the same moment can't go over it.
 - **A new member counts only from the day of their first feed.** Until then they appear in the members row as not started yet, they can be nudged, and they don't affect the creature. That way a member who joined and never started doesn't hurt the pack.
 
 **Permissions:**
 
-- **The pack creator is the admin:** changes the name, rest days and week start, chooses the creature's name (from the suggestions, and can change it later), and removes members.
+- **The pack creator is the admin:** changes the name, rest days and week start, chooses the creature's name once (from the suggestions), and removes members.
 - A change to rest days takes effect from the start of next week.
-- **Leaving:** any member can leave. If the admin leaves, admin passes to the longest-standing member.
-- A pack with no members is deleted after 30 days.
+- **Leaving:** any member can leave. If the admin leaves or their account goes, admin passes to the longest-standing member who plays: someone awake comes before someone asleep, and someone who has fed since joining before someone who hasn't. A pack of only sleepers still gets an admin.
+- A pack with no members is deleted after 30 days. Until then only someone who was in it can come back with its code, and the first one back becomes the admin; a member the admin removed stays out. To anyone else the code is one no pack has, so an emptied pack can't be seen or taken over (decision D25).
 
-**Week:** starts on Sunday by default; the admin can change it to Monday. The change takes effect at the end of the current week. When moving from Sunday to Monday, the Sunday in between joins the ending week (one 8-day week); when moving the other way, the current week is cut to 6 days. The rest-day quota of that week doesn't change.
+**Week:** starts on Sunday by default; the admin can change it to Monday. The change takes effect at the end of the current week, which ends as it would have, with its recap (decision D24). The days until the new start day comes round join the first week under it: moving from Sunday to Monday, that week has 8 days; moving from Monday to Sunday, 13. Its rest-day quota grows with its length, rounded up (2 instead of 1 in 8 days, 4 instead of 2 in 13), so the change costs nobody a rest.
 
 ## 4. The critter
 
@@ -89,6 +89,7 @@ The critter is the heart of the product: its state reflects the pack's commitmen
 
 - After the pack is created an egg is shown. Until the second member joins, the pack's days are not closed.
 - When the second member joins, the egg starts to crack with an animation, and days start to close. While the creature is an egg, the day close doesn't change health, XP or the streak.
+- An egg left with one member waits for a friend again: until someone joins, that member's days count only when they feed, with no miss, no rest day, no step toward sleep and no evening reminder.
 - **The egg hatches on the first successful day on which at least two members fed.** That day counts as a regular successful day, and the creature moves to the Baby stage.
 - **Name:** after hatching, a "Name me!" card appears in the feed. Any member can suggest a name, and the admin picks one. Until then the creature is called by its creature name (Mochi, Kit and so on).
 
@@ -97,10 +98,10 @@ The critter is the heart of the product: its state reflects the pack's commitmen
 | Creature | Color | Personality | Example line when hungry |
 | --- | --- | --- | --- |
 | Mochi (a dumpling puppy) | Apricot | Lazy and sleepy, complains in a cute way | "I was napping but also... starving?" |
-| Kit (a fox-cat) | Yellow | Dramatic and easily offended | "Wow. Nobody fed me. I see how it is." |
+| Kit (a fox-cat) | Yellow | Dramatic and easily offended | "Wow. Am I invisible? I see how it is." |
 | Axo (an axolotl) | Blue | Cheerful, always smiling | "Snack time? Snack time!" |
 | Ribbit (a mossy frog) | Green | Calm and peaceful | "A calm frog is a fed frog. Just saying." |
-| Hoot (an owlet) | Dark brown | Nerdy, loves facts | "Fun fact: I haven't eaten in 14 hours." |
+| Hoot (an owlet) | Dark brown | Nerdy, loves facts | "Fun fact: hungry owls hoot louder." |
 | Bun (a bunny) | White | Shy and sweet | "Um... sorry... is there food?" |
 
 **Health:** 0–100. Starts at 70.
@@ -137,7 +138,7 @@ Every stage change gets an animation and a celebratory notification to the whole
 
 **Pack memory:** events leave a permanent mark on the creature: a medal after 30 successful days in a row, a small bandage after it came back from running away, a holiday hat on holidays. The holidays are Rosh Hashanah, Hanukkah, Purim, Passover and New Year's; their dates come from the Hebrew calendar and are generated into a table (`packages/critter-art`, `npm run holidays`), because the phones' JavaScript engines can't be relied on to know that calendar.
 
-**Achievements, coins and wardrobe:** achievements are pack goals. Every achievement shows on the critter profile and unlocks one item for the pack's wardrobe for free. Every successful day also earns the pack coins, more the longer the streak: 1 a day, 2 from a 7-day streak, 3 from 14 and 5 from 30 (decision D21). Any member spends the pack's coins in the outfit shop on the critter profile (items cost 10 to 45 coins), and the purchase shows in the feed ("Noa bought Pixel a cap"). The halo, the cape and the space background can't be bought: they stay rewards for their achievements. Any member can dress the creature from the wardrobe, one item per slot (head, neck, background), and the change shows in the feed ("Noa gave Pixel a scarf"). The category item and the permanent marks don't take a slot; on holidays the holiday hat temporarily replaces the head item. An egg earns no coins and wears nothing, so while the creature is an egg the profile shows one line, "The shop opens when the egg hatches", in place of the wardrobe and the shop.
+**Achievements, coins and wardrobe:** achievements are pack goals. Every achievement shows on the critter profile and unlocks one item for the pack's wardrobe for free. Every successful day also earns the pack coins, more the longer the streak: 1 a day, 2 from a 7-day streak, 3 from 14 and 5 from 30 (decision D21). Any member spends the pack's coins in the outfit shop on the critter profile (items cost 10 to 45 coins), and the purchase shows in the feed ("Noa bought Pixel a cap"). The halo, the cape and the space background can't be bought: they stay rewards for their achievements. Any member can dress the creature from the wardrobe, one item per slot (head, neck, background), and the change shows in the feed ("Noa gave Pixel a scarf"). The category item and the permanent marks don't take a slot; on holidays the holiday hat temporarily replaces the head item. An egg earns no coins, unlocks nothing and wears nothing: a goal the pack reaches while it is an egg, like Full pack, unlocks on the day it hatches. While the creature is an egg the profile shows one line, "The shop opens when the egg hatches", in place of the wardrobe and the shop.
 
 | Achievement | Condition | Item |
 | --- | --- | --- |
@@ -159,7 +160,7 @@ Every stage change gets an animation and a celebratory notification to the whole
 - Blinking, yawning and breathing when idle.
 - Follows your finger with its eyes when you touch the screen.
 - Petting: reacts with an animation and a line.
-- Sleeps at night (22:00–07:00 by the device clock) with a nightcap.
+- Sleeps at night (22:00–07:00 in the phone's time zone) with a nightcap. The hour comes from the server's clock as far as the phone knows it; an iOS widget doesn't know it and reads the phone's clock.
 - Reacts to being fed: an eating animation with the photo that was taken.
 
 ## 5. Game rules
@@ -184,7 +185,7 @@ Every day ends at 03:00 in the pack's time zone and closes after a one-hour grac
 
 Coins aren't earned while the critter is an egg or away.
 
-**A day the service was down** can't fail: when the server was out for an hour or more of a pack's day, nobody could be sure to feed, so a miss that day counts like a pause (no health lost, no step toward sleeping), and the feeds that got through still count. Outages are found by the day close itself (a gap of more than an hour between its runs) or added by hand.
+**A day the service was down** can't fail: when the server was out for an hour or more of a pack's day, nobody could be sure to feed, so a miss or an automatic rest that day counts like a pause (no health lost, no step toward sleeping, no rest day used), and the feeds that got through still count. A rest someone declared stays a rest. Outages are found by the day close itself (a gap of more than an hour between its runs) or added by hand.
 
 **Allowed misses:** 0 in a pack of 2–4 counted members, and 1 in a pack of 5–8. Every miss always costs 8 health, even on a successful day.
 
@@ -211,21 +212,24 @@ Examples: in a pack of 6 where one missed, the day is successful, health goes up
 - One per member per calendar month. Doesn't accumulate.
 - Activated manually, only for the current day and before the day ends (03:00, not in the grace window). It cannot be activated retroactively.
 - If the member feeds on the same day after activating a joker, the joker is canceled and returned to them.
-- Members see that a joker was activated ("Noa is taking a joker today").
+- A joker on a day the member wasn't counted anyway (asleep, or not started yet) covered nobody, and goes back to them when that day closes.
+- Days before the pack's first day never close, so a joker or declared rest taken on them, alone in a new pack, goes back when the second member joins.
+- Members see that a joker was activated ("Noa took a joker").
 
 **Pause:**
 
 - For a planned absence: a vacation, a flight or reserve duty. The pause starts on the day after it is turned on (for an absence today there's the joker).
 - Length: 3 to 60 days. It can end early, but not before 3 days have passed.
 - A new pause is possible only 30 days after the previous one ended.
-- During a pause the member is not counted, and the creature is not hurt by them.
+- During a pause the member is not counted, and the creature is not hurt by them. A feed wouldn't count either, so the app doesn't offer one: the pack card shows 💤 instead of Feed, the pack screen says until when, and a link to the camera (a widget, a notification) opens the pack. The packs the phone keeps hold each member's pauses that aren't over, so this also holds with no connection. A feed that arrives anyway, from an older app or kept on a phone through the start of the pause, doesn't change this: the widget shows the member as away, and the pack hears nothing of it.
 - The limit is on minimum length and on frequency, not on a short maximum length: the abuse to prevent is short, frequent pauses instead of a lazy day, not long absences like reserve duty.
 
 **Sleep (inactive member):**
 
-- A member with 3 misses within 7 days goes to sleep automatically: they are not counted, the creature is not hurt by them, and their circle is shown with 💤. The count starts over every time the member wakes up.
+- A member with 3 misses within 7 days goes to sleep automatically: they are not counted, the creature is not hurt by them, and their circle is shown with 💤. The count starts over every time the member wakes up or rejoins the pack, except a rejoin after a day ended and before it closed by a member who fed on that day: that is as if they never left, so the feed counts and their misses stay.
 - They get a gentle message ("Still in? Your pack misses you") with an option to pause or leave.
 - Their next feed wakes them immediately, and they count on that same day.
+- A pause they turn on wakes them on its first day, so until then they stay asleep, and a pause cancelled before it starts changes nothing.
 - That way one member who disappeared doesn't kill the creature for everyone, and nobody has to "kick out" a friend. The admin can still remove members at any moment.
 - The rule counts misses within a window and not misses in a row, because rest days are used automatically: with 3 rest days a week, a member who disappeared collects at most 4 misses in a row, so a "5 in a row" rule would never have fired.
 
@@ -237,6 +241,8 @@ Examples: in a pack of 6 where one missed, the day is successful, health goes up
 - The day close must be idempotent: running the same day twice doesn't change the result.
 - Days close in order, because each day depends on the result of the previous one. If a close failed or was late, the next run fills in all the missing days.
 - The end of the day is computed by the pack's time zone (IANA), so on a daylight saving change the day lasts 23 or 25 hours.
+- A phone set to a bare offset instead of a named zone (Android calls a zone picked by hand GMT+02:00) uses the IANA zone at that offset, Etc/GMT-2. Those zones are whole hours from UTC-12 to UTC+14, so an offset like GMT+05:30 uses UTC.
+- A phone that can't read a pack's zone (an old Android doesn't know Europe/Kyiv) draws that pack's day in its own zone and tells the developer. Only what the screens show can be off: the server decides every day that counts.
 
 **The rules module and the simulator:** the rules are implemented as a pure TypeScript module with no dependencies (`packages/game-engine`): the previous state and the day's data go in, a result comes out. The same module is used by the server day close, the tests and the simulator, which runs the rules over simulated packs of different sizes, categories and reliability levels, and measures the rate of successful days, average health, the chance of running away and the time to each stage. The latest results are in [simulation.md](simulation.md).
 
@@ -256,17 +262,20 @@ A user feeds the creature with a photo taken inside the app right now; this is t
 
 - **No uploads from the gallery.** Only a live photo.
 - The timestamp is set on the server at the moment of upload.
-- One feed per day per user per pack counts. The rule is enforced in the database, so a double tap on send can't create two counted feeds. More photos can be posted to the feed ("Post extra"), without affecting health.
+- One feed per day per user per pack counts. The rule is enforced in the database, so a double tap on send can't create two counted feeds. More photos can be posted to the feed ("Post extra"), up to five a day per pack, without affecting health.
 - A user in several packs feeds each pack separately.
 - Photos are compressed on the device before upload (maximum width 1080px, JPEG at quality 0.7).
+- A posted photo can't change: its poster can't delete the file or put another image in its place, so a report is about the photo everyone saw. Only an upload no feed holds, like one the server turned down, is theirs to delete. Once the 30-day cleanup deletes a photo its name is free again, so the cleanup keeps a photo reported in the last 7 days until the developer's link to it has run out (section 11).
 - The caption is filtered for offensive words before it is posted (a store requirement, section 11).
-- **Offline mode:** if there is no internet, the feed is queued and sent when the connection returns. If it was captured before the day ended and reached the server within the grace window, it counts for the day it was captured. This is the only case where the server trusts the phone clock, and it is a conscious trade-off: the window is limited to one hour, and the photo is visible to the members. The day close waits for the end of the grace window, so its result is final.
+- **Offline mode:** if there is no internet, sending gets no answer within 30 seconds, or sending fails for a reason that can pass on a later try, the feed is queued and sent the next time the app is open with a connection: when it starts, comes back to the foreground or gets its connection back while open, and once a minute while it stays open. Nothing sends it while the app is closed. The feed waits on the phone from the moment its photo is ready, a second or so after the tap on Send, out of the queue's way until Send is done with it, so a send cut short by the app closing goes out from the queue after the next start. An app closed in that second keeps no feed. A send that was only slow can still land after that: the queue's try asks storage first, sends no photo that is already there, and gets back the same feed. A send given up on deletes nothing, so it can't take the photo from under that try. While a counted feed of today waits on a phone, home and the pack take that member's part as done there, so nothing asks for a second photo; how many fed stays the server's count. The 30 seconds are for someone holding a spinner: a queue's try waits up to 170 seconds, past a photo's own limit of 160, so a slow link doesn't stop it at the first feed. If it was captured before the day ended and reached the server within the grace window, it counts for the day it was captured. This is the only case where the server trusts the phone clock, and it is a conscious trade-off: the window is limited to one hour, and the photo is visible to the members. The day close waits for the end of the grace window, so its result is final. A queued feed the server refuses for good, or whose photo is gone from the phone, is dropped: the member is told once the app is in front, even if it was closed in between, and an error report goes to the developer the first time that happens with a connection. A photo only the server lost is uploaded again by the next try. Signing out deletes what the account has queued, after asking when anything waits. If the server ended the session instead, the feeds wait for the same person and are deleted when another account reaches the app, past its profile setup, and the focus timer does the same. Signing out of the setup leaves them where they are.
 
 **Focus timer (Study, Reading, Meditation, Language and Music practice):**
 
 - In packs of habits done in sittings (Study, Reading, Meditation, Language, Music practice), next to the Feed button there is also Focus: a timer of 15, 25, 45 or 60 minutes, or an open timer.
-- When the time is up a local notification is sent and the camera opens, and the feed shows the length of the session ("📖 45 min").
+- When the time is up a local notification is sent and the camera opens, and the feed shows the length of the session ("📖 45 min"). With notifications turned off for the app in the phone's settings, the timer says so and asks to check back when time is up. With another screen open over the timer the camera holds back, so nothing on that screen is lost. Back on the timer within a minute it opens, and after that the session waits for Done.
 - The timer is optional, and a photo is still required as proof. It keeps running while the app is in the background.
+- Done stops the clock at the camera, and the photo that goes out ends the session. A camera refused or closed without a photo leaves the session paused on the Focus screen, with its minutes.
+- During a pause no photo counts, so Focus is hidden like Feed. A session the pause overtook keeps Focus in reach until it is over, and the link at its end ends it and opens the pack.
 
 **No automatic photo check in version 1.** The protection against cheating is: live photos only, a timestamp, and exposure to the members in the feed. In a future version: on-device image classification (Vision on iOS, ML Kit on Android) that asks to retake the photo if it doesn't fit the category, without involving the members.
 
@@ -274,13 +283,13 @@ A user feeds the creature with a photo taken inside the app right now; this is t
 
 The social part creates the positive pressure and the reason to open the app even after you fed.
 
-**Pack feed:** all feeds and extra posts, newest first. Each item shows a photo, caption, name, time and reactions. System events are mixed into the feed: "Pixel evolved to Teen", "Noa is taking a joker", "Pixel ran away", achievements ("Pixel unlocked Two weeks strong"), wardrobe changes ("Noa put a scarf on Pixel"), and a "Name me!" card after hatching. After 30 days the photo is deleted (section 11), and the item stays without a photo.
+**Pack feed:** all feeds and extra posts, newest first. Each item shows a photo, caption, name, time and reactions. System events are mixed into the feed: "Dan joined the pack", "Pixel evolved to Teen", "Noa took a joker", "Pixel ran away", achievements ("Pixel unlocked Two weeks strong"), wardrobe changes ("Noa put a scarf on Pixel"), and a "Name me!" card after hatching. A member's join shows once a day, so leaving and coming back the same day adds no line, and 20 of a member's wardrobe changes a day show; past them the outfit still changes. After 30 days the photo is deleted (section 11), and the item stays with a short line in its place.
 
 **Reactions:** a fixed set of 5 emoji: 🔥 💪 😂 👏 🤨. One reaction per user per item, and it can be changed. 🤨 (for a suspicious photo) has **no effect at all on the creature**; it's only social pressure, and it is shown as a number without names, including to the person who posted. For the other reactions you can see who reacted.
 
-**Nudge:** next to a member who hasn't fed yet, including a member who hasn't started or is asleep, there is a button that sends them a notification: "{petName} is looking at you 👀". Limit: one nudge per day from each member to each member. You can't nudge a paused member, or a member who activated a joker or declared a rest today.
+**Nudge:** next to a member who hasn't fed yet, including a member who hasn't started or is asleep, there is a button that sends them a notification: "{petName} is looking at you 👀". Limit: one nudge per day from each member to each member. You can't nudge a paused member, or a member who activated a joker or declared a rest today. A nudge into the receiver's quiet hours (section 8), or in the two minutes before they start, when it could no longer go out in time, is turned down with a message, and the day's nudge stays unused.
 
-**Weekly recap:** created at the end of every week (by the pack's week start) and saved.
+**Weekly recap:** created at the end of every week (by the pack's week start) and saved. A week in which no member fed, rested, used a joker, was paused, slept or missed on any day, such as one of a pack that stood empty, is saved without a notification. A week everyone slept or paused through is still told.
 
 - How many successful days out of the days of the week, and the change in health.
 - The most consistent member this week (on a tie, everyone at the top).
@@ -300,9 +309,9 @@ Few notifications, and only ones that change behavior; each type can be turned o
 | Evening reminder | At the time the user chose (default 20:00), if they haven't fed yet. If that time is after the pack's day end (a member in another time zone), it is sent two hours before the day ends | On |
 | Last one | All the other counted members already fed, and only this user hasn't | On |
 | Nudge | A member nudged | On |
-| Pet state | The creature moved to Weak, Sick, Ran away, or came back | On |
+| Pet state | The creature moved down to Weak or Sick, ran away, or came back | On |
 | Evolution | The creature hatched, moved up a stage or unlocked an achievement | On |
-| Still in? | The user went to sleep | On |
+| Still in? | The user went to sleep, if they are still asleep when it goes out | On |
 | Timer done | The focus timer ended (a local notification) | On |
 | Weekly recap | The weekly recap is ready | On |
 
@@ -310,11 +319,12 @@ Few notifications, and only ones that change behavior; each type can be turned o
 
 - No more than 6 notifications per day per user **in total, across all packs together**. When the limit is reached, only Evening reminder and Last one are sent.
 - Friend fed doesn't count toward the limit, because it is merged: notifications waiting for the same user about the same pack are sent together ("3 friends fed Pixel"), after waiting up to 10 minutes. Timer done doesn't count either, because the user started it.
-- Reminders, Last one and nudges are not sent to someone who isn't counted today (paused, asleep) or who activated a joker or declared a rest.
-- No notifications between 23:00 and 07:00 in the user's time, with no exceptions. A notification created in those hours that is still relevant in the morning (Weekly recap, Evolution, Pet state, Still in?) is sent at 07:00; the rest are dropped.
+- Reminders and Last one are not sent to someone who isn't counted today (paused, asleep, or alone with an egg) or who activated a joker or declared a rest. A nudge does reach a sleeping member, since waking them is what it's for, but not someone paused, on a joker or resting.
+- No notifications between 23:00 and 07:00 in the user's time, with no exceptions. A notification created in those hours that is still relevant in the morning (Weekly recap, Evolution, Pet state, Still in?) is sent at 07:00; the rest are dropped. A nudge never gets that far: `nudge` refuses it, so the sender knows.
 - The texts are written in the creature's voice, according to its personality.
+- The app asks for the notification permission by itself as the first home screen opens: right after the profile setup for each new account, and once per install right after signing in for an account that skips the setup (a new phone, a reinstall). After that only the notice in settings and starting a focus timer ask.
 
-**Alerts for the people who run Gozali:** the owners listed in `app_owners` (added by hand, never through the app) get two more pushes: "🐣 Noa joined Gozali, user number 12" when someone finishes the profile setup, and at 21:00 on their clock a summary of the day ("👋 2 new (41 in all) · 🍽️ 18 people fed 7 packs", plus reports, app errors, calls to the functions that failed, failed scheduled jobs, hours the service was down and packs whose day close is late, when there were any). They don't count toward the daily limit and the limit doesn't drop them; a sign-up at night waits for 07:00.
+**Alerts for the people who run Gozali:** the owners listed in `app_owners` (added by hand, never through the app) get two more pushes: "🐣 Noa joined Gozali, user number 12" when someone finishes the profile setup, and at 21:00 on their clock a summary of the day ("👋 2 new (41 in all) · 🍽️ 18 people fed 7 packs", plus reports, app errors (an account deletion that failed is one), calls the database made to the functions that failed, failed scheduled jobs, hours the service was down and packs whose day close is late, when there were any; the size of the stored files from 500 MB on, half of what the free plan holds; and how old the last backup is from two days on, or that there is none yet). Reports, errors, failed calls and jobs count from 21:00 the evening before, so what goes wrong after one summary is in the next; an outage is known only once it is over, so its hours count whole in the summary after it ended; sign-ups and feeds are the day so far. These pushes don't count toward the daily limit and the limit doesn't drop them; a sign-up at night waits for 07:00.
 
 ## 9. Screens, widgets and flows
 
@@ -324,18 +334,18 @@ Fourteen screens in version 1, plus widgets for the home screen and the lock scr
 | --- | --- |
 | Welcome | Creature animation, the Sign in with Apple button, and the Google button once Google sign-in is turned on in the project |
 | Onboarding | Four cards where the creatures explain the rules: feed with a photo, responsible together, the creature never dies, and coins from good days dress it up. Can be skipped |
-| Profile setup | Display name, profile photo (optional), age 13+ declaration and accepting the terms, notification permission request with an explanation |
+| Profile setup | Display name (the one the sign-in gave, or "Friend" to keep or change when it gave none: Apple gives it only the first time, and a setup that waits for a typed name breaks Apple's review rules), profile photo (optional), age 13+ declaration and accepting the terms, an explanation of the notification permission request that follows it (section 8), and a quiet Sign out for the wrong account or terms the person doesn't accept |
 | Home | The list of packs: for each pack the creature in its state, a health bar, how many members fed today (3/5) **and a direct Feed button**. A create pack button and join with a code |
-| Join pack | The pack name, the habit, the creature and the members, and a join button. On the first open after installing on iOS: "Have an invite code?" with paste or typing |
+| Join pack | The pack name, the habit, the creature and the members, and a join button. Join with a code (on the home screen) takes a pasted or typed code |
 | Pack | The animated creature in the center, health bar, coins, streak, a countdown to the end of the day, a row of member circles (colored = fed, dashed = rest or joker, 💤 = asleep or paused, gray = not yet, including someone who hasn't started), a big Feed button with "Not today" next to it (rest or joker) and in packs of sitting habits (Study, Reading, Meditation, Language, Music practice) also Focus, and the feed below |
 | Camera | Capture, switch camera, retake, caption, send |
 | Focus | The running timer, the creature "studying" or "reading" next to it, pause and cancel |
 | Create pack | Four steps: name, category, rest days, and the critter, then the link sharing screen |
 | Critter profile | Stage and progress to the next XP, monthly board, medals and marks, achievements, a wardrobe for dressing the creature, and the outfit shop with the pack's coins |
 | Weekly recap | The weekly recap and the button to share it as a story |
-| Pack settings | Name, rest days, week start, members (removal for the admin), invite link and QR code (the admin can replace the code), pause, joker, leave |
+| Pack settings | Name, rest days, week start, members (removal for the admin), invite link and QR code (the admin can replace the code), pause, leave |
 | Me | Personal stats: total feeds, current and best personal streak (days in a row without a miss in any pack), and a personal monthly board across all packs |
-| Settings | Reminder time, notifications by type, language, privacy, blocked users, how to add widgets, delete account |
+| Settings | Display name, reminder time, notifications by type, language, privacy, blocked users, how to add widgets, delete account |
 
 Reporting and blocking are in the menu of every feed item and of every member.
 
@@ -344,19 +354,21 @@ Reporting and blocking are in the menu of every feed item and of every member.
 | Widget | Platform | What it shows | Tap |
 | --- | --- | --- | --- |
 | Pack, small | iOS and Android | The creature in its state, a health bar, "3/5", and a mark if the user already fed | Opens the pack's camera, or the pack screen if the user already fed |
-| Pack, medium | iOS and Android | Also: the members' circles without names, the streak, and the time left until the day ends | Like the small one, and a Feed button opens the camera |
-| All packs, large | iOS and Android | Up to 3 packs: for each the creature, health and "3/5" | Opens the pack that was tapped |
+| Pack, medium | iOS and Android | Also: the creature's name, the members' circles without names, the streak, and when the day ends: a live countdown on iOS, the time it ends on Android (which redraws only every half hour) | Opens the pack screen; its Feed button, shown until the user fed, opens the camera |
+| All packs, large | iOS and Android | Up to 3 packs: for each the pack's name, the creature, health and "3/5" | Opens the pack that was tapped like the small one: its camera, or its pack screen if the user already fed |
 | Lock screen | iOS | A health ring and "3/5"; the rectangular version also shows the creature's name | Opens the pack screen |
 
 - For single-pack widgets you choose which pack to show, in the widget settings.
+- On iOS the widgets need iOS 17 or later, for that choice and their background. The app runs on older versions too, and there Settings says widgets need iOS 17 instead of how to add one.
+- The iOS app is for iPhone, and an iPad runs it too, but an iPad's home screen may not offer the widgets of an iPhone app. So Settings tells how to add a widget on your phone, and the store text promises the widgets on phones.
 - The creature in the widget is a static image by creature, stage and state (no animation), including wardrobe items, and it sleeps at night like in the app.
-- **Privacy:** the widget shows no photos and no names of members, only the creature and numbers, because the home screen and the lock screen are visible to others.
+- **Privacy:** the home screen and the lock screen are visible to others, so the widget shows no photos and no names of members, only the creature and numbers, and on the large one each pack's name.
 - **Updates:** right after every action in the app, at the end of the day (03:00), and from the server about every 30 minutes, subject to the operating system's refresh limits.
 
 **Main flows:**
 
 1. **A new user who creates a pack:** Welcome, Onboarding, sign-in, Profile setup, Create pack, sharing the link on WhatsApp, the Pack screen with an egg waiting for the second member.
-2. **A new invited user:** tap the link, landing page (copying the code), store, install, Onboarding, sign-in, Profile setup, joining (automatic on Android, pasting the code on iOS), and the egg cracking if they are the second member.
+2. **A new invited user:** tap the link, landing page (copying the code), store, install, Onboarding, sign-in, Profile setup, joining (on Android one tap, with the code already filled in; on iOS pasting the code), and the egg cracking if they are the second member.
 3. **Daily use:** notification, widget or opening the app, Feed, camera, send, animation, scrolling the feed and reactions.
 4. **An evening without feeding:** a reminder in the creature's voice, opening straight to the relevant pack's camera.
 5. **Studying with the timer:** Pack, Focus, choosing a length, a notification at the end, camera, sending with the session length.
@@ -397,8 +409,9 @@ The app includes content that users upload (photos), so it must meet Apple's and
 
 **Privacy:**
 
-- Photos are visible only to pack members. Storage in a private bucket, access only through short-lived signed links. In the app, the photo cache is keyed by the photo id, because the signed link changes every time.
-- Photos are deleted automatically after 30 days; photos that went into a weekly recap collage stay 8 weeks after that week, and then the recap keeps its numbers without the collage. The collage is stored as a list of references to photos and not as one image, so deleting an account removes them too.
+- Photos are visible only to pack members. Storage in a private bucket, access only through signed links: the app signs them for an hour, but Storage sets no ceiling, so a member can sign a longer one, and anyone in the pack can keep what they were shown. Holding every link to an hour would mean signing them in an Edge Function instead. In the app, the photo cache is keyed by the photo id, because the signed link changes every time.
+- Someone who joins a pack reads what it kept from before: the photos not yet deleted, captions, reactions, recaps and day results. Before joining, an invite code shows the pack's name, habit, critter and members' names (`pack_preview`).
+- Photos are deleted automatically after 30 days; photos that went into a weekly recap collage stay 8 weeks after that week, and then the recap keeps its numbers without the collage. A reported photo stays until 7 days after its last report, as long as the link in the developer's email about it works. The collage is stored as a list of references to photos and not as one image, so deleting an account removes them too.
 - Sharing a story doesn't include photos of other members (section 7).
 - The widgets don't show photos or names of members (section 9).
 - No location, no contacts, no ad tracking.
@@ -409,8 +422,8 @@ The app includes content that users upload (photos), so it must meet Apple's and
 - **Account deletion inside the app**, including all photos and data, also photos in weekly recaps.
 - **Sign in with Apple** next to Google, to meet Apple's requirement for a privacy-preserving sign-in option.
 - **Filtering:** captions are filtered for offensive words before they are posted.
-- **Reporting content:** every photo has a Report option. Every report sends an email to the developer and is handled within 24 hours: hiding the item, and if needed removing the user.
-- **Blocking:** a user can block another user. The blocked user's photos and reactions are hidden for them, and the blocked user can't nudge them; if they are in the same pack, leaving is offered too. In addition, anyone can leave a pack at any moment, and an admin can remove a member, who then can't come back with the invite code. If a link reached the wrong people, the admin replaces the code and the old one stops working.
+- **Reporting content:** every photo has a Report option, and so does every member, for anything about them: their name, their profile photo or how they treat others. An item whose photo is gone after 30 days offers to report its caption instead, if it has one. A person reports a photo once. A name or profile photo can change, so they can report the same member again after a day. Every report sends an email to the developer and is handled within 24 hours: hiding the item, and if needed removing the user. One person's reports send up to 20 emails a day; past that, their reports reach the developer through the daily summary only, so one person can't use up the day's mail. The report that hides a photo always sends its email, since the photo stays hidden until the developer looks.
+- **Blocking:** a user can block another user. The blocked user's photos, profile photo, reactions and name suggestions are hidden for them, and the blocked user can't nudge them: their nudge answers as any other and reaches nobody, so it doesn't tell them of the block. A block also reaches the developer, as the blocker's report on that member, under the same once-a-day rule. If they are in the same pack, leaving is offered too. A 🤨 still counts in its number, whoever gave it: the number names nobody, and blocking members one at a time mustn't tell whose it is. They still show as fed and count for the day, as the day close counts them. In addition, anyone can leave a pack at any moment, and an admin can remove a member, who then can't come back with the invite code. If a link reached the wrong people, the admin replaces the code and the old one stops working.
 - **Terms of use** that forbid offensive content, and a way to get in touch (an email address).
 - **Minimum age 13**, with a declaration at sign-up.
 
@@ -432,21 +445,21 @@ Nineteen tables in Postgres (Supabase). All access is protected with Row Level S
 | Table | Main fields |
 | --- | --- |
 | profiles | id (the user in auth.users), display\_name, avatar\_path, timezone, locale, reminder\_time, notification\_prefs (jsonb), terms\_accepted\_at, created\_at |
-| packs | id, name, category, custom\_habit, rest\_days\_per\_week, week\_start, timezone, invite\_code (8 characters, without characters that are easy to confuse, like 0 and O), pending\_rest\_days\_per\_week, pending\_week\_start, pending\_from (settings that apply from the next week start), created\_at |
+| packs | id, name, category, custom\_habit, rest\_days\_per\_week, week\_start, timezone, invite\_code (8 characters, without characters that are easy to confuse, like 0 and O), pending\_rest\_days\_per\_week, pending\_week\_start, pending\_from (settings that apply from the next week start), week\_changed\_on (the first day under the current week start, after a change), created\_at |
 | critters | pack\_id (key: one creature per pack), species (one of the six creatures), name, health, xp, stage, status (egg / active / ran\_away), streak, coins, marks, outfit (jsonb), hatched\_at |
-| pack\_members | pack\_id, user\_id, role (admin / member), status (active / sleeping / left), joined\_at, left\_at, awake\_since (the day that misses toward sleep count from; set when the member wakes up) |
+| pack\_members | pack\_id, user\_id, role (admin / member), status (active / sleeping / left), joined\_at, left\_at, awake\_since (the day that misses toward sleep count from, with the member asleep on any day before it that hasn't closed; set when the member wakes up or leaves asleep) |
 | pauses | id, pack\_id, user\_id, starts\_on, ends\_on |
 | feeds | id, pack\_id, user\_id, photo\_path, caption, day (date), is\_extra, focus\_minutes, captured\_at, created\_at, hidden\_at |
 | reactions | feed\_id, user\_id, emoji (fire / muscle / laugh / clap / suspicious), created\_at (unique key: feed\_id + user\_id) |
 | day\_passes | pack\_id, user\_id, day (date), kind (joker / rest) |
-| day\_results | pack\_id, day, result (success / neutral / fail), applied, fed\_ids, rested\_ids, joker\_ids, paused\_ids, sleeping\_ids, missed\_ids, health\_before, health\_after, early\_bird, full\_house, night\_owl\_feeds, coins, closed\_at |
+| day\_results | pack\_id, day, result (success / neutral / fail), applied, fed\_ids, rested\_ids, joker\_ids, paused\_ids, sleeping\_ids, missed\_ids, health\_before, health\_after, early\_bird, full\_house, night\_owl\_feeds, coins, week\_from, week\_to (the week the day belonged to when it closed), closed\_at |
 | achievements | pack\_id, key, unlocked\_at |
 | shop\_items | item, slot, price, sort (what the outfit shop sells) |
 | pack\_items | pack\_id, item, bought\_by, bought\_at (what each pack bought) |
 | nudges | pack\_id, from\_user, to\_user, day |
 | name\_suggestions | id, pack\_id, user\_id, name, created\_at |
 | weekly\_recaps | pack\_id, week\_start, stats (jsonb), feed\_ids, created\_at |
-| reports | id, feed\_id, reporter\_id, reason, created\_at, handled\_at |
+| reports | id, feed\_id or member\_id (a photo, or a member), reporter\_id, reason, created\_at, handled\_at |
 | blocks | blocker\_id, blocked\_id, created\_at |
 | pack\_events | id, pack\_id, kind (joined / hatched / evolved / ran\_away / returned / achievement / joker / dressed / named), actor\_id, payload (jsonb), created\_at. The system lines in the feed, written by triggers (decision D14) |
 | notifications | id, user\_id, pack\_id, type, payload (jsonb), status (pending / sent / dropped), send\_after, created\_at, sent\_at |
@@ -461,8 +474,8 @@ Nineteen tables in Postgres (Supabase). All access is protected with Row Level S
 - day\_results is both history (for the monthly board) and protection against a double close: a unique key on pack\_id + day.
 - **Rules enforced in the database, not only in code**, so two parallel requests can't get around them (race condition): one counted feed per day (a partial unique index on pack\_id + user\_id + day where is\_extra = false), one day of joker or declared rest per member per day, one joker per member per month, one nudge per day per pair, one admin per pack, and a maximum of 8 members (locking the pack row while joining).
 - Every change to health, XP and the creature's state is made only on the server, in one transaction that also includes the day\_results row, the achievements and the notifications it creates. The app never writes them directly. supabase-js doesn't support a transaction across several operations (each call is a separate transaction), so every user action is a Postgres function, and the day close is applied through one Postgres function (section 14).
-- The widget token only allows reading the packs' state for the widget, is stored on the server only as a hash, and is deleted on sign-out or account deletion.
-- **Privacy in RLS:** who reacted with 🤨 isn't exposed through the API either: the policy hides those rows, and `feed_reaction_counts` returns only numbers. Hidden items and content from blocked users never reach the app.
+- The widget token only allows reading the packs' state for the widget, is stored on the server only as a hash, and is deleted on sign-out or account deletion. A session the server ended can't revoke its token: the phone forgets it and the widgets go blank, and the server drops it after 90 days without use. An account keeps at most ten widget tokens, and a new one replaces the one used longest ago. Widgets whose token the server no longer knows, as on another phone of an account that was deleted, go blank at their next refresh, with the app closed too.
+- **Privacy in RLS:** who reacted with 🤨 isn't exposed through the API either: the policy hides those rows, and `feed_reactions` returns only their number, a blocked member's 🤨 included. Hidden items and content from blocked users never reach the app. Who fed isn't content: `counted_feeds` tells every screen who fed and on which day, whatever a block or a report hid, with no photo or caption. Nor is a join: the feed line of someone blocked joining still shows to the person who blocked them, since a block doesn't keep them out of a pack and that person most needs to know. Realtime keeps to the table's policy, so a blocked member's feed shows on the next refetch. A member reads the whole profile row of everyone who is or was in one of their packs, so old feed items keep their names, while the app shows others only the name and the photo (decision D26).
 - The schema lives in `supabase/migrations`, and its tests (pgTAP) in `supabase/tests`.
 
 ## 14. Technology and architecture
@@ -494,38 +507,39 @@ Important: the widgets and some of the modules require a **development build**, 
 
 - **Auth:** Sign in with Apple and Google.
 - **Postgres + RLS:** all the tables from section 13, including the constraints that prevent race conditions.
-- **Storage:** a private bucket for photos, signed links.
+- **Storage:** a private bucket for photos, signed links. One account keeps at most 60 feed photos and 20 profile photos uploaded in the last day, far above the 36 feed photos the app can send in a day. However old its files, it keeps at most 300 MB of feed photos and 5 MB of profile photos: a member who posts the most the app allows keeps about 220 MB, one who feeds once a day in 3 packs about 30 MB, and the app keeps one profile photo of tens of KB. Storage's S3 protocol is off, since nothing uses it and its multipart uploads go around these limits.
 - **Realtime:** updating the circles and the feed on the pack screen in real time, subject to RLS.
-- **Cron:** scheduled runs of day closing, recaps and notification sending: pg\_cron calls the Edge Functions through pg\_net, with the function address and a shared secret kept in Vault (decision D13).
+- **Cron:** scheduled runs of day closing, recaps and notification sending: pg\_cron calls the Edge Functions through pg\_net, with the function address and a shared secret kept in Vault (decision D13). A call waits up to 150 seconds, the longest a function can run, so a long run is judged by its own answer.
 - **User actions (Postgres functions):**
   - `submit_feed`: verifies pack membership, computes "the day" by the pack's time zone (including the offline rule), saves the feed (the database constraint prevents duplicates), wakes a sleeping member, and cancels a joker or declared rest for the same day.
-  - `create_pack`: creates the pack, its egg and the admin membership, with a random invite code; limited to 3 packs per user.
-  - `pack_preview`: what someone sees before joining (name, habit, the critter as it is now, and who is in the pack), by invite code.
-  - `join_pack`: joining with an invite code, with locking and a check for a free spot; a member the admin removed can't rejoin this way.
+  - `create_pack`: creates the pack, its egg and the admin membership, with a random invite code; limited to 3 packs per user, and to 10 packs started or joined a day, so leaving and starting again can't make packs without end. The day close reads a pack's time zone with Intl, which doesn't know every name Postgres lists, so the zone has to be one it can read.
+  - `pack_preview`: what someone sees before joining (name, habit, the critter as it is now, and who is in the pack), by invite code. A member the admin removed sees nothing, and a pack with no members shows only to someone who was in it. Each wrong code counts as a miss, once an hour however often it is asked for, as a join screen left on it asks again at every return to the app; 20 wrong codes in an hour stop the answers for that hour, and a read-only transaction or a request for one object gets no answer, since neither can keep one.
+  - `join_pack`: joining with an invite code, with locking and a check for a free spot; a member the admin removed can't rejoin this way, and a pack with no members takes back only someone who was in it.
   - `update_pack` (admin): the name changes right away; rest days and week start are stored as pending and apply from the next week start.
   - `remove_member` (admin) and `renew_invite_code` (admin: a new code; the old code and link stop working).
-  - `leave_pack`: leaving, including passing admin to the longest-standing member.
+  - `leave_pack`: leaving, including passing admin on (awake first, then fed since joining, then the longest-standing member).
   - `use_day_pass` (joker or declaring a rest, today only) and `cancel_day_pass`; `start_pause` and `end_pause`; `my_day_status` (rest days left this week, the month's joker, today's pass, the current pause and when the next one is allowed).
-  - `react` (one reaction per member per item, changeable) and `feed_reactions` (totals for a page of items, names for every emoji but 🤨).
-  - `nudge`: one a day per pair, never to someone who fed, rests, is on a joker or a pause today, or who blocked the sender; writes a notification.
+  - `counted_feeds`: who fed in the last few days in the member's packs, for the circles and counts; like the day close it ignores blocks and hidden photos, and it returns no photo or caption.
+  - `react` (one reaction per member per item, changeable) and `feed_reactions` (totals for a page of items, names for every emoji but 🤨; someone the caller blocked counts only toward 🤨).
+  - `nudge`: one a day per pair, never to someone who fed, rests, is on a joker or a pause today, or whose clock is in quiet hours or two minutes short of them; writes a notification. A blocked sender's nudge reaches nobody: it answers and uses up the day's nudge as any other, and writes no notification, so it doesn't tell them of the block.
   - `suggest_name` (up to 3 per member, only while the hatched critter has no name) and `choose_name` (admin).
   - `buy_item`: any member buys a shop item with the pack's coins; the check and the payment are one statement, so two members buying at once can't overspend.
   - `dress_critter`: any member, one owned item per slot (unlocked or bought).
   - `my_stats`: the Me screen (total feeds, current and best personal streak, the last weeks).
   - `report_app_error`: an error from a member's phone, at most 50 a day per member (decision D22).
 - **Edge Functions:**
-  - `close-days`: runs every 15 minutes. **State-based, not time-based:** for every pack it runs game-engine on every day that has ended (including the grace window) and has no day\_results row yet, in order, and applies each result through one Postgres function (`apply_day_result`). The function checks that the day isn't closed yet and that the previous day is, and writes in one transaction the day\_results row, the creature, the members' state, the achievements and the notifications. Idempotent, and it takes "now" as a parameter so it can be tested without waiting for the end of the day. The database gathers each day's input (`day_close_input`: members with their feed, pass, pause, rest days used and recent misses, the critter, and the pack totals for achievements), the function runs game-engine on it, and `apply_day_result` writes the outcome. The same run deletes photo files older than 30 days (`expired_photos`, then `forget_photos`), and packs nobody has been in for 30 days, their photo files first (`empty_pack_photos`, then `drop_empty_packs`). Each run first leaves a heartbeat (`note_heartbeat`); a gap of more than an hour since the last one is saved as an outage, and `outage_on` tells the engine which days it covered (section 5). Packs close eight at a time, and a run stops starting new packs after 90 seconds, leaving the rest for the next run, so thousands of packs that come due at the same midnight never hit the function's time limit.
-  - `weekly-recap`: creates the recap data at the end of each pack's week and saves it in weekly\_recaps. Built as a database trigger rather than a separate function: when the last day of a pack's week closes, a deferred trigger (it runs at commit, after the critter is updated) saves the numbers, the most consistent members, the week's achievements, the critter as the week ended and up to 9 photos for the collage (one per member before a second from anyone), and queues the "recap ready" notification. The story image is made in the app (`react-native-view-shot`, 1080×1920) and shared through the share sheet.
-  - `send-push`: sends the pending notifications from the notifications table through Expo Push, with the merging, limits and quiet hours from section 8. Every action that creates a notification only writes a row to the table, in the same transaction as the action itself (Outbox pattern), so there are no duplicate notifications and no lost ones. The rules run in the database when rows are claimed (`claim_notifications`, decision D15): a type the member turned off is dropped; in quiet hours hatching, growth, pet state, "still in?" and the recap wait for 07:00 and the rest are dropped; reminders, "last one" and nudges are dropped once the member fed or stopped being counted; past 6 a day only the reminder and "last one" still go. A counted feed queues "friend fed" (merged per member and pack for 10 minutes) and "last one" through a trigger, and pg\_cron queues the evening reminders every 5 minutes (`queue_evening_reminders`). The function renders the texts in the critter's voice, sends in batches of 100, puts back the rows of a batch Expo didn't take, and forgets tokens Expo reports as unregistered.
+  - `close-days`: runs every 15 minutes. **State-based, not time-based:** for every pack it runs game-engine on every day that has ended (including the grace window) and has no day\_results row yet, in order, and applies each result through one Postgres function (`apply_day_result`). The database says which pack's next day has ended (`packs_to_close`), by the clock feeds count by. The days after it close in the same run once the function's Intl finds them ended too; its zone data can be older than the database's or miss a zone, and then they wait for the next runs. The function checks that the day isn't closed yet and that the previous day is, and writes in one transaction the day\_results row, the creature, the members' state, the achievements and the notifications. Idempotent, and it takes "now" as a parameter so it can be tested without waiting for the end of the day. The database gathers each day's input (`day_close_input`: members with their feed, pass, pause, rest days used and recent misses, the critter, and the pack totals for achievements), the function runs game-engine on it, and `apply_day_result` writes the outcome. The same run deletes photo files older than 30 days but for those reported in the last 7 days (`expired_photos`, then `forget_photos`), and packs nobody has been in for 30 days, their photo files first (`empty_pack_photos`, then `drop_empty_packs`), up to 1,000 packs a run, so a backlog shrinks run by run. A cleanup that fails doesn't stop the next one, and the run answers 500 with its counts and the name of that cleanup, so the owners' daily summary counts it. Each run first leaves a heartbeat (`note_heartbeat`); a gap of more than an hour since the last one is saved as an outage, and `outage_on` tells the engine which days it covered (section 5). A run whose heartbeat fails closes nothing and answers 500, so the next run tries again with the gap still open. Packs close eight at a time, and a run stops starting new packs after 90 seconds, which only a slow database reaches, leaving the rest for the next run. A run has 2 s of CPU, enough for a few hundred closes. Past that the function is killed with a 546, what closed stays closed, and the next run goes on.
+  - `weekly-recap`: creates the recap data at the end of each pack's week and saves it in weekly\_recaps. Built as a database trigger rather than a separate function: when the last day of a pack's week closes, a deferred trigger (it runs at commit, after the critter is updated) saves the numbers, the most consistent members, the achievements no earlier recap listed (a day closes the next morning, so those of the week's last day are in by then), the critter as the week ended and up to 9 photos for the collage (one per member before a second from anyone), and queues the "recap ready" notification. The story image is made in the app (`react-native-view-shot`, 1080×1920) and shared through the share sheet.
+  - `send-push`: sends the pending notifications from the notifications table through Expo Push, with the merging, limits and quiet hours from section 8. Every action that creates a notification only writes a row to the table, in the same transaction as the action itself (Outbox pattern), so no action queues a notification twice or loses one. The rules run in the database when rows are claimed (`claim_notifications`, decision D15): a type the member turned off is dropped; in quiet hours hatching, growth, pet state, "still in?" and the recap wait for 07:00 and the rest are dropped; reminders and "last one" are dropped once the member fed or stopped being counted or their day is over, nudges once the member fed or is paused, on a joker or resting, or blocked the sender, "still in?" once the member is awake again, and "friend fed" once the accounts of everyone it names are gone, with their feeds, or the member blocked them; a "friend fed" that still covers others names only those the member didn't block; past 6 a day only the reminder and "last one" still go. A counted feed queues "friend fed" (merged per member and pack for 10 minutes) and "last one" through a trigger, and pg\_cron queues the evening reminders every 5 minutes (`queue_evening_reminders`). The function renders the texts in the critter's voice, sends in batches of 100, puts back the rows of a batch Expo didn't take, and forgets tokens Expo reports as unregistered. The first request that fails ends the sending, as do 50 seconds, and what is left goes back too. A row Expo refuses waits a minute, twice as long each further time, and is dropped after eight tries, about two hours, so rows Expo keeps refusing can't hold up the queue. A row that goes back because Expo is down or the run ran out of time spends no try, however long that lasts. One that was in a request with no answer may have reached the phones, so it waits half as long as it has been in the queue, from a minute up to half an hour; one the run never offered, or that Expo got only in a request it turned down whole, is on no phone and comes back in a minute. So an outage loses nothing: what is left when it ends goes out within half an hour under the rules above, the owners' summary with the rest. Sending is at least once, not exactly once: Expo can take a batch and lose its answer, and then rows go back that the phones already got. One lost answer means one repeat. At worst, while every answer is lost, a person sees the same notification about 10 times in the first two hours and once every half hour after that, until the answers come back or a rule above drops it; only the copy that gets an answer counts toward the 6 a day. A run Expo took nothing from, one where Expo refused a notification or answered a message with an error other than a dead token, one that couldn't put its rows back, or one on a server behind it, answers 502 with the reason in its body, so the owners' daily summary counts it as a server error. The body names the codes on the tickets and what the failed request got: Expo's status, such as `expo push 401` when Expo won't take the access token or `expo push 503` while it is down, or the error of a request that got no answer, such as a timeout. When rows couldn't go back, its `requeueError` says why, and on a server behind the function it names the call to `requeue_notifications` the server lacks. That is what the owners read in the function's log and in `service_errors`. The summary travels the same road, so a run that went well, a quiet one too, also pings `HEARTBEAT_URL` when that secret is set: an outside check that mails the owner when the pings stop (docs/setup.md, section 5). The ping carries nothing, and a check that is down changes nothing about the run.
   - `widget-state`: returns the user's packs state to the widget, identified by a widget token.
   - `delete-account`: deletes the user, the photos and all the data. It needs service role permissions, so it must run on the server.
-  - `on-report`: sends an email to the developer for every new report.
+  - `on-report`: sends an email to the developer about a new report. The report trigger calls it for up to 20 reports a day from one person, and for the report that hides a photo (section 11). Only a sent email answers 200: without the mail secrets it answers 503, and a mail Resend refused, never got or didn't answer within 20 seconds answers 502, each naming the report, so the owners' daily summary counts it as a server error. When Storage can't sign the link to the reported photo, the mail still goes out, saying the link failed and why, and answers 502 too. The 20 seconds keep that answer inside the 60 that pg_net waits for it, past which only a timeout is kept. Nothing sends a failed mail again.
 
-**Invite links:** a simple landing page at an address like `gozali.app/i/CODE`, which opens the app if it's installed (universal link on iOS, App Link on Android). If not, the page shows the code, copies it to the clipboard when the download button is tapped (Safari allows copying to the clipboard only in response to a tap), and sends to the store. On Android the code is also passed in the referrer parameter of the Google Play link, and the app reads it after installing (`getInstallReferrerAsync` from expo-application), so joining is automatic. On iOS there is no free equivalent: on the first open, "Have an invite code?" appears with a paste button (iOS shows a confirmation dialog for pasting from another app) or manual typing. That way a paid deferred deep link service isn't needed.
+**Invite links:** a simple landing page at an address like `gozali.app/i/CODE`, which opens the app if it's installed (universal link on iOS, App Link on Android). If not, the page shows the code, copies it to the clipboard when the download button is tapped (Safari allows copying to the clipboard only in response to a tap), and sends to the store. On Android the code is also passed in the referrer parameter of the Google Play link, and the app reads it on its first start after installing (`getInstallReferrerAsync` from expo-application) and, once the profile is set up, opens Join pack with the code filled in, so joining takes one tap. On iOS there is no free equivalent: the person opens Join with a code and pastes it (iOS shows a confirmation dialog for pasting from another app) or types it. That way a paid deferred deep link service isn't needed.
 
 **Widgets:** the app writes the packs' state to shared storage (an App Group on iOS, the app's storage on Android) and asks for a widget refresh after every action. In addition, the widget pulls a fresh state from `widget-state` about every 30 minutes, and schedules a refresh for the end of the day. The official `expo-widgets` was checked and not chosen: right now it is iOS only, in alpha, and without image support. The app and the widgets read the same payload: the app fetches `widget-state` with the device's widget token and hands the result to the widgets, so there is one shape and one source. The critter picture comes from the same drawing code as the app (decision D16): the iOS widget loads PNGs that `widget-state` renders, a day and a night version, and the Android widget draws the SVG on the device. Single-pack widgets choose their pack in the widget settings (an App Intent on iOS, a configuration screen on Android).
 
-**Testing:** unit, database (pgTAP), API smoke and end-to-end tests run in CI on every push; see [decision D18](decisions.md).
+**Testing:** unit, database (pgTAP), API smoke and end-to-end tests run in CI on pushes to main and dev and on every pull request; see [decision D18](decisions.md).
 
 **Build and distribution:** EAS Build for iPhone and Android, EAS Submit to TestFlight and the stores, EAS Update for fast JavaScript updates without a new review (a channel per build profile, and the app version as the runtime version, raised with every native change, so an update only reaches builds with the same native code). CI also compiles the iOS app for the simulator and the Android app, widgets included, without signing. The pilot runs on TestFlight and in Google Play closed testing, which for a new personal developer account requires at least 12 testers for 14 days in a row before publishing.
 
@@ -628,7 +642,7 @@ All the decisions that blocked version 1 are closed; the details and reasoning a
 - **Running away:** no XP is added while away, and coming back is measured by the streak (no recovery\_days field).
 - **Rest days:** you can declare "Resting today" in advance. Version 1 showed a dashed circle for rest, but the rest was only decided at the day close.
 - **Joker and declared rest:** feeding on the same day cancels them and returns them to the member.
-- **Joining:** automatic joining on Android through Install Referrer; on iOS a code screen with pasting, as a stated trade-off.
+- **Joining:** on Android the code comes through Install Referrer and Join pack opens with it filled in, one tap to join; on iOS pasting the code under Join with a code, as a stated trade-off.
 - **3 taps:** a direct Feed button on the pack card on the home screen.
 - **Privacy:** the story doesn't include photos of other members; collages are stored as references and deleted with the account.
 - **Notifications:** a daily limit per user and not per pack; no exceptions to quiet hours; a new "Still in?" notification; an evening reminder for members in another time zone; no reminders for someone who isn't counted today.

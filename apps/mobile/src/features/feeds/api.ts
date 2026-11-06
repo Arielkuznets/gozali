@@ -1,14 +1,20 @@
 import { addDays, packDayOf } from '@gozali/game-engine';
 import NetInfo from '@react-native-community/netinfo';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AppState } from 'react-native';
 
+import { useAuth } from '@/features/auth/AuthProvider';
 import type { Pack } from '@/features/packs/api';
-import { enqueue, flushQueue, isOnline, pendingFeeds } from '@/features/feeds/queue';
-import { PHOTO_BUCKET, feedErrorCode, isFinalRejection, sendFeed, type OutgoingFeed } from '@/features/feeds/send';
+import { enqueue, flushQueue, hasConnection, holdForSend, isOnline, pendingFeeds, releaseFromSend } from '@/features/feeds/queue';
+import { PHOTO_BUCKET, feedErrorCode, inTime, isFinalRejection, sendFeed, type OutgoingFeed } from '@/features/feeds/send';
 import type { ReactionTotal } from '@/features/social/api';
+import { notify } from '@/lib/confirm';
+import { readableZone } from '@/lib/dates';
+import { errorText, reportError } from '@/lib/reportError';
 import { requireSupabase } from '@/lib/supabase';
+import { serverNow } from '@/lib/serverClock';
 
 export type FeedItem = {
   id: string;
@@ -20,7 +26,11 @@ export type FeedItem = {
   is_extra: boolean;
   focus_minutes: number | null;
   created_at: string;
-  /** Short-lived signed link; null once the photo was deleted after 30 days. */
+  /**
+   * Short-lived signed link; null once the photo was deleted after 30 days, which clears
+   * photo_path, for a path whose file storage can't find, at any age, and on a first read that
+   * got no links.
+   */
   photoUrl: string | null;
   reactions: ReactionTotal[];
 };
@@ -28,19 +38,29 @@ export type FeedItem = {
 type CountedFeed = { pack_id: string; user_id: string; day: string };
 
 export const feedsKey = ['feeds'] as const;
+export const countedFeedsKey = [...feedsKey, 'counted'] as const;
 const PHOTO_LINK_SECONDS = 60 * 60;
+const QUEUE_RETRY_MS = 60_000;
 export const FEED_PAGE = 30;
 
 /**
  * Counted feeds of the last few days in all of the user's packs. Each pack has its own time
- * zone, so "today" is decided per pack by `fedToday`.
+ * zone, so "today" is decided per pack by `fedToday`. They come from `counted_feeds`, not the
+ * table: a feed still counts when the user blocked its poster or reports hid its photo.
  */
 export function useCountedFeeds() {
   return useQuery({
-    queryKey: [...feedsKey, 'counted'],
+    queryKey: countedFeedsKey,
     queryFn: async (): Promise<CountedFeed[]> => {
-      const since = addDays(new Date().toISOString().slice(0, 10), -2);
-      const { data, error } = await requireSupabase()
+      const supabase = requireSupabase();
+      const counted = await supabase.rpc('counted_feeds');
+      if (counted.error?.code !== 'PGRST202') {
+        if (counted.error) throw counted.error;
+        return counted.data;
+      }
+      // A server without the function yet.
+      const since = addDays(serverNow().toISOString().slice(0, 10), -2);
+      const { data, error } = await supabase
         .from('feeds')
         .select('pack_id, user_id, day')
         .eq('is_extra', false)
@@ -53,8 +73,18 @@ export function useCountedFeeds() {
 
 /** Members of the pack who fed on the pack's current day. */
 export function fedToday(feeds: CountedFeed[] | undefined, pack: Pick<Pack, 'id' | 'timezone'>, now: Date): Set<string> {
-  const today = packDayOf(now, pack.timezone);
+  const today = packDayOf(now, readableZone(pack.timezone));
   return new Set((feeds ?? []).filter((feed) => feed.pack_id === pack.id && feed.day === today).map((feed) => feed.user_id));
+}
+
+/**
+ * Whether the member's counted feed of the pack's current day waits on this phone to go out. Their
+ * part is done, so nothing asks for a second photo. How many fed stays the server's to say.
+ */
+export function feedWaitsToday(pending: OutgoingFeed[] | undefined, pack: Pick<Pack, 'timezone'>, userId: string | undefined, now: Date): boolean {
+  const zone = readableZone(pack.timezone);
+  const today = packDayOf(now, zone);
+  return (pending ?? []).some((feed) => feed.userId === userId && !feed.extra && packDayOf(new Date(feed.capturedAt), zone) === today);
 }
 
 async function fetchReactions(feedIds: string[]): Promise<Map<string, ReactionTotal[]>> {
@@ -86,11 +116,12 @@ export async function refreshReactions(queryClient: QueryClient, feedId: string)
 
 /** The pack's feed, newest first, with signed links to the photos and the reactions. */
 export function usePackFeed(packId: string, limit = FEED_PAGE) {
-  return useQuery({
+  return useQuery<FeedItem[]>({
     queryKey: [...packFeedsKey, packId, limit],
-    // Links last an hour; refetch well before they run out.
-    staleTime: (PHOTO_LINK_SECONDS / 2) * 1000,
-    queryFn: async (): Promise<FeedItem[]> => {
+    // The shorter page stays while a longer one loads, or the list would unmount and the reader lose
+    // their place. Never another pack's page: a link can change the pack on this same screen.
+    placeholderData: (previous, query) => (query?.queryKey[2] === packId ? previous : undefined),
+    queryFn: async ({ client, queryKey }): Promise<FeedItem[]> => {
       const supabase = requireSupabase();
       const { data, error } = await supabase
         .from('feeds')
@@ -101,17 +132,24 @@ export function usePackFeed(packId: string, limit = FEED_PAGE) {
       if (error) throw error;
       const paths = data.flatMap((feed) => (feed.photo_path ? [feed.photo_path] : []));
       const links = new Map<string, string>();
-      const reactions = await fetchReactions(data.map((feed) => feed.id));
-      if (paths.length > 0) {
-        const signed = await supabase.storage.from(PHOTO_BUCKET).createSignedUrls(paths, PHOTO_LINK_SECONDS);
-        if (signed.error) throw signed.error;
-        for (const item of signed.data) if (item.path && item.signedUrl) links.set(item.path, item.signedUrl);
-      }
-      return data.map((feed) => ({
+      const [reactions, signed] = await Promise.all([
+        fetchReactions(data.map((feed) => feed.id)),
+        paths.length > 0 ? supabase.storage.from(PHOTO_BUCKET).createSignedUrls(paths, PHOTO_LINK_SECONDS) : null,
+      ]);
+      for (const item of signed?.data ?? []) if (item.path && item.signedUrl) links.set(item.path, item.signedUrl);
+      const feeds = data.map((feed) => ({
         ...feed,
         photoUrl: feed.photo_path ? (links.get(feed.photo_path) ?? null) : null,
         reactions: reactions.get(feed.id) ?? [],
       }));
+      if (signed?.error) {
+        // The read still fails, so it tries again by itself. A first read puts up what the database
+        // answered meanwhile. A page already here keeps its photos, and a longer page has the one
+        // before it to go back to.
+        if (limit === FEED_PAGE && client.getQueryData(queryKey) === undefined) client.setQueryData(queryKey, feeds);
+        throw signed.error;
+      }
+      return feeds;
     },
   });
 }
@@ -121,45 +159,96 @@ export function usePendingFeeds(packId: string) {
 }
 
 /**
- * Sends a feed, or keeps it for later when there is no connection. A second counted feed on
- * the same day (for example from another phone) goes out as an extra post instead.
+ * Sends a feed, or keeps it for a later try when the server didn't turn it down for good. A second
+ * counted feed on the same day (for example from another phone) goes out as an extra post instead.
+ * An extra can hear the same, once: before the day's first feed the server counts it, and another
+ * phone can get there first.
+ */
+async function sendOrKeep(feed: OutgoingFeed, keep: (tried: OutgoingFeed) => Promise<boolean>, retried = false): Promise<'sent' | 'queued'> {
+  try {
+    await inTime((givenUp) => sendFeed(feed, givenUp));
+    return 'sent';
+  } catch (error) {
+    if (feedErrorCode(error) === 'already_fed' && !retried) return sendOrKeep({ ...feed, extra: true }, keep, true);
+    if (!isFinalRejection(error) && (await keep(feed))) return 'queued';
+    throw error;
+  }
+}
+
+/**
+ * Sends a feed, or keeps it for later when there is no connection. The feed waits in the queue
+ * from before the first try: on a weak link a send takes its time, the app can be killed
+ * meanwhile, and the next start clears the shot.
  */
 export function useSendFeed() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (feed: OutgoingFeed): Promise<'sent' | 'queued'> => {
       if (!(await isOnline()) && (await enqueue(feed))) return 'queued';
+      if (!(await holdForSend(feed))) return sendOrKeep(feed, enqueue);
+      let waiting: OutgoingFeed | null = null;
       try {
-        await sendFeed(feed);
-        return 'sent';
-      } catch (error) {
-        if (feedErrorCode(error) === 'already_fed') {
-          await sendFeed({ ...feed, extra: true });
-          return 'sent';
-        }
-        if (!isFinalRejection(error) && (await enqueue(feed))) return 'queued';
-        throw error;
+        return await sendOrKeep(feed, async (tried) => {
+          waiting = tried;
+          return true;
+        });
+      } finally {
+        await releaseFromSend(feed.id, waiting);
       }
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: feedsKey }),
+    // Not returned: the camera covers the pack, and these reads can die with the same connection.
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: feedsKey });
+    },
   });
 }
 
-/** Sends queued feeds when the app starts, comes back to the foreground or gets online. */
+/** The error alone doesn't say which of the queue's troubles it was. */
+function queueError(what: string, error: unknown): Error {
+  return new Error(`${what}: ${errorText(error)}`);
+}
+
+/**
+ * Sends queued feeds when the app starts, comes back to the foreground, gets online or gets a new
+ * token: online during auth-js's wait after a failed refresh there is no session to send with, and
+ * nothing else says when there is one. And once a minute while the app is open: a try can fail with
+ * the connection up, a run hears nothing that comes in while it goes, and a send that landed by
+ * itself still shows as waiting, and no event follows any of these. The member was told a queued
+ * feed is safe, so they hear about one that was dropped. Getting online also reloads what is on
+ * screen: Realtime replays nothing it missed, and nothing else hears about the network
+ * (lib/appFocus.ts).
+ */
 export function useFeedQueue() {
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
+  const token = useAuth().session?.access_token;
+  const flush = useCallback(() => {
+    void flushQueue().then(({ handled, dropped, unreported, stuck }) => {
+      // Not only the feeds: one going out also wakes its sender and takes back their pass. Realtime
+      // never sends the second, and may not be back yet for the first.
+      if (handled > 0) void queryClient.invalidateQueries();
+      // Android cuts an alert's title after two lines, so what to do goes under it.
+      if (dropped.length > 0) notify(t('feed.dropped', { count: dropped.length }), t('feed.droppedDetail'));
+      for (const error of unreported) reportError(queueError('Queued feed dropped', error));
+      for (const error of stuck) reportError(queueError('Feed queue stuck', error));
+    });
+  }, [queryClient, t]);
+  useEffect(() => flush(), [flush, token]);
   useEffect(() => {
-    const flush = () => {
-      void flushQueue().then((handled) => {
-        if (handled > 0) void queryClient.invalidateQueries({ queryKey: feedsKey });
-      });
-    };
-    flush();
     const appState = AppState.addEventListener('change', (state) => state === 'active' && flush());
-    const network = NetInfo.addEventListener((state) => state.isConnected && flush());
+    let offline = false;
+    const network = NetInfo.addEventListener((state) => {
+      if (offline && hasConnection(state)) void queryClient.invalidateQueries();
+      offline = !hasConnection(state);
+      if (state.isConnected) flush();
+    });
+    const retry = setInterval(() => {
+      if (AppState.currentState === 'active') flush();
+    }, QUEUE_RETRY_MS);
     return () => {
+      clearInterval(retry);
       appState.remove();
       network();
     };
-  }, [queryClient]);
+  }, [flush, queryClient]);
 }

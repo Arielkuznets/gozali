@@ -1,7 +1,7 @@
 -- Notifications: rows from feeds and the clock, and the rules applied before sending.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(18);
+select plan(36);
 
 -- Reminders are queued for every pack, so this test runs alone (all rolled back at the end).
 delete from public.packs;
@@ -101,9 +101,10 @@ select is((select status::text from public.notifications), 'sent', 'and is marke
 
 -- Quiet hours at 23:30: evolution waits for 07:00, friend fed is dropped.
 delete from public.notifications;
-insert into public.notifications (user_id, pack_id, type, send_after) values
-  ('00000000-0000-0000-0000-0000000000a5', '10000000-0000-0000-0000-000000000005', 'evolution', timestamptz '2000-01-01'),
-  ('00000000-0000-0000-0000-0000000000a5', '10000000-0000-0000-0000-000000000005', 'friend_fed', timestamptz '2000-01-01');
+insert into public.notifications (user_id, pack_id, type, payload, send_after) values
+  ('00000000-0000-0000-0000-0000000000a5', '10000000-0000-0000-0000-000000000005', 'evolution', '{}', timestamptz '2000-01-01'),
+  ('00000000-0000-0000-0000-0000000000a5', '10000000-0000-0000-0000-000000000005', 'friend_fed',
+   jsonb_build_object('feeders', jsonb_build_array('00000000-0000-0000-0000-0000000000b5')), timestamptz '2000-01-01');
 select is(
   (select count(*) from public.claim_notifications(((select day from today)::timestamp + interval '23 hours 30 minutes') at time zone 'Asia/Jerusalem')),
   0::bigint,
@@ -155,6 +156,180 @@ select is(
 select is(
   (select status::text from public.notifications), 'dropped',
   'and marked dropped'
+);
+
+-- A nudge is how the pack wakes a sleeping member, so it reaches Dan asleep; a declared rest
+-- or a feed still stops it.
+delete from public.notifications;
+update public.pack_members set status = 'sleeping' where user_id = '00000000-0000-0000-0000-0000000000b5';
+insert into public.notifications (user_id, pack_id, type, payload, send_after) values
+  ('00000000-0000-0000-0000-0000000000b5', '10000000-0000-0000-0000-000000000005', 'nudge',
+   jsonb_build_object('from', '00000000-0000-0000-0000-0000000000a5'), timestamptz '2000-01-01');
+select is(
+  (select array_agg(type::text || ' to ' || array_to_string(names, ',')) from public.claim_notifications((select at from noon))),
+  array['nudge to noa'],
+  'a sleeping member gets the nudge, with who sent it'
+);
+delete from public.notifications;
+insert into public.day_passes (pack_id, user_id, day, kind)
+values ('10000000-0000-0000-0000-000000000005', '00000000-0000-0000-0000-0000000000b5', (select day from today), 'rest');
+insert into public.notifications (user_id, pack_id, type, payload, send_after) values
+  ('00000000-0000-0000-0000-0000000000b5', '10000000-0000-0000-0000-000000000005', 'nudge',
+   jsonb_build_object('from', '00000000-0000-0000-0000-0000000000a5'), timestamptz '2000-01-01');
+select is(
+  (select count(*) from public.claim_notifications((select at from noon))), 0::bigint,
+  'but not on a day of a declared rest'
+);
+delete from public.notifications;
+insert into public.notifications (user_id, pack_id, type, payload, send_after) values
+  ('00000000-0000-0000-0000-0000000000c5', '10000000-0000-0000-0000-000000000005', 'nudge',
+   jsonb_build_object('from', '00000000-0000-0000-0000-0000000000a5'), timestamptz '2000-01-01');
+select is(
+  (select count(*) from public.claim_notifications((select at from noon))), 0::bigint,
+  'and nobody gets one once they fed'
+);
+
+-- A block holds from the moment it is made: a row queued before it sends nothing from or about the
+-- person blocked when it comes due, and a merged "friend fed" names only the others.
+delete from public.notifications;
+insert into public.blocks (blocker_id, blocked_id) values ('00000000-0000-0000-0000-0000000000a5', '00000000-0000-0000-0000-0000000000b5');
+insert into public.notifications (user_id, pack_id, type, payload, send_after) values
+  ('00000000-0000-0000-0000-0000000000a5', '10000000-0000-0000-0000-000000000005', 'friend_fed',
+   jsonb_build_object('feeders', jsonb_build_array('00000000-0000-0000-0000-0000000000b5')), timestamptz '2000-01-01');
+select is(
+  (select count(*) from public.claim_notifications((select at from noon))), 0::bigint,
+  'a "friend fed" about nobody but someone the member blocked after it was queued isn''t sent'
+);
+select is((select status::text from public.notifications), 'dropped', 'and is dropped for good');
+delete from public.notifications;
+insert into public.notifications (user_id, pack_id, type, payload, send_after) values
+  ('00000000-0000-0000-0000-0000000000a5', '10000000-0000-0000-0000-000000000005', 'friend_fed',
+   jsonb_build_object('feeders', jsonb_build_array('00000000-0000-0000-0000-0000000000b5', '00000000-0000-0000-0000-0000000000c5')), timestamptz '2000-01-01');
+select is(
+  (select array_to_string(names, ',') from public.claim_notifications((select at from noon))), 'maya',
+  'one that also covers someone else names only them'
+);
+delete from public.notifications;
+insert into public.notifications (user_id, pack_id, type, payload, send_after) values
+  ('00000000-0000-0000-0000-0000000000a5', '10000000-0000-0000-0000-000000000005', 'nudge',
+   jsonb_build_object('from', '00000000-0000-0000-0000-0000000000b5'), timestamptz '2000-01-01');
+select is(
+  (select count(*) from public.claim_notifications((select at from noon))), 0::bigint,
+  'and a nudge from someone the member blocked after it was queued isn''t sent'
+);
+
+-- An egg whose only friend left waits for a friend, so the one member left isn't reminded to feed it.
+delete from public.notifications;
+delete from public.blocks;
+insert into public.packs (id, name, category, rest_days_per_week, timezone, invite_code)
+values ('10000000-0000-0000-0000-000000000015', 'Rowers', 'running', 0, 'Asia/Jerusalem', 'PADL2345');
+insert into public.critters (pack_id, species) values ('10000000-0000-0000-0000-000000000015', 'mochi');
+insert into public.pack_members (pack_id, user_id, role, status, joined_at, left_at) values
+  ('10000000-0000-0000-0000-000000000015', '00000000-0000-0000-0000-0000000000a5', 'admin', 'active', now() - interval '5 days', null),
+  ('10000000-0000-0000-0000-000000000015', '00000000-0000-0000-0000-0000000000c5', 'member', 'left', now() - interval '5 days', now() - interval '2 days');
+create temp table evening as
+select (((select day from today)::timestamp + interval '20 hours 5 minutes') at time zone 'Asia/Jerusalem') as at;
+select public.queue_evening_reminders((select at from evening));
+select is(
+  (select count(*) from public.notifications where pack_id = '10000000-0000-0000-0000-000000000015'), 0::bigint,
+  'the one member left in an egg gets no evening reminder'
+);
+update public.critters set status = 'active', stage = 'baby' where pack_id = '10000000-0000-0000-0000-000000000015';
+select public.queue_evening_reminders((select at from evening));
+select is(
+  (select count(*) from public.notifications where pack_id = '10000000-0000-0000-0000-000000000015'), 1::bigint,
+  'the one member of a hatched pet does'
+);
+delete from public.notifications;
+update public.critters set status = 'egg', stage = 'egg' where pack_id = '10000000-0000-0000-0000-000000000015';
+update public.pack_members set status = 'active', left_at = null, joined_at = now()
+where pack_id = '10000000-0000-0000-0000-000000000015' and user_id = '00000000-0000-0000-0000-0000000000c5';
+select public.queue_evening_reminders((select at from evening));
+select is(
+  (select count(*) from public.notifications
+   where pack_id = '10000000-0000-0000-0000-000000000015' and user_id = '00000000-0000-0000-0000-0000000000a5'), 1::bigint,
+  'and with a friend back in the egg, so does the member who was alone'
+);
+
+-- "Still in?" from a close in the night waits for 07:00. Dan is still asleep then; Maya fed before
+-- 07:00, which woke her.
+delete from public.notifications;
+insert into public.notifications (user_id, pack_id, type, payload, send_after)
+select u, '10000000-0000-0000-0000-000000000005', 'still_in', '{"event": "member_slept"}', timestamptz '2000-01-01'
+from unnest(array['00000000-0000-0000-0000-0000000000b5', '00000000-0000-0000-0000-0000000000c5']::uuid[]) u;
+create temp table morning as
+select (((select day from today)::timestamp + interval '7 hours') at time zone 'Asia/Jerusalem') as at;
+select is(
+  (select array_agg(user_id) from public.claim_notifications((select at from morning))),
+  array['00000000-0000-0000-0000-0000000000b5'::uuid],
+  'at 07:00 "still in?" goes to a member still asleep'
+);
+select is(
+  (select status::text from public.notifications where user_id = '00000000-0000-0000-0000-0000000000c5'), 'dropped',
+  'and is dropped for one who woke while it waited'
+);
+
+-- After a night with no send-push run, Noa's reminder and "last one" from yesterday are still due in
+-- the morning. Nobody can feed for that day any more.
+delete from public.notifications;
+insert into public.notifications (user_id, pack_id, type, send_after, day)
+select '00000000-0000-0000-0000-0000000000a5', '10000000-0000-0000-0000-000000000015', kind, timestamptz '2000-01-01',
+  (select day - 1 from today)
+from unnest(array['evening_reminder', 'last_one']::public.notification_type[]) kind;
+select is(
+  (select count(*) from public.claim_notifications((select at from noon))), 0::bigint,
+  'a reminder and a "last one" for a day that ended aren''t sent the day after'
+);
+select is(
+  (select array_agg(distinct status::text) from public.notifications), array['dropped'],
+  'they are dropped'
+);
+
+-- The day ends at 03:00 where the pack is, wherever the member is: at 03:02 in Jerusalem the day
+-- before is over, though for Noa, in New York, it is evening and no quiet hours hold anything back.
+delete from public.notifications;
+update public.profiles set timezone = 'America/New_York' where id = '00000000-0000-0000-0000-0000000000a5';
+insert into public.notifications (user_id, pack_id, type, send_after, day)
+select '00000000-0000-0000-0000-0000000000a5', '10000000-0000-0000-0000-000000000015', kind, timestamptz '2000-01-01',
+  (select day - 1 from today)
+from unnest(array['evening_reminder', 'last_one']::public.notification_type[]) kind;
+select is(
+  (select count(*) from public.claim_notifications(((select day from today)::timestamp + interval '3 hours 2 minutes') at time zone 'Asia/Jerusalem')),
+  0::bigint,
+  'two minutes after the pack''s day ended, its reminder and "last one" aren''t sent'
+);
+select is(
+  (select array_agg(distinct status::text) from public.notifications), array['dropped'],
+  'they are dropped too'
+);
+update public.profiles set timezone = 'Asia/Jerusalem' where id = '00000000-0000-0000-0000-0000000000a5';
+
+-- Pet state tells the pack when the pet gets worse. A good day that lifts it from Sick to Weak
+-- tells nobody; a day it goes from Hungry down to Weak tells every member.
+delete from public.notifications;
+create temp table better_day as select jsonb_build_object(
+  'type', 'success', 'applied', true, 'healthBefore', 15, 'coins', 0,
+  'critter', jsonb_build_object('status', 'active', 'health', 25, 'xp', 10, 'stage', 'kid', 'streak', 1, 'marks', '[]'::jsonb),
+  'outcomes', '[]'::jsonb, 'newlySleeping', '[]'::jsonb,
+  'events', jsonb_build_array(jsonb_build_object('type', 'health_state_changed', 'from', 'sick', 'to', 'weak')),
+  'facts', jsonb_build_object('earlyBird', false, 'fullHouse', false, 'nightOwlFeeds', 0)
+) as body;
+select public.apply_day_result(
+  '10000000-0000-0000-0000-000000000005', public.pack_first_day('10000000-0000-0000-0000-000000000005'),
+  (select body from better_day)
+);
+select is(
+  (select count(*) from public.notifications where type = 'pet_state'), 0::bigint,
+  'a pet getting better from Sick to Weak tells nobody'
+);
+delete from public.notifications;
+select public.apply_day_result(
+  '10000000-0000-0000-0000-000000000005', public.pack_first_day('10000000-0000-0000-0000-000000000005') + 1,
+  jsonb_set((select body from better_day), '{events,0,from}', '"hungry"') || '{"type": "fail", "healthBefore": 41}'
+);
+select is(
+  (select count(*) from public.notifications where type = 'pet_state' and payload ->> 'to' = 'weak'), 3::bigint,
+  'one getting worse from Hungry to Weak tells every member'
 );
 
 select * from finish();

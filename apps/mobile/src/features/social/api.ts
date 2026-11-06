@@ -1,8 +1,11 @@
 import type { AchievementKey } from '@gozali/game-engine';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
-import { feedsKey, packFeedsKey, refreshReactions, type FeedItem } from '@/features/feeds/api';
+import { countedFeedsKey, feedsKey, packFeedsKey, refreshReactions, type FeedItem } from '@/features/feeds/api';
 import { packsKey } from '@/features/packs/api';
+import { recapPhotosKey, type RecapPhoto } from '@/features/recap/api';
+import { notify } from '@/lib/confirm';
 import { shiftMonth } from '@/lib/dates';
 import { isBlockedText } from '@/lib/errors';
 import { withMyReaction } from '@/features/social/reactions';
@@ -48,11 +51,13 @@ export type MyStats = {
 };
 
 const socialKey = ['social'] as const;
+const blocksKey = ['blocks'] as const;
 const EVENT_PAGE = 30;
 
 export function usePackEvents(packId: string, limit = EVENT_PAGE) {
   return useQuery({
     queryKey: [...feedsKey, 'events', packId, limit],
+    placeholderData: (previous, query) => (query?.queryKey[2] === packId ? previous : undefined),
     queryFn: async (): Promise<PackEvent[]> => {
       const { data, error } = await requireSupabase()
         .from('pack_events')
@@ -78,26 +83,45 @@ export function useReact() {
       if (error) throw error;
     },
     onMutate: async ({ feedId, emoji }) => {
+      const reloading = queryClient.isFetching({ queryKey: packFeedsKey }) > 0;
       await queryClient.cancelQueries({ queryKey: packFeedsKey });
       const before = queryClient.getQueriesData<FeedItem[]>({ queryKey: packFeedsKey });
       queryClient.setQueriesData<FeedItem[]>({ queryKey: packFeedsKey }, (feeds) =>
         feeds?.map((feed) => (feed.id === feedId ? { ...feed, reactions: withMyReaction(feed.reactions, emoji) } : feed)),
       );
-      return { before };
+      return { before, reloading };
     },
-    onError: (_error, _variables, context) => {
-      for (const [key, feeds] of context?.before ?? []) queryClient.setQueryData(key, feeds);
+    // This photo only, on the page as it stands: a late failure comes after what a friend posted
+    // or the member reacted to since the tap.
+    onError: (_error, { feedId }, context) => {
+      for (const [key, feeds] of context?.before ?? []) {
+        const earlier = feeds?.find((feed) => feed.id === feedId)?.reactions;
+        if (!earlier) continue;
+        queryClient.setQueryData<FeedItem[]>(key, (now) =>
+          now?.map((feed) => (feed.id === feedId ? { ...feed, reactions: earlier } : feed)),
+        );
+      }
     },
-    onSettled: (_data, _error, { feedId }) =>
-      refreshReactions(queryClient, feedId).catch(() => queryClient.invalidateQueries({ queryKey: feedsKey })),
+    // A reload cancelled above may have been bringing a new photo, so it runs again, totals included.
+    // Not returned: a failed reaction is told at once, not after reads that may be failing too.
+    onSettled: (_data, _error, { feedId }, context) => {
+      void (context?.reloading
+        ? queryClient.invalidateQueries({ queryKey: packFeedsKey })
+        : refreshReactions(queryClient, feedId).catch(() => queryClient.invalidateQueries({ queryKey: feedsKey })));
+    },
   });
 }
 
 export function useNudge(packId: string) {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (member: string) => {
       const { error } = await requireSupabase().rpc('nudge', { target: packId, member });
       if (error) throw error;
+    },
+    // A refusal can mean the screen is behind: Realtime says nothing of someone the user blocked.
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: countedFeedsKey });
     },
   });
 }
@@ -125,7 +149,10 @@ export function useSuggestName(packId: string) {
       const { error } = await requireSupabase().rpc('suggest_name', { target: packId, suggested: name });
       if (error) throw error;
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: socialKey }),
+    // Not returned: a failed suggestion is told at once, not after reads that may be failing too.
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: socialKey });
+    },
   });
 }
 
@@ -243,6 +270,19 @@ export function useMyStats() {
   });
 }
 
+/**
+ * What a report or a block tells the person who sent it. Said here, not at the tap: callbacks of the
+ * tap don't run for a screen that closed meanwhile, and someone who left it counting on a block has
+ * to hear that it didn't save.
+ */
+function useAnswers(saved: 'social.reported' | 'social.blockedLeave') {
+  const { t } = useTranslation();
+  return {
+    onSuccess: () => notify(t(saved)),
+    onError: (error: unknown) => notify(t(socialErrorKey(error))),
+  };
+}
+
 export function useReport() {
   return useMutation({
     mutationFn: async ({ feedId, reporterId, reason }: { feedId: string; reporterId: string; reason: string | null }) => {
@@ -251,11 +291,26 @@ export function useReport() {
         .upsert({ feed_id: feedId, reporter_id: reporterId, reason }, { onConflict: 'feed_id,reporter_id', ignoreDuplicates: true });
       if (error) throw error;
     },
+    ...useAnswers('social.reported'),
+  });
+}
+
+/** A report on the member themselves: their name, their profile photo or how they treat others. */
+export function useReportMember() {
+  return useMutation({
+    mutationFn: async ({ memberId, reporterId }: { memberId: string; reporterId: string }) => {
+      const { error } = await requireSupabase()
+        .from('reports')
+        .upsert({ member_id: memberId, reporter_id: reporterId }, { onConflict: 'member_id,reporter_id', ignoreDuplicates: true });
+      if (error) throw error;
+    },
+    ...useAnswers('social.reported'),
   });
 }
 
 export function useBlock() {
   const queryClient = useQueryClient();
+  const answers = useAnswers('social.blockedLeave');
   return useMutation({
     mutationFn: async ({ blockerId, blockedId }: { blockerId: string; blockedId: string }) => {
       const { error } = await requireSupabase()
@@ -263,7 +318,46 @@ export function useBlock() {
         .upsert({ blocker_id: blockerId, blocked_id: blockedId }, { ignoreDuplicates: true });
       if (error) throw error;
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: feedsKey }),
+    // What the block hides leaves the screen at once, and stays gone when the reads below fail: the
+    // person's posts, their lines in the feed but the one of their joining, which isn't content,
+    // their name suggestions, their recap photos and their profile photo. Who fed doesn't change, so
+    // the counted feeds stay.
+    onSuccess: (_data, { blockerId, blockedId }) => {
+      queryClient.setQueriesData<FeedItem[]>({ queryKey: packFeedsKey }, (feeds) => feeds?.filter((feed) => feed.user_id !== blockedId));
+      queryClient.setQueriesData<PackEvent[]>({ queryKey: [...feedsKey, 'events'] }, (events) =>
+        events?.filter((event) => event.actor_id !== blockedId || event.kind === 'joined'),
+      );
+      queryClient.setQueriesData<NameSuggestion[]>({ queryKey: [...socialKey, 'names'] }, (suggestions) =>
+        suggestions?.filter((suggestion) => suggestion.user_id !== blockedId),
+      );
+      queryClient.setQueriesData<RecapPhoto[]>({ queryKey: recapPhotosKey }, (photos) => photos?.filter((photo) => photo.userId !== blockedId));
+      queryClient.setQueryData<Set<string>>([...blocksKey, blockerId, 'ids'], (ids) => ids && new Set(ids).add(blockedId));
+      answers.onSuccess();
+    },
+    onError: answers.onError,
+    // Not returned: the answer to the person who blocked shouldn't wait for the refetches. An
+    // invalidation joins a read that has no data yet, like a longer page or the first suggestions on
+    // their way, and that read went out before the block, so it goes first and the reload starts it
+    // again.
+    onSettled: async () => {
+      const reread = [feedsKey, [...socialKey, 'names']];
+      await Promise.all(reread.map((queryKey) => queryClient.cancelQueries({ queryKey, predicate: (query) => query.state.data === undefined })));
+      for (const queryKey of reread) void queryClient.invalidateQueries({ queryKey });
+      void queryClient.invalidateQueries({ queryKey: blocksKey });
+    },
+  });
+}
+
+/** Who this account blocked, for the screens that still list those people. */
+export function useBlockedIds(userId: string | undefined) {
+  return useQuery({
+    queryKey: [...blocksKey, userId, 'ids'],
+    enabled: userId !== undefined,
+    queryFn: async (): Promise<Set<string>> => {
+      const { data, error } = await requireSupabase().from('blocks').select('blocked_id').eq('blocker_id', userId ?? '');
+      if (error) throw error;
+      return new Set(data.map((row) => row.blocked_id));
+    },
   });
 }
 
@@ -274,6 +368,7 @@ export function socialErrorKey(error: unknown) {
     'already_fed',
     'not_counted_today',
     'cannot_nudge',
+    'receiver_quiet',
     'too_many_suggestions',
     'name_not_open',
     'item_locked',
@@ -281,6 +376,7 @@ export function socialErrorKey(error: unknown) {
     'not_enough_coins',
     'already_owned',
     'not_for_sale',
+    'feed_not_found',
   ] as const) {
     if (message.includes(code)) return `social.errors.${code}` as const;
   }

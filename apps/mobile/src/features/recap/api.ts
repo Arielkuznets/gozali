@@ -24,8 +24,15 @@ export type Recap = { week_start: string; stats: RecapStats; feed_ids: string[] 
 
 export type RecapPhoto = { id: string; userId: string; url: string };
 
+/** The collages of all recaps, under the feeds' key: what reads the feeds again reads these too. */
+export const recapPhotosKey = ['feeds', 'recap-photos'] as const;
+
 const PHOTO_LINK_SECONDS = 60 * 60;
 
+/**
+ * Every recap of the pack, newest first, so each one stays open from its week chip. A row is under
+ * a kilobyte, so a year of them is a small read.
+ */
 export function useRecaps(packId: string) {
   return useQuery({
     queryKey: ['social', 'recaps', packId],
@@ -34,8 +41,7 @@ export function useRecaps(packId: string) {
         .from('weekly_recaps')
         .select('week_start, stats, feed_ids')
         .eq('pack_id', packId)
-        .order('week_start', { ascending: false })
-        .limit(12);
+        .order('week_start', { ascending: false });
       if (error) throw error;
       return data as unknown as Recap[];
     },
@@ -45,9 +51,8 @@ export function useRecaps(packId: string) {
 /** The collage photos a member may see (hidden and blocked ones drop out), with signed links. */
 export function useRecapPhotos(recap: Recap | undefined) {
   return useQuery({
-    queryKey: ['feeds', 'recap-photos', recap?.week_start, recap?.feed_ids.join()],
+    queryKey: [...recapPhotosKey, recap?.week_start, recap?.feed_ids.join()],
     enabled: recap !== undefined && recap.feed_ids.length > 0,
-    staleTime: (PHOTO_LINK_SECONDS / 2) * 1000,
     queryFn: async (): Promise<RecapPhoto[]> => {
       const supabase = requireSupabase();
       const { data, error } = await supabase.from('feeds').select('id, user_id, photo_path').in('id', recap!.feed_ids);

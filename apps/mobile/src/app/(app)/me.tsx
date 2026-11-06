@@ -8,13 +8,13 @@ import { HeaderButton } from '@/components/HeaderButton';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { LoadFailed } from '@/components/ScreenStates';
-import { signOut } from '@/features/auth/signIn';
+import { useSignOut } from '@/features/auth/useSignOut';
 import { AvatarButton } from '@/features/profile/AvatarButton';
 import { useProfile } from '@/features/profile/useProfile';
 import { useMyStats } from '@/features/social/api';
-import { notify } from '@/lib/confirm';
 import { deviceTimeZone, formatDay } from '@/lib/dates';
 import { goBack } from '@/lib/navigation';
+import { serverNow } from '@/lib/serverClock';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 const BOARD_DAYS = 35;
@@ -25,21 +25,20 @@ export default function MeScreen() {
   const { t } = useTranslation();
   const profile = useProfile();
   const stats = useMyStats();
-
-  const onSignOut = () => {
-    signOut().catch(() => notify(t('errors.signInFailed')));
-  };
+  const leaving = useSignOut();
 
   const byDay = new Map((stats.data?.days ?? []).map((entry) => [entry.day, entry.status]));
   // The pack day on this phone: until 03:00 it is still yesterday's.
-  const last = packDayOf(new Date(), deviceTimeZone());
+  const last = packDayOf(serverNow(), deviceTimeZone());
   const days = Array.from({ length: BOARD_DAYS }, (_, index) => addDays(last, index - BOARD_DAYS + 1));
 
   return (
     <Screen>
       <View style={styles.header}>
         <HeaderButton icon="‹" label={t('me.back')} onPress={() => goBack('/')} />
-        <AppText variant="heading">{profile.data?.display_name ?? t('me.title')}</AppText>
+        <AppText variant="heading" numberOfLines={1} style={styles.name}>
+          {profile.data?.display_name ?? t('me.title')}
+        </AppText>
         <HeaderButton label={t('settings.app.open')} onPress={() => router.push('/settings')} />
       </View>
 
@@ -107,13 +106,15 @@ export default function MeScreen() {
         </ScrollView>
       )}
 
-      <Button label={t('me.signOut')} variant="secondary" onPress={onSignOut} />
+      <Button label={t('me.signOut')} variant="secondary" loading={leaving.isPending} onPress={leaving.start} />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.md },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.md },
+  // Text in a row keeps its full width unless told otherwise, and Settings is the way to Delete account.
+  name: { flexShrink: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   body: { gap: spacing.md, paddingBottom: spacing.lg },
   centerText: { textAlign: 'center' },

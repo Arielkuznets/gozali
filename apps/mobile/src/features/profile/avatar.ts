@@ -5,7 +5,9 @@ import * as ImagePicker from 'expo-image-picker';
 import { Platform } from 'react-native';
 
 import { useAuth } from '@/features/auth/AuthProvider';
+import { isNetworkFailure } from '@/features/feeds/send';
 import { useProfile } from '@/features/profile/useProfile';
+import { reportError } from '@/lib/reportError';
 import { requireSupabase } from '@/lib/supabase';
 
 // The optional profile photo (spec section 9). Unlike feeds, it may come from the gallery: it
@@ -22,12 +24,15 @@ export function avatarCacheKey(url: string): string {
   return url.split('?')[0] ?? url;
 }
 
-/** Lets the member take or pick a square photo; null when they cancel. */
+/**
+ * Lets the member take or pick a square photo; null when they cancel. Throws `camera_blocked`
+ * when the camera isn't allowed, so the screen can say why nothing opens.
+ */
 export async function pickAvatar(source: 'camera' | 'library'): Promise<string | null> {
   const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 1 };
   if (source === 'camera') {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) return null;
+    if (!permission.granted) throw new Error('camera_blocked');
   }
   const result = source === 'camera' ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
   return result.canceled ? null : (result.assets[0]?.uri ?? null);
@@ -59,14 +64,24 @@ export function useSetAvatar() {
         const upload = await supabase.storage.from(BUCKET).upload(path, await bytes(image.uri), { contentType: 'image/jpeg' });
         if (upload.error) throw upload.error;
       }
-      const previous = profile.data?.avatar_path ?? null;
+      // Another phone may have changed the photo since this one read the profile, so the file to remove
+      // is the one the profile points at now. The copy here stands in if that read fails.
+      const readPath = () => supabase.from('profiles').select('avatar_path').eq('id', userId).single();
+      const current = await readPath();
+      const previous = current.error ? (profile.data?.avatar_path ?? null) : current.data.avatar_path;
       const { error } = await supabase.from('profiles').update({ avatar_path: path }).eq('id', userId);
-      if (error) {
-        // The profile still points at the old photo; don't leave the new file behind.
-        if (path) await supabase.storage.from(BUCKET).remove([path]);
+      // An update with no answer may have been saved all the same, and then this goes on as if it was
+      // answered. One not saved yet may still land, so the new file stays for it.
+      if (error && !(isNetworkFailure(error) && (await readPath()).data?.avatar_path === path)) {
+        // Refused: the profile still points at the old photo; don't leave the new file behind.
+        if (path && !isNetworkFailure(error)) await supabase.storage.from(BUCKET).remove([path]);
         throw error;
       }
-      if (previous) await supabase.storage.from(BUCKET).remove([previous]);
+      if (previous) {
+        // Left behind, the old photo is still there for pack mates to open, so the developer hears of it.
+        const removed = await supabase.storage.from(BUCKET).remove([previous]);
+        if (removed.error) reportError(removed.error);
+      }
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['profile'] });
@@ -83,7 +98,11 @@ export function useAvatarUrls(paths: readonly (string | null | undefined)[]) {
     enabled: wanted.length > 0,
     staleTime: (LINK_SECONDS / 2) * 1000,
     queryFn: async (): Promise<Map<string, string>> => {
-      const { data, error } = await requireSupabase().storage.from(BUCKET).createSignedUrls(wanted, LINK_SECONDS);
+      const supabase = requireSupabase();
+      // Storage answers someone with no session as if the files weren't there. As a failure that keeps
+      // the links of before, and goes again when the session is back.
+      if (!(await supabase.auth.getSession()).data.session) throw new Error('not_signed_in');
+      const { data, error } = await supabase.storage.from(BUCKET).createSignedUrls(wanted, LINK_SECONDS);
       if (error) throw error;
       return new Map(data.flatMap((item) => (item.path && item.signedUrl ? [[item.path, item.signedUrl] as const] : [])));
     },

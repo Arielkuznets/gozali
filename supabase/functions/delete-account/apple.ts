@@ -13,6 +13,10 @@ export interface AppleKey {
 }
 
 const APPLE = 'https://appleid.apple.com';
+// How long Apple gets for both calls together. The deletion waits for them, so a call that never
+// answers would hold it until the function is killed with nothing deleted. A revocation given up
+// on can't be tried again, so the limit isn't tight.
+const REVOCATION_TIMEOUT_MS = 10_000;
 
 export function appleKeyFrom(env: (name: string) => string | undefined): AppleKey | null {
   const teamId = env('APPLE_TEAM_ID');
@@ -49,16 +53,18 @@ export async function appleClientSecret(key: AppleKey, now = Date.now()): Promis
   return `${unsigned}.${base64url(new Uint8Array(signature))}`;
 }
 
-type Send = (url: string, init: { method: 'POST'; headers: Record<string, string>; body: string }) => Promise<Response>;
+type Send = (url: string, init: { method: 'POST'; headers: Record<string, string>; body: string; signal: AbortSignal }) => Promise<Response>;
 
 /** Trades the code for a token and revokes it. Returns 'revoked', or where it stopped. */
 export async function revokeAppleSignIn(key: AppleKey, code: string, send: Send = fetch): Promise<string> {
   const secret = await appleClientSecret(key);
+  const signal = AbortSignal.timeout(REVOCATION_TIMEOUT_MS);
   const post = (path: string, fields: Record<string, string>) =>
     send(`${APPLE}${path}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ client_id: key.clientId, client_secret: secret, ...fields }).toString(),
+      signal,
     });
   const exchange = await post('/auth/token', { code, grant_type: 'authorization_code' });
   if (!exchange.ok) return `token ${exchange.status}`;

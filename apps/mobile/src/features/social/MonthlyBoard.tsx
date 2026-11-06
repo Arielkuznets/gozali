@@ -7,14 +7,18 @@ import { colors, spacing } from '@/theme/tokens';
 
 type Cell = 'fed' | 'rest' | 'away' | 'missed' | 'none' | 'open' | 'future';
 
+type Member = { id: string; name: string | null; left: boolean };
+
 type Props = {
   month: string;
   results: DayResultRow[];
-  members: { id: string; name: string | null }[];
+  members: Member[];
   today: string;
   fedToday: Set<string>;
   color: string;
 };
+
+const DAY_LISTS = ['fed_ids', 'rested_ids', 'joker_ids', 'paused_ids', 'sleeping_ids', 'missed_ids'] as const;
 
 function daysIn(month: string): string[] {
   const [year, monthNumber] = month.split('-').map(Number);
@@ -22,26 +26,29 @@ function daysIn(month: string): string[] {
   return Array.from({ length: count }, (_, index) => `${month}-${String(index + 1).padStart(2, '0')}`);
 }
 
-function cellFor(member: string, day: string, result: DayResultRow | undefined, today: string, fedToday: Set<string>): Cell {
+function cellFor(member: Member, day: string, result: DayResultRow | undefined, today: string, fedToday: Set<string>): Cell {
   if (result) {
-    if (result.fed_ids.includes(member)) return 'fed';
-    if (result.rested_ids.includes(member) || result.joker_ids.includes(member)) return 'rest';
-    if (result.paused_ids.includes(member) || result.sleeping_ids.includes(member)) return 'away';
-    if (result.missed_ids.includes(member)) return 'missed';
+    if (result.fed_ids.includes(member.id)) return 'fed';
+    if (result.rested_ids.includes(member.id) || result.joker_ids.includes(member.id)) return 'rest';
+    if (result.paused_ids.includes(member.id) || result.sleeping_ids.includes(member.id)) return 'away';
+    if (result.missed_ids.includes(member.id)) return 'missed';
     return 'none';
   }
-  if (day === today) return fedToday.has(member) ? 'fed' : 'open';
+  // The day's close doesn't count a member who left, whatever they did today.
+  if (day === today) return member.left ? 'none' : fedToday.has(member.id) ? 'fed' : 'open';
   return day > today ? 'future' : 'none';
 }
 
 /**
  * Who fed, rested, was away or missed on each day of the month (spec section 7). Every state
- * has its own shape as well as its color.
+ * has its own shape as well as its color. A member who left keeps their row in the months whose
+ * closed days list them.
  */
 export function MonthlyBoard({ month, results, members, today, fedToday, color }: Props) {
   const { t } = useTranslation();
   const days = daysIn(month);
   const byDay = new Map(results.map((result) => [result.day, result]));
+  const rows = members.filter((member) => !member.left || results.some((result) => DAY_LISTS.some((list) => result[list].includes(member.id))));
   const cellStyle = (cell: Cell, base: object = styles.cell) => [
     base,
     cell === 'fed' && { backgroundColor: color },
@@ -64,8 +71,8 @@ export function MonthlyBoard({ month, results, members, today, fedToday, color }
           );
         })}
       </View>
-      {members.map((member) => {
-        const cells = days.map((day) => cellFor(member.id, day, byDay.get(day), today, fedToday));
+      {rows.map((member) => {
+        const cells = days.map((day) => cellFor(member, day, byDay.get(day), today, fedToday));
         const count = (kind: Cell) => cells.filter((cell) => cell === kind).length;
         const summary = t('profile.boardRow', {
           name: member.name ?? '…',

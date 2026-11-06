@@ -84,7 +84,7 @@ Each entry: what was decided, what the options were, and why. Decisions D1–D11
 
 ## D15 · Notification rules run when a row is claimed
 
-- **Decided:** actions only queue rows; the rules of spec section 8 (preferences, quiet hours, the daily cap, and whether a reminder still makes sense) run in `claim_notifications`, in the database, at the moment a row is due. The send-push function only renders texts and talks to Expo Push.
+- **Decided:** actions only queue rows; the rules of spec section 8 (preferences, quiet hours, the daily cap, and whether a reminder still makes sense) run in `claim_notifications`, in the database, at the moment a row is due. The send-push function only renders texts and talks to Expo Push. One rule also runs earlier: `nudge` refuses a nudge in the receiver's quiet hours, because the sender is waiting for an answer and a dropped nudge would use up the day's one.
 - **Options:** filter when queueing; or apply the rules in the Edge Function.
 - **Why:** most rules depend on the moment of sending, not of queueing: a reminder queued at 20:00 is pointless if the member fed at 20:03, and the daily cap depends on what already went out that day. Doing it at claim time, with `for update skip locked`, also keeps two overlapping runs from sending the same row. SQL makes each rule testable in pgTAP with a chosen clock.
 
@@ -96,13 +96,13 @@ Each entry: what was decided, what the options were, and why. Decisions D1–D11
 
 ## D17 · Moderation before the developer looks
 
-- **Decided:** a blocked-word check in the database on every text members write (captions, pack, critter and member names, habit texts, name suggestions), with the list kept in a table; every report emails the developer; the third report on the same photo hides it until the developer reviews it.
+- **Decided:** a blocked-word check in the database on every text members write (captions, pack, critter and member names, habit texts, name suggestions), with the list kept in a table; a text an update leaves as it was isn't checked again, so one saved before a word went on the list doesn't stop the rest of its row from saving; every report emails the developer, up to 20 a day from one person, and the daily summary counts them all; the third report on the same photo hides it until the developer reviews it, and emails the developer even past its reporter's 20; a review marks its reports handled, so a photo the developer kept hides again only on three new reports. A member can be reported too, for anything about them, from their name or profile photo to how they treat others; that only reaches the developer and hides nothing by itself. A block is also a report on the member blocked, so the developer hears of it the same way.
 - **Options:** filtering only in the app; hiding on the first report; waiting for the developer on every report.
 - **Why:** the store requires filtering and fast handling of reports (spec section 11). A check in the database can't be skipped by an old app version or a crafted request, and a table lets new words go in without a release. Hiding on the first report would let one member silence another; three independent reports mean the pack agrees something is wrong, and the developer still reviews within 24 hours.
 
 ## D18 · How the app is tested
 
-- **Decided:** five layers, all run in CI on every push: unit tests (the game engine, the critter drawing, and the app's logic with Jest); pgTAP tests of the database rules; smoke scripts that drive the real API, storage, realtime and Edge Functions of a local Supabase; end-to-end tests with Playwright on the web build of the app, in a phone-sized browser against that same local stack; and typechecks and lint.
+- **Decided:** five layers, all run in CI on pushes to main and dev and on every pull request: unit tests (the game engine, the critter drawing, and the app's logic with Jest); pgTAP tests of the database rules; smoke scripts that drive the real API, storage, realtime and Edge Functions of a local Supabase; end-to-end tests with Playwright on the web build of the app, in a phone-sized browser against that same local stack; and typechecks and lint.
 - **Options:** only unit and database tests; end-to-end tests on devices with Detox or Maestro.
 - **Why:** most of the product's rules live in the database and the Edge Functions, so tests have to run against a real Supabase, not mocks. The web build covers the screens and flows (create, join, feed with a fake camera, settings) in minutes on a plain CI runner, with no emulator or Mac. It doesn't cover native-only parts (widgets, push, the real camera, sign-in providers); those are checked on devices with the EAS builds.
 
@@ -126,6 +126,31 @@ Each entry: what was decided, what the options were, and why. Decisions D1–D11
 
 ## D22 · Error reports in our own database for the pilot
 
-- **Decided:** the app reports its errors to a table in the project's database (`app_errors`, written only through `report_app_error`, at most 50 a day per member, kept 30 days): screens that fail to draw right away, and JavaScript errors that close the app on the next start. Native crashes come from TestFlight and the Google Play Console. The pilot's numbers come from `pilot_metrics`, so there is no analytics service either.
+- **Decided:** the app reports its errors to a table in the project's database (`app_errors`, written only through `report_app_error`, at most 50 a day per member, kept 30 days): screens that fail to draw right away, JavaScript errors that close the app on the next start, and queued feeds that were dropped or got stuck (once per feed). Native crashes come from TestFlight and the Google Play Console. The pilot's numbers come from `pilot_metrics`, so there is no analytics service either.
 - **Options:** Sentry for crashes and PostHog for analytics (spec version 3.2); nothing until the launch.
 - **Why:** it needs no new account or key, the reports stay in the EU with the rest of the data, and a few lines of SQL answer every question a pilot of 5 or 6 packs raises. Sentry adds symbolicated native stacks and alerts, which matter at the scale of a public launch; the decision is revisited then.
+
+## D23 · Realtime doesn't send deletes
+
+- **Decided:** the `supabase_realtime` publication sends inserts and updates, not deletes (migration `20260927004800`). Something taken back on another phone (a reaction, a rest or joker, a member's account going) shows on the next refetch: on opening or coming back to a screen, pulling to refresh, or the next change Realtime does send.
+- **Options:** keep deletes; turn take-backs into updates (a "removed" column) so they stay live; send them on a private broadcast channel per pack.
+- **Why:** row level security decides who hears about a new or changed row, but a deleted row can't be checked against it, so Realtime sent every delete to every listener in every pack: whose 🤨 a reaction was, which the spec keeps anonymous, and which member took a rest. Every open app also refetched on each of them. A take-back is rare and waiting for the next refresh costs little; the other options are larger changes, worth it if live take-backs turn out to matter.
+
+## D24 · When the week starts on another day
+
+- **Decided:** a new week start takes effect after the running week, which ends as it would have, with its recap. The days until the new start day comes round join the first week under it: 8 days from Sunday to Monday, 13 from Monday to Sunday. That week allows rest days in proportion to its length, rounded up (`ceil(rest days × length / 7)`), and rest days count within the week their day belongs to. Each closed day keeps the week it belonged to (`day_results.week_from` and `week_to`), and the pack keeps the day its weeks changed (`packs.week_changed_on`; migration `20260927005300`).
+- **Options:** the days in between join the ending week (the earlier rule in the spec), or form a short week of their own (1 to 6 days, with its own recap), or join the first new week.
+- **Why:** the owner wanted the running week to end as planned, every day in exactly one week, every week with exactly one recap, and nobody refused a rest or charged a miss because of the change. Joining the first new week is the one rule that does all of it in every direction, without a recap for a single day. Rounding up gives the longer week exactly the rests anyone could have had in those days under either start day: r + 1 in 8 days and 2r in 13, for a quota r of 1 to 4. Before, the running week lost its recap, and the next one overlapped it, counting rests from both.
+
+
+## D25 · Who can come back to an emptied pack
+
+- **Decided:** a pack with no members takes back only someone who already has a row in it, and the first one back becomes its admin. A member the admin removed stays out, as in any pack. For anyone else its code answers as one no pack has, in both the preview and the join, and counts as a miss. Once someone is back the pack is a live pack again and the code works for anyone.
+- **Options:** anyone with the link joins and becomes the admin (the earlier rule, migration `20260927001900`); hide everything posted before a newcomer joined, in the read policies of the feeds and the photo files.
+- **Why:** an emptied pack stays 30 days, and its photos stay as long as they are kept, 8 weeks for those in a recap. Under the earlier rule a stranger with an old message became the admin and read all of it, with nobody there to see the join or remove them, while the people who left believed they were out. Hiding the old posts would need new rules on every read for a case the product doesn't need: the one branch in the join keeps coming back for the people it is for.
+
+## D26 · What a pack mate can read of a profile
+
+- **Decided:** for now a member can read the whole profile row of everyone who is or was in one of their packs, and the privacy policy says so under "Who can see what". The plan: the app reads its own settings through a security definer function instead of a select on `profiles`, and once every build in use does, `select` on `timezone`, `locale`, `reminder_time`, `notification_prefs`, `terms_accepted_at` and `created_at` is revoked from `authenticated`. Others then read only the id, the name and the profile photo, which is all the app shows of them.
+- **Options:** revoke those columns now; a view of the shared columns; a table of its own for the settings.
+- **Why:** row level security picks rows, not columns, and the read reaches people who left so that old feed items keep their names. With the name come the time zone, language, reminder time, notification choices and dates: after the person left the pack or blocked someone, and to people who join the pack later. Build 4 reads its own profile with a plain select of those columns, as the app still does, so revoking them now would stop the app from loading the profile it opens with. The function goes out first, and the revoke follows when no build without it is left.

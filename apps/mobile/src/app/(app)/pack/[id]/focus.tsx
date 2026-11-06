@@ -1,7 +1,7 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { HeaderButton } from '@/components/HeaderButton';
@@ -12,12 +12,13 @@ import { LoadingScreen, LoadFailedScreen, PackMissingScreen } from '@/components
 import { Critter } from '@/features/critter/Critter';
 import { critterArt } from '@/features/critter/art';
 import { useCritterText } from '@/features/critter/useCritterText';
-import { FOCUS_LENGTHS, elapsedMs, remainingMs, useFocusSession } from '@/features/focus/session';
+import { FOCUS_LENGTHS, elapsedMs, focusedMinutes, remainingMs, useFocusSession } from '@/features/focus/session';
 import { usePack } from '@/features/packs/api';
 import { confirm } from '@/lib/confirm';
-import { allowNotifications } from '@/lib/notifications';
+import { allowNotifications, useNotificationPermission } from '@/lib/notifications';
 import { goBack } from '@/lib/navigation';
 import { useNow } from '@/lib/useNow';
+import { serverNow } from '@/lib/serverClock';
 import { colors, fonts, spacing } from '@/theme/tokens';
 
 function clock(ms: number): string {
@@ -36,30 +37,42 @@ export default function FocusScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: pack, isPending, isError, refetch } = usePack(id);
   const focus = useFocusSession({ title: t('focus.doneTitle'), body: t('focus.doneBody') });
-  const now = useNow(1000);
+  // The session's times are the phone's own (Date.now), and so is its notification.
+  const now = useNow(1000, 'phone');
+  const inFront = useIsFocused();
   const opened = useRef(false);
+  // Turned off in the phone's settings, nothing marks the end of the time while the app is away.
+  const unannounced = useNotificationPermission().permission === 'blocked';
 
   const session = focus.session?.packId === id ? focus.session : null;
   const otherSession = focus.session !== null && session === null;
   const left = session ? remainingMs(session, now.getTime()) : null;
 
+  // The clock stops here and only the photo ends the session, so a camera left without one, refused
+  // or closed, gives these minutes back to this screen.
   const takePhoto = async () => {
-    const minutes = await focus.stop();
+    if (!session) return;
+    const minutes = focusedMinutes(session, Date.now());
+    await focus.pause().catch(() => undefined);
     router.replace(`/pack/${id}/feed?focus=${minutes}`);
   };
 
-  // When the time runs out with the screen open, go straight to the camera. A session that
-  // ended a while ago (the app was closed) waits for the Done button instead.
+  // When the time runs out with the screen in front, go straight to the camera. It takes the place
+  // of whatever is in front, so a screen opened over this one holds it back. A session that ended a
+  // while ago (the app was closed) or came back from the camera waits for the Done button instead.
   const justEnded =
-    session !== null && session.minutes !== null && elapsedMs(session, now.getTime()) - session.minutes * 60_000 < 60_000;
+    session !== null &&
+    session.pausedAt === null &&
+    session.minutes !== null &&
+    elapsedMs(session, now.getTime()) - session.minutes * 60_000 < 60_000;
   useEffect(() => {
-    if (left === 0 && justEnded && !opened.current) {
+    if (left === 0 && justEnded && inFront && !opened.current) {
       opened.current = true;
       void takePhoto();
     }
   });
 
-  if (isPending || !focus.loaded) return <LoadingScreen />;
+  if (isPending || !focus.loaded) return <LoadingScreen back />;
   if (!pack && isError) return <LoadFailedScreen onRetry={() => void refetch()} />;
   if (!pack) return <PackMissingScreen />;
 
@@ -74,7 +87,8 @@ export default function FocusScreen() {
     });
 
   const start = async (minutes: number | null) => {
-    await allowNotifications();
+    // The timer runs without notifications too, and the screen says what that means.
+    await allowNotifications().catch(() => false);
     await focus.start(id, minutes);
   };
 
@@ -84,7 +98,8 @@ export default function FocusScreen() {
         <HeaderButton icon="‹" label={t('pack.back')} onPress={() => goBack(`/pack/${id}`)} />
       </View>
 
-      <View style={styles.body}>
+      {/* An iPad shows the app in a window that can be shorter than any phone. */}
+      <ScrollView contentContainerStyle={styles.body}>
         {pack.critters && <FocusCritter pack={pack} />}
         {session ? (
           <>
@@ -98,6 +113,11 @@ export default function FocusScreen() {
                   ? t('focus.openRunning')
                   : t('focus.running', { minutes: session.minutes })}
             </AppText>
+            {unannounced && session.minutes !== null && (
+              <AppText variant="caption" style={styles.centerText}>
+                {t('focus.notificationsOff')}
+              </AppText>
+            )}
           </>
         ) : (
           <>
@@ -105,6 +125,11 @@ export default function FocusScreen() {
               {t('focus.title')}
             </AppText>
             <AppText style={[styles.centerText, styles.muted]}>{t('focus.body')}</AppText>
+            {unannounced && (
+              <AppText variant="caption" style={styles.centerText}>
+                {t('focus.notificationsOff')}
+              </AppText>
+            )}
             {otherSession && <AppText variant="caption">{t('focus.otherRunning')}</AppText>}
             <View style={styles.lengths}>
               {FOCUS_LENGTHS.map((minutes) => (
@@ -117,7 +142,7 @@ export default function FocusScreen() {
             <Button label={t('focus.open')} variant="secondary" onPress={() => void start(null)} />
           </>
         )}
-      </View>
+      </ScrollView>
 
       {session && (
         <View style={styles.actions}>
@@ -142,14 +167,14 @@ export default function FocusScreen() {
 
 function FocusCritter({ pack }: { pack: NonNullable<ReturnType<typeof usePack>['data']> }) {
   const critter = pack.critters!;
-  const art = { ...critterArt(critter, { category: pack.category, now: new Date() }), sleeping: false };
+  const art = { ...critterArt(critter, { category: pack.category, now: serverNow() }), sleeping: false };
   const text = useCritterText(critter, art);
   return <Critter art={art} size={160} label={text.label} lines={text.lines} />;
 }
 
 const styles = StyleSheet.create({
   header: { alignItems: 'flex-start', paddingVertical: spacing.md },
-  body: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
+  body: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md, paddingVertical: spacing.md },
   centerText: { textAlign: 'center' },
   muted: { color: colors.inkMuted, maxWidth: 320 },
   clock: { fontFamily: fonts.heading, fontSize: 64, lineHeight: 76, fontVariant: ['tabular-nums'] },

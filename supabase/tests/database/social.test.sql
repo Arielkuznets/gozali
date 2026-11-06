@@ -1,7 +1,7 @@
 -- Feed events, reactions, nudges, naming, the wardrobe and personal stats.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(34);
+select plan(55);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a4', 'noa@test.local'),
@@ -12,6 +12,39 @@ update public.profiles set display_name = 'Dan' where id = '00000000-0000-0000-0
 
 create function pg_temp.act_as(member uuid) returns void language sql as $$
   select set_config('request.jwt.claims', json_build_object('sub', member, 'role', 'authenticated')::text, true);
+$$;
+
+-- The zone whose clock shows this hour right now; Etc names carry the sign the other way around.
+create function pg_temp.zone_at(local_hour integer) returns text language sql as $$
+  select format('Etc/GMT%s%s', case when ahead > 0 then '-' else '+' end, abs(ahead))
+  from (select ((local_hour - extract(hour from now() at time zone 'utc')::integer + 36) % 24) - 12 as ahead) clock;
+$$;
+
+-- The POSIX zone whose clock shows this time right now, to the second.
+create function pg_temp.zone_showing(clock time) returns text language sql as $$
+  select format('<T>%s%s', case when behind < 0 then '-' else '+' end, to_char(abs(behind) * interval '1 second', 'HH24:MI:SS'))
+  from (
+    select ((floor(extract(epoch from (now() at time zone 'utc')::time))::integer - extract(epoch from clock)::integer + 129600) % 86400) - 43200 as behind
+  ) offset_from_utc;
+$$;
+
+-- What becomes of Dan's nudge when Noa's clock shows this time. send-push runs every minute and a
+-- run can be a minute late, so it gets its turn two minutes on.
+create function pg_temp.nudge_noa_at(clock time) returns text language plpgsql as $$
+begin
+  delete from public.nudges;
+  delete from public.notifications where type = 'nudge';
+  update public.profiles set timezone = pg_temp.zone_showing(clock) where id = '00000000-0000-0000-0000-0000000000a4';
+  begin
+    perform public.nudge((select id from pack), '00000000-0000-0000-0000-0000000000a4');
+  exception when raise_exception then
+    return sqlerrm;
+  end;
+  return case
+    when exists (select 1 from public.claim_notifications(now() + interval '2 minutes') c where c.type = 'nudge') then 'delivered'
+    else 'lost'
+  end;
+end;
 $$;
 
 set local role authenticated;
@@ -92,6 +125,18 @@ select is(
 );
 select public.dress_critter((select id from pack), 'neck', null);
 select is((select outfit from public.critters), '{}'::jsonb, 'null takes the item off');
+create function pg_temp.dress_and_undress(changes integer) returns void language plpgsql as $$
+begin
+  for n in 1..changes loop
+    perform public.dress_critter((select id from pack), 'neck', case when n % 2 = 1 then 'scarf' end);
+  end loop;
+end;
+$$;
+select lives_ok($$ select pg_temp.dress_and_undress(25) $$, 'a member changes the outfit as often as they like');
+select is(
+  (select count(*) from public.pack_events where kind = 'dressed' and actor_id = '00000000-0000-0000-0000-0000000000a4'), 20::bigint,
+  'but 20 of their changes a day show in the feed'
+);
 
 -- A feed from Dan to react to and to nudge around.
 reset role;
@@ -121,8 +166,50 @@ select is(
 );
 insert into public.blocks (blocker_id, blocked_id) values ('00000000-0000-0000-0000-0000000000a4', '00000000-0000-0000-0000-0000000000b4');
 select is(
+  (select total || ' ' || mine || ' ' || cardinality(names) from public.feed_reactions(array['20000000-0000-0000-0000-000000000001'::uuid]) where emoji = 'suspicious'),
+  '1 false 0',
+  'a blocked member''s suspicious emoji still counts, so blocking people one by one can''t tell whose it is'
+);
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000b4');
+select public.react('20000000-0000-0000-0000-000000000001', 'fire');
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000a4');
+select is(
   (select count(*) from public.feed_reactions(array['20000000-0000-0000-0000-000000000001'::uuid])), 0::bigint,
   'reactions from a blocked member are hidden'
+);
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000b4');
+select public.dress_critter((select id from pack), 'neck', 'scarf');
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000a4');
+select is(
+  (select array_agg(kind::text order by created_at) from public.pack_events where actor_id = '00000000-0000-0000-0000-0000000000b4'),
+  array['joined'],
+  'of a blocked member''s feed lines only their join still shows, so whoever blocked them knows they are in the pack'
+);
+create function pg_temp.leave_and_rejoin(times integer) returns void language plpgsql as $$
+begin
+  for n in 1..times loop
+    perform public.leave_pack((select id from pack));
+    perform public.join_pack((select invite_code from code));
+  end loop;
+end;
+$$;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000b4');
+select pg_temp.leave_and_rejoin(3);
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000a4');
+select is(
+  (select count(*) from public.pack_events where kind = 'joined' and actor_id = '00000000-0000-0000-0000-0000000000b4'), 1::bigint,
+  'leaving and coming back the same day shows no new join, so a blocked member can''t fill the feed with them'
+);
+reset role;
+update public.pack_events set created_at = now() - interval '25 hours'
+where kind = 'joined' and actor_id = '00000000-0000-0000-0000-0000000000b4';
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000b4');
+select pg_temp.leave_and_rejoin(1);
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000a4');
+select is(
+  (select count(*) from public.pack_events where kind = 'joined' and actor_id = '00000000-0000-0000-0000-0000000000b4'), 2::bigint,
+  'coming back a day after the last join shows again'
 );
 delete from public.blocks;
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000c4');
@@ -131,14 +218,30 @@ select throws_ok(
   'P0002', 'feed_not_found', 'a stranger cannot react'
 );
 
--- Nudges.
+-- Nudges. Quiet hours go by the receiver's clock, so it is noon for Noa and the middle of the night
+-- for Dan, whose clock has no say in a nudge to Noa.
+reset role;
+update public.profiles set timezone = pg_temp.zone_at(12) where id = '00000000-0000-0000-0000-0000000000a4';
+update public.profiles set timezone = pg_temp.zone_at(2) where id = '00000000-0000-0000-0000-0000000000b4';
+set local role authenticated;
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000a4');
 insert into public.blocks (blocker_id, blocked_id) values ('00000000-0000-0000-0000-0000000000a4', '00000000-0000-0000-0000-0000000000b4');
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000b4');
+select lives_ok(
+  $$ select public.nudge((select id from pack), '00000000-0000-0000-0000-0000000000a4') $$,
+  'a nudge at someone who blocked the sender answers as any other does, so it doesn''t tell of the block'
+);
 select throws_ok(
   $$ select public.nudge((select id from pack), '00000000-0000-0000-0000-0000000000a4') $$,
-  'P0001', 'cannot_nudge', 'nobody nudges someone who blocked them'
+  'P0001', 'already_nudged', 'and it is the day''s nudge, like any other'
 );
+reset role;
+select is(
+  (select count(*) from public.notifications where type = 'nudge'), 0::bigint,
+  'but it reaches nobody'
+);
+delete from public.nudges;
+set local role authenticated;
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000a4');
 delete from public.blocks;
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000b4');
@@ -166,6 +269,61 @@ select throws_ok(
   $$ select public.nudge((select id from pack), '00000000-0000-0000-0000-0000000000b4') $$,
   'P0001', 'already_fed', 'no nudging someone who fed'
 );
+
+-- A nudge in the receiver's quiet hours would be dropped, so it is refused and not used up.
+reset role;
+delete from public.nudges;
+delete from public.notifications where type = 'nudge';
+update public.profiles set timezone = pg_temp.zone_at(23) where id = '00000000-0000-0000-0000-0000000000a4';
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000b4');
+select throws_ok(
+  $$ select public.nudge((select id from pack), '00000000-0000-0000-0000-0000000000a4') $$,
+  'P0001', 'receiver_quiet', 'no nudge once it is night on the receiver''s clock'
+);
+reset role;
+select is((select count(*) from public.nudges), 0::bigint, 'a nudge refused at night leaves the day''s nudge unused');
+select is((select count(*) from public.notifications where type = 'nudge'), 0::bigint, 'and queues nothing');
+
+-- Whatever the time, a nudge is delivered or refused, never accepted and lost. Zones Postgres
+-- doesn't list turn into UTC on the way in, so that step stays out of the way here.
+alter table public.profiles disable trigger clean_profile_settings;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000b4');
+select is(
+  (select array_agg(pg_temp.nudge_noa_at(make_time(local_hour, 30, 0)) order by local_hour) from generate_series(0, 23) local_hour),
+  array_fill('receiver_quiet'::text, array[7]) || array_fill('delivered'::text, array[16]) || array['receiver_quiet'],
+  'the hours a nudge is refused are the hours it would be dropped'
+);
+select is(pg_temp.nudge_noa_at('06:59:59'), 'receiver_quiet', 'at 06:59:59 it is still night');
+select is(pg_temp.nudge_noa_at('07:00:00'), 'delivered', 'at 07:00 a nudge goes through');
+select is(pg_temp.nudge_noa_at('22:57:59'), 'delivered', 'the last one accepted still goes out before 23:00');
+select is(
+  pg_temp.nudge_noa_at('22:58:00'), 'receiver_quiet',
+  'from there on it couldn''t be claimed before 23:00, so it is refused'
+);
+select is(pg_temp.nudge_noa_at('22:59:30'), 'receiver_quiet', 'as in the last minute before 23:00');
+reset role;
+select is((select count(*) from public.nudges), 0::bigint, 'and the day''s nudge stays unused');
+alter table public.profiles enable trigger clean_profile_settings;
+
+-- A nudge that went out stays the day's nudge at any hour, and the sender hears that first: told to
+-- try after 07:00, they would only hear it then. The clock moves a long way west to stand in for
+-- the hours of one pack day.
+delete from public.nudges;
+delete from public.notifications where type = 'nudge';
+update public.profiles set timezone = pg_temp.zone_at(12) where id = '00000000-0000-0000-0000-0000000000a4';
+select public.nudge((select id from pack), '00000000-0000-0000-0000-0000000000a4');
+update public.profiles set timezone = pg_temp.zone_at(23) where id = '00000000-0000-0000-0000-0000000000a4';
+select throws_ok(
+  $$ select public.nudge((select id from pack), '00000000-0000-0000-0000-0000000000a4') $$,
+  'P0001', 'already_nudged', 'a sender who used the day''s nudge hears that at night too'
+);
+update public.profiles set timezone = pg_temp.zone_at(3) where id = '00000000-0000-0000-0000-0000000000a4';
+select throws_ok(
+  $$ select public.nudge((select id from pack), '00000000-0000-0000-0000-0000000000a4') $$,
+  'P0001', 'already_nudged', 'and before 07:00'
+);
+select is((select count(*) from public.nudges), 1::bigint, 'and nothing new is written');
 
 -- Personal stats: fed, missed, fed, fed, rested gives a best streak of 3 and a current one of 3.
 reset role;

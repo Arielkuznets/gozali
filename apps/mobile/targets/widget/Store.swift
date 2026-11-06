@@ -10,6 +10,9 @@ let appGroup = "group.app.gozali"
 struct WidgetSnapshot: Codable {
   let timezone: String
   let fetchedAt: String
+  /// When this phone got it, in milliseconds by its own clock: the only clock its age can be read
+  /// from, as fetchedAt is the server's. A copy from before this was noted has none.
+  var savedAt: Double?
   let packs: [WidgetPack]
 }
 
@@ -43,7 +46,8 @@ func isoDate(_ text: String) -> Date? {
   return withFraction.date(from: text) ?? ISO8601DateFormatter().date(from: text)
 }
 
-/// Night on the device clock (22:00-07:00), when the critter sleeps, as in the app.
+/// Night on the device clock (22:00-07:00), when the critter sleeps. The app goes by the server's
+/// clock, which a widget doesn't know.
 func isNight(_ date: Date) -> Bool {
   let hour = Calendar.current.component(.hour, from: date)
   return hour >= 22 || hour < 7
@@ -65,26 +69,44 @@ enum SharedStore {
 
   static var token: String? { defaults?.string(forKey: "token") }
   static var endpoint: URL? { defaults?.string(forKey: "endpoint").flatMap(URL.init(string:)) }
+
+  /// Leaves the widgets blank until the app writes a new token.
+  static func forget() {
+    defaults?.removeObject(forKey: "snapshot")
+    defaults?.removeObject(forKey: "token")
+  }
 }
 
 enum WidgetAPI {
-  /// A snapshot no older than 25 minutes: the saved one, or a fresh one from the server.
+  /// A snapshot no older than 25 minutes: the saved one, or a fresh one from the server. An age
+  /// below zero says the clock was set back since, so it says nothing about the snapshot. A fetch
+  /// that fails leaves the saved one, unless it found the token unknown and took the snapshot with it.
   static func currentSnapshot(now: Date) async -> WidgetSnapshot? {
     let saved = SharedStore.snapshot()
-    if let saved, let fetched = isoDate(saved.fetchedAt), now.timeIntervalSince(fetched) < 25 * 60 {
-      return saved
+    if let saved, let savedAt = saved.savedAt {
+      let age = now.timeIntervalSince1970 - savedAt / 1000
+      if age >= 0, age < 25 * 60 { return saved }
     }
-    guard let fresh = await fetchSnapshot() else { return saved }
+    guard let fresh = await fetchSnapshot() else { return SharedStore.snapshot() }
     SharedStore.save(fresh)
     return fresh
   }
 
+  /// The server forgets a token nobody used for 90 days, and an account's tokens go with the
+  /// account, which another phone can delete. The widgets then forget the token and the snapshot:
+  /// kept, the snapshot stayed on the screen for good, and the token was tried every 30 minutes.
   static func fetchSnapshot() async -> WidgetSnapshot? {
-    guard let request = request(for: SharedStore.endpoint) else { return nil }
-    guard let result = try? await URLSession.shared.data(for: request),
-      (result.1 as? HTTPURLResponse)?.statusCode == 200
+    guard let request = request(for: SharedStore.endpoint),
+      let result = try? await URLSession.shared.data(for: request)
     else { return nil }
-    return try? JSONDecoder().decode(WidgetSnapshot.self, from: result.0)
+    let status = (result.1 as? HTTPURLResponse)?.statusCode
+    if status == 401, String(data: result.0, encoding: .utf8) == "unknown token" {
+      SharedStore.forget()
+      return nil
+    }
+    guard status == 200, var snapshot = try? JSONDecoder().decode(WidgetSnapshot.self, from: result.0) else { return nil }
+    snapshot.savedAt = Date().timeIntervalSince1970 * 1000
+    return snapshot
   }
 
   /// The critter picture for a pack, cached by address: the address changes when the drawing does.

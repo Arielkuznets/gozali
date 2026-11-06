@@ -14,6 +14,8 @@ import {
 
 const JERUSALEM = 'Asia/Jerusalem';
 const NEW_YORK = 'America/New_York';
+const ATHENS = 'Europe/Athens';
+const CHATHAM = 'Pacific/Chatham';
 const HOUR = 3_600_000;
 
 describe('pack days', () => {
@@ -22,6 +24,10 @@ describe('pack days', () => {
     assert.equal(packDayOf(new Date('2026-09-26T21:30:00Z'), JERUSALEM), '2026-09-26');
     // 03:30 belongs to the new day.
     assert.equal(packDayOf(new Date('2026-09-27T00:30:00Z'), JERUSALEM), '2026-09-27');
+  });
+
+  it('refuses a zone it can not read rather than guess the day', () => {
+    assert.throws(() => packDayOf(new Date('2026-09-27T00:30:00Z'), 'Mars/Olympus'), RangeError);
   });
 
   it('measures minutes from the 03:00 start of the day', () => {
@@ -41,6 +47,30 @@ describe('pack days', () => {
     assert.equal(length('2026-10-24', JERUSALEM), 25);
     assert.equal(length('2026-03-07', NEW_YORK), 23);
     assert.equal(length('2026-09-26', JERUSALEM), 24);
+  });
+
+  it('ends a day at the first 03:00 when the clocks go back over it', () => {
+    // In Athens the clocks go back from 04:00 to 03:00 on 2026-10-25, so 03:00 happens twice.
+    assert.equal(dayEnd('2026-10-24', ATHENS).toISOString(), '2026-10-25T00:00:00.000Z');
+    assert.equal(packDayOf(new Date('2026-10-24T23:59:59Z'), ATHENS), '2026-10-24');
+    assert.equal(packDayOf(new Date('2026-10-25T00:00:00Z'), ATHENS), '2026-10-25');
+  });
+
+  it('ends a day at the jump when the clocks skip 03:00', () => {
+    // In Chatham the clocks jump from 02:45 to 03:45 on 2026-09-27, at 14:00 UTC.
+    assert.equal(dayEnd('2026-09-26', CHATHAM).toISOString(), '2026-09-26T14:00:00.000Z');
+    assert.equal(packDayOf(new Date('2026-09-26T13:59:59Z'), CHATHAM), '2026-09-26');
+    assert.equal(packDayOf(new Date('2026-09-26T14:00:00Z'), CHATHAM), '2026-09-27');
+  });
+
+  it('agrees with packDayOf on every day end, DST changes included', () => {
+    for (const zone of [JERUSALEM, NEW_YORK, ATHENS, CHATHAM, 'Australia/Lord_Howe', 'America/Santiago', 'Asia/Kathmandu']) {
+      for (let day = '2026-01-01'; day < '2027-01-01'; day = addDays(day, 1)) {
+        const end = dayEnd(day, zone).getTime();
+        assert.equal(packDayOf(new Date(end - 1), zone), day, `${zone} ${day} before the end`);
+        assert.equal(packDayOf(new Date(end), zone), addDays(day, 1), `${zone} ${day} at the end`);
+      }
+    }
   });
 });
 

@@ -12,8 +12,9 @@ export const colors = {
   // The accent as text (links) is darker: the fill color reads at 2.7:1 on the background,
   // this one at 4.8:1, above the 4.5:1 WCAG asks of small text.
   accentText: '#B34E37',
-  // Dark text on the accent reads at 4.5:1; white on it was 2.9:1.
-  onAccent: '#3B2F2A',
+  // Dark text on the accent, a shade darker than ink, which falls just short of 4.5:1 there: this
+  // one reads at 4.7:1. White on the accent is 2.9:1.
+  onAccent: '#382C27',
   // Text and icons on dark surfaces: the camera, dark badges and banners.
   onDark: '#FFFFFF',
   // 5:1 on the background, for red text like Delete account.

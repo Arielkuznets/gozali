@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Modal, Platform, Pressable, StyleSheet } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
 import Animated, { Easing, SlideInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -51,15 +51,18 @@ export function ActionMenu({ menu, cancel, onClose }: Props) {
             {shown.title}
           </AppText>
         )}
-        {shown?.actions.map((action) => (
-          <Pressable
-            key={action.label}
-            accessibilityRole="menuitem"
-            onPress={() => choose(action)}
-            style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-            <AppText style={[styles.label, action.destructive && styles.danger]}>{action.label}</AppText>
-          </Pressable>
-        ))}
+        {/* A short window has room for fewer rows than a menu can hold, and Cancel stays below them. */}
+        <ScrollView contentContainerStyle={styles.rows} alwaysBounceVertical={false} keyboardShouldPersistTaps="handled">
+          {shown?.actions.map((action) => (
+            <Pressable
+              key={action.label}
+              accessibilityRole="menuitem"
+              onPress={() => choose(action)}
+              style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
+              <AppText style={[styles.label, action.destructive && styles.danger]}>{action.label}</AppText>
+            </Pressable>
+          ))}
+        </ScrollView>
         <Pressable
           accessibilityRole="button"
           onPress={onClose}
@@ -74,6 +77,8 @@ export function ActionMenu({ menu, cancel, onClose }: Props) {
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(59, 47, 42, 0.35)' },
   sheet: {
+    // What is left above the sheet stays dim, and a tap there closes the menu.
+    maxHeight: '85%',
     backgroundColor: colors.surface,
     borderTopLeftRadius: radii.lg,
     borderTopRightRadius: radii.lg,
@@ -82,6 +87,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   title: { textAlign: 'center', paddingBottom: spacing.sm },
+  rows: { gap: spacing.xs },
   row: { minHeight: 52, borderRadius: radii.md, alignItems: 'center', justifyContent: 'center' },
   pressed: { backgroundColor: colors.background },
   cancel: { marginTop: spacing.xs, borderTopWidth: 1, borderTopColor: colors.border, borderRadius: 0 },

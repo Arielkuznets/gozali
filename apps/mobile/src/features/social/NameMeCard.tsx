@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
+import { LoadFailed } from '@/components/ScreenStates';
 import { TextField } from '@/components/TextField';
 import { socialErrorKey, useChooseName, useNameSuggestions, useSuggestName } from '@/features/social/api';
-import { notify } from '@/lib/confirm';
+import { confirm, notify } from '@/lib/confirm';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 const NAME_MAX = 20;
@@ -25,8 +26,31 @@ export function NameMeCard({ packId, critter, isAdmin, adminName, names }: Props
   const [name, setName] = useState('');
   const suggestions = useNameSuggestions(packId, true);
   const suggest = useSuggestName(packId);
+  // The mutation's pending state reaches the button a moment after a tap; a second tap in between
+  // would suggest the name twice.
+  const suggesting = useRef(false);
   const choose = useChooseName(packId);
   const fail = (error: unknown) => notify(t(socialErrorKey(error)));
+  const onSuggest = () => {
+    if (suggesting.current) return;
+    suggesting.current = true;
+    suggest.mutate(name.trim(), {
+      onSuccess: () => setName(''),
+      onError: fail,
+      onSettled: () => {
+        suggesting.current = false;
+      },
+    });
+  };
+  // choose_name sets the name only while there is none, so a pick can't be taken back.
+  const onPick = (suggestion: { id: string; name: string }) =>
+    confirm({
+      title: t('social.pickConfirm', { name: suggestion.name }),
+      message: t('social.pickBody'),
+      confirm: t('social.pick'),
+      cancel: t('social.cancel'),
+      onConfirm: () => choose.mutate(suggestion.id, { onError: fail }),
+    });
 
   return (
     <View style={styles.card}>
@@ -34,6 +58,7 @@ export function NameMeCard({ packId, critter, isAdmin, adminName, names }: Props
       <AppText style={styles.muted}>
         {isAdmin ? t('social.nameMeBodyAdmin', { critter }) : t('social.nameMeBody', { critter, admin: adminName })}
       </AppText>
+      {suggestions.isError && !suggestions.data && <LoadFailed onRetry={() => void suggestions.refetch()} />}
       {suggestions.data?.map((suggestion) => (
         <View key={suggestion.id} style={styles.row}>
           <View style={styles.fill}>
@@ -45,7 +70,7 @@ export function NameMeCard({ packId, critter, isAdmin, adminName, names }: Props
               label={t('social.pick')}
               size="small"
               disabled={choose.isPending}
-              onPress={() => choose.mutate(suggestion.id, { onError: fail })}
+              onPress={() => onPick(suggestion)}
             />
           )}
         </View>
@@ -60,7 +85,7 @@ export function NameMeCard({ packId, critter, isAdmin, adminName, names }: Props
           size="small"
           disabled={name.trim().length === 0}
           loading={suggest.isPending}
-          onPress={() => suggest.mutate(name.trim(), { onSuccess: () => setName(''), onError: fail })}
+          onPress={onSuggest}
         />
       </View>
     </View>

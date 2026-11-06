@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { createPack, createUser, feed, photo, removeUsers, signIn, type TestUser } from './support';
+import { admin, createPack, createUser, feed, listening, photo, removeUsers, signIn, watchSocket, type TestUser } from './support';
 
 let noa: TestUser;
 let dan: TestUser;
@@ -15,6 +15,7 @@ test.afterEach(async () => {
 });
 
 test('reactions show at once, and a friend\'s arrives without a reload', async ({ page }) => {
+  const socket = await watchSocket(page);
   const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
   await feed(dan, pack.id, await photo(page, '🏋️'), 'Leg day');
   const { data: posted } = await dan.client.from('feeds').select('id').eq('pack_id', pack.id).single();
@@ -31,6 +32,7 @@ test('reactions show at once, and a friend\'s arrives without a reload', async (
   // Dan reacts from his phone; Noa's screen follows through realtime.
   const clap = page.getByRole('button', { name: 'React with 👏' });
   await expect(clap).not.toContainText('1');
+  await listening(socket, pack.id);
   const reacted = await dan.client.rpc('react', { target_feed: posted!.id, emoji: 'clap' });
   expect(reacted.error).toBeNull();
   await expect(clap).toContainText('1', { timeout: 15_000 });
@@ -39,4 +41,23 @@ test('reactions show at once, and a friend\'s arrives without a reload', async (
   // Taking it back.
   await fire.click();
   await expect(fire).not.toContainText('1');
+});
+
+test('a reaction on a photo that was just hidden says so', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
+  await feed(dan, pack.id, await photo(page, '🏋️'), 'Leg day');
+  const alerts: string[] = [];
+  page.on('dialog', (dialog) => {
+    alerts.push(dialog.message());
+    void dialog.accept();
+  });
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+  await expect(page.getByText('Leg day')).toBeVisible();
+
+  const hidden = await admin.from('feeds').update({ hidden_at: new Date().toISOString() }).eq('pack_id', pack.id);
+  if (hidden.error) throw hidden.error;
+  await page.getByRole('button', { name: 'React with 🔥' }).click();
+
+  await expect.poll(() => alerts).toEqual(["You can't react to this photo anymore."]);
 });

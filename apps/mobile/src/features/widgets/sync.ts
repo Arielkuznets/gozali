@@ -8,11 +8,12 @@ import {
   APP_GROUP,
   WIDGET_ENDPOINT,
   fetchSnapshot,
-  forgetWidgetToken,
+  loadSnapshot,
   saveSnapshot,
-  widgetToken,
+  savedWidgetToken,
   type WidgetSnapshot,
 } from '@/features/widgets/data';
+import { forgetWidgetToken, widgetToken } from '@/features/widgets/token';
 
 const shared = new ExtensionStorage(APP_GROUP);
 
@@ -29,20 +30,54 @@ async function publish(snapshot: WidgetSnapshot | null, token: string | null): P
   }
 }
 
-/** Fetches the widget state with this device's token and redraws the widgets. */
-export async function refreshWidgets(): Promise<void> {
-  if (Platform.OS === 'web') return;
-  const token = await widgetToken(true);
-  if (!token) return;
-  const snapshot = await fetchSnapshot(token);
-  if (snapshot) await publish(snapshot, token);
+// Counts accounts leaving this phone, so a refresh that started before one left can tell.
+let departures = 0;
+// From the moment an account starts leaving until the next one's widgets sync (or the sign-out
+// fails), no refresh starts: the leaving account is still signed in and would get a new token.
+let leaving = false;
+
+/** Lets the widgets refresh again, for the account that is signed in now. */
+export function resumeWidgets(): void {
+  leaving = false;
 }
 
-/** On sign-out the widgets go blank and the token stops working. */
+/** Fetches the widget state with this device's token and redraws the widgets. */
+export async function refreshWidgets(): Promise<void> {
+  if (Platform.OS === 'web' || leaving) return;
+  const started = departures;
+  const token = await widgetToken();
+  if (!token) {
+    // Nothing to show, which the widgets may not know yet: another account's token can have gone
+    // with no new one to take its place.
+    if (!(await loadSnapshot())) await publish(null, null);
+    return;
+  }
+  if (started !== departures) {
+    // Signed out meanwhile: a token made for the account that left must not stay for the next one.
+    await forgetWidgetToken();
+    return;
+  }
+  const snapshot = await fetchSnapshot(token);
+  if (snapshot && started === departures) await publish(snapshot, token);
+}
+
+/** On sign-out the widgets go blank and the token stops working, once per account that leaves. */
 export async function clearWidgets(): Promise<void> {
-  if (Platform.OS === 'web') return;
-  await forgetWidgetToken();
-  await publish(null, null);
+  if (Platform.OS === 'web' || leaving) return;
+  leaving = true;
+  departures += 1;
+  // Side by side: the widgets go blank at once, however long the revoke takes.
+  await Promise.all([forgetWidgetToken(), publish(null, null)]);
+}
+
+/**
+ * For a phone nobody is signed in on. The app hears a session end only while it runs, so it can
+ * start signed out with a token still here: build 4 left one when the server ended a session or
+ * when a run was killed during the revoke. The widgets would go on fetching that account's packs,
+ * and each fetch would keep the token alive on the server.
+ */
+export async function clearWidgetsLeftBehind(): Promise<void> {
+  if ((await savedWidgetToken()) || (await loadSnapshot())) await clearWidgets();
 }
 
 // What the widgets show: the critter and the members (packs), who fed (feeds) and who rests (days).
@@ -57,10 +92,12 @@ export function useWidgetSync() {
   const queryClient = useQueryClient();
   useEffect(() => {
     if (Platform.OS === 'web') return;
+    resumeWidgets();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const schedule = () => {
       clearTimeout(timer);
-      timer = setTimeout(() => void refreshWidgets(), DEBOUNCE_MS);
+      // A refresh that fails (a phone too full to keep the snapshot) is tried again at the next.
+      timer = setTimeout(() => void refreshWidgets().catch(() => undefined), DEBOUNCE_MS);
     };
     schedule();
     const unsubscribe = queryClient.getQueryCache().subscribe((event) => {

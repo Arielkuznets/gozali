@@ -66,6 +66,14 @@ const bytes = new Uint8Array(await image.arrayBuffer());
 check(image.headers.get('content-type') === 'image/png' && bytes[1] === 0x50 && bytes[2] === 0x4e, 'the critter comes as a PNG');
 check(mine.nightImageUrl !== mine.imageUrl, 'with a separate night picture');
 
+// The zone is the phone's, and a phone's list can hold names this function's Intl doesn't know.
+for (const timezone of ['America/Coyhaique', 'posix/Asia/Jerusalem']) {
+  await noa.client.from('profiles').update({ timezone }).eq('id', noa.id);
+  const away = await fetch(endpoint, { headers: { 'x-widget-token': token } });
+  check(away.status === 200, `the widget still loads with the phone in ${timezone}`);
+}
+await noa.client.from('profiles').update({ timezone: 'Asia/Jerusalem' }).eq('id', noa.id);
+
 const strangerToken = (await dan.client.rpc('create_widget_token')).data;
 const other = await fetch(`${endpoint}?image=${packId}`, { headers: { 'x-widget-token': strangerToken } });
 check(other.status === 200, 'Dan, a member, can load the pack picture with their own token');

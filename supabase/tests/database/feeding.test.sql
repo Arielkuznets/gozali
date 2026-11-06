@@ -1,7 +1,7 @@
 -- Feeding: the photo bucket's policies, submit_feed and the day a feed counts for.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(22);
+select plan(25);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a2', 'noa@test.local'),
@@ -152,6 +152,38 @@ select pg_temp.act_as('00000000-0000-0000-0000-0000000000c2');
 select throws_ok(
   $$ select public.submit_feed((select id from pack), (select noa_one from photos)) $$,
   '42501', 'not_a_member', 'a stranger cannot feed the pack'
+);
+
+-- A posted photo can't change: its poster deletes only uploads no feed holds, like one the server
+-- turned down, so nobody swaps the file of a feed for another image under the same name.
+reset role;
+set local storage.allow_delete_query = 'true';
+set local role authenticated;
+select pg_temp.upload('00000000-0000-0000-0000-0000000000a2', 'turned-down.jpg');
+create function pg_temp.delete_photo(member uuid, object_name text) returns bigint language plpgsql as $$
+declare
+  gone bigint;
+begin
+  perform pg_temp.act_as(member);
+  delete from storage.objects where bucket_id = 'feed-photos' and name = object_name;
+  get diagnostics gone = row_count;
+  return gone;
+end;
+$$;
+select is(
+  pg_temp.delete_photo('00000000-0000-0000-0000-0000000000a2', (select noa_two from photos)), 0::bigint,
+  'a member can''t delete the photo of their own feed'
+);
+reset role;
+update public.feeds set hidden_at = now() where photo_path = (select noa_one from photos);
+set local role authenticated;
+select is(
+  pg_temp.delete_photo('00000000-0000-0000-0000-0000000000a2', (select noa_one from photos)), 0::bigint,
+  'nor once reports hid it'
+);
+select is(
+  pg_temp.delete_photo('00000000-0000-0000-0000-0000000000a2', (select id from pack)::text || '/00000000-0000-0000-0000-0000000000a2/turned-down.jpg'),
+  1::bigint, 'but can delete an upload no feed holds'
 );
 
 select * from finish();

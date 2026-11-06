@@ -32,10 +32,10 @@ Gozali (Hebrew for "my little chick") turns a habit into a pet you raise togethe
 
 ## How it works
 
-- **Feed it with a photo.** Photos are taken in the app only, seen only by the pack, and deleted after 30 days.
+- **Feed it with a photo.** Photos are taken in the app only, seen only by the pack unless one is reported, and deleted after 30 days, or 8 weeks after their week if they're in a weekly recap.
 - **Do it together.** A day succeeds when the pack keeps up; in packs of 5 or more one miss is allowed, so bigger packs aren't punished (checked with a simulator).
 - **Life happens.** Weekly rest days, a monthly joker and pauses for trips. A member who keeps missing falls asleep instead of dragging everyone down.
-- **Grow and dress up.** An egg hatches on the first day two members feed it. Good days earn XP and coins; streaks earn more; achievements unlock special items.
+- **Grow and dress up.** An egg hatches on the first day two members feed it and nobody misses. Good days earn XP and coins; streaks earn more; achievements unlock special items.
 - **Stay in touch.** Reactions, nudges, a monthly board, a weekly recap to share as a story, reminders in the critter's own voice, and home screen widgets.
 
 ## Architecture
@@ -78,11 +78,11 @@ The app is thin on purpose: every decision that matters (whether a feed counts, 
 | Mobile app | [Expo](https://expo.dev) SDK 57, React Native 0.86, React 19, Expo Router | One TypeScript codebase for iOS and Android; native config generated from `app.json` |
 | Data in the app | TanStack Query, Supabase Realtime | Caching, refetch on focus, optimistic reactions, live updates |
 | Animation and art | Reanimated, react-native-svg | The critters are drawn in code as SVG and animated on the UI thread |
-| Widgets | SwiftUI (WidgetKit, App Group), react-native-android-widget | The pet and who fed today on the home and lock screen |
+| Widgets | SwiftUI (WidgetKit, App Group), react-native-android-widget | The pet and how many fed today on the home and lock screen |
 | Backend | [Supabase](https://supabase.com): Postgres 17, Auth, Storage, Edge Functions (Deno) | Authorization in the database with row level security; actions as security definer functions |
 | Scheduling | pg_cron, pg_net, Vault | Day close, push sending, daily summary and clean-up run inside the database |
 | Game rules | `packages/game-engine`, dependency-free TypeScript | Pure functions: the same code runs on the server, in the tests and in the simulator |
-| Delivery | EAS Build, Submit and Update; GitHub Actions | Cloud builds for the stores, over-the-air JavaScript updates, CI on every push |
+| Delivery | EAS Build, Submit and Update; GitHub Actions | Cloud builds for the stores, over-the-air JavaScript updates, CI on main, dev and every pull request |
 | Website | Cloudflare (static assets, DNS, Email Routing) | Landing, invite links (universal links), privacy, terms, support |
 
 ## Engineering highlights
@@ -91,7 +91,7 @@ The app is thin on purpose: every decision that matters (whether a feed counts, 
 - **Authorization in Postgres.** Every table has row level security. Users change state only through functions that check the caller and their membership, and even photo files are readable only through a feed the viewer is allowed to see.
 - **Reliable by construction.** Notifications go through an outbox written in the same transaction as the action. The day close is state-based and idempotent: it catches up on any missed days in order, and a day the service was down can't fail. Purchases and joins lock the rows they depend on.
 - **Time zones done right.** Each pack has its own day, ending at 03:00 on its clock. The engine and the database were checked against each other at 2,042 moments across daylight saving changes in six time zones.
-- **Privacy and moderation.** Reports, blocking, automatic hiding after three reports and an email to the developer; full account deletion inside the app; photos deleted after 30 days; no ads, no tracking, no analytics SDKs.
+- **Privacy and moderation.** Reports, blocking, automatic hiding after three reports and an email to the developer; full account deletion inside the app; photos deleted after 30 days, or 8 weeks after their week in a recap; no ads, no tracking, no analytics SDKs.
 - **Operations.** Error reports from phones, a daily summary push to the owner (sign-ups, activity, server errors, outages), rate limits, retention jobs, a forced-update switch, and a daily backup script with a tested restore.
 
 ## Testing
@@ -145,6 +145,7 @@ npm run smoke:push       # friend-fed merging, "last one", the critter's lines, 
 npm run smoke:widgets    # the widget token and endpoint (needs `npx supabase functions serve`)
 npm run smoke:delete-account  # account deletion end to end, and Sign in with Apple revocation (needs `npx supabase functions serve`)
 npm run functions:bundle       # bundle every Edge Function with the deploy bundler (Docker)
+npm run functions:image        # draw a widget picture from that bundle with the network off (Docker)
 ```
 
 ```sh
@@ -180,7 +181,8 @@ npm run holidays                   # regenerate the holiday-hat dates from the H
 ```
 
 ```sh
-cd web && npx wrangler deploy      # publish gozali.app (after `node web/build.mjs`)
+node web/build.mjs --preview       # build the site into web/dist-preview to look at it
+APP_STORE_URL=<app store link> PLAY_STORE_URL=<play store link> ANDROID_SHA256=<release key fingerprint> node web/build.mjs && cd web && npx wrangler deploy   # publish gozali.app (docs/setup.md section 3)
 node scripts/backup.mjs            # back up the cloud database's data to ~/Gozali backups
 ```
 

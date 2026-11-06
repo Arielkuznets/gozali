@@ -2,7 +2,7 @@
   "expo": {
     "name": "Gozali",
     "slug": "gozali",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -27,7 +27,8 @@
         "applinks:gozali.app"
       ],
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryAddUsageDescription": "Gozali saves your weekly story to your photos when you ask it to."
       },
       "privacyManifests": {
         "NSPrivacyAccessedAPITypes": [
@@ -98,7 +99,12 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "expo-router",
+      [
+        "expo-router",
+        {
+          "sitemap": false
+        }
+      ],
       [
         "expo-splash-screen",
         {
@@ -117,7 +123,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Gozali uses the camera for the photo that feeds your pack's pet. Photos are taken in the app and seen only by your pack.",
+          "cameraPermission": "Gozali uses the camera for the photo that feeds your pack's pet, and for your profile picture if you want one.",
           "microphonePermission": false,
           "recordAudioAndroid": false
         }

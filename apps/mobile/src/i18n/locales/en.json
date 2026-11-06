@@ -9,6 +9,9 @@
     "tagline": "Raise a little pet together with your friends. Feed it every day by doing your habit.",
     "critterLabel": "A little pet waiting for its pack",
     "continueWithApple": "Continue with Apple",
+    "appleDidntOpen": "Sign in with Apple didn't open. Please try again.",
+    "cancelled": "Sign-in didn't finish. Tap Continue with Apple to try again.",
+    "appleInBrowser": "Continue with Apple in the browser",
     "continueWithGoogle": "Continue with Google",
     "devLogin": "Dev login with email",
     "terms": "By continuing you agree to the Terms and the Privacy Policy."
@@ -25,6 +28,7 @@
     "title": "About you",
     "nameLabel": "Your name",
     "namePlaceholder": "What do your friends call you?",
+    "defaultName": "Friend",
     "agree": "I'm 13 or older, and I agree to the Terms and the Privacy Policy.",
     "continue": "Continue",
     "notifications": "Next, we'll ask to send notifications: a reminder in the evening and news from your pack. You can turn each kind off later."
@@ -36,7 +40,7 @@
     "eggLabel": "An egg waiting for a pack",
     "createPack": "Create a pack",
     "joinPack": "Join with a code",
-    "limitReached": "You're in 3 packs, the most for now.",
+    "limitReached": "You're in 3 packs, the most for now. To join or start another, leave one in its Settings.",
     "feedPack": "Feed {{name}}",
     "loadFailed": "Your packs didn't load. Check the connection and try again.",
     "retry": "Try again"
@@ -44,6 +48,8 @@
   "errors": {
     "notConfigured": "The app is not connected to the server yet.",
     "signInFailed": "Sign-in didn't work. Please try again.",
+    "signOutFailed": "Signing out didn't work. Check the connection and try again in a minute.",
+    "code": "Code: {{code}}",
     "saveFailed": "Saving didn't work. Please try again.",
     "loadFailed": "This didn't load. Check the connection and try again.",
     "textNotAllowed": "Let's keep it friendly: that has a word we don't allow.",
@@ -113,10 +119,11 @@
   },
   "invite": {
     "title": "Invite your friends",
-    "body": "The egg starts to crack when a friend joins, and it hatches on the first day two of you feed it.",
+    "body": "The egg starts to crack when a friend joins, and it hatches on the first day two of you feed it and nobody misses.",
     "bodyHatched": "Up to {{count}} friends can raise {{name}} together. New members count from their first feed.",
     "full": "The pack is full: {{count}} members is the most.",
     "code": "Invite code",
+    "anyone": "Anyone with this code can join and see the pack's photos. Share it only with people you know.",
     "share": "Share invite",
     "copy": "Copy code",
     "copied": "Copied!",
@@ -125,13 +132,18 @@
     "renew": "Get a new code",
     "renewTitle": "Get a new code?",
     "renewBody": "The current code and link stop working. Anyone who hasn't joined yet needs the new one.",
-    "renewConfirm": "New code"
+    "renewConfirm": "New code",
+    "renewing": "Getting a new code…",
+    "renewUnconfirmed": "The new code may not have gone through.",
+    "renewUnconfirmedDetail": "The invite screen for \"{{name}}\" shows the code that works now.",
+    "renewUnreadDetail": "Check the invite screen for \"{{name}}\" once you're back online."
   },
   "join": {
     "title": "Join a pack",
     "codeLabel": "Invite code",
     "codePlaceholder": "8 letters and numbers",
     "paste": "Paste",
+    "nothingToPaste": "Nothing to paste. Copy the code, or type it here.",
     "join": "Join pack",
     "alreadyMember": "You're already in this pack.",
     "open": "Open pack",
@@ -148,8 +160,11 @@
       "feed_one": "Two of you feed on the same day ({{count}}/2 today)",
       "feed_other": "Two of you feed on the same day ({{count}}/2 today)",
       "fedDone": "Two of you fed today",
+      "fedEarlier": "Two of you fed on the same day",
       "dayEnds": "It hatches when that day ends, at night",
-      "tonight": "It hatches tonight, when today ends 🎉"
+      "tonight": "It hatches tonight, when today ends 🎉",
+      "tonightIf": "It hatches tonight if nobody misses today",
+      "soon": "It hatches very soon 🎉"
     },
     "doneToday": "Your part is done for today ✓",
     "asleepYou": "You dozed off here after a few missed days, so {{name}} doesn't count on you. One photo and you're back.",
@@ -162,8 +177,9 @@
     "focus": "Focus",
     "feedTitle": "Pack feed",
     "feedEmpty": "No feeds yet. Be the first today!",
-    "pending_one": "{{count}} feed waiting for a connection",
-    "pending_other": "{{count}} feeds waiting for a connection",
+    "feedOutOfSight": "Nothing to show here yet.",
+    "pending_one": "{{count}} feed waiting to go out",
+    "pending_other": "{{count}} feeds waiting to go out",
     "extra": "extra",
     "fedCount": "{{fed}}/{{total}} fed today",
     "member": {
@@ -176,7 +192,9 @@
     "notToday": "Not today",
     "restingToday": "You're resting today.",
     "jokerToday": "Your joker covers today.",
-    "pausedToday": "You're on a pause until {{date}}.",
+    "paused": "On a pause",
+    "pausedToday": "You're on a pause until {{date}}, so {{name}} doesn't count on you.",
+    "pausedEndEarly": "You can end it early in Settings, after its first 3 days.",
     "undo": "Undo",
     "missingTitle": "This pack isn't here",
     "missingBody": "You may have left it or been removed, or the link is for a pack you're not in.",
@@ -196,11 +214,14 @@
     "saved": "Saved",
     "members": "Members",
     "admin": "Admin",
+    "adminOnly": "Only the admin, {{name}}, can change the pack's name, rest days and week start.",
     "remove": "Remove",
     "removeConfirm": "Remove {{name}} from the pack?",
+    "removeBody": "They can't come back with the invite code, not even a new one.",
     "invite": "Invite link and QR code",
     "leave": "Leave pack",
     "leaveConfirm": "Leave this pack?",
+    "leaveLastBody": "Nobody else is in this pack. It is deleted with its pet 30 days after you leave, and until then only its invite code can bring you back.",
     "cancel": "Cancel",
     "confirm": "Yes",
     "app": {
@@ -214,7 +235,7 @@
         "evening_reminder": "Evening reminder",
         "last_one": "You're the last one",
         "nudge": "Nudges",
-        "pet_state": "Pet is weak, sick or ran away",
+        "pet_state": "Pet is weak, sick, ran away or came back",
         "evolution": "Hatching, growing and achievements",
         "still_in": "Still in?",
         "weekly_recap": "Weekly recap"
@@ -333,7 +354,7 @@
           "Today I'm only a little dramatic."
         ],
         "hungry": [
-          "Wow. Nobody fed me. I see how it is.",
+          "Wow. Am I invisible? I see how it is.",
           "Fine. I'll just starve. Beautifully.",
           "I'm not upset. I'm HUNGRY and upset."
         ],
@@ -429,7 +450,7 @@
           "All systems normal. Hoo."
         ],
         "hungry": [
-          "Fun fact: I haven't eaten in 14 hours.",
+          "Fun fact: hungry owls hoot louder.",
           "Hypothesis: someone will feed me soon.",
           "Observation: my stomach is growling."
         ],
@@ -495,6 +516,7 @@
     "photoBy": "Photo from {{name}}",
     "openPhoto": "Opens the photo on the whole screen",
     "closePhoto": "Close photo",
+    "photoGone": "Photos are kept for 30 days.",
     "captionLabel": "Caption",
     "captionPlaceholder": "Add a caption (optional)",
     "focusChip": "{{emoji}} {{minutes}} min",
@@ -502,13 +524,21 @@
     "sentPlain": "Fed!",
     "ateLabel": "{{name}} eating",
     "queuedTitle": "Saved for later",
-    "queuedBody": "You're offline. The feed goes out when you're back online, and it still counts for the day you took it if that's within an hour after the day ends.",
+    "queuedBody": "The feed goes out the next time the app is open with a connection, and it still counts for the day you took it if that's within an hour after the day ends.",
+    "dropped_one": "A saved feed couldn't go out and was removed.",
+    "dropped_other": "{{count}} saved feeds couldn't go out and were removed.",
+    "droppedDetail": "Take a new photo if you still need to feed today.",
     "failed": "The feed didn't go through. Please try again.",
+    "tooManyPosts": "That's all the photos for today. You can post up to 5 extras a day.",
     "captureFailed": "The photo wasn't taken. Please try again.",
+    "cameraFailed": "The camera didn't start. Close other apps using it and try again.",
     "permissionTitle": "Camera needed",
-    "permissionBody": "Feeding takes a live photo in the app. Photos are seen only by your pack.",
-    "allowCamera": "Allow camera",
-    "openSettings": "Open settings"
+    "permissionBody": "Feeding takes a live photo in the app. Only your pack sees it, unless it's reported.",
+    "openSettings": "Open settings",
+    "discardTitle": "Discard this photo?",
+    "discardBody": "It hasn't gone to your pack yet.",
+    "discard": "Discard",
+    "keep": "Keep"
   },
   "focus": {
     "title": "Focus",
@@ -520,6 +550,7 @@
     "openRunning": "Open session",
     "paused": "Paused",
     "otherRunning": "A session for another pack is running; starting here ends it.",
+    "notificationsOff": "Notifications are off, so check back here when time is up.",
     "pause": "Pause",
     "resume": "Resume",
     "cancel": "Cancel",
@@ -558,6 +589,8 @@
     "pausedUntil": "Paused until {{date}}.",
     "pauseStarts": "Your pause runs from {{date}} to {{end}}.",
     "endPause": "End pause",
+    "endPauseConfirm": "End your pause now?",
+    "endPauseBody": "You count again from today, and your next pause can start in 30 days.",
     "cancelPause": "Cancel pause",
     "pauseAvailableFrom": "Your next pause can start after {{date}}.",
     "errors": {
@@ -579,11 +612,13 @@
     "ran_away": "🏃 {{critter}} ran away to find food",
     "returned": "🩹 {{critter}} came back!",
     "achievement": "🏆 {{critter}} unlocked {{title}}: a new {{item}} for the wardrobe",
-    "joker": "🃏 {{name}} is taking a joker today",
+    "achievementOwned": "🏆 {{critter}} unlocked {{title}}",
+    "joker": "🃏 {{name}} took a joker",
     "dressed": "👗 {{name}} gave {{critter}} a {{item}}",
     "undressed": "👗 {{name}} changed {{critter}}'s look",
     "named": "🏷️ {{name}} named the pet {{critter}}",
-    "bought": "🛍️ {{name}} bought {{critter}} a {{item}}"
+    "bought": "🛍️ {{name}} bought {{critter}} a {{item}}",
+    "someone": "Someone"
   },
   "moments": {
     "hatchedTitle": "{{name}} hatched!",
@@ -674,12 +709,17 @@
     "more": "More",
     "report": "Report photo",
     "reportTitle": "Report this photo?",
+    "reportCaption": "Report caption",
+    "reportCaptionTitle": "Report this caption?",
     "reportBody": "We look at every report within 24 hours.",
     "reported": "Thanks. We will look at it within 24 hours.",
+    "reportMember": "Report {{name}}",
+    "reportMemberTitle": "Report {{name}}?",
+    "reportMemberBody": "For anything about them: their name, their photo or how they treat you. We look at every report within 24 hours.",
     "block": "Block {{name}}",
     "blockTitle": "Block {{name}}?",
-    "blockBody": "You won't see their photos or reactions, and they can't nudge you.",
-    "blockedLeave": "Blocked. You can also leave this pack from its settings.",
+    "blockBody": "You won't see their photos or reactions, and they can't nudge you. A 🤨 of theirs still counts in the 🤨 number, which names nobody. They can still see what you post in a pack you share.",
+    "blockedLeave": "Blocked. You can also leave this pack from its settings, where its admin can remove them.",
     "cancel": "Cancel",
     "nudgeTitle": "Nudge {{name}}?",
     "nudgeBody": "They get: \"{{critter}} is looking at you 👀\"",
@@ -691,19 +731,23 @@
     "suggestPlaceholder": "A name",
     "suggest": "Suggest",
     "pick": "Pick",
+    "pickConfirm": "Name it {{name}}?",
+    "pickBody": "A name can't be changed later.",
     "by": "by {{name}}",
     "errors": {
       "already_nudged": "You already nudged them today.",
       "already_fed": "They already fed today.",
       "not_counted_today": "They're resting or away today.",
       "cannot_nudge": "You can't nudge this member.",
+      "receiver_quiet": "It's night for them. Try after 07:00 their time.",
       "too_many_suggestions": "You can suggest up to 3 names.",
       "name_not_open": "The pet already has a name.",
       "item_locked": "Unlock this item with its achievement first.",
       "critter_not_here": "The pet is not here right now.",
       "not_enough_coins": "The pack doesn't have enough coins for that yet.",
       "already_owned": "The pack already has it.",
-      "not_for_sale": "That item isn't for sale."
+      "not_for_sale": "That item isn't for sale.",
+      "feed_not_found": "You can't react to this photo anymore."
     }
   },
   "profile": {
@@ -759,29 +803,39 @@
     "streakHint": "Days in a row without a miss in any pack.",
     "board": "Last days",
     "signOut": "Sign out",
+    "signOutTitle": "Sign out?",
+    "signOutWaiting_one": "{{count}} feed hasn't gone out yet. Signing out deletes it and its photo.",
+    "signOutWaiting_other": "{{count}} feeds haven't gone out yet. Signing out deletes them and their photos.",
     "back": "Back",
     "photo": "Profile photo",
     "addPhoto": "Add a photo",
     "changePhoto": "Change photo",
     "takePhoto": "Take a photo",
     "choosePhoto": "Choose from library",
+    "cameraOff": "Gozali can't use the camera. Allow it in your phone's settings, or choose a photo from your library.",
+    "cameraFailed": "The camera didn't open. You can choose a photo from your library instead.",
+    "libraryFailed": "Your photo library didn't open. Please try again.",
     "removePhoto": "Remove photo",
     "boardDay": "{{day}}, {{status}}"
   },
   "widgets": {
     "signedOut": "Open Gozali to see your pack",
     "feed": "Feed",
-    "endsIn": "ends in {{time}}",
+    "endsAt": "ends at {{time}}",
     "whichPack": "Which pack?",
     "openFirst": "Open Gozali first, then add the widget again.",
     "cancel": "Cancel",
-    "howTo": "Add a widget: long-press the home screen, tap + (iPhone) or Widgets (Android), and pick Gozali."
+    "howToIos": "Add a widget on your phone: long-press its home screen, tap Edit or +, and pick Gozali.",
+    "howToAndroid": "Add a widget: long-press the home screen, tap Widgets, and pick Gozali.",
+    "needsIos17": "Widgets need iOS 17 or later."
   },
   "recap": {
     "title": "Weekly recap",
     "open": "Weekly recaps",
-    "none": "The first recap arrives when your first full week closes.",
+    "none": "Your first recap arrives when this week ends.",
+    "noneAlone": "Recaps start once a friend joins.",
     "weekOf": "Week of {{date}}",
+    "earlierWeeks": "Earlier weeks",
     "goodDays": "good days",
     "health": "health",
     "streak": "streak",
@@ -817,6 +871,6 @@
     }
   },
   "offline": {
-    "banner": "You're offline. Feeds wait and go out when you're back."
+    "banner": "You're offline. Feeds wait until the app is open online."
   }
 }

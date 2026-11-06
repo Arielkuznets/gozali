@@ -1,7 +1,7 @@
 import type { CritterArt } from '@gozali/critter-art';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
@@ -41,7 +41,8 @@ export function RulesCards({ onDone, doneLabel, leaveLabel }: { onDone: () => vo
           </Pressable>
         )}
       </View>
-      <View style={styles.body}>
+      {/* An iPad shows the app in a window that can be shorter than any phone. */}
+      <ScrollView contentContainerStyle={styles.body}>
         <Critter key={card.key} art={card.art} size={200} label={t(`onboarding.${card.key}.title`)} />
         <AppText variant="heading" style={styles.centerText}>
           {t(`onboarding.${card.key}.title`)}
@@ -52,7 +53,7 @@ export function RulesCards({ onDone, doneLabel, leaveLabel }: { onDone: () => vo
             <View key={item.key} style={[styles.dot, dot === index && styles.dotOn]} />
           ))}
         </View>
-      </View>
+      </ScrollView>
       <Button label={last ? doneLabel : t('onboarding.next')} onPress={() => (last ? onDone() : setIndex(index + 1))} />
     </>
   );
@@ -60,7 +61,7 @@ export function RulesCards({ onDone, doneLabel, leaveLabel }: { onDone: () => vo
 
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'flex-end', minHeight: 48, paddingVertical: spacing.md },
-  body: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
+  body: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
   centerText: { textAlign: 'center' },
   muted: { color: colors.inkMuted, maxWidth: 320 },
   dots: { flexDirection: 'row', gap: spacing.sm, paddingTop: spacing.md },

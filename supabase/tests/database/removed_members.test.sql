@@ -1,7 +1,7 @@
 -- A removed member stays out; a member who left can come back; the admin can replace the code.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(9);
+select plan(14);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000d1', 'noa@test.local'),
@@ -34,9 +34,17 @@ select throws_ok(
   $$ select public.join_pack((select invite_code from code)) $$,
   'P0001', 'removed_from_pack', 'Dan can''t come back with the invite code'
 );
+select throws_ok(
+  $$ select * from public.pack_preview((select invite_code from code)) $$,
+  'P0001', 'removed_from_pack', 'nor read who is in the pack through it'
+);
 
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000d3');
 select lives_ok($$ select public.leave_pack((select id from pack)) $$, 'Maya leaves on her own');
+select is(
+  (select member_count from public.pack_preview((select invite_code from code))), 1,
+  'she still sees the pack through the code'
+);
 select is(public.join_pack((select invite_code from code)), (select id from pack), 'and can come back');
 
 reset role;
@@ -59,6 +67,30 @@ select isnt(public.renew_invite_code((select id from pack)), (select invite_code
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000d3');
 select lives_ok($$ select public.leave_pack((select id from pack)) $$, 'Maya leaves again');
 select is(public.join_pack((select invite_code from code)), null, 'and the old code no longer works');
+
+-- The admin removes Maya a moment after she left, from a list that still showed her.
+reset role;
+create temp table left_at as
+select left_at from public.pack_members where pack_id = (select id from pack) and user_id = '00000000-0000-0000-0000-0000000000d3';
+create temp table new_code as select invite_code from public.packs where id = (select id from pack);
+grant select on left_at, new_code to authenticated;
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000d1');
+select lives_ok(
+  $$ select public.remove_member((select id from pack), '00000000-0000-0000-0000-0000000000d3') $$,
+  'the admin removes Maya, who just left'
+);
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000d3');
+select throws_ok(
+  $$ select public.join_pack((select invite_code from new_code)) $$,
+  'P0001', 'removed_from_pack', 'so she can''t come back, even with the new code'
+);
+reset role;
+select is(
+  (select left_at from public.pack_members where pack_id = (select id from pack) and user_id = '00000000-0000-0000-0000-0000000000d3'),
+  (select left_at from left_at),
+  'and she still left when she did'
+);
 
 select * from finish();
 rollback;

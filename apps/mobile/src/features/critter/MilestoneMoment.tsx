@@ -1,7 +1,7 @@
 import type { CritterArt } from '@gozali/critter-art';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, StyleSheet, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -77,7 +77,8 @@ export function MilestoneMoment({ milestone, art, name, onClose }: Props) {
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
-      <View style={styles.backdrop}>
+      {/* The button is the only way out, and in a short window the card is taller than the window. */}
+      <ScrollView style={styles.backdrop} contentContainerStyle={styles.middle} alwaysBounceVertical={false}>
         <View style={styles.card} accessibilityViewIsModal>
           <View style={styles.stage}>
             {milestone.kind === 'hatched' && (
@@ -97,13 +98,14 @@ export function MilestoneMoment({ milestone, art, name, onClose }: Props) {
           </Animated.View>
           <Button label={t('moments.close')} onPress={onClose} />
         </View>
-      </View>
+      </ScrollView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(59, 47, 42, 0.45)', justifyContent: 'center', padding: spacing.lg },
+  backdrop: { flex: 1, backgroundColor: 'rgba(59, 47, 42, 0.45)' },
+  middle: { flexGrow: 1, justifyContent: 'center', padding: spacing.lg },
   card: { backgroundColor: colors.background, borderRadius: radii.lg, padding: spacing.lg, gap: spacing.md },
   stage: { height: SIZE, alignItems: 'center', justifyContent: 'center' },
   layer: { position: 'absolute' },

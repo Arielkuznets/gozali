@@ -6,7 +6,8 @@ import { HealthBar } from '@/components/HealthBar';
 import { Critter } from '@/features/critter/Critter';
 import { critterArt } from '@/features/critter/art';
 import { useCritterText } from '@/features/critter/useCritterText';
-import { useTodayPasses } from '@/features/days/api';
+import { keptToday, useTodayPasses } from '@/features/days/api';
+import { feedWaitsToday, usePendingFeeds } from '@/features/feeds/api';
 import { countedToday, currentMembers, type Pack, type PackCritter } from '@/features/packs/api';
 import { categoryInfo } from '@/features/packs/constants';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
@@ -25,15 +26,25 @@ export function PackCard({ pack, now, fed, userId, onPress, onFeed }: Props) {
   const { t } = useTranslation();
   const members = currentMembers(pack);
   const passes = useTodayPasses(pack, now);
-  const awake = countedToday(pack, passes.data?.paused ?? new Set());
+  const pending = usePendingFeeds(pack.id);
+  const { paused } = passes.data ?? keptToday(pack, now);
+  const awake = countedToday(pack, paused);
   const fedCount = awake.filter((member) => fed.has(member.user_id)).length;
-  const iFed = userId !== undefined && fed.has(userId);
+  const iFed = userId !== undefined && (fed.has(userId) || feedWaitsToday(pending.data, pack, userId, now));
+  const iPaused = userId !== undefined && paused.has(userId);
   const category = categoryInfo(pack.category);
   const habit = pack.custom_habit ?? t(`packs.categories.${pack.category}`);
+  const feeds = !iPaused && !iFed;
 
   return (
     <Pressable
       accessibilityRole="button"
+      // VoiceOver makes the card one element and can't reach the Feed button inside it, so Feed
+      // is also one of the card's actions.
+      accessibilityActions={feeds ? [{ name: 'feed', label: t('home.feedPack', { name: pack.name }) }] : undefined}
+      onAccessibilityAction={(event) => {
+        if (event.nativeEvent.actionName === 'feed') onFeed();
+      }}
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
       {pack.critters && (
@@ -59,10 +70,16 @@ export function PackCard({ pack, now, fed, userId, onPress, onFeed }: Props) {
           </View>
         )}
         <AppText variant="caption">
-          {members.length >= 2 ? t('pack.fedCount', { fed: fedCount, total: awake.length }) : t('pack.eggWaiting')}
+          {members.length >= 2 || (pack.critters && pack.critters.status !== 'egg')
+            ? t('pack.fedCount', { fed: fedCount, total: awake.length })
+            : t('pack.eggWaiting')}
         </AppText>
       </View>
-      {iFed ? (
+      {iPaused ? (
+        <View style={styles.done} accessible accessibilityLabel={t('pack.paused')}>
+          <AppText style={styles.doneText}>💤</AppText>
+        </View>
+      ) : iFed ? (
         <View style={styles.done} accessible accessibilityLabel={t('pack.fed')}>
           <AppText style={styles.doneText}>✓</AppText>
         </View>

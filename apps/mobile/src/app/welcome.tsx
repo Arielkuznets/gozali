@@ -1,54 +1,122 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQuery } from '@tanstack/react-query';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Platform, StyleSheet, View } from 'react-native';
+import { AppState, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { LegalLinks } from '@/components/LegalLinks';
 import { Screen } from '@/components/Screen';
-import { isCancellation, isGoogleEnabled, signInWithApple, signInWithBrowser } from '@/features/auth/signIn';
+import { useAppConfig } from '@/features/app/appConfig';
+import {
+  NO_ANSWER_MS,
+  isGoogleEnabled,
+  signInTrouble,
+  signInWithApple,
+  signInWithBrowser,
+  type SignInTrouble,
+} from '@/features/auth/signIn';
 import { Critter } from '@/features/critter/Critter';
-import { ONBOARDED_KEY } from '@/features/profile/onboarding';
+import { rulesSeen } from '@/features/profile/onboarding';
 import { notify } from '@/lib/confirm';
+import { errorCode, reportSignInProblem, reportSignInWait } from '@/lib/reportError';
 import { NotConfiguredError } from '@/lib/supabase';
 import { critterColors, radii, spacing } from '@/theme/tokens';
 
-type Provider = 'apple' | 'google';
+type Provider = 'apple' | 'apple-web' | 'google';
+
+const SIGN_IN: Record<Provider, (onAnswered: () => void) => Promise<void>> = {
+  apple: signInWithApple,
+  'apple-web': () => signInWithBrowser('apple'),
+  google: () => signInWithBrowser('google'),
+};
 
 export default function WelcomeScreen() {
   const { t } = useTranslation();
   const [busy, setBusy] = useState<Provider | null>(null);
   const google = useQuery({ queryKey: ['google-sign-in'], queryFn: isGoogleEnabled, staleTime: Infinity });
+  const config = useAppConfig();
 
   // The rules come first, once per install.
   useEffect(() => {
-    void AsyncStorage.getItem(ONBOARDED_KEY).then((done) => {
-      if (!done) router.replace('/onboarding');
+    void rulesSeen().then((seen) => {
+      if (!seen) router.replace('/onboarding');
     });
   }, []);
 
+  // A second tap while Apple's sheet is on its way would start a second request over the first.
+  const pending = useRef(false);
+  // Apple can still answer a tap the screen stopped waiting for, and that answer isn't a newer tap's.
+  const latestTap = useRef(0);
+  const [trouble, setTrouble] = useState<SignInTrouble | null>(null);
+  // Apple's sign-in page, for a device where Apple's own sheet lets people down. It works once the
+  // Apple provider is set up for the web, so the server turns it on (app_config.apple_web_sign_in).
+  const [appleFailed, setAppleFailed] = useState(false);
+  const offerAppleWeb = Platform.OS === 'ios' && appleFailed && config.data?.apple_web_sign_in === true;
+
   const run = async (provider: Provider) => {
+    if (pending.current) return;
+    pending.current = true;
+    const tap = ++latestTap.current;
+    const release = () => {
+      if (tap !== latestTap.current) return;
+      pending.current = false;
+      setBusy(null);
+    };
     setBusy(provider);
+    setTrouble(null);
+    const started = Date.now();
+    // Apple's sheet has no time limit and can stay silent for good, so the wait has to end here. It
+    // cancels nothing, because someone may be on the sheet: their answer still signs in, and no
+    // alert lands on top of them. A browser has its own way out, so only the sheet needs this.
+    const noAnswer =
+      provider === 'apple' && Platform.OS === 'ios'
+        ? setTimeout(() => {
+            reportSignInWait(provider, AppState.currentState, Date.now() - started);
+            setAppleFailed(true);
+            setTrouble('cancelled');
+            release();
+          }, NO_ANSWER_MS)
+        : undefined;
+    // That wait is for Apple alone: the server's call has a limit of its own. An answer after the
+    // wait ran out takes the button back, or a tap would start a second sign-in over this one.
+    const answered = () => {
+      clearTimeout(noAnswer);
+      if (tap !== latestTap.current) return;
+      pending.current = true;
+      setBusy(provider);
+      setTrouble(null);
+    };
     try {
-      await (provider === 'apple' ? signInWithApple() : signInWithBrowser('google'));
+      await SIGN_IN[provider](answered);
     } catch (error) {
-      // The alert says little; in development the log says what went wrong.
+      // In development the log says what went wrong; the server hears about it either way, for a tap
+      // the screen stopped waiting for too, as nothing else tells how that request ended.
       if (__DEV__) console.warn('Sign-in failed', error);
-      if (!isCancellation(error)) {
-        notify(error instanceof NotConfiguredError ? t('errors.notConfigured') : t('errors.signInFailed'));
+      const elapsedMs = Date.now() - started;
+      reportSignInProblem(provider, error, elapsedMs);
+      if (tap !== latestTap.current) return;
+      if (provider === 'apple') setAppleFailed(true);
+      const kind = signInTrouble(error, elapsedMs);
+      setTrouble(kind);
+      const code = errorCode(error);
+      const detail = code ? t('errors.code', { code }) : undefined;
+      if (kind === 'not-opened') notify(t('welcome.appleDidntOpen'), detail);
+      else if (kind === 'failed') {
+        notify(error instanceof NotConfiguredError ? t('errors.notConfigured') : t('errors.signInFailed'), detail);
       }
     } finally {
-      setBusy(null);
+      clearTimeout(noAnswer);
+      release();
     }
   };
 
   return (
     <Screen>
-      <View style={styles.hero}>
+      {/* An iPad shows the app in a window that can be shorter than any phone. */}
+      <ScrollView contentContainerStyle={styles.hero}>
         <Critter
           art={{ species: 'mochi', color: critterColors.mochi, stage: 'kid', look: 'happy' }}
           size={180}
@@ -56,20 +124,36 @@ export default function WelcomeScreen() {
         />
         <AppText variant="title">Gozali</AppText>
         <AppText style={styles.tagline}>{t('welcome.tagline')}</AppText>
-      </View>
+      </ScrollView>
 
       <View style={styles.actions}>
         {Platform.OS === 'ios' ? (
-          // Apple requires its own button style for Sign in with Apple on iOS.
-          <AppleAuthentication.AppleAuthenticationButton
-            buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
-            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-            cornerRadius={radii.pill}
-            style={styles.appleButton}
-            onPress={() => void run('apple')}
-          />
+          // Apple requires its own button style for Sign in with Apple on iOS. It has no loading
+          // state, so it dims while Apple's sheet is on its way.
+          <View style={busy === 'apple' && styles.busy}>
+            <AppleAuthentication.AppleAuthenticationButton
+              buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+              buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+              cornerRadius={radii.pill}
+              style={styles.appleButton}
+              onPress={() => void run('apple')}
+            />
+          </View>
         ) : (
           <Button label={t('welcome.continueWithApple')} loading={busy === 'apple'} onPress={() => void run('apple')} />
+        )}
+        {trouble === 'cancelled' && (
+          <AppText variant="caption" style={styles.centerText}>
+            {t('welcome.cancelled')}
+          </AppText>
+        )}
+        {offerAppleWeb && (
+          <Button
+            label={t('welcome.appleInBrowser')}
+            variant="secondary"
+            loading={busy === 'apple-web'}
+            onPress={() => void run('apple-web')}
+          />
         )}
         {google.data === true && (
           <Button
@@ -92,9 +176,11 @@ export default function WelcomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  hero: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
+  hero: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
   tagline: { textAlign: 'center', maxWidth: 320 },
   actions: { gap: spacing.sm },
   appleButton: { height: 52, alignSelf: 'stretch' },
+  busy: { opacity: 0.5, pointerEvents: 'none' },
   terms: { textAlign: 'center', marginTop: spacing.sm },
+  centerText: { textAlign: 'center' },
 });

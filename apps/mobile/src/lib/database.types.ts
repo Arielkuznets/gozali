@@ -53,6 +53,7 @@ export type Database = {
         Row: {
           android_url: string | null;
           apple_revocation: boolean;
+          apple_web_sign_in: boolean;
           id: boolean;
           ios_url: string | null;
           min_version: string;
@@ -60,6 +61,7 @@ export type Database = {
         Insert: {
           android_url?: string | null;
           apple_revocation?: boolean;
+          apple_web_sign_in?: boolean;
           id?: boolean;
           ios_url?: string | null;
           min_version?: string;
@@ -67,6 +69,7 @@ export type Database = {
         Update: {
           android_url?: string | null;
           apple_revocation?: boolean;
+          apple_web_sign_in?: boolean;
           id?: boolean;
           ios_url?: string | null;
           min_version?: string;
@@ -191,14 +194,17 @@ export type Database = {
       code_misses: {
         Row: {
           at: string;
+          code: string | null;
           user_id: string;
         };
         Insert: {
           at?: string;
+          code?: string | null;
           user_id: string;
         };
         Update: {
           at?: string;
+          code?: string | null;
           user_id?: string;
         };
         Relationships: [
@@ -318,6 +324,8 @@ export type Database = {
           rested_ids: string[];
           result: Database['public']['Enums']['day_type'];
           sleeping_ids: string[];
+          week_from: string | null;
+          week_to: string | null;
         };
         Insert: {
           applied: boolean;
@@ -337,6 +345,8 @@ export type Database = {
           rested_ids?: string[];
           result: Database['public']['Enums']['day_type'];
           sleeping_ids?: string[];
+          week_from?: string | null;
+          week_to?: string | null;
         };
         Update: {
           applied?: boolean;
@@ -356,6 +366,8 @@ export type Database = {
           rested_ids?: string[];
           result?: Database['public']['Enums']['day_type'];
           sleeping_ids?: string[];
+          week_from?: string | null;
+          week_to?: string | null;
         };
         Relationships: [
           {
@@ -466,6 +478,7 @@ export type Database = {
       };
       notifications: {
         Row: {
+          attempts: number;
           created_at: string;
           day: string | null;
           id: string;
@@ -478,6 +491,7 @@ export type Database = {
           user_id: string;
         };
         Insert: {
+          attempts?: number;
           created_at?: string;
           day?: string | null;
           id?: string;
@@ -490,6 +504,7 @@ export type Database = {
           user_id: string;
         };
         Update: {
+          attempts?: number;
           created_at?: string;
           day?: string | null;
           id?: string;
@@ -724,6 +739,7 @@ export type Database = {
           pending_week_start: Database['public']['Enums']['week_start'] | null;
           rest_days_per_week: number;
           timezone: string;
+          week_changed_on: string | null;
           week_start: Database['public']['Enums']['week_start'];
         };
         Insert: {
@@ -738,6 +754,7 @@ export type Database = {
           pending_week_start?: Database['public']['Enums']['week_start'] | null;
           rest_days_per_week: number;
           timezone: string;
+          week_changed_on?: string | null;
           week_start?: Database['public']['Enums']['week_start'];
         };
         Update: {
@@ -752,6 +769,7 @@ export type Database = {
           pending_week_start?: Database['public']['Enums']['week_start'] | null;
           rest_days_per_week?: number;
           timezone?: string;
+          week_changed_on?: string | null;
           week_start?: Database['public']['Enums']['week_start'];
         };
         Relationships: [];
@@ -895,25 +913,28 @@ export type Database = {
       reports: {
         Row: {
           created_at: string;
-          feed_id: string;
+          feed_id: string | null;
           handled_at: string | null;
           id: string;
+          member_id: string | null;
           reason: string | null;
           reporter_id: string;
         };
         Insert: {
           created_at?: string;
-          feed_id: string;
+          feed_id?: string | null;
           handled_at?: string | null;
           id?: string;
+          member_id?: string | null;
           reason?: string | null;
           reporter_id: string;
         };
         Update: {
           created_at?: string;
-          feed_id?: string;
+          feed_id?: string | null;
           handled_at?: string | null;
           id?: string;
+          member_id?: string | null;
           reason?: string | null;
           reporter_id?: string;
         };
@@ -923,6 +944,13 @@ export type Database = {
             columns: ['feed_id'];
             isOneToOne: false;
             referencedRelation: 'feeds';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'reports_member_id_fkey';
+            columns: ['member_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
             referencedColumns: ['id'];
           },
           {
@@ -973,6 +1001,21 @@ export type Database = {
           price?: number;
           slot?: string;
           sort?: number;
+        };
+        Relationships: [];
+      };
+      sign_in_report_sources: {
+        Row: {
+          at: string;
+          source: string;
+        };
+        Insert: {
+          at?: string;
+          source: string;
+        };
+        Update: {
+          at?: string;
+          source?: string;
         };
         Relationships: [];
       };
@@ -1053,9 +1096,11 @@ export type Database = {
       };
       blocked_by_me: { Args: { other_user: string }; Returns: boolean };
       buy_item: { Args: { target: string; wanted: string }; Returns: number };
+      bytes_held: { Args: { bucket: string }; Returns: number };
       call_edge_function:
         | { Args: { name: string }; Returns: undefined }
         | { Args: { body: Json; name: string }; Returns: undefined };
+      can_report_feed: { Args: { target_feed: string }; Returns: boolean };
       cancel_day_pass: { Args: { target: string }; Returns: undefined };
       check_code_attempts: { Args: { caller: string }; Returns: undefined };
       choose_name: { Args: { suggestion: string; target: string }; Returns: undefined };
@@ -1075,8 +1120,17 @@ export type Database = {
           user_id: string;
         }[];
       };
+      clean_up_auth_log: { Args: { at_time?: string }; Returns: undefined };
       clean_up_old_rows: { Args: { at_time?: string }; Returns: undefined };
       collect_service_errors: { Args: Record<PropertyKey, never>; Returns: number };
+      counted_feeds: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          day: string;
+          pack_id: string;
+          user_id: string;
+        }[];
+      };
       counted_on: { Args: { member: string; pack_date: string; target: string }; Returns: boolean };
       create_pack: {
         Args: {
@@ -1092,11 +1146,16 @@ export type Database = {
       create_widget_token: { Args: Record<PropertyKey, never>; Returns: string };
       day_close_input: { Args: { pack_date: string; target: string }; Returns: Json };
       day_closes_at: { Args: { pack_date: string; tz: string }; Returns: string };
+      days_into_week: {
+        Args: { pack_date: string; start: Database['public']['Enums']['week_start'] };
+        Returns: number;
+      };
       dress_critter: { Args: { item: string; slot: string; target: string }; Returns: undefined };
       drop_empty_packs: { Args: { at_time: string }; Returns: number };
       empty_pack_photos: { Args: { at_time: string }; Returns: string[] };
       empty_packs: { Args: { at_time: string }; Returns: string[] };
       end_pause: { Args: { target: string }; Returns: undefined };
+      excused_on: { Args: { member: string; pack_date: string; target: string }; Returns: boolean };
       expired_photos: {
         Args: { at_time?: string; max_rows?: number };
         Returns: {
@@ -1116,7 +1175,10 @@ export type Database = {
           total: number;
         }[];
       };
+      feed_uses_photo: { Args: { photo: string }; Returns: boolean };
+      fold_pending_settings: { Args: { pack_date: string; target: string }; Returns: undefined };
       forget_photos: { Args: { feed_ids: string[] }; Returns: undefined };
+      forget_push_token: { Args: { device_token: string }; Returns: undefined };
       forget_push_tokens: { Args: { dead: string[] }; Returns: undefined };
       is_clean: { Args: { input: string }; Returns: boolean };
       is_pack_member: { Args: { target_pack: string }; Returns: boolean };
@@ -1126,15 +1188,13 @@ export type Database = {
         Returns: boolean;
       };
       leave_pack: { Args: { target: string }; Returns: undefined };
+      members_today: { Args: { target: string }; Returns: Json };
       my_day_status: { Args: { target: string }; Returns: Json };
       my_stats: { Args: Record<PropertyKey, never>; Returns: Json };
       new_invite_code: { Args: Record<PropertyKey, never>; Returns: string };
-      next_week_start: {
-        Args: { start: Database['public']['Enums']['week_start']; tz: string };
-        Returns: string;
-      };
       note_heartbeat: { Args: { at_time?: string; job_name: string }; Returns: boolean };
       nudge: { Args: { member: string; target: string }; Returns: undefined };
+      orphan_avatars: { Args: { at_time?: string; max_rows?: number }; Returns: string[] };
       orphan_photos: { Args: { at_time?: string; max_rows?: number }; Returns: string[] };
       outage_on: { Args: { pack_date: string; target: string }; Returns: boolean };
       outcome_ids: { Args: { kind: string; outcomes: Json }; Returns: string[] };
@@ -1168,6 +1228,15 @@ export type Database = {
         }[];
       };
       pack_size_limit: { Args: Record<PropertyKey, never>; Returns: number };
+      pack_week_on: {
+        Args: { pack_date: string; target: string };
+        Returns: {
+          rest_days: number;
+          week_from: string;
+          week_start: Database['public']['Enums']['week_start'];
+          week_to: string;
+        }[];
+      };
       packs_to_close: {
         Args: { at_time?: string };
         Returns: {
@@ -1183,6 +1252,7 @@ export type Database = {
         Args: { emoji: Database['public']['Enums']['reaction_emoji']; target_feed: string };
         Returns: undefined;
       };
+      record_code_miss: { Args: { caller: string; tried: string }; Returns: undefined };
       register_push_token: {
         Args: { device: Database['public']['Enums']['push_platform']; device_token: string };
         Returns: undefined;
@@ -1201,7 +1271,14 @@ export type Database = {
         Returns: undefined;
       };
       report_details: { Args: { report: string }; Returns: Json };
-      requeue_notifications: { Args: { ids: string[] }; Returns: undefined };
+      report_sign_in_problem: {
+        Args: { app_version?: string; device?: string; problem: string };
+        Returns: undefined;
+      };
+      requeue_notifications: {
+        Args: { ids: string[]; refused?: string[]; unsent?: string[] };
+        Returns: undefined;
+      };
       require_admin: { Args: { target: string }; Returns: string };
       require_membership: { Args: { member: string; target: string }; Returns: string };
       require_user: { Args: Record<PropertyKey, never>; Returns: string };
@@ -1233,6 +1310,7 @@ export type Database = {
         };
         Returns: undefined;
       };
+      uploads_today: { Args: { bucket: string }; Returns: number };
       use_day_pass: {
         Args: { pass: Database['public']['Enums']['day_pass_kind']; target: string };
         Returns: undefined;
@@ -1241,6 +1319,17 @@ export type Database = {
       wardrobe_achievement: {
         Args: { item: string; slot: string };
         Returns: Database['public']['Enums']['achievement_key'];
+      };
+      week_of: {
+        Args: {
+          changed_on: string;
+          pack_date: string;
+          start: Database['public']['Enums']['week_start'];
+        };
+        Returns: {
+          week_from: string;
+          week_to: string;
+        }[];
       };
       widget_state: { Args: { at_time?: string; token: string }; Returns: Json };
     };

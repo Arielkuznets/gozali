@@ -5,6 +5,7 @@ CLAUDE.md
 # Dependencies and build output
 node_modules/
 dist/
+dist-preview/
 build/
 coverage/
 .expo/

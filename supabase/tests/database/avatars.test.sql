@@ -1,7 +1,7 @@
--- Profile photos: own folder only, visible to pack mates.
+-- Profile photos: own folder only, visible to pack mates, except to someone who blocked the owner.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(5);
+select plan(10);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a8', 'noa@test.local'),
@@ -37,6 +37,38 @@ select pg_temp.act_as('00000000-0000-0000-0000-0000000000b8');
 select is((select count(*) from storage.objects where bucket_id = 'avatars'), 1::bigint, 'a pack mate can see the photo');
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000c8');
 select is((select count(*) from storage.objects where bucket_id = 'avatars'), 0::bigint, 'a stranger cannot');
+
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000b8');
+insert into public.blocks (blocker_id, blocked_id)
+values ('00000000-0000-0000-0000-0000000000b8', '00000000-0000-0000-0000-0000000000a8');
+select is(
+  (select count(*) from storage.objects where bucket_id = 'avatars'), 0::bigint,
+  'a pack mate who blocked the member can''t see the photo'
+);
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000a8');
+select is(
+  (select count(*) from storage.objects where bucket_id = 'avatars'), 1::bigint,
+  'the member blocked still sees their own photo'
+);
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000b8');
+delete from public.blocks where blocker_id = '00000000-0000-0000-0000-0000000000b8';
+select is(
+  (select count(*) from storage.objects where bucket_id = 'avatars'), 1::bigint,
+  'unblocking brings it back'
+);
+
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000a8');
+insert into public.blocks (blocker_id, blocked_id)
+values ('00000000-0000-0000-0000-0000000000a8', '00000000-0000-0000-0000-0000000000b8');
+select is(
+  (select count(*) from storage.objects where bucket_id = 'avatars'), 1::bigint,
+  'blocking someone doesn''t hide your own photo from you'
+);
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000b8');
+select is(
+  (select count(*) from storage.objects where bucket_id = 'avatars'), 1::bigint,
+  'nor from the one you blocked: a block works one way'
+);
 
 select * from finish();
 rollback;

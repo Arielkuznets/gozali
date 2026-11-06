@@ -1,8 +1,13 @@
+// The widget library calls these components as plain functions, outside any React render.
+'use no memo';
+
 import { renderCritter } from '@gozali/critter-art';
 import { FlexWidget, SvgWidget, TextWidget } from 'react-native-android-widget';
 
+import { isNight } from '@/features/critter/art';
 import type { WidgetSnapshot } from '@/features/widgets/data';
 import i18n from '@/i18n';
+import { serverNow } from '@/lib/serverClock';
 
 // Android home screen widgets (spec section 9): the critter, health, "3/5" and whether you fed.
 // No photos or member names, since the home screen is visible to others.
@@ -26,22 +31,17 @@ function healthColor(health: number): `#${string}` {
   return (HEALTH.find(([min]) => health >= min)?.[1] ?? '#D9735F') as `#${string}`;
 }
 
-function isNight(): boolean {
-  const hour = new Date().getHours();
-  return hour >= 22 || hour < 7;
-}
-
 function critterSvg(pack: Pack): string {
-  return renderCritter(isNight() ? pack.nightArt : pack.art);
+  return renderCritter(isNight(serverNow()) ? pack.nightArt : pack.art);
 }
 
 function link(pack: Pack): string {
   return pack.iFed ? `gozali://pack/${pack.id}` : `gozali://pack/${pack.id}/feed`;
 }
 
-function timeLeft(pack: Pack): string {
-  const minutes = Math.max(0, Math.round((Date.parse(pack.dayEndsAt) - Date.now()) / 60_000));
-  return minutes >= 60 ? `${Math.floor(minutes / 60)}h ${minutes % 60}m` : `${minutes}m`;
+/** When the day ends, on this phone's clock: right however long ago the widget was drawn (every half hour). */
+export function dayEndTime(pack: Pack): string {
+  return new Date(pack.dayEndsAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 }
 
 function HealthBar({ health, width }: { health: number; width: number }) {
@@ -131,7 +131,7 @@ export function PackWideWidget({ pack }: { pack: Pack | undefined }) {
           <Dots pack={pack} />
         </FlexWidget>
         <TextWidget
-          text={`🔥 ${pack.streak} · ${i18n.t('widgets.endsIn', { time: timeLeft(pack) })}`}
+          text={`🔥 ${pack.streak} · ${i18n.t('widgets.endsAt', { time: dayEndTime(pack) })}`}
           style={{ fontSize: 12, color: MUTED, marginTop: 6 }}
           maxLines={1}
         />

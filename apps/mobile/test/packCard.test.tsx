@@ -1,0 +1,145 @@
+import { act, create, type ReactTestInstance, type ReactTestRenderer } from 'react-test-renderer';
+
+import '@/i18n';
+import { PackCard } from '@/components/PackCard';
+import type { Pack, PackCritter, PackMember } from '@/features/packs/api';
+
+let mockPaused = new Set<string>();
+jest.mock('@/features/critter/Critter', () => ({ Critter: () => null }));
+jest.mock('@/features/days/api', () => ({
+  keptToday: () => ({ passes: new Map(), paused: mockPaused, pausedForSure: new Set() }),
+  useTodayPasses: () => ({ data: undefined }),
+}));
+jest.mock('@/features/feeds/api', () => ({ feedWaitsToday: () => false, usePendingFeeds: () => ({ data: undefined }) }));
+
+const WAITING = 'Waiting for a friend to join.';
+
+const member = (user_id: string, status: PackMember['status'] = 'active'): PackMember => ({
+  user_id,
+  role: 'member',
+  status,
+  joined_at: '2026-10-01T10:00:00Z',
+  profiles: null,
+});
+const noa = member('noa');
+const dan = member('dan');
+const danLeft = member('dan', 'left');
+
+const critter = (status: PackCritter['status']): PackCritter => ({
+  species: 'kit',
+  name: 'Pixel',
+  health: status === 'egg' ? 70 : 64,
+  xp: 0,
+  stage: status === 'egg' ? 'egg' : 'baby',
+  status,
+  streak: 0,
+  coins: 0,
+  marks: [],
+  outfit: {},
+});
+
+const pack = (pack_members: PackMember[], critters: PackCritter | null): Pack => ({
+  id: 'p',
+  name: 'Gym squad',
+  category: 'gym',
+  custom_habit: null,
+  rest_days_per_week: 0,
+  week_start: 'sunday',
+  invite_code: 'ABCD1234',
+  pending_rest_days_per_week: null,
+  pending_week_start: null,
+  pending_from: null,
+  timezone: 'Asia/Jerusalem',
+  critters,
+  pack_members,
+});
+
+beforeEach(() => {
+  mockPaused = new Set();
+});
+
+function render(shown: Pack, fed: string[] = [], onPress = () => undefined, onFeed = () => undefined): ReactTestRenderer {
+  let tree!: ReactTestRenderer;
+  act(() => {
+    tree = create(
+      <PackCard
+        pack={shown}
+        now={new Date('2026-10-29T10:00:00Z')}
+        fed={new Set(fed)}
+        userId="noa"
+        onPress={onPress}
+        onFeed={onFeed}
+      />,
+    );
+  });
+  return tree;
+}
+
+function card(shown: Pack): string {
+  return JSON.stringify(render(shown).toJSON());
+}
+
+/** The card itself: the host button that holds the pack's name. */
+function cardButton(tree: ReactTestRenderer): ReactTestInstance {
+  const buttons = tree.root.findAll(
+    (node) =>
+      typeof node.type === 'string' &&
+      node.props.accessibilityRole === 'button' &&
+      node.findAll((inner) => inner.props.children === 'Gym squad').length > 0,
+  );
+  expect(buttons).toHaveLength(1);
+  return buttons[0]!;
+}
+
+describe('the line on a pack card', () => {
+  it('counts the day for a pet left with one member, whose days go on closing', () => {
+    const text = card(pack([noa, danLeft], critter('active')));
+    expect(text).toContain('0/1 fed today');
+    expect(text).not.toContain(WAITING);
+  });
+
+  it('does that for a pet that ran away too: a good day counts toward bringing it back', () => {
+    const text = card(pack([noa, danLeft], critter('ran_away')));
+    expect(text).toContain('0/1 fed today');
+    expect(text).not.toContain(WAITING);
+  });
+
+  it('counts the day for two members, on an egg or a pet', () => {
+    expect(card(pack([noa, dan], critter('egg')))).toContain('0/2 fed today');
+    expect(card(pack([noa, dan], critter('active')))).toContain('0/2 fed today');
+  });
+
+  it('waits for a friend on an egg, alone from the start or left alone', () => {
+    expect(card(pack([noa], critter('egg')))).toContain(WAITING);
+    expect(card(pack([noa, danLeft], critter('egg')))).toContain(WAITING);
+  });
+
+  it('waits for a friend on a pack with no pet to show', () => {
+    expect(card(pack([noa], null))).toContain(WAITING);
+  });
+});
+
+// iOS makes an accessible view one VoiceOver element and hides the views inside it, so VoiceOver
+// can't reach the Feed button inside the card; the card offers Feed as one of its actions.
+describe('Feed on a pack card for a screen reader', () => {
+  it('is an action of the card while the member has not fed, and it feeds without opening the pack', () => {
+    const onPress = jest.fn();
+    const onFeed = jest.fn();
+    const button = cardButton(render(pack([noa, dan], critter('active')), ['dan'], onPress, onFeed));
+    expect(button.props.accessibilityActions).toEqual([{ name: 'feed', label: 'Feed Gym squad' }]);
+    act(() => button.props.onAccessibilityAction({ nativeEvent: { actionName: 'feed' } }));
+    expect(onFeed).toHaveBeenCalledTimes(1);
+    expect(onPress).not.toHaveBeenCalled();
+  });
+
+  it('is not offered once the member fed', () => {
+    const button = cardButton(render(pack([noa, dan], critter('active')), ['noa']));
+    expect(button.props.accessibilityActions ?? []).toEqual([]);
+  });
+
+  it('is not offered to a member on a pause', () => {
+    mockPaused = new Set(['noa']);
+    const button = cardButton(render(pack([noa, dan], critter('active'))));
+    expect(button.props.accessibilityActions ?? []).toEqual([]);
+  });
+});

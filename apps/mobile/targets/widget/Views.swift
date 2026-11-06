@@ -34,10 +34,12 @@ enum Texts {
   static let signedOut = "Open Gozali to see your pack"
   static let feed = "Feed"
   static func fed(_ pack: WidgetPack) -> String { "\(pack.fed)/\(pack.total)" }
-  static func endsIn(_ date: Date?) -> String {
-    guard let date else { return "" }
-    let minutes = max(0, Int(date.timeIntervalSinceNow / 60))
-    return minutes >= 60 ? "ends in \(minutes / 60)h \(minutes % 60)m" : "ends in \(minutes)m"
+  /// The streak and how long the day has left. The system keeps the countdown running between
+  /// timeline refreshes, which are half an hour or more apart.
+  static func streakAndTimeLeft(_ pack: WidgetPack) -> Text {
+    let streak = Text("🔥 \(pack.streak)")
+    guard let dayEnd = pack.dayEnd, dayEnd > Date.now else { return streak }
+    return streak + Text(" · ends in ") + Text(timerInterval: Date.now...dayEnd, countsDown: true)
   }
 }
 
@@ -131,7 +133,7 @@ struct MediumPackView: View {
         Text(pack.critterName).font(.headline).foregroundStyle(Color.ink).lineLimit(1)
         HealthBar(health: pack.health)
         MemberDots(marks: pack.members)
-        Text("🔥 \(pack.streak) · \(Texts.endsIn(pack.dayEnd))").font(.caption).foregroundStyle(Color.muted).lineLimit(1)
+        Texts.streakAndTimeLeft(pack).font(.caption).foregroundStyle(Color.muted).lineLimit(1)
         if !pack.iFed {
           Link(destination: pack.feedURL) {
             Text(Texts.feed)
