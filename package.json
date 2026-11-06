@@ -11,7 +11,7 @@
   },
   "scripts": {
     "postinstall": "patch-package",
-    "test": "npm test --workspace @gozali/game-engine --workspace @gozali/critter-art --workspace @gozali/mobile",
+    "test": "npm test --workspace @gozali/game-engine --workspace @gozali/critter-art --workspace @gozali/mobile && node --test \"scripts/*.test.mjs\"",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "db:types": "supabase gen types typescript --local > apps/mobile/src/lib/database.types.ts && prettier --print-width 100 --single-quote --write apps/mobile/src/lib/database.types.ts",
     "db:test": "supabase test db",
@@ -19,7 +19,7 @@
     "smoke:critter": "node scripts/smoke-critter.mjs",
     "smoke:feeds": "node scripts/smoke-feeds.mjs",
     "smoke:day-close": "node scripts/smoke-day-close.mjs",
-    "typecheck:functions": "npx -y -p typescript@5 tsc --noEmit --allowImportingTsExtensions --module nodenext --moduleResolution nodenext --target es2022 --lib es2022 --strict --noUncheckedIndexedAccess --verbatimModuleSyntax --skipLibCheck supabase/functions/close-days/close.ts supabase/functions/send-push/push.ts supabase/functions/widget-state/state.ts",
+    "typecheck:functions": "npx -y -p typescript@5 tsc --noEmit --allowImportingTsExtensions --module nodenext --moduleResolution nodenext --target es2022 --lib es2022 --strict --noUncheckedIndexedAccess --verbatimModuleSyntax --skipLibCheck supabase/functions/close-days/close.ts supabase/functions/send-push/push.ts supabase/functions/widget-state/state.ts supabase/functions/on-report/email.ts",
     "smoke:push": "node scripts/smoke-push.mjs",
     "smoke:widgets": "node scripts/smoke-widgets.mjs",
     "smoke:delete-account": "node scripts/smoke-delete-account.mjs",
@@ -29,7 +29,8 @@
     "store:shots": "playwright test -c e2e/store shots",
     "ui:gallery": "playwright test -c e2e/store gallery && node e2e/store/sheets.mjs e2e/store/output/gallery e2e/store/output/sheets",
     "typecheck:e2e": "npx -y -p typescript@5 tsc -p e2e",
-    "functions:bundle": "node scripts/bundle-functions.mjs"
+    "functions:bundle": "node scripts/bundle-functions.mjs",
+    "functions:image": "node scripts/check-widget-image.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

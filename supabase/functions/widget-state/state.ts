@@ -78,19 +78,32 @@ export function widgetPack(row: WidgetPackRow, day?: string): WidgetPack {
   };
 }
 
-/** A short, stable id for a drawing, so widgets can cache images by URL. */
+/**
+ * A short, stable id for a drawing, so widgets can cache images by URL. It hashes the SVG and not
+ * the art, whose mood moves with every feed while the picture changes at only a few of them.
+ */
 export function artVersion(art: CritterArt): string {
   let hash = 0x811c9dc5;
-  for (const char of JSON.stringify(art)) {
+  for (const char of renderCritter(art)) {
     hash ^= char.charCodeAt(0);
     hash = Math.imul(hash, 0x01000193) >>> 0;
   }
   return hash.toString(36);
 }
 
-/** A calendar day in a time zone, YYYY-MM-DD (the en-CA format is already in that order). */
+/**
+ * A calendar day in a time zone, YYYY-MM-DD (the en-CA format is already in that order). The zone
+ * is the phone's, and a phone's list can hold names this Intl doesn't know. The day only picks a
+ * holiday hat, so the day in UTC does then.
+ */
 export function dayIn(timeZone: string, at: Date): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(at);
+  const inZone = (zone: string) =>
+    new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(at);
+  try {
+    return inZone(timeZone);
+  } catch {
+    return inZone('UTC');
+  }
 }
 
 export function artSvg(art: CritterArt): string {

@@ -1,10 +1,16 @@
-import { packDayOf } from '@gozali/game-engine';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { addDays, packDayOf, type DayInput } from '@gozali/game-engine';
+import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 
-import { usePack, type Pack } from '@/features/packs/api';
+import { feedsKey } from '@/features/feeds/api';
+import { packsKey, usePack, type Pack, type PackMember } from '@/features/packs/api';
+import { notify } from '@/lib/confirm';
+import { readableZone } from '@/lib/dates';
 import { isBlockedText } from '@/lib/errors';
 import { requireSupabase } from '@/lib/supabase';
 import { useNow } from '@/lib/useNow';
+
+export type Pause = { startsOn: string; endsOn: string };
 
 /** my_day_status: what the caller can do today in a pack. */
 export type DayStatus = {
@@ -14,7 +20,7 @@ export type DayStatus = {
   jokerAvailable: boolean;
   passToday: 'joker' | 'rest' | null;
   fedToday: boolean;
-  pause: { startsOn: string; endsOn: string } | null;
+  pause: Pause | null;
   pauseAvailableFrom: string | null;
 };
 
@@ -23,22 +29,65 @@ export type TodayPasses = {
   passes: Map<string, 'joker' | 'rest'>;
   /** Members on a pause that covers today. */
   paused: Set<string>;
+  /** Those of them who can't end it today, so can't come back and miss. */
+  pausedForSure: Set<string>;
 };
 
 /** members_today: what the pack screen doesn't load of today's close. */
 export type MembersToday = {
+  /** The pack day the answer is for. */
+  day: string;
   restDaysPerWeek: number;
   members: { userId: string; membership: 'active' | 'sleeping' | 'left'; hasStarted: boolean; restDaysUsedThisWeek: number }[];
+  /**
+   * The input of the oldest day before today without a result. Only that day's close spends its
+   * automatic rests, so until then a member here can have one rest day less than it says.
+   */
+  dayToClose: DayInput | null;
 };
 
 export const daysKey = ['days'] as const;
 export const PAUSE_LENGTHS = [3, 7, 14, 30, 60] as const;
 
+/** Whether a running pause can end on a day: not before its first 3 days are over (end_pause). */
+export const canEndPause = (startsOn: string, day: string) => addDays(startsOn, 3) <= day;
+
+const pauseOn = (member: PackMember, day: string) => member.pauses?.find((pause) => pause.starts_on <= day && day <= pause.ends_on);
+
+/**
+ * The caller's pause that covers today, if any. Today's status is the server's word. A screen just
+ * opened doesn't have it yet, and with no connection it can't: it is neither kept nor good for a new
+ * day. The pack the phone holds says who is paused on any day.
+ */
+export function pauseToday(status: DayStatus | undefined, pack: Pack | null | undefined, userId: string | undefined, now: Date): Pause | null {
+  if (status) return status.pause && status.pause.startsOn <= status.day ? status.pause : null;
+  const member = pack?.pack_members.find((candidate) => candidate.user_id === userId);
+  const pause = pack && member && pauseOn(member, packDayOf(now, readableZone(pack.timezone)));
+  return pause ? { startsOn: pause.starts_on, endsOn: pause.ends_on } : null;
+}
+
+function pausedFrom(pauses: { user_id: string; starts_on: string }[], today: string): Pick<TodayPasses, 'paused' | 'pausedForSure'> {
+  return {
+    paused: new Set(pauses.map((pause) => pause.user_id)),
+    pausedForSure: new Set(pauses.filter((pause) => !canEndPause(pause.starts_on, today)).map((pause) => pause.user_id)),
+  };
+}
+
+/** What the pack the phone holds says of today, until the server's answer is in. It has no passes. */
+export function keptToday(pack: Pick<Pack, 'pack_members' | 'timezone'>, now: Date): TodayPasses {
+  const today = packDayOf(now, readableZone(pack.timezone));
+  const pauses = pack.pack_members.flatMap((member) => {
+    const pause = pauseOn(member, today);
+    return pause ? [{ user_id: member.user_id, starts_on: pause.starts_on }] : [];
+  });
+  return { passes: new Map(), ...pausedFrom(pauses, today) };
+}
+
 /** Keyed by the pack day, so a screen left open past 03:00 asks again instead of showing yesterday. */
 export function useDayStatus(packId: string) {
   const { data: pack } = usePack(packId);
   const now = useNow(60_000);
-  const today = pack ? packDayOf(now, pack.timezone) : null;
+  const today = pack ? packDayOf(now, readableZone(pack.timezone)) : null;
   return useQuery({
     queryKey: [...daysKey, 'status', packId, today],
     // Once the pack is known, or known to be gone: then the server's refusal shows, not a spinner.
@@ -46,6 +95,8 @@ export function useDayStatus(packId: string) {
     queryFn: async (): Promise<DayStatus> => {
       const { data, error } = await requireSupabase().rpc('my_day_status', { target: packId });
       if (error) throw error;
+      // The server always answers with the day: no data is an answer cut off before its body.
+      if (!data) throw new Error('no_answer');
       return data as DayStatus;
     },
     // A phone a little fast asks just before the server's 03:00 and gets yesterday back: it asks
@@ -56,7 +107,7 @@ export function useDayStatus(packId: string) {
 
 /** Whether each member has started and the rest days they used, for the hatch steps. */
 export function useMembersToday(pack: Pick<Pack, 'id' | 'timezone'> | undefined, now: Date, enabled: boolean) {
-  const today = pack ? packDayOf(now, pack.timezone) : '';
+  const today = pack ? packDayOf(now, readableZone(pack.timezone)) : '';
   return useQuery({
     queryKey: [...daysKey, 'members', pack?.id, today],
     enabled: pack !== undefined && enabled,
@@ -65,12 +116,19 @@ export function useMembersToday(pack: Pick<Pack, 'id' | 'timezone'> | undefined,
       if (error) throw error;
       return data as MembersToday;
     },
+    // Nothing announces the close of an egg day, and a phone a little fast asks just before the
+    // server's 03:00, so it asks again until the day before closed and the answer is for today. A
+    // server without dayToClose says neither, and its one answer stands.
+    refetchInterval: (query) => {
+      const answer = query.state.data;
+      return answer && (answer.dayToClose || answer.day < today) ? 15_000 : false;
+    },
   });
 }
 
 /** Today's passes and pauses of every member, for the circles on the pack screen. */
 export function useTodayPasses(pack: Pick<Pack, 'id' | 'timezone'> | undefined, now: Date) {
-  const today = pack ? packDayOf(now, pack.timezone) : '';
+  const today = pack ? packDayOf(now, readableZone(pack.timezone)) : '';
   return useQuery({
     queryKey: [...daysKey, 'passes', pack?.id, today],
     enabled: pack !== undefined,
@@ -78,26 +136,37 @@ export function useTodayPasses(pack: Pick<Pack, 'id' | 'timezone'> | undefined, 
       const supabase = requireSupabase();
       const [passes, pauses] = await Promise.all([
         supabase.from('day_passes').select('user_id, kind').eq('pack_id', pack!.id).eq('day', today),
-        supabase.from('pauses').select('user_id').eq('pack_id', pack!.id).lte('starts_on', today).gte('ends_on', today),
+        supabase.from('pauses').select('user_id, starts_on').eq('pack_id', pack!.id).lte('starts_on', today).gte('ends_on', today),
       ]);
       if (passes.error) throw passes.error;
       if (pauses.error) throw pauses.error;
-      return {
-        passes: new Map(passes.data.map((row) => [row.user_id, row.kind])),
-        paused: new Set(pauses.data.map((row) => row.user_id)),
-      };
+      return { passes: new Map(passes.data.map((row) => [row.user_id, row.kind])), ...pausedFrom(pauses.data, today) };
     },
   });
 }
 
-function useDayAction<T>(action: (packId: string, value: T) => PromiseLike<{ error: unknown }>, packId: string) {
+function useDayAction<T>(action: (packId: string, value: T) => PromiseLike<{ error: unknown }>, packId: string, alsoShownIn: QueryKey) {
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
   return useMutation({
     mutationFn: async (value: T) => {
       const { error } = await action(packId, value);
       if (error) throw error;
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: daysKey }),
+    // The spinner ends and the screen closes with the change on show. A refusal changed nothing, and
+    // its message shouldn't wait for reads that may be failing too.
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: daysKey }),
+    // Said here, not at the tap: callbacks of the tap don't run for a screen that closed meanwhile, and
+    // someone who left it counting on a rest day has to hear that it didn't save.
+    onError: (error) => {
+      notify(t(dayErrorKey(error)));
+      void queryClient.invalidateQueries({ queryKey: daysKey });
+    },
+    // A pause is also in the pack, whose copy on the phone says so with no connection. A joker is
+    // also a line in the pack feed, and Realtime doesn't send the delete that takes it back.
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: alsoShownIn });
+    },
   });
 }
 
@@ -105,19 +174,20 @@ export function useDayPass(packId: string) {
   return useDayAction<'joker' | 'rest'>(
     (target, pass) => requireSupabase().rpc('use_day_pass', { target, pass }),
     packId,
+    feedsKey,
   );
 }
 
 export function useCancelDayPass(packId: string) {
-  return useDayAction<void>((target) => requireSupabase().rpc('cancel_day_pass', { target }), packId);
+  return useDayAction<void>((target) => requireSupabase().rpc('cancel_day_pass', { target }), packId, feedsKey);
 }
 
 export function useStartPause(packId: string) {
-  return useDayAction<number>((target, days) => requireSupabase().rpc('start_pause', { target, days }), packId);
+  return useDayAction<number>((target, days) => requireSupabase().rpc('start_pause', { target, days }), packId, packsKey);
 }
 
 export function useEndPause(packId: string) {
-  return useDayAction<void>((target) => requireSupabase().rpc('end_pause', { target }), packId);
+  return useDayAction<void>((target) => requireSupabase().rpc('end_pause', { target }), packId, packsKey);
 }
 
 /** Maps the server's error codes to translation keys. */

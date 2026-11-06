@@ -2,7 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { requestWidgetUpdate, type WidgetTaskHandlerProps } from 'react-native-android-widget';
 
 import { AllPacksWidget, PackWideWidget, PackWidget } from '@/features/widgets/android/widgets';
-import { fetchSnapshot, loadSnapshot, saveSnapshot, widgetToken, type WidgetSnapshot } from '@/features/widgets/data';
+import { fetchSnapshot, loadSnapshot, saveSnapshot, savedWidgetToken, type WidgetSnapshot } from '@/features/widgets/data';
+import { clockRestored } from '@/lib/serverClock';
 
 export const ANDROID_WIDGETS = ['PackSmall', 'PackMedium', 'AllPacks'] as const;
 type WidgetName = (typeof ANDROID_WIDGETS)[number];
@@ -32,14 +33,26 @@ export async function renderFor(name: string, widgetId: number, snapshot: Widget
   }
 }
 
-/** The latest snapshot: the saved one if fresh, otherwise fetched with the device's token. */
+/** An age below zero says the clock was set back since, so it says nothing about the snapshot. */
+function isFresh({ savedAt = 0 }: WidgetSnapshot): boolean {
+  const age = Date.now() - savedAt;
+  return age >= 0 && age < FRESH_MS;
+}
+
+/**
+ * The latest snapshot: the saved one if fresh, otherwise fetched with the device's token. A fetch
+ * that fails leaves the saved one, unless it found the token unknown and took the snapshot with it.
+ * With no token there is nothing to show: build 4 kept a deleted account's snapshot once its token
+ * was gone.
+ */
 async function currentSnapshot(): Promise<WidgetSnapshot | null> {
   const saved = await loadSnapshot();
-  if (saved && Date.now() - Date.parse(saved.fetchedAt) < FRESH_MS) return saved;
-  const token = await widgetToken(false);
-  const fresh = token ? await fetchSnapshot(token) : null;
+  if (saved && isFresh(saved)) return saved;
+  const token = await savedWidgetToken();
+  if (!token) return null;
+  const fresh = await fetchSnapshot(token);
   if (fresh) await saveSnapshot(fresh);
-  return fresh ?? saved;
+  return fresh ?? (await loadSnapshot());
 }
 
 /** Runs in the background when Android adds, updates (every 30 minutes) or resizes a widget. */
@@ -49,6 +62,8 @@ export async function widgetTaskHandler({ widgetInfo, widgetAction, renderWidget
     return;
   }
   if (widgetAction === 'WIDGET_CLICK') return;
+  // Android can start this without the app, before the last offset is back: the critter sleeps by it.
+  await clockRestored;
   renderWidget(await renderFor(widgetInfo.widgetName, widgetInfo.widgetId, await currentSnapshot()));
 }
 

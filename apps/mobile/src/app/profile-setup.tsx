@@ -6,35 +6,44 @@ import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
 import { LegalLinks } from '@/components/LegalLinks';
 import { Screen } from '@/components/Screen';
+import { SignOutLink } from '@/components/SignOutLink';
+import { useSignOut } from '@/features/auth/useSignOut';
 import { AvatarButton } from '@/features/profile/AvatarButton';
 import { suggestedName } from '@/features/profile/suggestedName';
 import { NAME_MAX_LENGTH, useCompleteProfile, useProfile } from '@/features/profile/useProfile';
 import { notify } from '@/lib/confirm';
 import { isBlockedText } from '@/lib/errors';
-import { allowNotifications } from '@/lib/notifications';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 export default function ProfileSetupScreen() {
   const { t } = useTranslation();
   const { data: profile } = useProfile();
-  // The name from Apple or Google is only a suggestion.
-  const [name, setName] = useState((profile?.display_name ?? suggestedName() ?? '').slice(0, NAME_MAX_LENGTH));
+  // The name from Apple or Google is only a suggestion. Apple sends it only the first time an Apple
+  // ID signs in here, and App Review refuses a setup that then waits for a typed name, so without
+  // one there is a default to keep or change. Cut by characters, as the server counts them: half of
+  // an emoji can't be saved.
+  const [name, setName] = useState(
+    Array.from(profile?.display_name ?? suggestedName() ?? t('profileSetup.defaultName'))
+      .slice(0, NAME_MAX_LENGTH)
+      .join(''),
+  );
   const [agreed, setAgreed] = useState(false);
   const completeProfile = useCompleteProfile();
+  const leaving = useSignOut();
 
   const trimmed = name.trim();
   const canContinue = trimmed.length > 0 && agreed;
 
   const onContinue = () => {
     completeProfile.mutate(trimmed, {
-      // The system asks once; the line above the button says why.
-      onSuccess: () => void allowNotifications(),
       onError: (error) => notify(isBlockedText(error) ? t('errors.textNotAllowed') : t('errors.saveFailed')),
     });
   };
 
   return (
     <Screen>
+      {/* The way out for a wrong Apple ID or terms someone won't accept: plain, and far from Continue. */}
+      <SignOutLink leaving={leaving.isPending} disabled={completeProfile.isPending} onPress={leaving.start} />
       {/* Scrolls when the keyboard leaves too little room, instead of the lines running into each other. */}
       <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
         <AppText variant="heading">{t('profileSetup.title')}</AppText>
@@ -65,13 +74,15 @@ export default function ProfileSetupScreen() {
           <AppText style={styles.agreeText}>{t('profileSetup.agree')}</AppText>
         </Pressable>
         <LegalLinks />
+        {/* The system asks as the home screen opens, right after this one (useAccountSync). It scrolls
+            with the form, leaving the room above Continue to the form and the tick Continue waits for. */}
+        <AppText variant="caption" style={styles.notice}>
+          {t('profileSetup.notifications')}
+        </AppText>
       </ScrollView>
-      <AppText variant="caption" style={styles.notice}>
-        {t('profileSetup.notifications')}
-      </AppText>
       <Button
         label={t('profileSetup.continue')}
-        disabled={!canContinue}
+        disabled={!canContinue || leaving.isPending}
         loading={completeProfile.isPending}
         onPress={onContinue}
       />
@@ -107,5 +118,5 @@ const styles = StyleSheet.create({
   checkboxOn: { backgroundColor: colors.accent, borderColor: colors.accent },
   checkmark: { color: colors.onAccent, fontFamily: fonts.bodyBold },
   agreeText: { flex: 1 },
-  notice: { textAlign: 'center', paddingBottom: spacing.md },
+  notice: { textAlign: 'center' },
 });

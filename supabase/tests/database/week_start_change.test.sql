@@ -1,7 +1,7 @@
 -- A pack's week moving to another start day (decision D24).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(13);
+select plan(18);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000f1', 'noa@test.local'),
@@ -136,6 +136,57 @@ select is(
   (select name || ': ' || pending_rest_days_per_week || ' from ' || pending_from from public.packs where id = '10000000-0000-0000-0000-0000000000f4'),
   'Renamed: 2 from ' || (select day from today),
   'renaming the pack then keeps the new rest days from today'
+);
+
+-- A change past its date is in force, though a pack of one has no close to make it the pack's own.
+-- The next change starts from it: until that one's date the pack stays on what is in force.
+select pg_temp.add_pack('10000000-0000-0000-0000-0000000000f5', 'WEEKEEEE', 'sunday', 1::smallint, (select day - 30 from today));
+delete from public.pack_members
+where pack_id = '10000000-0000-0000-0000-0000000000f5' and user_id = '00000000-0000-0000-0000-0000000000f2';
+update public.packs set pending_week_start = 'sunday', pending_rest_days_per_week = 3, pending_from = (select day - 1 from today)
+where id = '10000000-0000-0000-0000-0000000000f5';
+set local role authenticated;
+select public.update_pack('10000000-0000-0000-0000-0000000000f5', 'Week test', 2::smallint, 'sunday');
+select is(
+  public.my_day_status('10000000-0000-0000-0000-0000000000f5') ->> 'restDaysPerWeek', '3',
+  'a second change leaves the rest days in force until its own date'
+);
+reset role;
+select is(
+  (select rest_days_per_week || ', then ' || pending_rest_days_per_week from public.packs where id = '10000000-0000-0000-0000-0000000000f5'),
+  '3, then 2',
+  'the change past its date is the pack''s own now, and the new one waits'
+);
+select ok(
+  (select pending_from > (select day from today) from public.packs where id = '10000000-0000-0000-0000-0000000000f5'),
+  'for the next week'
+);
+
+-- The same on the day a change starts, with no close to wait for.
+select pg_temp.add_pack('10000000-0000-0000-0000-0000000000f6', 'WEEKFFFF', 'sunday', 1::smallint, (select day - 30 from today));
+delete from public.pack_members
+where pack_id = '10000000-0000-0000-0000-0000000000f6' and user_id = '00000000-0000-0000-0000-0000000000f2';
+update public.packs set pending_week_start = 'sunday', pending_rest_days_per_week = 3, pending_from = (select day from today)
+where id = '10000000-0000-0000-0000-0000000000f6';
+set local role authenticated;
+select public.update_pack('10000000-0000-0000-0000-0000000000f6', 'Week test', 2::smallint, 'sunday');
+select is(
+  public.my_day_status('10000000-0000-0000-0000-0000000000f6') ->> 'restDaysPerWeek', '3',
+  'a change that started today stays in force as well when no day waits to close before it'
+);
+reset role;
+
+-- With closes behind, an older day still closes by the rules of its own week.
+select pg_temp.add_pack('10000000-0000-0000-0000-0000000000f7', 'WEEKGGGG', 'sunday', 1::smallint, (select day - 30 from today));
+select pg_temp.close('10000000-0000-0000-0000-0000000000f7', (select day - 30 from today));
+update public.packs set pending_week_start = 'sunday', pending_rest_days_per_week = 3, pending_from = (select day - 1 from today)
+where id = '10000000-0000-0000-0000-0000000000f7';
+set local role authenticated;
+select public.update_pack('10000000-0000-0000-0000-0000000000f7', 'Week test', 2::smallint, 'sunday');
+reset role;
+select is(
+  public.day_close_input('10000000-0000-0000-0000-0000000000f7', (select day - 29 from today)) ->> 'restDaysPerWeek', '1',
+  'a change doesn''t reach back over a day that hasn''t closed'
 );
 
 -- The rules that pick the week of a day.

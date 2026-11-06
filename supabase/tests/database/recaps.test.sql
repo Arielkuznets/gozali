@@ -1,7 +1,7 @@
 -- The weekly recap, created when the last day of a pack's week closes.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(9);
+select plan(16);
 
 -- Only this test's pack, whatever else the local database holds.
 delete from public.weekly_recaps;
@@ -80,6 +80,106 @@ select is(
 select is(
   (select count(*) from public.notifications where type = 'weekly_recap'), 2::bigint,
   'both members hear the recap is ready'
+);
+
+-- A recap lists what no earlier recap of the pack listed. A day closes the next morning, so the
+-- achievements of a week's last day carry a time after the week has ended.
+insert into public.packs (id, name, category, rest_days_per_week, week_start, timezone, invite_code)
+values
+  ('10000000-0000-0000-0000-000000000016', 'Walkers', 'reading', 0, 'sunday', 'Asia/Jerusalem', 'WALK2345'),
+  ('10000000-0000-0000-0000-000000000026', 'Hikers', 'reading', 0, 'sunday', 'Asia/Jerusalem', 'HKRS2345');
+insert into public.critters (pack_id, species, status, stage, health, streak, name)
+values
+  ('10000000-0000-0000-0000-000000000016', 'hoot', 'active', 'kid', 81, 5, 'Fern'),
+  ('10000000-0000-0000-0000-000000000026', 'hoot', 'active', 'kid', 81, 5, 'Sage');
+
+insert into public.achievements (pack_id, key, unlocked_at) values
+  ('10000000-0000-0000-0000-000000000016', 'hatched', '2026-09-08 04:05+03'),
+  ('10000000-0000-0000-0000-000000000016', 'streak_7', '2026-09-13 04:06+03');
+insert into public.day_results (pack_id, day, result, applied, health_before, health_after, coins)
+values ('10000000-0000-0000-0000-000000000016', '2026-09-12', 'success', true, 76, 81, 3);
+select is(
+  (select stats -> 'achievements' from public.weekly_recaps where pack_id = '10000000-0000-0000-0000-000000000016'),
+  '["hatched", "streak_7"]'::jsonb,
+  'a pack''s first recap lists all it has unlocked, the close of the last day included'
+);
+
+insert into public.achievements (pack_id, key, unlocked_at)
+values ('10000000-0000-0000-0000-000000000016', 'full_house', '2026-09-15 04:05+03');
+insert into public.day_results (pack_id, day, result, applied, health_before, health_after, coins)
+values ('10000000-0000-0000-0000-000000000016', '2026-09-19', 'success', true, 76, 81, 3);
+select is(
+  (select stats -> 'achievements' from public.weekly_recaps
+   where pack_id = '10000000-0000-0000-0000-000000000016' and week_start = '2026-09-13'),
+  '["full_house"]'::jsonb,
+  'the next week lists only its own'
+);
+
+-- A recap already stored without an achievement unlocked in the same close: it goes in the next one.
+insert into public.weekly_recaps (pack_id, week_start, stats, created_at)
+values ('10000000-0000-0000-0000-000000000026', '2026-09-06', '{"achievements": ["hatched"]}', '2026-09-13 04:06+03');
+insert into public.achievements (pack_id, key, unlocked_at) values
+  ('10000000-0000-0000-0000-000000000026', 'hatched', '2026-09-08 04:05+03'),
+  ('10000000-0000-0000-0000-000000000026', 'streak_7', '2026-09-13 04:06+03'),
+  ('10000000-0000-0000-0000-000000000026', 'full_house', '2026-09-20 04:06+03');
+insert into public.day_results (pack_id, day, result, applied, health_before, health_after, coins)
+values ('10000000-0000-0000-0000-000000000026', '2026-09-19', 'success', true, 76, 81, 3);
+select is(
+  (select stats -> 'achievements' from public.weekly_recaps
+   where pack_id = '10000000-0000-0000-0000-000000000026' and week_start = '2026-09-13'),
+  '["streak_7", "full_house"]'::jsonb,
+  'an achievement a stored recap left out is listed by the next one, not lost'
+);
+
+-- A pack everyone left closes the weeks nobody was in once someone is back. Each keeps its recap, and
+-- none is news to anyone.
+insert into public.packs (id, name, category, rest_days_per_week, week_start, timezone, invite_code)
+values
+  ('10000000-0000-0000-0000-000000000036', 'Rowers', 'reading', 0, 'sunday', 'Asia/Jerusalem', 'RWRS2345'),
+  ('10000000-0000-0000-0000-000000000046', 'Divers', 'reading', 0, 'sunday', 'Asia/Jerusalem', 'DVRS2345');
+insert into public.critters (pack_id, species)
+values ('10000000-0000-0000-0000-000000000036', 'hoot'), ('10000000-0000-0000-0000-000000000046', 'hoot');
+insert into public.pack_members (pack_id, user_id, role)
+select p, '00000000-0000-0000-0000-0000000000a6', 'admin'
+from unnest(array['10000000-0000-0000-0000-000000000036', '10000000-0000-0000-0000-000000000046']::uuid[]) p;
+delete from public.notifications;
+
+insert into public.day_results (pack_id, day, result, applied, health_before, health_after)
+select '10000000-0000-0000-0000-000000000036', d::date, 'neutral', false, 100, 100
+from generate_series('2026-09-13'::date, '2026-09-26'::date, interval '1 day') d;
+set constraints all immediate;
+select is(
+  (select count(*) from public.weekly_recaps where pack_id = '10000000-0000-0000-0000-000000000036'), 2::bigint,
+  'weeks nobody was counted in still get their recaps'
+);
+select is(
+  (select count(*) from public.notifications where pack_id = '10000000-0000-0000-0000-000000000036'), 0::bigint,
+  'but nobody hears about them'
+);
+
+-- One day of one member is enough, however they counted: fed, rested, on a joker, paused, asleep or
+-- missed. Six weeks, one way each, each with its single day closed on the Saturday.
+insert into public.day_results (
+  pack_id, day, result, applied, health_before, health_after,
+  fed_ids, rested_ids, joker_ids, paused_ids, sleeping_ids, missed_ids
+)
+select '10000000-0000-0000-0000-000000000046', '2026-09-19'::date + 7 * (week - 1), 'neutral', false, 100, 100,
+  case week when 1 then who else '{}' end, case week when 2 then who else '{}' end,
+  case week when 3 then who else '{}' end, case week when 4 then who else '{}' end,
+  case week when 5 then who else '{}' end, case week when 6 then who else '{}' end
+from generate_series(1, 6) week, (values (array['00000000-0000-0000-0000-0000000000a6']::uuid[])) as people (who);
+set constraints all immediate;
+select is(
+  (select count(*) from public.notifications
+   where pack_id = '10000000-0000-0000-0000-000000000046' and type = 'weekly_recap'),
+  6::bigint,
+  'a week anyone counted in is told, whichever way they counted'
+);
+select is(
+  (select count(*) from public.weekly_recaps
+   where pack_id = '10000000-0000-0000-0000-000000000046' and (stats ->> 'successDays')::int = 0),
+  6::bigint,
+  'even with not one good day in it'
 );
 
 select * from finish();

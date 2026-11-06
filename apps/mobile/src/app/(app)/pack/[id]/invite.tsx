@@ -1,8 +1,8 @@
 import * as Clipboard from 'expo-clipboard';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, ScrollView, Share, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Share, StyleSheet, useWindowDimensions, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
 import { AppText } from '@/components/AppText';
@@ -10,9 +10,10 @@ import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { LoadingScreen, LoadFailedScreen, PackMissingScreen } from '@/components/ScreenStates';
 import { useAuth } from '@/features/auth/AuthProvider';
-import { currentMembers, packErrorKey, usePack, useRenewInviteCode } from '@/features/packs/api';
+import { currentMembers, usePack, useRenewInviteCode, useRenewingInviteCode } from '@/features/packs/api';
 import { PACK_SIZE_MAX, inviteLink } from '@/features/packs/constants';
-import { confirm, notify } from '@/lib/confirm';
+import { confirm } from '@/lib/confirm';
+import { useBackToPack } from '@/lib/navigation';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 export default function InviteScreen() {
@@ -20,15 +21,21 @@ export default function InviteScreen() {
   const { height } = useWindowDimensions();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: pack, isPending, isError, refetch } = usePack(id);
-  const [copied, setCopied] = useState(false);
+  // The code copied last: Copied! stands only while it is the one on screen, as a new code ends it.
+  const [copied, setCopied] = useState<string | null>(null);
   const { session } = useAuth();
   const renew = useRenewInviteCode(id);
+  // Also when the new code was asked for on a screen closed since. Until the answer is in, the code
+  // on screen may be about to stop working, so nothing hands it out.
+  const renewing = useRenewingInviteCode(id);
+  const backToPack = useBackToPack();
 
-  if (isPending) return <LoadingScreen />;
+  if (isPending) return <LoadingScreen back />;
   if (!pack && isError) return <LoadFailedScreen onRetry={() => void refetch()} />;
   if (!pack) return <PackMissingScreen />;
 
   const link = inviteLink(pack.invite_code);
+  const qrSize = height < 700 ? 136 : 180;
   const full = currentMembers(pack).length >= PACK_SIZE_MAX;
   const critterName = pack.critters?.name ?? (pack.critters ? t(`packs.species.${pack.critters.species}`) : '');
   const body = full
@@ -45,11 +52,7 @@ export default function InviteScreen() {
       message: t('invite.renewBody'),
       confirm: t('invite.renewConfirm'),
       cancel: t('settings.cancel'),
-      onConfirm: () =>
-        renew.mutate(undefined, {
-          onSuccess: () => setCopied(false),
-          onError: (error) => notify(t(packErrorKey(error))),
-        }),
+      onConfirm: () => renew.mutate(),
     });
 
   const onShare = () => {
@@ -58,7 +61,7 @@ export default function InviteScreen() {
 
   const onCopy = async () => {
     await Clipboard.setStringAsync(pack.invite_code);
-    setCopied(true);
+    setCopied(pack.invite_code);
   };
 
   return (
@@ -70,29 +73,44 @@ export default function InviteScreen() {
         <AppText style={[styles.centerText, styles.muted]}>{body}</AppText>
         {/* The code first: on a small phone the QR code is what scrolls out of view. */}
         <AppText variant="caption">{t('invite.code')}</AppText>
-        <AppText style={styles.code} selectable>
+        <AppText style={[styles.code, renewing && styles.stale]} selectable={!renewing}>
           {pack.invite_code}
         </AppText>
+        {/* Whoever has the code joins at once and sees the pack's photos: nothing asks the pack first. */}
+        <AppText variant="caption" style={[styles.centerText, styles.warning]}>
+          {t('invite.anyone')}
+        </AppText>
         <View style={styles.qr}>
-          <QRCode value={link} size={height < 700 ? 136 : 180} color={colors.ink} backgroundColor={colors.surface} />
+          {renewing ? (
+            <View style={{ width: qrSize, height: qrSize }} />
+          ) : (
+            <QRCode value={link} size={qrSize} color={colors.ink} backgroundColor={colors.surface} />
+          )}
         </View>
-        {isAdmin && (
-          <Pressable accessibilityRole="button" onPress={onRenew} disabled={renew.isPending} hitSlop={8}>
-            <AppText variant="caption" style={styles.link}>
-              {t('invite.renew')}
-            </AppText>
-          </Pressable>
-        )}
+        {isAdmin &&
+          (renewing ? (
+            <View style={styles.renewing}>
+              <ActivityIndicator color={colors.inkMuted} />
+              <AppText variant="caption">{t('invite.renewing')}</AppText>
+            </View>
+          ) : (
+            <Pressable accessibilityRole="button" onPress={onRenew} hitSlop={8}>
+              <AppText variant="caption" style={styles.link}>
+                {t('invite.renew')}
+              </AppText>
+            </Pressable>
+          ))}
       </ScrollView>
 
       <View style={styles.actions}>
-        <Button label={t('invite.share')} onPress={onShare} />
+        <Button label={t('invite.share')} onPress={onShare} disabled={renewing} />
         <Button
-          label={copied ? t('invite.copied') : t('invite.copy')}
+          label={copied === pack.invite_code ? t('invite.copied') : t('invite.copy')}
           variant="secondary"
+          disabled={renewing}
           onPress={() => void onCopy()}
         />
-        <Button label={t('invite.done')} variant="secondary" onPress={() => router.replace(`/pack/${id}`)} />
+        <Button label={t('invite.done')} variant="secondary" onPress={() => backToPack(id)} />
       </View>
     </Screen>
   );
@@ -102,8 +120,11 @@ const styles = StyleSheet.create({
   body: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md, paddingVertical: spacing.md },
   centerText: { textAlign: 'center' },
   muted: { color: colors.inkMuted, maxWidth: 320 },
+  warning: { maxWidth: 320 },
   qr: { padding: spacing.md, borderRadius: radii.lg, backgroundColor: colors.surface },
   code: { fontFamily: fonts.bodyBold, fontSize: 32, lineHeight: 40, letterSpacing: 4 },
+  stale: { opacity: 0.3 },
   link: { color: colors.accentText },
+  renewing: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   actions: { gap: spacing.sm },
 });

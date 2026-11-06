@@ -1,5 +1,5 @@
 // Test data for the end-to-end tests, made through the local Supabase API like the smoke scripts.
-import type { Page } from '@playwright/test';
+import { expect, type Page, type WebSocketRoute } from '@playwright/test';
 import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js';
 
 import type { Database } from '../apps/mobile/src/lib/database.types';
@@ -51,6 +51,17 @@ export async function signInElsewhere(user: TestUser): Promise<SupabaseClient> {
   return client;
 }
 
+/**
+ * Sets the member's clock to this hour of the day, for what goes by it: the same test then runs at
+ * any time. Etc names carry the sign the other way around, so Etc/GMT-2 is two hours ahead of UTC.
+ */
+export async function setClock(member: TestUser, hour: number): Promise<void> {
+  const ahead = ((hour - new Date().getUTCHours() + 36) % 24) - 12;
+  const timezone = `Etc/GMT${ahead > 0 ? '-' : '+'}${Math.abs(ahead)}`;
+  const saved = await member.client.from('profiles').update({ timezone }).eq('id', member.id);
+  if (saved.error) throw saved.error;
+}
+
 /** Deletes the users and every pack they were in. */
 export async function removeUsers(...users: TestUser[]): Promise<void> {
   const ids = users.map((user) => user.id);
@@ -65,6 +76,73 @@ export async function signIn(page: Page, user: TestUser): Promise<void> {
   await page.addInitScript((session) => {
     window.localStorage.setItem('sb-127-auth-token', JSON.stringify(session));
   }, user.session);
+}
+
+export type RealtimeSocket = { away: boolean; refused: boolean; subscribed: string[]; drop: () => Promise<void> };
+
+/**
+ * Carries Realtime's frames to the page, until `away` is set, and notes the channels that start
+ * listening. While `refused` is set, no socket connects.
+ */
+export async function watchSocket(page: Page): Promise<RealtimeSocket> {
+  const open: WebSocketRoute[] = [];
+  const socket: RealtimeSocket = {
+    away: false,
+    refused: false,
+    subscribed: [],
+    /** Closes the socket with the app open, as a lost route or a Realtime restart does. */
+    drop: async () => {
+      socket.refused = true;
+      await Promise.all(open.splice(0).map((ws) => ws.close()));
+    },
+  };
+  await page.routeWebSocket(/realtime\/v1\/websocket/, (ws) => {
+    if (socket.refused) return void ws.close();
+    open.push(ws);
+    const server = ws.connectToServer();
+    ws.onMessage((message) => server.send(message));
+    server.onMessage((message) => {
+      if (String(message).includes('Subscribed to PostgreSQL')) socket.subscribed.push(String(message));
+      if (!socket.away) ws.send(message);
+    });
+  });
+  return socket;
+}
+
+/**
+ * Waits for a screen's channel to be listening: `mine` on the home screen, a pack's id on its own
+ * screen. Realtime replays nothing, so a change made while it still joins never reaches the screen,
+ * and the data usually shows before the channel is ready.
+ */
+export async function listening(socket: RealtimeSocket, channel: string): Promise<void> {
+  await expect.poll(() => socket.subscribed.some((frame) => frame.includes(`packs-live:${channel}:`)), { timeout: 30_000 }).toBe(true);
+}
+
+/**
+ * Lays text out the way a phone does. React Native's layout engine shrinks text in a row only when
+ * told to, and a browser always does, so here a row that runs off a phone's screen looks fine.
+ * Inside :where() the rule weighs nothing, so a flexShrink in the app's own styles still counts.
+ */
+export async function layOutTextLikeAPhone(page: Page): Promise<void> {
+  await page.addStyleTag({ content: ':where(div[dir=auto]){flex-shrink:0;max-width:100%}' });
+}
+
+/**
+ * Doubles the text of the buttons, which is as far as the app lets a phone's largest text setting
+ * take it. A browser has no such setting.
+ */
+export async function doubleButtonText(page: Page): Promise<void> {
+  await page.addStyleTag({ content: '[role=button] div[dir=auto]{zoom:2}' });
+}
+
+/**
+ * Scrolls down the way a finger does, which moves only what really scrolls. Playwright's own
+ * scrolling also moves boxes that clip their overflow, where nobody could reach what it finds.
+ */
+export async function swipeUp(page: Page): Promise<void> {
+  const { width, height } = page.viewportSize()!;
+  await page.mouse.move(width / 2, height / 2);
+  await page.mouse.wheel(0, 2000);
 }
 
 type NewPack = { name: string; habit: Database['public']['Enums']['habit_category']; species: Database['public']['Enums']['critter_species'] };
@@ -102,10 +180,10 @@ export async function photo(page: Page, emoji: string): Promise<Buffer> {
 }
 
 /** Posts a feed for `member` the way the app does: upload, then submit_feed. */
-export async function feed(member: TestUser, packId: string, image: Buffer, caption: string): Promise<void> {
+export async function feed(member: TestUser, packId: string, image: Buffer, caption: string, extra = false): Promise<void> {
   const path = `${packId}/${member.id}/${Date.now()}.jpg`;
   const upload = await member.client.storage.from('feed-photos').upload(path, image, { contentType: 'image/jpeg' });
   if (upload.error) throw upload.error;
-  const submitted = await member.client.rpc('submit_feed', { target: packId, photo: path, note: caption });
+  const submitted = await member.client.rpc('submit_feed', { target: packId, photo: path, note: caption, extra });
   if (submitted.error) throw submitted.error;
 }

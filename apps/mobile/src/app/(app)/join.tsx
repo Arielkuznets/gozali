@@ -1,8 +1,9 @@
+import { useQueryClient } from '@tanstack/react-query';
 import * as Clipboard from 'expo-clipboard';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
@@ -10,42 +11,72 @@ import { Screen } from '@/components/Screen';
 import { TextField } from '@/components/TextField';
 import { Critter } from '@/features/critter/Critter';
 import { critterArt } from '@/features/critter/art';
-import { packErrorKey, useJoinPack, usePackPreview } from '@/features/packs/api';
+import { packErrorKey, previewRefusal, refreshJoinedPack, useJoinPack, usePackPreview } from '@/features/packs/api';
 import { INVITE_CODE_LENGTH, categoryInfo, inviteCodeFrom, normalizeInviteCode } from '@/features/packs/constants';
 import { notify } from '@/lib/confirm';
 import { haptics } from '@/lib/haptics';
-import { goBack } from '@/lib/navigation';
+import { goBack, useOpenPack } from '@/lib/navigation';
 import { serverNow } from '@/lib/serverClock';
 import { colors, radii, spacing } from '@/theme/tokens';
 
 /** Join with a code, typed, pasted or arriving through gozali://join?code=... */
 export default function JoinScreen() {
+  // A link with the code in it more than once hands over a list.
+  const { code } = useLocalSearchParams<{ code?: string | string[] }>();
+  const linkCode = (Array.isArray(code) ? code[0] : code) ?? '';
+  // An invite link tapped with this screen open starts it over with its code.
+  return <JoinForm key={linkCode} linkCode={linkCode} />;
+}
+
+function JoinForm({ linkCode }: { linkCode: string }) {
   const { t } = useTranslation();
-  const params = useLocalSearchParams<{ code?: string }>();
-  const [code, setCode] = useState(normalizeInviteCode(params.code ?? ''));
+  const [code, setCode] = useState(normalizeInviteCode(linkCode));
   const preview = usePackPreview(code);
   const joinPack = useJoinPack();
+  const openPack = useOpenPack();
+  const queryClient = useQueryClient();
+  const body = useRef<ScrollView>(null);
 
+  // A paste the person refused reads as empty on iOS and throws on the web; either way the code they
+  // typed stays.
   const onPaste = async () => {
-    setCode(inviteCodeFrom(await Clipboard.getStringAsync()));
+    const pasted = inviteCodeFrom(await Clipboard.getStringAsync().catch(() => ''));
+    if (pasted) setCode(pasted);
+    else notify(t('join.nothingToPaste'));
+  };
+
+  const onOpen = (packId: string) => {
+    refreshJoinedPack(queryClient, packId);
+    openPack(packId);
   };
 
   const onJoin = () => {
     joinPack.mutate(code, {
       onSuccess: (packId) => {
         haptics.success();
-        router.replace(`/pack/${packId}`);
+        openPack(packId);
       },
-      onError: (error) => notify(t(packErrorKey(error))),
+      onError: (error) => {
+        notify(t(packErrorKey(error)));
+        // The pack shown may be out of date, as when the admin replaced the code since it loaded.
+        void preview.refetch();
+      },
     });
   };
 
   const pack = preview.data;
   const complete = code.length === INVITE_CODE_LENGTH;
+  const refusal = preview.isError ? previewRefusal(preview.error) : null;
 
   return (
     <Screen>
-      <View style={styles.body}>
+      {/* Scrolls when the keyboard or a short window leaves too little room for the pack. What a code
+          brings comes last, and has to show without a scroll: a code no pack has only dims the button. */}
+      <ScrollView
+        ref={body}
+        contentContainerStyle={styles.body}
+        keyboardShouldPersistTaps="handled"
+        onContentSizeChange={() => body.current?.scrollToEnd()}>
         <AppText variant="heading">{t('join.title')}</AppText>
         <View style={styles.codeRow}>
           <View style={styles.codeField}>
@@ -54,6 +85,8 @@ export default function JoinScreen() {
               placeholder={t('join.codePlaceholder')}
               autoCapitalize="characters"
               autoCorrect={false}
+              // Latin keys whatever the phone's layout: a Hebrew one types letters no code has.
+              keyboardType={Platform.OS === 'ios' ? 'ascii-capable' : Platform.OS === 'android' ? 'visible-password' : undefined}
               value={code}
               onChangeText={(text) => setCode(inviteCodeFrom(text))}
               returnKeyType="join"
@@ -71,9 +104,19 @@ export default function JoinScreen() {
           <AppText style={styles.error}>{t('packs.errors.notFound')}</AppText>
         )}
         {complete && preview.isError && (
-          <AppText style={styles.error}>
-            {t(packErrorKey(preview.error) === 'packs.errors.tooManyAttempts' ? 'packs.errors.tooManyAttempts' : 'errors.loadFailed')}
-          </AppText>
+          <View style={styles.failed}>
+            <AppText style={styles.error}>{t(refusal ?? 'errors.loadFailed')}</AppText>
+            {/* Trying again can't change a refusal. */}
+            {!refusal && (
+              <Button
+                label={t('home.retry')}
+                variant="secondary"
+                size="small"
+                loading={preview.isFetching}
+                onPress={() => void preview.refetch()}
+              />
+            )}
+          </View>
         )}
         {pack && (
           <View style={styles.preview}>
@@ -101,11 +144,11 @@ export default function JoinScreen() {
             </View>
           </View>
         )}
-      </View>
+      </ScrollView>
 
       <View style={styles.actions}>
         {pack?.already_member ? (
-          <Button label={t('join.open')} onPress={() => router.replace(`/pack/${pack.pack_id}`)} />
+          <Button label={t('join.open')} onPress={() => onOpen(pack.pack_id)} />
         ) : (
           <Button
             label={t('join.join')}
@@ -121,7 +164,7 @@ export default function JoinScreen() {
 }
 
 const styles = StyleSheet.create({
-  body: { flex: 1, justifyContent: 'center', gap: spacing.lg },
+  body: { flexGrow: 1, justifyContent: 'center', gap: spacing.lg, paddingVertical: spacing.md },
   codeRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm },
   codeField: { flex: 1 },
   preview: {
@@ -135,6 +178,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   previewText: { flex: 1, gap: 2 },
+  failed: { gap: spacing.sm },
   error: { color: colors.danger },
   actions: { gap: spacing.sm },
 });

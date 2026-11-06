@@ -9,6 +9,35 @@
   --accent-text: #b34e37;
 }
 
+/* The app's fonts, which web/build.mjs copies into /fonts. Text shows in the system font until they load. */
+@font-face {
+  font-family: 'Rubik';
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/Rubik_400Regular.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Rubik';
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/Rubik_500Medium.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Rubik';
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/Rubik_700Bold.ttf') format('truetype');
+}
+
+@font-face {
+  font-family: 'Varela Round';
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/VarelaRound_400Regular.ttf') format('truetype');
+}
+
 * {
   box-sizing: border-box;
 }
@@ -111,11 +140,4 @@ footer {
 footer a,
 article a {
   color: var(--accent-text);
-}
-
-article blockquote {
-  margin: 0;
-  padding: 8px 16px;
-  border-left: 3px solid var(--border);
-  color: var(--muted);
 }

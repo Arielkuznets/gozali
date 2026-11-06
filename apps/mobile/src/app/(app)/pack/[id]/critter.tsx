@@ -1,4 +1,4 @@
-import type { BackgroundItem, HeadItem, NeckItem, Outfit } from '@gozali/critter-art';
+import type { BackgroundItem, CritterArt, HeadItem, NeckItem, Outfit } from '@gozali/critter-art';
 import { ACHIEVEMENTS, packDayOf, type WardrobeSlot } from '@gozali/game-engine';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
@@ -11,7 +11,7 @@ import { HeaderButton } from '@/components/HeaderButton';
 import { Screen } from '@/components/Screen';
 import { LoadFailed, LoadingScreen, LoadFailedScreen, PackMissingScreen } from '@/components/ScreenStates';
 import { Critter } from '@/features/critter/Critter';
-import { critterArt, parseOutfit, stageProgress } from '@/features/critter/art';
+import { critterArt, localDay, parseOutfit, stageProgress } from '@/features/critter/art';
 import { useCritterText } from '@/features/critter/useCritterText';
 import { fedToday, useCountedFeeds } from '@/features/feeds/api';
 import { currentMembers, usePack, type Pack, type PackCritter } from '@/features/packs/api';
@@ -19,7 +19,7 @@ import { usePackRealtime } from '@/features/packs/realtime';
 import { MonthlyBoard } from '@/features/social/MonthlyBoard';
 import { socialErrorKey, useAchievements, useBuy, useDress, useMonthResults, usePackItems, useShop, type ShopItem } from '@/features/social/api';
 import { confirm, notify } from '@/lib/confirm';
-import { formatDay, formatMonth, shiftMonth } from '@/lib/dates';
+import { formatDay, formatMonth, readableZone, shiftMonth } from '@/lib/dates';
 import { haptics } from '@/lib/haptics';
 import { goBack } from '@/lib/navigation';
 import { useNow } from '@/lib/useNow';
@@ -33,7 +33,7 @@ export default function CritterProfileScreen() {
   const { data: pack, isPending, isError, refetch } = usePack(id);
   usePackRealtime(id);
 
-  if (isPending) return <LoadingScreen />;
+  if (isPending) return <LoadingScreen back />;
   if (!pack && isError) return <LoadFailedScreen onRetry={() => void refetch()} />;
   if (!pack?.critters) return <PackMissingScreen />;
   return <Profile pack={pack} critter={pack.critters} />;
@@ -42,7 +42,7 @@ export default function CritterProfileScreen() {
 function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
   const { t } = useTranslation();
   const now = useNow(60_000);
-  const today = packDayOf(now, pack.timezone);
+  const today = packDayOf(now, readableZone(pack.timezone));
   const [month, setMonth] = useState(today.slice(0, 7));
   const results = useMonthResults(pack.id, month);
   const achievements = useAchievements(pack.id);
@@ -61,16 +61,27 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
   const canDress = critter.status === 'active';
   // An egg earns no coins and wears nothing, so its wardrobe and shop wait for the hatching.
   const hatched = critter.status !== 'egg';
+  // A tile shows its item on the pet. The note a pet that ran away left can't wear one, so the
+  // tiles draw the pet as it is at home, and without the holiday hat, which takes a head item's place.
+  const tileArt: CritterArt = { ...art, look: art.look === 'ran_away' ? 'happy' : art.look, sleeping: false, holiday: false, mood: 0 };
+  // The wardrobe and the shop come from all three reads, the achievements from the first. A read that
+  // isn't in would pass for nothing unlocked or bought, so they wait for all of them.
+  const reads = hatched ? [achievements, shop, bought] : [achievements];
+  const loaded = reads.every((read) => read.data);
+  const failed = reads.filter((read) => read.isError && !read.data);
 
   const wear = (slot: WardrobeSlot, item: string | null) => {
     haptics.tap();
     dress.mutate({ slot, item }, { onError: (error) => notify(t(socialErrorKey(error))) });
   };
 
-  // The wardrobe: what achievements unlocked, then what the pack bought, per slot.
+  // The wardrobe: what achievements unlocked, then what the pack bought, per slot. An item bought
+  // before its achievement came both ways and is there once.
   const owned = (slot: WardrobeSlot) => [
-    ...ACHIEVEMENTS.filter((a) => a.item.slot === slot && unlocked.has(a.key)).map((a) => a.item.key),
-    ...(shop.data ?? []).filter((s) => s.slot === slot && bought.data?.has(s.item)).map((s) => s.item),
+    ...new Set([
+      ...ACHIEVEMENTS.filter((a) => a.item.slot === slot && unlocked.has(a.key)).map((a) => a.item.key),
+      ...(shop.data ?? []).filter((s) => s.slot === slot && bought.data?.has(s.item)).map((s) => s.item),
+    ]),
   ];
   const ownsSomething = SLOTS.some((slot) => owned(slot).length > 0);
   const forSale = (shop.data ?? []).filter((s) => !owned(s.slot).includes(s.item));
@@ -164,9 +175,11 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
             <MonthlyBoard
               month={month}
               results={results.data ?? []}
-              members={pack.pack_members
-                .filter((member) => member.status !== 'left' || (results.data ?? []).some((r) => r.missed_ids.includes(member.user_id) || r.fed_ids.includes(member.user_id)))
-                .map((member) => ({ id: member.user_id, name: member.profiles?.display_name ?? null }))}
+              members={pack.pack_members.map((member) => ({
+                id: member.user_id,
+                name: member.profiles?.display_name ?? null,
+                left: member.status === 'left',
+              }))}
               today={today}
               fedToday={fedToday(counted.data, pack, now)}
               color={critterAccents[critter.species]}
@@ -174,7 +187,9 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
           )}
         </View>
 
-        {hatched ? (
+        {failed.length > 0 && <LoadFailed onRetry={() => failed.forEach((read) => void read.refetch())} />}
+
+        {hatched && loaded && (
           <>
             <View style={styles.section}>
               <View style={styles.titleRow}>
@@ -182,6 +197,7 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
                 <Coins text={t('profile.coins', { count: critter.coins })} />
               </View>
               {!ownsSomething && <AppText style={styles.muted}>{t('profile.wardrobeEmpty')}</AppText>}
+              {ownsSomething && !canDress && <AppText style={styles.muted}>{t('social.errors.critter_not_here')}</AppText>}
               {SLOTS.map((slot) => {
                 const items = owned(slot);
                 if (items.length === 0) return null;
@@ -201,7 +217,7 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
                             disabled={!canDress || worn}
                             onPress={() => wear(slot, item)}
                             style={[styles.item, worn && styles.itemWorn]}>
-                            <Critter art={{ ...art, outfit: preview, sleeping: false, mood: 0 }} size={64} label="" animated={false} />
+                            <Critter art={{ ...tileArt, outfit: preview }} size={64} label="" animated={false} />
                             <AppText variant="caption" numberOfLines={1}>
                               {item ? itemName(item) : t('profile.none')}
                             </AppText>
@@ -234,7 +250,7 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
                       onPress={() => offer(entry)}
                       style={[styles.item, styles.shopItem, !affordable && styles.unaffordable]}>
                       {/* The drawing shows the item; its name is read out and asked about on buying. */}
-                      <Critter art={{ ...art, outfit: preview, sleeping: false, mood: 0 }} size={72} label="" animated={false} />
+                      <Critter art={{ ...tileArt, outfit: preview }} size={72} label="" animated={false} />
                       <Coins text={t('profile.price', { price: entry.price })} style={styles.price} />
                     </Pressable>
                   );
@@ -242,7 +258,8 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
               </View>
             </View>
           </>
-        ) : (
+        )}
+        {!hatched && (
           <View style={styles.eggCard}>
             <AppText style={styles.eggIcon}>🥚</AppText>
             <View style={styles.fillText}>
@@ -252,24 +269,27 @@ function Profile({ pack, critter }: { pack: Pack; critter: PackCritter }) {
           </View>
         )}
 
-        <View style={styles.section}>
-          <AppText style={styles.sectionTitle}>{t('profile.achievements')}</AppText>
-          {ACHIEVEMENTS.map((achievement) => {
-            const at = unlocked.get(achievement.key);
-            return (
-              <View key={achievement.key} style={[styles.achievement, !at && styles.locked]}>
-                <AppText style={styles.badge}>{at ? '🏆' : '🔒'}</AppText>
-                <View style={styles.fillText}>
-                  <AppText style={styles.achievementTitle}>{t(`achievements.${achievement.key}.title`)}</AppText>
-                  <AppText variant="caption">
-                    {t(`achievements.${achievement.key}.condition`)} · {t(`items.${achievement.item.key as HeadItem}`)}
-                  </AppText>
+        {loaded && (
+          <View style={styles.section}>
+            <AppText style={styles.sectionTitle}>{t('profile.achievements')}</AppText>
+            {ACHIEVEMENTS.map((achievement) => {
+              const at = unlocked.get(achievement.key);
+              return (
+                <View key={achievement.key} style={[styles.achievement, !at && styles.locked]}>
+                  <AppText style={styles.badge}>{at ? '🏆' : '🔒'}</AppText>
+                  <View style={styles.fillText}>
+                    <AppText style={styles.achievementTitle}>{t(`achievements.${achievement.key}.title`)}</AppText>
+                    <AppText variant="caption">
+                      {t(`achievements.${achievement.key}.condition`)} · {t(`items.${achievement.item.key as HeadItem}`)}
+                    </AppText>
+                  </View>
+                  {/* The moment it unlocked, on the phone's calendar: the server sends it in UTC. */}
+                  {at && <AppText variant="caption">{formatDay(localDay(new Date(at)))}</AppText>}
                 </View>
-                {at && <AppText variant="caption">{formatDay(at.slice(0, 10))}</AppText>}
-              </View>
-            );
-          })}
-        </View>
+              );
+            })}
+          </View>
+        )}
       </ScrollView>
     </Screen>
   );
@@ -279,7 +299,9 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.md },
   headerSpacer: { width: 32 },
   body: { gap: spacing.lg, paddingBottom: spacing.xl },
-  hero: { alignItems: 'center', gap: spacing.xs },
+  // The line the pet says when petted grows up from its head, out of the drawing, and the scroller
+  // cuts off what is above its top: two lines of it fit.
+  hero: { alignItems: 'center', gap: spacing.xs, paddingTop: spacing.xxl },
   centerText: { textAlign: 'center' },
   progress: { alignSelf: 'stretch', gap: spacing.xs, paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
   track: { height: 8, borderRadius: 4, backgroundColor: colors.border, overflow: 'hidden' },

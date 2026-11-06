@@ -5,12 +5,18 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 
 import { hasCronSecret } from '../_shared/secret.ts';
 import type { ClaimedRow } from './messages.ts';
-import { EXPO_PUSH_URL, RefusedRequest, sendAll, type PushMessage, type PushTicket } from './push.ts';
+import { EXPO_PUSH_URL, RefusedRequest, runFailed, sendAll, type PushMessage, type PushTicket } from './push.ts';
 
-// The function may run for 150 seconds. A request to Expo that hangs is given up after 20, and
-// sending stops after 100, which leaves time to put back what wasn't sent.
-const REQUEST_TIMEOUT_MS = 20_000;
-const SEND_BUDGET_MS = 100_000;
+// A worker's 150 seconds are shared by every request it serves, so a run may have only 75 of them
+// left. A request to Expo that hangs is given up after 20, and no new one starts after 50, which
+// leaves time to put back what wasn't sent.
+export const REQUEST_TIMEOUT_MS = 20_000;
+export const SEND_BUDGET_MS = 50_000;
+// HEARTBEAT_URL, when set, is an outside check that mails the owner when its pings stop. A wrong
+// secret, a missing Vault value or Expo turning everything down fails the run or keeps it from
+// starting, and the owners' alerts go out through this function too, so only a run that went well
+// pings it. A run past its budget leaves it to the next one.
+export const HEARTBEAT_TIMEOUT_MS = 5_000;
 
 async function expoSend(batch: PushMessage[]): Promise<PushTicket[]> {
   const token = Deno.env.get('EXPO_ACCESS_TOKEN');
@@ -30,8 +36,21 @@ async function expoSend(batch: PushMessage[]): Promise<PushTicket[]> {
     if (response.status < 500 && ![401, 403, 429].includes(response.status)) throw new RefusedRequest(message);
     throw new Error(message);
   }
-  const { data } = (await response.json()) as { data: PushTicket[] };
+  const { data } = (await response.json()) as { data?: PushTicket[] };
+  if (!Array.isArray(data)) throw new Error(`expo push ${response.status} without tickets`);
   return data;
+}
+
+/** The ping carries nothing, and a check that is down or slow changes nothing about the run. */
+async function pingHeartbeat(): Promise<void> {
+  const target = Deno.env.get('HEARTBEAT_URL');
+  if (!target) return;
+  try {
+    const response = await fetch(target, { signal: AbortSignal.timeout(HEARTBEAT_TIMEOUT_MS) });
+    await response.body?.cancel();
+  } catch (error) {
+    console.error('heartbeat failed', error instanceof Error ? error.message : String(error));
+  }
 }
 
 Deno.serve(async (request) => {
@@ -45,7 +64,41 @@ Deno.serve(async (request) => {
   const rows = claimed.data as ClaimedRow[];
   const started = Date.now();
   const result = await sendAll(rows, expoSend, () => Date.now() - started > SEND_BUDGET_MS);
-  if (result.requeue.length > 0) await client.rpc('requeue_notifications', { ids: result.requeue });
-  if (result.deadTokens.length > 0) await client.rpc('forget_push_tokens', { dead: result.deadTokens });
-  return Response.json({ claimed: rows.length, sent: result.sent, requeued: result.requeue.length });
+  const { requeue: ids, refused, unsent } = result;
+  let requeued = ids.length > 0 ? await client.rpc('requeue_notifications', { ids, refused, unsent }) : null;
+  // A server behind this function takes the rows back as far as it can: without the rows no phone
+  // has, which then wait as if Expo might have them, or also without the refusals, each row spending
+  // a try. The run still answers 502, naming what is missing, so the migration gets noticed.
+  let missing: string | undefined;
+  if (requeued?.error?.code === 'PGRST202') {
+    missing = 'requeue_notifications(ids, refused, unsent) is missing on this server';
+    console.error(missing, requeued.error.message);
+    requeued = await client.rpc('requeue_notifications', { ids, refused });
+    if (requeued.error?.code === 'PGRST202') {
+      missing = 'requeue_notifications(ids, refused) is missing on this server';
+      console.error(missing, requeued.error.message);
+      requeued = await client.rpc('requeue_notifications', { ids });
+    }
+  }
+  // These rows stay marked as sent with nothing delivered, so the log is what is left of them.
+  if (requeued?.error) console.error('requeue failed', requeued.error.message, ids.join(' '));
+  if (result.deadTokens.length > 0) {
+    const forgotten = await client.rpc('forget_push_tokens', { dead: result.deadTokens });
+    if (forgotten.error) console.error('forgetting dead tokens failed', forgotten.error.message);
+  }
+  const report = {
+    claimed: rows.length,
+    attempted: result.attempted,
+    sent: result.sent,
+    requeued: requeued?.error ? 0 : ids.length,
+    ticketErrors: result.ticketErrors,
+    failure: result.failure,
+    // Why the rows couldn't go back, or went back the old way: Expo may have taken all it was offered.
+    requeueError: requeued?.error?.message ?? missing,
+  };
+  // Any answer but 200 reaches the owners' daily summary, through collect_service_errors.
+  const failed = Boolean(missing) || Boolean(requeued?.error) || runFailed(result);
+  if (failed) console.error('send-push failed', report);
+  else if (Date.now() - started <= SEND_BUDGET_MS) await pingHeartbeat();
+  return Response.json(report, { status: failed ? 502 : 200 });
 });

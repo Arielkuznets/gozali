@@ -17,9 +17,16 @@ export type FocusSession = {
   pausedAt: number | null;
   pausedMs: number;
   notificationId: string | null;
+  /** The feed with the photo that ends the session, once one is on its way. */
+  feedId?: string;
 };
 
 const STORAGE_KEY = 'gozali.focus';
+/**
+ * The end notice's own identifier, so there is never more than one: two quick taps both schedule,
+ * and the second replaces the first.
+ */
+const END_NOTICE = 'gozali.focus-end';
 export const FOCUS_LENGTHS = [15, 25, 45, 60] as const;
 /** The longest session a feed shows: the server takes 1 to 600 minutes. */
 const FOCUS_MAX_MINUTES = 600;
@@ -46,6 +53,7 @@ async function scheduleEnd(session: FocusSession, text: { title: string; body: s
   if (Platform.OS === 'web' || left === null || session.minutes === null) return null;
   // Without the notification the timer still runs; the screen opens the camera if it's open.
   return Notifications.scheduleNotificationAsync({
+    identifier: END_NOTICE,
     content: { ...text, data: { url: `/pack/${session.packId}/feed?focus=${session.minutes}` } },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DATE,
@@ -55,22 +63,67 @@ async function scheduleEnd(session: FocusSession, text: { title: string; body: s
   }).catch(() => null);
 }
 
+/**
+ * Takes the session's end notice off the phone, waiting or already in Notification Center, where a
+ * tap would still post a photo with this session's minutes. A session an older build stored has a
+ * notice with an identifier of its own.
+ */
 async function cancelEnd(session: FocusSession | null) {
-  if (session?.notificationId) {
-    await Notifications.cancelScheduledNotificationAsync(session.notificationId).catch(() => undefined);
+  if (!session || Platform.OS === 'web') return;
+  for (const id of new Set([session.notificationId ?? END_NOTICE, END_NOTICE])) {
+    await Notifications.cancelScheduledNotificationAsync(id).catch(() => undefined);
+    await Notifications.dismissNotificationAsync(id).catch(() => undefined);
   }
 }
 
-async function save(session: FocusSession | null) {
-  if (session) await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-  else await AsyncStorage.removeItem(STORAGE_KEY);
+/** The stored session. One that can't be read counts as none, or the timer would never open. */
+async function load(): Promise<FocusSession | null> {
+  try {
+    const raw = await AsyncStorage.getItem(STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as FocusSession) : null;
+  } catch {
+    return null;
+  }
 }
 
-/** Ends whatever session is stored, from outside the focus screen (the camera after a feed). */
-export async function clearFocusSession(): Promise<void> {
-  const raw = await AsyncStorage.getItem(STORAGE_KEY);
-  await cancelEnd(raw ? (JSON.parse(raw) as FocusSession) : null);
+/** A failed removal stays quiet: what ended the session went through, a sent feed included. */
+async function save(session: FocusSession | null) {
+  if (session) await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+  else await AsyncStorage.removeItem(STORAGE_KEY).catch(() => undefined);
+}
+
+/** The stored session, for a screen that only has to know about it. */
+export const storedFocusSession = load;
+
+/** The focus screens that are open: the camera can end a session over one of them. */
+const openScreens = new Set<() => void>();
+
+/**
+ * Ends the stored session, or only the one of a pack, from outside the focus screen (the camera,
+ * after a feed or on a link it can't take a photo for).
+ */
+export async function clearFocusSession(packId?: string): Promise<void> {
+  const session = await load();
+  if (packId !== undefined && session?.packId !== packId) return;
+  await cancelEnd(session);
   await save(null);
+  openScreens.forEach((forget) => forget());
+}
+
+/**
+ * Names the feed with the photo that ends the pack's session. The camera ends the session once Send
+ * is done; when a kill cuts Send short, the queue sends the feed later and ends the session that
+ * names it. Without the name, which a full phone can refuse, the session stays as it was.
+ */
+export async function nameFocusFeed(packId: string, feedId: string): Promise<void> {
+  const session = await load();
+  if (session?.packId === packId) await save({ ...session, feedId }).catch(() => undefined);
+}
+
+/** Ends the stored session if this feed has its photo: one started since then stays. */
+export async function endFocusSessionOf(feedId: string): Promise<void> {
+  const session = await load();
+  if (session?.feedId === feedId) await clearFocusSession(session.packId);
 }
 
 /** The one running session (at most one at a time) and its controls. */
@@ -79,15 +132,26 @@ export function useFocusSession(text: { title: string; body: string }) {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    void AsyncStorage.getItem(STORAGE_KEY).then((raw) => {
-      setSession(raw ? (JSON.parse(raw) as FocusSession) : null);
+    void load().then((stored) => {
+      setSession(stored);
       setLoaded(true);
     });
+    const forget = () => setSession(null);
+    openScreens.add(forget);
+    return () => {
+      openScreens.delete(forget);
+    };
   }, []);
 
+  // The screen holds the session as it read it, while a camera opened over the screen can since have
+  // named the feed with its photo in the stored one. A save of the same session keeps that name, so
+  // the queue still ends the session after a kill.
   const update = useCallback(async (next: FocusSession | null) => {
-    setSession(next);
-    await save(next);
+    const stored = next ? await load() : null;
+    const named = next && stored?.packId === next.packId && stored.startedAt === next.startedAt ? stored.feedId : undefined;
+    const kept = next && named ? { ...next, feedId: named } : next;
+    setSession(kept);
+    await save(kept);
   }, []);
 
   const start = async (packId: string, minutes: number | null) => {
@@ -108,12 +172,10 @@ export function useFocusSession(text: { title: string; body: string }) {
     await update({ ...next, notificationId: await scheduleEnd(next, text) });
   };
 
-  /** Ends the session; returns the minutes focused. */
-  const stop = async (): Promise<number> => {
-    const minutes = session ? focusedMinutes(session, Date.now()) : 0;
+  /** Ends the session with no photo. */
+  const stop = async () => {
     await cancelEnd(session);
     await update(null);
-    return minutes;
   };
 
   return { session, loaded, start, pause, resume, stop };

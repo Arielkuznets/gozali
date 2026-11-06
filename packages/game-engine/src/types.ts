@@ -39,7 +39,7 @@ export interface MemberDay {
   restDeclaredToday: boolean;
   /** Rest days used earlier this week, declared or automatic. */
   restDaysUsedThisWeek: number;
-  /** Misses in the previous SLEEP_WINDOW_DAYS - 1 days, counted since the member last woke up. */
+  /** Misses in the previous SLEEP_WINDOW_DAYS - 1 days, counted since the member last woke up or rejoined. */
   recentMisses: number;
 }
 
@@ -49,7 +49,8 @@ export interface DayInput {
   restDaysPerWeek: number;
   /**
    * The service was down for part of the day, so some members may not have been able to feed:
-   * a miss doesn't count against anyone, and the day can't fail. Feeds still count.
+   * a miss doesn't count against anyone, no rest day is used automatically, and the day can't
+   * fail. Feeds still count.
    */
   outage?: boolean;
 }

@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { ActivityIndicator, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { HeaderButton } from '@/components/HeaderButton';
@@ -9,20 +10,31 @@ import { Button } from '@/components/Button';
 import { Choice } from '@/components/Choice';
 import { PRIVACY_URL, TERMS_URL } from '@/components/LegalLinks';
 import { Screen } from '@/components/Screen';
+import { LoadFailed } from '@/components/ScreenStates';
+import { TextField } from '@/components/TextField';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useAppConfig } from '@/features/app/appConfig';
 import { deleteAccount, isCancellation } from '@/features/auth/signIn';
-import { NOTIFICATION_TYPES, useProfile, useUpdateProfile, type NotificationType } from '@/features/profile/useProfile';
+import { NAME_MAX_LENGTH, NOTIFICATION_TYPES, useProfile, useUpdateProfile, type NotificationType } from '@/features/profile/useProfile';
 import { confirm, notify } from '@/lib/confirm';
 import { isBlockedText } from '@/lib/errors';
 import { useNotificationPermission } from '@/lib/notifications';
-import { requireSupabase } from '@/lib/supabase';
+import { reportError } from '@/lib/reportError';
+import { requireSupabase, storedSession } from '@/lib/supabase';
 import { goBack } from '@/lib/navigation';
 import { colors, radii, spacing } from '@/theme/tokens';
 
 const REMINDER_TIMES = ['17:00', '18:00', '19:00', '20:00', '21:00', '22:00'] as const;
 
-/** App settings (spec section 9): reminder time, notifications by type, blocked people. */
+const saveErrorKey = (error: unknown) => (isBlockedText(error) ? ('errors.textNotAllowed' as const) : ('errors.saveFailed' as const));
+
+/** How to add a widget. The app runs on iOS 16, but the widget extension (targets/widget) needs iOS 17. */
+function widgetsHowTo() {
+  if (Platform.OS !== 'ios') return 'widgets.howToAndroid' as const;
+  return Number.parseInt(String(Platform.Version), 10) < 17 ? ('widgets.needsIos17' as const) : ('widgets.howToIos' as const);
+}
+
+/** App settings (spec section 9): name, reminder time, notifications by type, blocked people. */
 export default function SettingsScreen() {
   const { t } = useTranslation();
   const profile = useProfile();
@@ -33,8 +45,13 @@ export default function SettingsScreen() {
   // Deleting takes a few seconds on the server; meanwhile a second tap would start it again.
   const removal = useMutation({
     mutationFn: () => deleteAccount({ revokeApple: config.data?.apple_revocation === true }),
-    onError: (error) => {
-      if (!isCancellation(error)) notify(t('settings.app.deleteFailed'));
+    // With the session gone the person is on the sign-in screen: there is nothing to try again, and
+    // the account may be gone too, with no way left to ask. The phone calls the function itself, so
+    // the owners' summary hears of a failure only from this report.
+    onError: async (error) => {
+      if (isCancellation(error) || !(await storedSession())) return;
+      notify(t('settings.app.deleteFailed'));
+      reportError(error, 'delete-account');
     },
   });
 
@@ -51,9 +68,9 @@ export default function SettingsScreen() {
   const reminder = profile.data.reminder_time.slice(0, 5);
   const save = (settings: Parameters<typeof update.mutate>[0]) =>
     update.mutate(settings, {
-      onError: (error) => notify(isBlockedText(error) ? t('errors.textNotAllowed') : t('errors.saveFailed')),
+      onError: (error) => notify(t(saveErrorKey(error))),
     });
-  const toggle = (type: NotificationType, on: boolean) => save({ notification_prefs: { ...prefs, [type]: on } });
+  const toggle = (type: NotificationType, on: boolean) => save({ notification_prefs: { [type]: on } });
 
   const onDelete = () => {
     confirm({
@@ -74,7 +91,9 @@ export default function SettingsScreen() {
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.body}>
+      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+        <NameField saved={profile.data.display_name ?? ''} />
+
         <View style={styles.section}>
           <AppText variant="caption">{t('settings.app.reminder')}</AppText>
           <View style={styles.row}>
@@ -118,13 +137,21 @@ export default function SettingsScreen() {
 
         <View style={styles.section}>
           <AppText variant="caption">{t('settings.app.blocked')}</AppText>
+          {blocked.isPending && <ActivityIndicator color={colors.accent} />}
+          {!blocked.data && blocked.isError && <LoadFailed onRetry={() => void blocked.refetch()} />}
           {blocked.data?.length === 0 && <AppText style={styles.muted}>{t('settings.app.noBlocked')}</AppText>}
           {blocked.data && blocked.data.length > 0 && (
             <View style={styles.list}>
               {blocked.data.map((person) => (
                 <View key={person.id} style={styles.listRow}>
                   <AppText style={styles.fill}>{person.name ?? '…'}</AppText>
-                  <Pressable accessibilityRole="button" onPress={() => blocked.unblock(person.id)} hitSlop={8}>
+                  {blocked.unblocking === person.id && <ActivityIndicator color={colors.accent} />}
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: blocked.unblocking !== null, busy: blocked.unblocking === person.id }}
+                    disabled={blocked.unblocking !== null}
+                    onPress={() => blocked.unblock(person.id)}
+                    hitSlop={8}>
                     <AppText variant="caption" style={styles.link}>
                       {t('settings.app.unblock')}
                     </AppText>
@@ -137,7 +164,7 @@ export default function SettingsScreen() {
 
         <View style={styles.section}>
           <AppText variant="caption">{t('settings.app.widgets')}</AppText>
-          <AppText style={styles.muted}>{t('widgets.howTo')}</AppText>
+          <AppText style={styles.muted}>{t(widgetsHowTo())}</AppText>
         </View>
 
         <View style={styles.section}>
@@ -177,8 +204,42 @@ export default function SettingsScreen() {
   );
 }
 
+/** The name pack mates see, by the rules of the profile setup. */
+function NameField({ saved }: { saved: string }) {
+  const { t } = useTranslation();
+  const update = useUpdateProfile();
+  const [name, setName] = useState(saved);
+  const trimmed = name.trim();
+  const changed = trimmed !== saved;
+
+  const onSave = () => {
+    // The promise, because mutate's callbacks are dropped once this screen has closed.
+    void update.mutateAsync({ display_name: trimmed }).catch((error: unknown) => notify(t(saveErrorKey(error))));
+  };
+
+  return (
+    <View style={styles.section}>
+      <TextField
+        label={t('profileSetup.nameLabel')}
+        value={name}
+        maxLength={NAME_MAX_LENGTH}
+        autoComplete="name"
+        onChangeText={setName}
+      />
+      <Button
+        label={update.isSuccess && !changed ? t('settings.saved') : t('settings.save')}
+        size="small"
+        disabled={!changed || trimmed.length === 0}
+        loading={update.isPending}
+        onPress={onSave}
+      />
+    </View>
+  );
+}
+
 /** People the user blocked, with their names where they still share a pack. */
 function useBlocked() {
+  const { t } = useTranslation();
   const { session } = useAuth();
   const queryClient = useQueryClient();
   const userId = session?.user.id;
@@ -199,12 +260,15 @@ function useBlocked() {
       const { error } = await requireSupabase().from('blocks').delete().eq('blocker_id', userId ?? '').eq('blocked_id', blockedId);
       if (error) throw error;
     },
+    onError: () => notify(t('errors.saveFailed')),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['blocks'] });
       void queryClient.invalidateQueries({ queryKey: ['feeds'] });
+      // Links signed during the block left this person out.
+      void queryClient.invalidateQueries({ queryKey: ['avatars'] });
     },
   });
-  return { ...query, unblock: (id: string) => remove.mutate(id) };
+  return { ...query, unblock: (id: string) => remove.mutate(id), unblocking: remove.isPending ? remove.variables : null };
 }
 
 const styles = StyleSheet.create({

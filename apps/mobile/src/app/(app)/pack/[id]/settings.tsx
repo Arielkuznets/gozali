@@ -1,5 +1,6 @@
-import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { packDayOf } from '@gozali/game-engine';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -23,24 +24,38 @@ import {
 } from '@/features/packs/api';
 import { PACK_NAME_MAX, REST_DAYS_MAX, type WeekStart } from '@/features/packs/constants';
 import { confirm, notify } from '@/lib/confirm';
-import { formatDay } from '@/lib/dates';
-import { goBack } from '@/lib/navigation';
+import { formatDay, readableZone } from '@/lib/dates';
+import { goBack, useBackHome } from '@/lib/navigation';
+import { useNow } from '@/lib/useNow';
 import { colors, radii, spacing } from '@/theme/tokens';
 
 export default function PackSettingsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: pack, isPending, isError, refetch } = usePack(id);
+  // Up here because leaving takes the pack, and so the form, away before it is done.
+  const leavePack = useLeavePack();
+  // A lost answer fails here what the server took, and then the pack reads as gone.
+  const left = leavePack.isSuccess || (leavePack.isError && pack === null);
+  const backHome = useBackHome();
 
-  if (isPending) return <LoadingScreen />;
+  // Only from the front: whoever walked away during the wait keeps what they opened since.
+  useFocusEffect(
+    useCallback(() => {
+      if (left) backHome();
+    }, [left, backHome]),
+  );
+
+  if (isPending) return <LoadingScreen back />;
   if (!pack && isError) return <LoadFailedScreen onRetry={() => void refetch()} />;
-  if (!pack) return <PackMissingScreen />;
-  return <SettingsForm pack={pack} />;
+  if (!pack) return leavePack.isPending || left ? <LoadingScreen back /> : <PackMissingScreen />;
+  return <SettingsForm pack={pack} leavePack={leavePack} />;
 }
 
-function SettingsForm({ pack }: { pack: Pack }) {
+function SettingsForm({ pack, leavePack }: { pack: Pack; leavePack: ReturnType<typeof useLeavePack> }) {
   const { t } = useTranslation();
   const { session } = useAuth();
   const userId = session?.user.id;
+  const now = useNow(60_000);
   const members = currentMembers(pack);
   const admin = members.find((member) => member.role === 'admin');
   const isAdmin = admin !== undefined && admin.user_id === userId;
@@ -55,7 +70,6 @@ function SettingsForm({ pack }: { pack: Pack }) {
 
   const updatePack = useUpdatePack(pack.id);
   const removeMember = useRemoveMember(pack.id);
-  const leavePack = useLeavePack();
 
   const onSave = () => {
     updatePack.mutate(
@@ -67,6 +81,7 @@ function SettingsForm({ pack }: { pack: Pack }) {
   const onRemove = (memberId: string, memberName: string) => {
     confirm({
       title: t('settings.removeConfirm', { name: memberName }),
+      message: t('settings.removeBody'),
       confirm: t('settings.remove'),
       cancel: t('settings.cancel'),
       destructive: true,
@@ -77,14 +92,13 @@ function SettingsForm({ pack }: { pack: Pack }) {
   const onLeave = () => {
     confirm({
       title: t('settings.leaveConfirm'),
+      // The last one out ends the pack, and once out nothing in the app shows its code again.
+      message: members.length === 1 ? t('settings.leaveLastBody') : undefined,
       confirm: t('settings.confirm'),
       cancel: t('settings.cancel'),
       destructive: true,
-      onConfirm: () =>
-        leavePack.mutate(pack.id, {
-          onSuccess: () => router.replace('/'),
-          onError: (error) => notify(t(packErrorKey(error))),
-        }),
+      // The promise, because mutate's callbacks are dropped once this screen has closed.
+      onConfirm: () => void leavePack.mutateAsync(pack.id).catch((error: unknown) => notify(t(packErrorKey(error)))),
     });
   };
 
@@ -137,7 +151,8 @@ function SettingsForm({ pack }: { pack: Pack }) {
           ))}
         </View>
 
-        {pack.pending_from && (
+        {/* Only a day close clears a change, so a pack that closes no days keeps it past its date. */}
+        {pack.pending_from && pack.pending_from > packDayOf(now, readableZone(pack.timezone)) && (
           <AppText variant="caption">{t('settings.pending', { date: formatDay(pack.pending_from) })}</AppText>
         )}
 

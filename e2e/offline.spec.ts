@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { createPack, createUser, removeUsers, signIn, type TestUser } from './support';
+import { createPack, createUser, feed, photo, removeUsers, signIn, type TestUser } from './support';
 
 /** Signs in once; later loads keep whatever the page has stored since, as a phone does. */
 async function signInOnce(page: import('@playwright/test').Page, user: TestUser) {
@@ -35,10 +35,28 @@ test('a pack that fails to load offers to try again, not "pack missing"', async 
   // The query retries a few times before it gives up.
   await expect(page.getByText("This didn't load")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("This pack isn't here")).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Sign out' })).toBeHidden();
 
   await page.unroute(packRequests);
   await page.getByRole('button', { name: 'Try again' }).click();
   await expect(page.getByRole('button', { name: 'Feed', exact: true })).toBeVisible();
+});
+
+test('a link to a pack that is not on the list has a way out while it loads and once it failed', async ({ page }) => {
+  const dan = await createUser('Dan');
+  const pack = await createPack(dan, { name: 'Gym squad', habit: 'gym', species: 'kit' });
+  await page.route(`**/rest/v1/packs?*id=eq.${pack.id}*`, (route) => route.abort('internetdisconnected'));
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+  const back = page.getByRole('button', { name: 'Back', exact: true });
+
+  await expect(page.getByRole('progressbar')).toBeVisible();
+  await expect(back).toBeVisible();
+
+  await expect(page.getByText("This didn't load")).toBeVisible({ timeout: 30_000 });
+  await back.click();
+  await expect(page.getByRole('button', { name: 'Create a pack' })).toBeVisible();
+  await removeUsers(dan);
 });
 
 test('a profile that fails to load offers to try again, not the profile setup', async ({ page }) => {
@@ -55,12 +73,62 @@ test('a profile that fails to load offers to try again, not the profile setup', 
   await expect(page.getByText('Your packs')).toBeVisible();
 });
 
+test('a profile read with no answer says so in seconds, and Try again asks again', async ({ page }) => {
+  // The first read is held and never answered, as on a connection that died quietly.
+  let reads = 0;
+  await page.route('**/rest/v1/profiles?**', (route) => {
+    reads += 1;
+    return reads === 1 ? undefined : route.continue();
+  });
+  await signIn(page, noa);
+  await page.goto('/');
+
+  await expect(page.getByText("This didn't load")).toBeVisible({ timeout: 15_000 });
+
+  await page.getByRole('button', { name: 'Try again' }).click();
+  await expect(page.getByText('Your packs')).toBeVisible();
+});
+
 /** Blocks every call to the server, as a phone without a connection would find it. */
 async function goOffline(page: import('@playwright/test').Page) {
   for (const path of ['rest', 'auth', 'storage', 'functions', 'realtime']) {
     await page.route(`**/${path}/v1/**`, (route) => route.abort('internetdisconnected'));
   }
 }
+
+test("the offline banner sits above a pack's top buttons, not over them", async ({ context, page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' });
+  // NetInfo on the web listens to the browser's NetworkInformation object when there is one, and
+  // Chromium never tells that object about setOffline; without it NetInfo hears offline and online.
+  await page.addInitScript(() =>
+    Object.defineProperty(Navigator.prototype, 'connection', { get: () => undefined, configurable: true }),
+  );
+  await signIn(page, noa);
+  await page.goto(`/pack/${pack.id}`);
+  await expect(page.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
+
+  await context.setOffline(true);
+  const banner = page.getByText("You're offline", { exact: false });
+  await expect(banner).toBeVisible();
+  const covered = async () => {
+    const box = (await banner.locator('..').boundingBox())!;
+    const names: string[] = [];
+    for (const name of ['Back', 'Invite', 'Settings']) {
+      const button = (await page.getByRole('button', { name, exact: true }).boundingBox())!;
+      const across = Math.min(box.x + box.width, button.x + button.width) - Math.max(box.x, button.x);
+      const down = Math.min(box.y + box.height, button.y + button.height) - Math.max(box.y, button.y);
+      if (across > 0 && down > 0) names.push(name);
+    }
+    return names;
+  };
+  expect(await covered()).toEqual([]);
+
+  // Text twice its size, as far as the phone's largest setting takes a caption.
+  await page.addStyleTag({ content: 'div[dir=auto]{zoom:2}' });
+  await expect(banner).toBeVisible();
+  expect(await covered()).toEqual([]);
+  await context.setOffline(false);
+});
 
 test('opening the app without a connection shows the packs it last had', async ({ page }) => {
   await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' });
@@ -79,6 +147,71 @@ test('opening the app without a connection shows the packs it last had', async (
   await page.waitForTimeout(12_000);
   await page.reload();
   await expect(page.getByText('Gym squad')).toBeVisible();
+});
+
+test('opening the app without a connection still says who fed today', async ({ page }) => {
+  const dan = await createUser('Dan');
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' }, [dan]);
+  const image = await photo(page, '🏋️');
+  await feed(noa, pack.id, image, 'Noa fed');
+  await feed(dan, pack.id, image, 'Dan fed');
+  await signIn(page, noa);
+  await page.goto('/');
+  await expect(page.getByText('2/2 fed today')).toBeVisible();
+  await page.getByText('Gym squad').click();
+  await expect(page.getByText('Dan fed')).toBeVisible();
+  await page.getByRole('button', { name: 'Back', exact: true }).first().click();
+  await expect(page.getByText('Your packs')).toBeVisible();
+  await page.waitForTimeout(1500);
+
+  await goOffline(page);
+  await page.reload();
+  await expect(page.getByText('2/2 fed today')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Feed Gym squad' })).toBeHidden();
+
+  await page.getByText('Gym squad').click();
+  await expect(page.getByText('Two of you fed today')).toBeVisible();
+  await expect(page.getByText('Your part is done for today ✓')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Feed', exact: true })).toBeHidden();
+  await removeUsers(dan);
+});
+
+test('a pack on the home list that was never opened draws at once, with its own read on the way', async ({ page }) => {
+  await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' });
+  await signIn(page, noa);
+  await page.goto('/');
+  await expect(page.getByText('Gym squad')).toBeVisible();
+
+  // Held and never answered, as on a slow connection.
+  await page.route('**/rest/v1/packs?**id=eq.**', () => undefined);
+  await page.getByText('Gym squad').click();
+
+  await expect(page.getByRole('button', { name: 'Feed', exact: true })).toBeVisible();
+});
+
+test('a pack on the home list that was never opened opens without a connection', async ({ page }) => {
+  const pack = await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' });
+  await signIn(page, noa);
+  await page.goto('/');
+  await expect(page.getByText('Gym squad')).toBeVisible();
+  await page.waitForTimeout(1500);
+  expect(await keptCopy(page)).not.toContain(`"packs","${pack.id}"`);
+
+  await goOffline(page);
+  await page.reload();
+  await page.getByText('Gym squad').click();
+  const feedButton = page.getByRole('button', { name: 'Feed', exact: true });
+  await expect(feedButton).toBeVisible();
+
+  // The pack's own read gives up after its retries; what the list held stays on screen. Only the
+  // feed, which the phone never held, says it didn't load.
+  await page.waitForTimeout(12_000);
+  await expect(feedButton).toBeVisible();
+  await expect(page.getByText('Pack feed', { exact: true })).toBeVisible();
+  await expect(page.getByText("This didn't load")).toHaveCount(1);
+
+  await page.reload();
+  await expect(feedButton).toBeVisible();
 });
 
 test("another account on the phone never gets the last one's packs", async ({ page }) => {
@@ -136,4 +269,39 @@ test('offline with an expired sign-in, the app still opens on the packs', async 
   await page.reload();
   await expect(page.getByText('Gym squad')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Continue with Apple' })).toBeHidden();
+});
+
+/** Refuses every call to the server, as a restricted project does. */
+async function restrictProject(page: import('@playwright/test').Page) {
+  const body = JSON.stringify({ message: 'Service for this project is restricted' });
+  for (const path of ['rest', 'auth', 'storage', 'functions']) {
+    await page.route(`**/${path}/v1/**`, (route) => route.fulfill({ status: 402, contentType: 'application/json', body }));
+  }
+}
+
+test('a restricted project keeps an expired sign-in on the packs', async ({ page }) => {
+  await createPack(noa, { name: 'Gym squad', habit: 'gym', species: 'kit' });
+  await signInOnce(page, noa);
+  await page.goto('/');
+  await expect(page.getByText('Gym squad')).toBeVisible();
+  await page.waitForTimeout(1500);
+
+  // An hour later the access token has expired, and every call comes back refused, the refresh too.
+  await page.evaluate(() => {
+    const stored = JSON.parse(window.localStorage.getItem('sb-127-auth-token')!);
+    stored.expires_at = Math.floor(Date.now() / 1000) - 3600;
+    window.localStorage.setItem('sb-127-auth-token', JSON.stringify(stored));
+  });
+  await restrictProject(page);
+  let refreshes = 0;
+  page.on('request', (request) => {
+    if (request.method() === 'POST' && request.url().includes('grant_type=refresh_token')) refreshes += 1;
+  });
+  await page.reload();
+
+  // The refusal says nothing about the token, so the refresh goes on trying and the session stays.
+  await expect.poll(() => refreshes).toBeGreaterThan(1);
+  await expect(page.getByText('Gym squad')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Continue with Apple' })).toBeHidden();
+  expect(await keptCopy(page)).toContain('Gym squad');
 });

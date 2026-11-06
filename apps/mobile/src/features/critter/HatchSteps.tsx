@@ -9,20 +9,24 @@ type Props = {
   fedToday: number;
   /** Nothing the others do today can stop the hatch (hatchesTonight). */
   certain: boolean;
+  /** The day that ended hatches the egg when it closes (hatchesAtClose). */
+  hatching: boolean;
 };
 
 /**
  * How the egg hatches (spec section 4), as three steps that tick off: a friend joins, two members
- * feed on the same day, and the egg hatches when that day ends.
+ * feed on the same day, and the egg hatches when that day ends. A day closes up to an hour or so
+ * after it ends, and until then an egg about to hatch keeps its steps from before the new day.
  */
-export function HatchSteps({ friendJoined, fedToday, certain }: Props) {
+export function HatchSteps({ friendJoined, fedToday, certain, hatching }: Props) {
   const { t } = useTranslation();
   const bothFed = friendJoined && fedToday >= 2;
+  const feeds = bothFed ? t('pack.hatch.fedDone') : t('pack.hatch.feed', { count: Math.min(fedToday, 2) });
   const ending = bothFed ? (certain ? t('pack.hatch.tonight') : t('pack.hatch.tonightIf')) : t('pack.hatch.dayEnds');
   const steps = [
     { done: friendJoined, text: t('pack.hatch.join') },
-    { done: bothFed, text: bothFed ? t('pack.hatch.fedDone') : t('pack.hatch.feed', { count: Math.min(fedToday, 2) }) },
-    { done: false, text: ending },
+    { done: bothFed || hatching, text: hatching ? t('pack.hatch.fedEarlier') : feeds },
+    { done: false, text: hatching ? t('pack.hatch.soon') : ending },
   ];
   return (
     <View style={styles.hatch} accessible accessibilityLabel={steps.map((step) => step.text).join('. ')}>

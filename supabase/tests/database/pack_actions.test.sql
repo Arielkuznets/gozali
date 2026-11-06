@@ -1,7 +1,7 @@
 -- Pack actions: create, preview, join, leave, settings and removing members.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(21);
+select plan(30);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a1', 'admin@test.local'),
@@ -67,6 +67,19 @@ select is(
   0,
   'the pending change starts on a Sunday'
 );
+select throws_ok(
+  $$ select public.update_pack((select id from created), 'No rest', null, 'sunday') $$,
+  '22023', 'bad_settings', 'the rest days must be given'
+);
+select throws_ok(
+  $$ select public.update_pack((select id from created), 'No start', 2::smallint, null) $$,
+  '22023', 'bad_settings', 'and the week start'
+);
+select is(
+  (select name || ': ' || pending_rest_days_per_week || ', ' || pending_week_start from public.packs),
+  'Gym gang: 2, sunday',
+  'and a refused save changes nothing'
+);
 
 -- The admin leaves; the longest-standing member takes over.
 select public.leave_pack((select id from created));
@@ -92,6 +105,43 @@ from generate_series(1, 7) as n;
 set local role authenticated;
 select pg_temp.act_as('00000000-0000-0000-0000-0000000000c1');
 select throws_ok($$ select public.join_pack((select invite_code from code)) $$, 'P0001', 'pack_full', 'a full pack refuses new members');
+
+-- The day close reads a pack's zone with Intl, so a pack's zone is one it can read.
+reset role;
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000d1', 'zones@test.local');
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000000d1');
+select is(
+  (select count(*) from pg_catalog.pg_timezone_names where name in ('posix/Asia/Jerusalem', 'Factory')), 2::bigint,
+  'Postgres lists names the day close can''t count on Intl to read'
+);
+select throws_ok(
+  $$ select public.create_pack('Nowhere', 'gym', 3::smallint, 'mochi', 'posix/Asia/Jerusalem') $$,
+  '22023', 'unknown_time_zone', 'a pack can''t be made in one, or the close could take its days only one a run'
+);
+select throws_ok(
+  $$ select public.create_pack('Nowhere', 'gym', 3::smallint, 'mochi', 'Factory') $$,
+  '22023', 'unknown_time_zone', 'nor in the zone of no place'
+);
+-- Coyhaique is a real place the day close's Intl doesn't know yet, so its packs go by the same clock.
+create temp table aysen as
+  select public.create_pack('Aysen', 'gym', 3::smallint, 'mochi', 'America/Coyhaique') as id;
+select is(
+  (select timezone from public.packs where id = (select id from aysen)), 'America/Punta_Arenas',
+  'a phone in a zone the day close can''t read yet still makes a pack, on a clock it can'
+);
+select is(
+  (select count(*) from generate_series(now(), now() + interval '10 years', interval '1 hour') t
+   where (t at time zone 'America/Coyhaique') <> (t at time zone 'America/Punta_Arenas')),
+  0::bigint,
+  'and that clock is the same for all the days it will count'
+);
+create temp table old_name as
+  select public.create_pack('Kolkata', 'gym', 3::smallint, 'mochi', 'Asia/Calcutta') as id;
+select is(
+  (select timezone from public.packs where id = (select id from old_name)), 'Asia/Calcutta',
+  'the name a phone gives stays as it is, an old one too'
+);
 
 select * from finish();
 rollback;

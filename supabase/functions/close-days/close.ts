@@ -52,7 +52,7 @@ export async function closeOneDay(client: RpcClient, packId: string, day: string
     outage,
   });
   const after = result.critter;
-  const achievements = newAchievements(
+  const reached = newAchievements(
     {
       hatched: after.status !== 'egg',
       streak: after.streak,
@@ -67,6 +67,9 @@ export async function closeOneDay(client: RpcClient, packId: string, day: string
     },
     new Set(input.unlocked),
   );
+  // An egg wears nothing (spec section 4): what the pack reaches meanwhile unlocks on the day it
+  // hatches, which counts from the same totals.
+  const achievements = after.status === 'egg' ? [] : reached;
   const applied = await call<boolean>(client, 'apply_day_result', {
     target: packId,
     pack_date: day,
@@ -84,10 +87,25 @@ export const CLOSE_CONCURRENCY = 8;
 export const CLOSE_BUDGET_MS = 90_000;
 
 /**
+ * Whether a day is due at `now` by this runtime's Intl. Its zone data can be older than the
+ * database's, or miss a zone the database knows: such a day waits for packs_to_close to find it.
+ */
+function dueByIntl(day: string, timeZone: string, now: Date): boolean {
+  try {
+    return closesAt(day, timeZone).getTime() <= now.getTime();
+  } catch (error) {
+    if (error instanceof RangeError) return false;
+    throw error;
+  }
+}
+
+/**
  * Closes the due days of every pack, a few packs at a time; each pack's days go in order. Packs
- * in the same time zone all come due at the same moment, so with thousands of them a run stops
- * starting new packs after its time budget and leaves the rest (`deferred`) for the next run,
- * well before the function would be cut off.
+ * in the same time zone all come due at the same moment, and a run has 2 s of CPU, enough for a
+ * few hundred closes. Past that the function is killed with a 546: what closed stays closed, and
+ * the next run goes on. Waiting for the database uses no CPU, so the time budget only matters
+ * when the database is slow: a run then stops starting new packs and leaves the rest (`deferred`)
+ * for the next run, before the function's 150 seconds run out.
  */
 export async function closeDueDays(
   client: RpcClient,
@@ -104,13 +122,15 @@ export async function closeDueDays(
   const started = Date.now();
 
   const closePack = async (pack: (typeof queue)[number]) => {
+    // packs_to_close found the first open day due by the database's clock, the one feeds count by.
     let day = pack.next_day;
     try {
-      for (; closesAt(day, pack.time_zone).getTime() <= now.getTime(); day = addDays(day, 1)) {
+      do {
         const done = await closeOneDay(client, pack.pack_id, day);
         if (!done) break;
         closed.push(done);
-      }
+        day = addDays(day, 1);
+      } while (dueByIntl(day, pack.time_zone, now));
     } catch (error) {
       failed.push({ packId: pack.pack_id, day, error: error instanceof Error ? error.message : String(error) });
     }
@@ -123,6 +143,19 @@ export async function closeDueDays(
   };
   await Promise.all(Array.from({ length: CLOSE_CONCURRENCY }, worker));
   return { closed, failed, deferred: queue.length };
+}
+
+/**
+ * A run's heartbeat (note_heartbeat), then its day closes. The heartbeat saves a long gap since the
+ * last run as an outage, which the days in it need to know of, so it goes first, and a run whose
+ * heartbeat fails closes nothing: it throws, and the next run tries again with the gap still open.
+ */
+export async function closeAfterHeartbeat(
+  client: RpcClient,
+  now: Date,
+): Promise<{ outage: boolean } & Awaited<ReturnType<typeof closeDueDays>>> {
+  const outage = await call<boolean>(client, 'note_heartbeat', { job_name: 'close-days', at_time: now.toISOString() });
+  return { outage: outage === true, ...(await closeDueDays(client, now)) };
 }
 
 /**
@@ -167,4 +200,29 @@ export async function dropEmptyPacks(
   const paths = await call<string[]>(client, 'empty_pack_photos', { at_time: now.toISOString() });
   if (paths.length > 0) await removeFiles(paths);
   return await call<number>(client, 'drop_empty_packs', { at_time: now.toISOString() });
+}
+
+/**
+ * The cleanups of a run. They have nothing to do with each other, so one that fails doesn't stop
+ * the next: its error comes back in `failed` for the run to report.
+ */
+export async function runCleanups(
+  client: RpcClient,
+  remover: (bucket: string) => (paths: string[]) => Promise<void>,
+  now: Date,
+): Promise<{ photos: number; droppedPacks: number; failed: Array<{ step: string; error: string }> }> {
+  const failed: Array<{ step: string; error: string }> = [];
+  const attempt = async (step: string, cleanup: () => Promise<number>) => {
+    try {
+      return await cleanup();
+    } catch (error) {
+      failed.push({ step, error: error instanceof Error ? error.message : String(error) });
+      return 0;
+    }
+  };
+  const removeFiles = remover('feed-photos');
+  const photos = await attempt('photos', () => cleanupPhotos(client, removeFiles, now));
+  const avatars = await attempt('avatars', () => cleanupAvatars(client, remover('avatars'), now));
+  const droppedPacks = await attempt('packs', () => dropEmptyPacks(client, removeFiles, now));
+  return { photos: photos + avatars, droppedPacks, failed };
 }

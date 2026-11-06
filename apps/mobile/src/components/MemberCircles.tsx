@@ -8,7 +8,7 @@ import { colors, fonts } from '@/theme/tokens';
 
 export type MemberState = 'fed' | 'pass' | 'waiting' | 'asleep' | 'paused';
 
-type Member = { id: string; name: string | null; state: MemberState; nudgeable?: boolean; avatarUrl?: string };
+type Member = { id: string; name: string | null; state: MemberState; nudgeable?: boolean; avatarUrl?: string; self?: boolean };
 
 /**
  * The row of member circles on the pack screen (spec section 9): filled = fed today, dashed =
@@ -19,12 +19,13 @@ type Props = {
   members: Member[];
   color: string;
   onNudge?: (member: Member) => void;
-  /** A long press opens the member's menu (nudge, block). */
+  /** A long press opens the member's menu (nudge, report, block). The viewer's own circle has none. */
   onMenu?: (member: Member) => void;
 };
 
 export function MemberCircles({ members, color, onNudge, onMenu }: Props) {
   const { t } = useTranslation();
+  const onFill = textOn(color);
   return (
     <View style={styles.row}>
       {members.map((member) => {
@@ -32,17 +33,18 @@ export function MemberCircles({ members, color, onNudge, onMenu }: Props) {
         const label = t(`pack.member.${member.state}`, { name });
         const resting = member.state === 'asleep' || member.state === 'paused';
         const nudges = Boolean(member.nudgeable && onNudge);
+        const menu = onMenu !== undefined && !member.self;
         return (
           <Pressable
             key={member.id}
             style={styles.item}
-            accessibilityRole={nudges || onMenu ? 'button' : undefined}
+            accessibilityRole={nudges || menu ? 'button' : undefined}
             accessibilityLabel={label}
             accessibilityHint={nudges ? t('social.nudge') : undefined}
             // A screen reader can't long-press, so the menu is also an action there.
-            accessibilityActions={nudges && onMenu ? [{ name: 'longpress', label: t('social.more') }] : undefined}
+            accessibilityActions={nudges && menu ? [{ name: 'longpress', label: t('social.more') }] : undefined}
             onAccessibilityAction={() => onMenu?.(member)}
-            disabled={!nudges && !onMenu}
+            disabled={!nudges && !menu}
             onPress={() => (nudges ? onNudge?.(member) : onMenu?.(member))}
             onLongPress={() => onMenu?.(member)}>
             <View
@@ -57,9 +59,11 @@ export function MemberCircles({ members, color, onNudge, onMenu }: Props) {
                   style={[styles.avatar, member.state === 'pass' && styles.faded]}
                   contentFit="cover"
                   transition={200}
+                  // A profile photo's pixels have no limit, and iOS would decode them all first.
+                  enforceEarlyResizing
                 />
               ) : (
-                <AppText style={styles.initial}>{resting ? '💤' : initial(member.name)}</AppText>
+                <AppText style={[styles.initial, member.state === 'fed' && { color: onFill }]}>{resting ? '💤' : initial(member.name)}</AppText>
               )}
               {member.state === 'fed' && (
                 <View style={styles.badge}>
@@ -80,6 +84,24 @@ export function MemberCircles({ members, color, onNudge, onMenu }: Props) {
 /** The first character of a name, for a circle without a photo: a whole emoji, not half of one. */
 export function initial(name: string | null | undefined): string {
   return (Array.from(name?.trim() ?? '')[0] ?? '?').toUpperCase();
+}
+
+/** Dark text on a fill, as on the accent buttons, or white where the fill is too dark for it, like Hoot's brown. */
+function textOn(fill: string): string {
+  const fillLight = luminance(fill) + 0.05;
+  const dark = fillLight / (luminance(colors.onAccent) + 0.05);
+  const light = (luminance(colors.onDark) + 0.05) / fillLight;
+  return dark >= light ? colors.onAccent : colors.onDark;
+}
+
+/** The relative luminance of a #RRGGBB color, as WCAG measures contrast with it. */
+function luminance(hex: string): number {
+  const value = Number.parseInt(hex.slice(1), 16);
+  const [r, g, b] = [value >> 16, value >> 8, value].map((channel) => {
+    const c = (channel & 255) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
 const styles = StyleSheet.create({

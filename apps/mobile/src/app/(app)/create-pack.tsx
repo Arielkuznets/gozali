@@ -1,7 +1,7 @@
-import { router } from 'expo-router';
-import { useRef, useState } from 'react';
+import { Stack, router, useFocusEffect } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { BackHandler, Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
@@ -38,8 +38,34 @@ export default function CreatePackScreen() {
   // The mutation's pending state reaches the button a moment after a tap; a second tap in between
   // would create a second pack.
   const creating = useRef(false);
+  const created = createPack.data;
+  const body = useRef<ScrollView>(null);
 
+  // Only from the front: it takes the place of what is in front. Whoever opened something over the
+  // form during the wait comes back to the invite, not to a form that makes a second pack.
+  useFocusEffect(
+    useCallback(() => {
+      if (created) router.replace(`/pack/${created}/invite`);
+    }, [created]),
+  );
+
+  // The phone's own way back goes back a step, as Back does, or the form would go with all that was
+  // typed. Android's back button can be taken over; the iOS swipe can only be turned off.
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== 'android' || step === 1 || created) return;
+      const back = BackHandler.addEventListener('hardwareBackPress', () => {
+        setStep(step - 1);
+        return true;
+      });
+      return () => back.remove();
+    }, [step, created]),
+  );
+
+  // A habit brings its own default rest days; a tap on the habit already picked, after a look back
+  // from the next step, keeps the count chosen there.
   const pickCategory = (key: Category, defaultRestDays: number) => {
+    if (key === category) return;
     setCategory(key);
     setRestDays(defaultRestDays);
   };
@@ -66,10 +92,7 @@ export default function CreatePackScreen() {
         species,
       },
       {
-        onSuccess: (packId) => {
-          haptics.success();
-          router.replace(`/pack/${packId}/invite`);
-        },
+        onSuccess: () => haptics.success(),
         onError: (error) => notify(t(packErrorKey(error))),
         onSettled: () => {
           creating.current = false;
@@ -82,12 +105,18 @@ export default function CreatePackScreen() {
 
   return (
     <Screen>
+      <Stack.Screen options={{ gestureEnabled: step === 1 }} />
       <View style={styles.header}>
         <AppText variant="heading">{t('create.title')}</AppText>
         <AppText variant="caption">{t('create.step', { step })}</AppText>
       </View>
 
-      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+      {/* The field for a habit of one's own opens under the habits, out of sight on a small phone. */}
+      <ScrollView
+        ref={body}
+        contentContainerStyle={styles.body}
+        keyboardShouldPersistTaps="handled"
+        onContentSizeChange={() => step === 2 && category === 'custom' && body.current?.scrollToEnd()}>
         {step === 1 && (
           <TextField
             label={t('create.nameLabel')}

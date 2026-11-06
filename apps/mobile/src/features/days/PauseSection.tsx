@@ -1,13 +1,13 @@
-import { addDays } from '@gozali/game-engine';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { StyleSheet, View } from 'react-native';
 
 import { ActionMenu, type Menu } from '@/components/ActionMenu';
 import { AppText } from '@/components/AppText';
 import { Button } from '@/components/Button';
-import { PAUSE_LENGTHS, dayErrorKey, useDayStatus, useEndPause, useStartPause } from '@/features/days/api';
-import { confirm, notify } from '@/lib/confirm';
+import { LoadFailed } from '@/components/ScreenStates';
+import { PAUSE_LENGTHS, canEndPause, useDayStatus, useEndPause, useStartPause } from '@/features/days/api';
+import { confirm } from '@/lib/confirm';
 import { formatDay } from '@/lib/dates';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
@@ -21,15 +21,22 @@ export function PauseSection({ packId }: { packId: string }) {
   const startPause = useStartPause(packId);
   const endPause = useEndPause(packId);
   const [menu, setMenu] = useState<Menu | null>(null);
+  // The mutation's pending state reaches the button a moment after a tap; the server would refuse a
+  // second tap in between, with the pause already over.
+  const ending = useRef(false);
   const day = status.data;
-  if (!day) return null;
+  if (!day) return status.isError ? <LoadFailed onRetry={() => void status.refetch()} /> : null;
+
+  const pause = day.pause;
+  const upcoming = pause !== null && pause.startsOn > day.day;
+  const canEnd = pause !== null && (upcoming || canEndPause(pause.startsOn, day.day));
 
   const onStart = (days: number) => {
     confirm({
       title: t('days.pauseConfirm', { count: days }),
       confirm: t('settings.confirm'),
       cancel: t('settings.cancel'),
-      onConfirm: () => startPause.mutate(days, { onError: (error) => notify(t(dayErrorKey(error))) }),
+      onConfirm: () => startPause.mutate(days),
     });
   };
   const chooseLength = () =>
@@ -37,12 +44,27 @@ export function PauseSection({ packId }: { packId: string }) {
       title: t('days.pauseHowLong'),
       actions: PAUSE_LENGTHS.map((days) => ({ label: lengthLabel(days, t), onPress: () => onStart(days) })),
     });
-  const onEnd = () => endPause.mutate(undefined, { onError: (error) => notify(t(dayErrorKey(error))) });
-
-  const pause = day.pause;
-  const upcoming = pause !== null && pause.startsOn > day.day;
-  // A running pause can end after 3 paused days.
-  const canEnd = pause !== null && (upcoming || addDays(pause.startsOn, 3) <= day.day);
+  const end = () => {
+    if (ending.current) return;
+    ending.current = true;
+    endPause.mutate(undefined, {
+      onSettled: () => {
+        ending.current = false;
+      },
+    });
+  };
+  // A pause that hasn't started goes with nothing lost. A running one can't be taken back, and the
+  // next can't start for 30 days.
+  const onEnd = () =>
+    upcoming
+      ? end()
+      : confirm({
+          title: t('days.endPauseConfirm'),
+          message: t('days.endPauseBody'),
+          confirm: t('days.endPause'),
+          cancel: t('settings.cancel'),
+          onConfirm: end,
+        });
 
   return (
     <View style={styles.card}>

@@ -1,13 +1,13 @@
 // Six pack days closed by the real close-days code against the local stack: hatching, a joker,
 // failed days, a member falling asleep, the notifications they cause, and a second run that
 // changes nothing. Then everyone leaves, and the pack goes with its photo files 30 days later.
-// Then a day the service was down closes without failing, and last an account deleted from the
-// dashboard has its avatar removed. Run with `npx supabase start` up:
-// node scripts/smoke-day-close.mjs
+// Then a day the service was down closes without failing, an account deleted from the dashboard
+// has its avatar removed, and last a cleanup that fails leaves the others to run. Run with
+// `npx supabase start` up: node scripts/smoke-day-close.mjs
 import { createClient } from '@supabase/supabase-js';
 
 import { addDays, closesAt, packDayOf, zonedTimeToUtc } from '../packages/game-engine/src/index.ts';
-import { cleanupAvatars, closeDueDays, dropEmptyPacks } from '../supabase/functions/close-days/close.ts';
+import { cleanupAvatars, closeDueDays, dropEmptyPacks, runCleanups } from '../supabase/functions/close-days/close.ts';
 
 const url = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321';
 const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY;
@@ -78,6 +78,8 @@ await admin.from('day_passes').insert({ pack_id: packId, user_id: dan.id, day: d
 await feed(noa, 5, 7);
 await feed(noa, 6, 7);
 await feed(dan, 6, 23);
+// Asleep by then, so a joker covers nobody.
+await admin.from('day_passes').insert({ pack_id: packId, user_id: maya.id, day: day(6), kind: 'joker' });
 
 const now = new Date(closesAt(day(6), tz).getTime() + 60_000);
 const { closed, failed } = await closeDueDays(admin, now, [packId]);
@@ -95,6 +97,8 @@ check(
   closed[5].result.outcomes.find((o) => o.userId === maya.id).outcome === 'sleeping' && closed[5].result.counted === 2,
   'on day 6 Maya is not counted and the day succeeds',
 );
+const { data: jokers } = await admin.from('day_passes').select('user_id').eq('pack_id', packId).eq('kind', 'joker');
+check(jokers.length === 1 && jokers[0].user_id === dan.id, "Dan's joker stays spent, and Maya's goes back to her");
 
 const { data: critter } = await admin.from('critters').select('*').eq('pack_id', packId).single();
 check(
@@ -142,7 +146,9 @@ await dropEmptyPacks(admin, removeFiles, new Date());
 const kept = await admin.from('packs').select('id').eq('id', packId);
 check(kept.data.length === 1, 'a pack everyone left is kept for now');
 const monthAgo = new Date(Date.now() - 31 * 86_400_000).toISOString();
+// Its days closed while they were in it, so those move back too.
 await admin.from('pack_members').update({ left_at: monthAgo }).eq('pack_id', packId);
+await admin.from('day_results').update({ closed_at: monthAgo }).eq('pack_id', packId);
 await dropEmptyPacks(admin, removeFiles, new Date());
 const gone = await admin.from('packs').select('id').eq('id', packId);
 check(gone.data.length === 0, 'after 30 days it is deleted');
@@ -153,7 +159,7 @@ check(files.data.length === 0, 'and its photo files with it');
 const { data: calmId } = await noa.client.rpc('create_pack', {
   pack_name: 'Calm runs',
   habit: 'running',
-  rest_days: 0,
+  rest_days: 1,
   species: 'mochi',
   time_zone: tz,
 });
@@ -186,6 +192,14 @@ check(
   calmRun.closed.map((c) => c.result.type).join() === 'success,neutral',
   'a day the service was down closes neutral, not failed',
 );
+// Nobody fed the next day either, and the rest day the outage didn't spend covers both of them.
+const nextRun = await closeDueDays(admin, new Date(closesAt(addDays(downDay, 1), tz).getTime() + 60_000), [calmId]);
+check(
+  calmRun.closed[1].result.outcomes.every((row) => row.outcome === 'paused') &&
+    nextRun.closed[0].result.outcomes.every((row) => row.outcome === 'rest') &&
+    nextRun.closed[0].result.type === 'neutral',
+  'the outage spends no automatic rest, so the next day is a rest and not a miss',
+);
 await admin.from('outages').delete().eq('note', `smoke ${run}`);
 await admin.from('packs').delete().eq('id', calmId);
 
@@ -209,6 +223,45 @@ await cleanupAvatars(
 );
 const left = await admin.storage.from('avatars').list(leaver.id);
 check(removed.includes(avatar) && left.data?.length === 0, "a deleted account's avatar is removed");
+
+// A cleanup that fails comes back in the result and the others still run: a server without
+// orphan_avatars still drops a pack nobody has been in for 30 days.
+const failingAt = (broken) => {
+  const called = [];
+  const rpc = (fn, args) => {
+    called.push(fn);
+    return fn === broken ? Promise.resolve({ data: null, error: { code: 'PGRST202' } }) : admin.rpc(fn, args);
+  };
+  return { rpc, called };
+};
+const remover = (bucket) => async (paths) => {
+  const { error } = await admin.storage.from(bucket).remove(paths);
+  if (error) throw error;
+};
+const owner = await signedInUser('Owner');
+const { data: quietId } = await owner.client.rpc('create_pack', {
+  pack_name: 'Quiet runs',
+  habit: 'running',
+  rest_days: 0,
+  species: 'kit',
+  time_zone: tz,
+});
+await owner.client.rpc('leave_pack', { target: quietId });
+await admin.from('pack_members').update({ left_at: monthAgo }).eq('pack_id', quietId);
+const noAvatars = await runCleanups(failingAt('orphan_avatars'), remover, new Date());
+check(noAvatars.failed.map((row) => row.step).join() === 'avatars', 'a failed cleanup is named in the result');
+const quiet = await admin.from('packs').select('id').eq('id', quietId);
+check(quiet.data.length === 0 && noAvatars.droppedPacks >= 1, 'the cleanup after it still drops the empty pack');
+const noPhotos = failingAt('expired_photos');
+const afterPhotos = await runCleanups(noPhotos, remover, new Date());
+check(
+  afterPhotos.failed.map((row) => row.step).join() === 'photos' &&
+    ['orphan_avatars', 'drop_empty_packs'].every((fn) => noPhotos.called.includes(fn)),
+  'a failure in the first cleanup stops neither of the others',
+);
+const lastStep = await runCleanups(failingAt('drop_empty_packs'), remover, new Date());
+check(lastStep.failed.map((row) => row.step).join() === 'packs', 'and a failure in the last one is reported too');
+await admin.auth.admin.deleteUser(owner.id);
 
 console.log('all good');
 process.exit(0);

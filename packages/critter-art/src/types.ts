@@ -34,7 +34,7 @@ export interface CritterArt {
   look: HealthState | 'egg';
   /** Share of today's counted members who already fed, 0 to 1. Everyone fed brightens the face. */
   mood?: number;
-  /** Night on the device clock (22:00-07:00): closed eyes and a nightcap. */
+  /** Night in the phone's time zone (22:00-07:00): closed eyes and a nightcap. */
   sleeping?: boolean;
   /** One animation frame with the eyes shut. */
   blinking?: boolean;

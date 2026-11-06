@@ -138,8 +138,28 @@ describe('hatchIsCertain', () => {
   it('is certain once two fed and nobody else could miss', () => {
     assert.equal(hatchIsCertain([fed(), fed()], 0), true);
     assert.equal(hatchIsCertain([fed(), fed(), member({ hasStarted: false }), member({ membership: 'sleeping' })], 0), true);
-    assert.equal(hatchIsCertain([fed(), fed(), member({ paused: true }), member({ restDeclaredToday: true })], 0), true);
     assert.equal(hatchIsCertain([fed(), fed(), member({ restDaysUsedThisWeek: 1 })], 2), true);
+  });
+
+  it('holds when a joker, a declared rest or a pause is taken back with a rest day left', () => {
+    assert.equal(hatchIsCertain([fed(), fed(), member({ jokerToday: true })], 1), true);
+    assert.equal(hatchIsCertain([fed(), fed(), member({ restDeclaredToday: true })], 1), true);
+    assert.equal(hatchIsCertain([fed(), fed(), member({ paused: true })], 1), true);
+  });
+
+  it('is not certain while taking back a joker, a declared rest or a pause would be a miss', () => {
+    assert.equal(hatchIsCertain([fed(), fed(), member({ jokerToday: true })], 0), false);
+    assert.equal(hatchIsCertain([fed(), fed(), member({ paused: true })], 0), false);
+    assert.equal(hatchIsCertain([fed(), fed(), member({ restDeclaredToday: true, restDaysUsedThisWeek: 1 })], 1), false);
+  });
+
+  it('counts no take-back for a member who could not miss without one', () => {
+    assert.equal(hatchIsCertain([fed(), fed(), member({ hasStarted: false, jokerToday: true })], 0), true);
+    assert.equal(hatchIsCertain([fed(), fed(), member({ membership: 'sleeping', paused: true })], 0), true);
+  });
+
+  it('counts no feed from a member on a pause', () => {
+    assert.equal(hatchIsCertain([fed(), fed({ paused: true })], 0), false);
   });
 
   it('is not certain with fewer than two feeds', () => {
@@ -156,7 +176,8 @@ describe('hatchIsCertain', () => {
     assert.equal(hatchIsCertain([...times(4, () => fed()), member(), member()], 0), false);
     // Today the two resting members make five counted, which allows the one miss; if they left
     // before the day ended, it wouldn't.
-    assert.equal(hatchIsCertain([fed(), fed(), member({ restDeclaredToday: true }), member({ jokerToday: true }), member()], 0), false);
+    const noRestLeft = member({ restDaysUsedThisWeek: 1 });
+    assert.equal(hatchIsCertain([fed(), fed(), member({ restDeclaredToday: true }), member({ jokerToday: true }), noRestLeft], 1), false);
   });
 });
 
@@ -307,5 +328,16 @@ describe('a day the service was down', () => {
     const result = closeDay({ critter: critter({ xp: 10 }), members: [fed(), member()], restDaysPerWeek: 0, outage: true });
     assert.equal(result.type, 'success');
     assert.equal(result.critter.xp, 11);
+  });
+
+  it('spends no automatic rest: a member with rest days left is paused like one without', () => {
+    const result = closeDay({ critter: critter(), members: [fed(), member(), member({ restDaysUsedThisWeek: 1 })], restDaysPerWeek: 1, outage: true });
+    assert.deepEqual(result.outcomes.map((row) => row.outcome), ['fed', 'paused', 'paused']);
+    assert.equal(result.counted, 1);
+  });
+
+  it('keeps a declared rest, which the member chose before the day ended', () => {
+    const result = closeDay({ critter: critter(), members: [fed(), member({ restDeclaredToday: true })], restDaysPerWeek: 1, outage: true });
+    assert.deepEqual(result.outcomes.map((row) => row.outcome), ['fed', 'rest']);
   });
 });

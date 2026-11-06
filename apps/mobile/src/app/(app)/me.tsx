@@ -1,5 +1,4 @@
 import { addDays, packDayOf } from '@gozali/game-engine';
-import { useMutation } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
@@ -9,11 +8,10 @@ import { HeaderButton } from '@/components/HeaderButton';
 import { Button } from '@/components/Button';
 import { Screen } from '@/components/Screen';
 import { LoadFailed } from '@/components/ScreenStates';
-import { signOut } from '@/features/auth/signIn';
+import { useSignOut } from '@/features/auth/useSignOut';
 import { AvatarButton } from '@/features/profile/AvatarButton';
 import { useProfile } from '@/features/profile/useProfile';
 import { useMyStats } from '@/features/social/api';
-import { notify } from '@/lib/confirm';
 import { deviceTimeZone, formatDay } from '@/lib/dates';
 import { goBack } from '@/lib/navigation';
 import { serverNow } from '@/lib/serverClock';
@@ -27,9 +25,7 @@ export default function MeScreen() {
   const { t } = useTranslation();
   const profile = useProfile();
   const stats = useMyStats();
-
-  // With an expired token signing out waits for the refresh to give up; meanwhile a tap would start it again.
-  const leaving = useMutation({ mutationFn: signOut, onError: () => notify(t('errors.signOutFailed')) });
+  const leaving = useSignOut();
 
   const byDay = new Map((stats.data?.days ?? []).map((entry) => [entry.day, entry.status]));
   // The pack day on this phone: until 03:00 it is still yesterday's.
@@ -40,7 +36,9 @@ export default function MeScreen() {
     <Screen>
       <View style={styles.header}>
         <HeaderButton icon="‹" label={t('me.back')} onPress={() => goBack('/')} />
-        <AppText variant="heading">{profile.data?.display_name ?? t('me.title')}</AppText>
+        <AppText variant="heading" numberOfLines={1} style={styles.name}>
+          {profile.data?.display_name ?? t('me.title')}
+        </AppText>
         <HeaderButton label={t('settings.app.open')} onPress={() => router.push('/settings')} />
       </View>
 
@@ -108,13 +106,15 @@ export default function MeScreen() {
         </ScrollView>
       )}
 
-      <Button label={t('me.signOut')} variant="secondary" loading={leaving.isPending} onPress={() => leaving.mutate()} />
+      <Button label={t('me.signOut')} variant="secondary" loading={leaving.isPending} onPress={leaving.start} />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing.md },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.sm, paddingVertical: spacing.md },
+  // Text in a row keeps its full width unless told otherwise, and Settings is the way to Delete account.
+  name: { flexShrink: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   body: { gap: spacing.md, paddingBottom: spacing.lg },
   centerText: { textAlign: 'center' },

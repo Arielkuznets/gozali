@@ -194,14 +194,17 @@ export type Database = {
       code_misses: {
         Row: {
           at: string;
+          code: string | null;
           user_id: string;
         };
         Insert: {
           at?: string;
+          code?: string | null;
           user_id: string;
         };
         Update: {
           at?: string;
+          code?: string | null;
           user_id?: string;
         };
         Relationships: [
@@ -475,6 +478,7 @@ export type Database = {
       };
       notifications: {
         Row: {
+          attempts: number;
           created_at: string;
           day: string | null;
           id: string;
@@ -487,6 +491,7 @@ export type Database = {
           user_id: string;
         };
         Insert: {
+          attempts?: number;
           created_at?: string;
           day?: string | null;
           id?: string;
@@ -499,6 +504,7 @@ export type Database = {
           user_id: string;
         };
         Update: {
+          attempts?: number;
           created_at?: string;
           day?: string | null;
           id?: string;
@@ -907,25 +913,28 @@ export type Database = {
       reports: {
         Row: {
           created_at: string;
-          feed_id: string;
+          feed_id: string | null;
           handled_at: string | null;
           id: string;
+          member_id: string | null;
           reason: string | null;
           reporter_id: string;
         };
         Insert: {
           created_at?: string;
-          feed_id: string;
+          feed_id?: string | null;
           handled_at?: string | null;
           id?: string;
+          member_id?: string | null;
           reason?: string | null;
           reporter_id: string;
         };
         Update: {
           created_at?: string;
-          feed_id?: string;
+          feed_id?: string | null;
           handled_at?: string | null;
           id?: string;
+          member_id?: string | null;
           reason?: string | null;
           reporter_id?: string;
         };
@@ -935,6 +944,13 @@ export type Database = {
             columns: ['feed_id'];
             isOneToOne: false;
             referencedRelation: 'feeds';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'reports_member_id_fkey';
+            columns: ['member_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
             referencedColumns: ['id'];
           },
           {
@@ -1080,9 +1096,11 @@ export type Database = {
       };
       blocked_by_me: { Args: { other_user: string }; Returns: boolean };
       buy_item: { Args: { target: string; wanted: string }; Returns: number };
+      bytes_held: { Args: { bucket: string }; Returns: number };
       call_edge_function:
         | { Args: { name: string }; Returns: undefined }
         | { Args: { body: Json; name: string }; Returns: undefined };
+      can_report_feed: { Args: { target_feed: string }; Returns: boolean };
       cancel_day_pass: { Args: { target: string }; Returns: undefined };
       check_code_attempts: { Args: { caller: string }; Returns: undefined };
       choose_name: { Args: { suggestion: string; target: string }; Returns: undefined };
@@ -1102,8 +1120,17 @@ export type Database = {
           user_id: string;
         }[];
       };
+      clean_up_auth_log: { Args: { at_time?: string }; Returns: undefined };
       clean_up_old_rows: { Args: { at_time?: string }; Returns: undefined };
       collect_service_errors: { Args: Record<PropertyKey, never>; Returns: number };
+      counted_feeds: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          day: string;
+          pack_id: string;
+          user_id: string;
+        }[];
+      };
       counted_on: { Args: { member: string; pack_date: string; target: string }; Returns: boolean };
       create_pack: {
         Args: {
@@ -1148,8 +1175,10 @@ export type Database = {
           total: number;
         }[];
       };
+      feed_uses_photo: { Args: { photo: string }; Returns: boolean };
       fold_pending_settings: { Args: { pack_date: string; target: string }; Returns: undefined };
       forget_photos: { Args: { feed_ids: string[] }; Returns: undefined };
+      forget_push_token: { Args: { device_token: string }; Returns: undefined };
       forget_push_tokens: { Args: { dead: string[] }; Returns: undefined };
       is_clean: { Args: { input: string }; Returns: boolean };
       is_pack_member: { Args: { target_pack: string }; Returns: boolean };
@@ -1223,6 +1252,7 @@ export type Database = {
         Args: { emoji: Database['public']['Enums']['reaction_emoji']; target_feed: string };
         Returns: undefined;
       };
+      record_code_miss: { Args: { caller: string; tried: string }; Returns: undefined };
       register_push_token: {
         Args: { device: Database['public']['Enums']['push_platform']; device_token: string };
         Returns: undefined;
@@ -1245,7 +1275,10 @@ export type Database = {
         Args: { app_version?: string; device?: string; problem: string };
         Returns: undefined;
       };
-      requeue_notifications: { Args: { ids: string[] }; Returns: undefined };
+      requeue_notifications: {
+        Args: { ids: string[]; refused?: string[]; unsent?: string[] };
+        Returns: undefined;
+      };
       require_admin: { Args: { target: string }; Returns: string };
       require_membership: { Args: { member: string; target: string }; Returns: string };
       require_user: { Args: Record<PropertyKey, never>; Returns: string };
@@ -1277,6 +1310,7 @@ export type Database = {
         };
         Returns: undefined;
       };
+      uploads_today: { Args: { bucket: string }; Returns: number };
       use_day_pass: {
         Args: { pass: Database['public']['Enums']['day_pass_kind']; target: string };
         Returns: undefined;

@@ -51,11 +51,37 @@ export function normalizeInviteCode(input: string): string {
   return input.toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g, '').slice(0, INVITE_CODE_LENGTH);
 }
 
+/** A whole code, maybe split in the middle, as people write one. */
+const CODE_SHAPE = '[a-hj-np-z2-9]{4}[- ]?[a-hj-np-z2-9]{4}(?![a-z0-9])';
+
 /**
  * The code in what someone pasted: the invite message and the link carry it after "/i/" or
- * "Code:", and the letters of the rest would make a wrong code. Anything else is the code itself.
+ * "Code:", a friend may write it among words of their own, and the letters of the rest would make
+ * a wrong code. Anything else is the code itself.
  */
 export function inviteCodeFrom(input: string): string {
-  const found = /gozali(?:\.app|:\/)\/i\/([a-z0-9-]+)/i.exec(input) ?? /\bcode:\s*([a-z0-9-]+)/i.exec(input);
-  return normalizeInviteCode(found?.[1] ?? input);
+  // Full-width letters and digits, as East Asian keyboards type them, become the plain ones.
+  const text = input.normalize('NFKC');
+  const found =
+    /gozali(?:\.app|:\/)\/i\/([a-z0-9-]+)/i.exec(text) ?? new RegExp(`\\bcode\\s*[:=]\\s*(${CODE_SHAPE})`, 'i').exec(text);
+  if (found) return normalizeInviteCode(found[1]!);
+  // Every word that could be the code, overlapping ones too: "my pack KPQR 5678" has "pack KPQR".
+  const words = [...text.matchAll(new RegExp(`(?:^|[^a-z0-9])(?=(${CODE_SHAPE}))`, 'gi'))].map((match) => ({
+    word: match[1]!,
+    start: match.index + match[0].length,
+  }));
+  // An English word can be made of the code's letters too (STRENGTH), so a word with a digit wins,
+  // then one in capitals, as the app and its site show codes, then one in a piece, and the last one
+  // otherwise, as in "my code is ...". A word that starts inside another shares a half with it, as
+  // "kpqr 5678 then" has "5678 then" and "pack k7qr 5m8x" has "pack k7qr": of two such, the one with
+  // a digit in both halves wins, and the first one otherwise.
+  const rank = (word: string) => (/[2-9]/.test(word) ? 4 : 0) + (word === word.toUpperCase() ? 2 : 0) + (/[- ]/.test(word) ? 0 : 1);
+  const digitHalves = (word: string) => [word.slice(0, 4), word.slice(-4)].filter((half) => /[2-9]/.test(half)).length;
+  const code = words.reduce<(typeof words)[number] | undefined>((best, next) => {
+    if (best === undefined) return next;
+    if (rank(next.word) !== rank(best.word)) return rank(next.word) > rank(best.word) ? next : best;
+    if (next.start >= best.start + best.word.length) return next;
+    return digitHalves(next.word) > digitHalves(best.word) ? next : best;
+  }, undefined);
+  return normalizeInviteCode(code?.word ?? /\bcode\s*[:=]\s*([a-z0-9-]+)/i.exec(text)?.[1] ?? text);
 }

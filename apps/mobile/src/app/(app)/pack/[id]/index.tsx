@@ -1,7 +1,7 @@
 import { dayEnd, packDayOf } from '@gozali/game-engine';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -13,36 +13,30 @@ import { Coins } from '@/components/Coins';
 import { HealthBar } from '@/components/HealthBar';
 import { MemberCircles, type MemberState } from '@/components/MemberCircles';
 import { Screen } from '@/components/Screen';
-import { LoadingScreen, LoadFailedScreen, PackMissingScreen } from '@/components/ScreenStates';
+import { LoadFailed, LoadingScreen, LoadFailedScreen, PackMissingScreen } from '@/components/ScreenStates';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { useAvatarUrls } from '@/features/profile/avatar';
 import { Critter } from '@/features/critter/Critter';
 import { HatchSteps } from '@/features/critter/HatchSteps';
-import { hatchesTonight } from '@/features/critter/hatch';
+import { hatchesAtClose, hatchesTonight } from '@/features/critter/hatch';
 import { MilestoneMoment } from '@/features/critter/MilestoneMoment';
 import { useMilestone } from '@/features/critter/milestones';
 import { critterArt, stageProgress } from '@/features/critter/art';
 import { useCritterText } from '@/features/critter/useCritterText';
-import { useDayStatus, useMembersToday, useTodayPasses, type TodayPasses } from '@/features/days/api';
+import { canEndPause, keptToday, pauseToday, useDayStatus, useMembersToday, useTodayPasses, type TodayPasses } from '@/features/days/api';
 import { FeedList } from '@/features/feeds/FeedList';
-import { FEED_PAGE, fedToday, useCountedFeeds, usePackFeed, usePendingFeeds, type FeedItem } from '@/features/feeds/api';
-import { countedToday, currentMembers, usePack, type Pack, type PackCritter, type PackMember } from '@/features/packs/api';
+import { FEED_PAGE, feedWaitsToday, fedToday, packFeedsKey, useCountedFeeds, usePackFeed, usePendingFeeds, type FeedItem } from '@/features/feeds/api';
+import { storedFocusSession } from '@/features/focus/session';
+import { countedToday, currentMembers, restDaysOn, usePack, type Pack, type PackCritter, type PackMember } from '@/features/packs/api';
 import { FOCUS_CATEGORIES, PACK_SIZE_MAX, categoryInfo } from '@/features/packs/constants';
 import { usePackRealtime } from '@/features/packs/realtime';
 import { NameMeCard } from '@/features/social/NameMeCard';
-import {
-  socialErrorKey,
-  useBlock,
-  useNudge,
-  usePackEvents,
-  useReact,
-  useReport,
-  type ReactionKey,
-} from '@/features/social/api';
+import { socialErrorKey, useBlockedIds, useNudge, usePackEvents, usePackItems, useReact, type ReactionKey } from '@/features/social/api';
+import { useModeration } from '@/features/social/moderation';
 import { confirm, notify } from '@/lib/confirm';
-import { formatDay } from '@/lib/dates';
+import { formatDay, readableZone } from '@/lib/dates';
 import { haptics } from '@/lib/haptics';
-import { goBack } from '@/lib/navigation';
+import { NEW_SCREEN, goBack } from '@/lib/navigation';
 import { useNow } from '@/lib/useNow';
 import { colors, critterAccents, fonts, spacing } from '@/theme/tokens';
 
@@ -50,10 +44,11 @@ export default function PackScreen() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session } = useAuth();
-  const { data: pack, isPending, isError, refetch } = usePack(id);
+  const { data: pack, dataUpdatedAt, isPending, isError, refetch } = usePack(id);
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
   const [feedLimit, setFeedLimit] = useState(FEED_PAGE);
+  const [olderFailed, setOlderFailed] = useState<string | null>(null);
   const [menu, setMenu] = useState<Menu | null>(null);
   const counted = useCountedFeeds();
   const feed = usePackFeed(id, feedLimit);
@@ -63,60 +58,84 @@ export default function PackScreen() {
   const membersToday = useMembersToday(pack ?? undefined, now, pack?.critters?.status === 'egg');
   const dayStatus = useDayStatus(id);
   const events = usePackEvents(id, feedLimit);
+  const bought = usePackItems(id);
   const avatars = useAvatarUrls(pack?.pack_members.map((member) => member.profiles?.avatar_path) ?? []);
-  const react = useReact();
+  const blocked = useBlockedIds(session?.user.id);
+  const { mutate: sendReaction } = useReact();
   const nudge = useNudge(id);
-  const report = useReport();
-  const blockMember = useBlock();
+  const { memberActions, photoMenu } = useModeration();
   usePackRealtime(id);
-  const moment = useMilestone(pack?.id, pack?.critters);
+  const moment = useMilestone(pack?.id, pack?.critters, dataUpdatedAt);
+  const [inSession, setInSession] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      void storedFocusSession().then((session) => setInSession(session?.packId === id));
+    }, [id]),
+  );
 
-  if (isPending) return <LoadingScreen />;
+  // A longer page that failed for good has no data and no placeholder, so the page before it comes
+  // back before anything is drawn, and the list and the reader's place stay.
+  if (feed.isError && !feed.data && feedLimit > FEED_PAGE) {
+    setFeedLimit(feedLimit - FEED_PAGE);
+    setOlderFailed(id);
+  }
+
+  if (isPending) return <LoadingScreen back />;
   if (!pack && isError) return <LoadFailedScreen onRetry={() => void refetch()} />;
   if (!pack) return <PackMissingScreen />;
 
   const members = currentMembers(pack);
   const habit = pack.custom_habit ?? t(`packs.categories.${pack.category}`);
   const fed = fedToday(counted.data, pack, now);
-  const iFed = members.some((member) => member.user_id === session?.user.id && fed.has(member.user_id));
-  const today: TodayPasses = passes.data ?? { passes: new Map(), paused: new Set() };
+  const iFed =
+    members.some((member) => member.user_id === session?.user.id && fed.has(member.user_id)) ||
+    feedWaitsToday(pending.data, pack, session?.user.id, now);
+  const today: TodayPasses = passes.data ?? keptToday(pack, now);
   // Counted today: not asleep and not on a pause.
   const awake = countedToday(pack, today.paused);
   const fedCount = awake.filter((member) => fed.has(member.user_id)).length;
   const names = new Map(pack.pack_members.map((member) => [member.user_id, member.profiles?.display_name ?? null]));
   const focusable = FOCUS_CATEGORIES.has(pack.category);
   const pendingCount = pending.data?.length ?? 0;
-  const pausedToday = Boolean(dayStatus.data?.pause && dayStatus.data.pause.startsOn <= dayStatus.data.day);
   const userId = session?.user.id;
+  const pause = pauseToday(dayStatus.data, pack, userId, now);
+  const pausedToday = pause !== null;
   const critterName = pack.critters?.name ?? (pack.critters ? t(`packs.species.${pack.critters.species}`) : '');
   const admin = members.find((member) => member.role === 'admin');
   const isAdmin = admin?.user_id === userId;
   const fail = (error: unknown) => notify(t(socialErrorKey(error)));
-  const morePhotos = (feed.data?.length ?? 0) >= feedLimit;
+  // A longer page on its way counts: the button holds its place as a spinner.
+  const morePhotos = feed.isPlaceholderData || (feed.data?.length ?? 0) >= feedLimit;
   // While older photos remain unloaded, older events wait too, so the merged list has no gap.
   const oldestPhoto = feed.data?.at(-1)?.created_at;
   const shownEvents = (events.data ?? []).filter((event) => !morePhotos || !oldestPhoto || event.created_at >= oldestPhoto);
+  // A read that failed with nothing to show for it, or with rows that have no photos yet. One that
+  // failed with the list in place changes nothing on screen.
+  const feedFailed = feed.isError && (feed.data?.some((item) => item.photo_path !== null && item.photoUrl === null) ?? true);
+
+  // No pictures until the list of blocked people is in, so a blocked face never flashes by. A link
+  // signed before the block stays good for its hour, so the server's refusal alone comes too late.
+  const avatarOf = (member: PackMember) =>
+    member.profiles?.avatar_path && blocked.data && !blocked.data.has(member.user_id)
+      ? avatars.data?.get(member.profiles.avatar_path)
+      : undefined;
+
+  const showOlder = () => {
+    // A page that failed goes first: a reaction's cancel puts a read back where it began, and the
+    // check above would take that old failure for this try's.
+    queryClient.removeQueries({
+      queryKey: [...packFeedsKey, id, feedLimit + FEED_PAGE],
+      exact: true,
+      predicate: (query) => query.state.data === undefined,
+    });
+    setOlderFailed(null);
+    setFeedLimit((limit) => limit + FEED_PAGE);
+  };
 
   const refresh = async () => {
     setRefreshing(true);
     await queryClient.invalidateQueries();
     setRefreshing(false);
-  };
-
-  const block = (memberId: string, name: string) => {
-    if (!userId) return;
-    confirm({
-      title: t('social.blockTitle', { name }),
-      message: t('social.blockBody'),
-      confirm: t('social.block', { name }),
-      cancel: t('social.cancel'),
-      destructive: true,
-      onConfirm: () =>
-        blockMember.mutate(
-          { blockerId: userId, blockedId: memberId },
-          { onSuccess: () => notify(t('social.blockedLeave')), onError: fail },
-        ),
-    });
   };
 
   const onMemberMenu = (member: { id: string; name: string | null; nudgeable?: boolean }) => {
@@ -126,7 +145,7 @@ export default function PackScreen() {
       title: t('pack.memberMenu', { name }),
       actions: [
         ...(member.nudgeable ? [{ label: t('social.nudge'), onPress: () => onNudge(member) }] : []),
-        { label: t('social.block', { name }), destructive: true, onPress: () => block(member.id, name) },
+        ...memberActions(member.id, name),
       ],
     });
   };
@@ -151,34 +170,12 @@ export default function PackScreen() {
 
   const onReact = (item: FeedItem, emoji: ReactionKey | null) => {
     haptics.tap();
-    react.mutate({ feedId: item.id, emoji }, { onError: fail });
-  };
-
-  const onReport = (item: FeedItem) => {
-    if (!userId) return;
-    confirm({
-      title: t('social.reportTitle'),
-      message: t('social.reportBody'),
-      confirm: t('social.report'),
-      cancel: t('social.cancel'),
-      destructive: true,
-      onConfirm: () =>
-        report.mutate(
-          { feedId: item.id, reporterId: userId, reason: null },
-          { onSuccess: () => notify(t('social.reported')), onError: fail },
-        ),
-    });
+    sendReaction({ feedId: item.id, emoji }, { onError: fail });
   };
 
   const onMore = (item: FeedItem) => {
     const name = names.get(item.user_id) ?? '…';
-    setMenu({
-      title: name,
-      actions: [
-        { label: t('social.report'), onPress: () => onReport(item) },
-        { label: t('social.block', { name }), destructive: true, onPress: () => block(item.user_id, name) },
-      ],
-    });
+    setMenu(photoMenu({ id: item.id, userId: item.user_id, name, url: item.photoUrl, caption: item.caption }));
   };
 
   return (
@@ -201,7 +198,7 @@ export default function PackScreen() {
           {pack.name}
         </AppText>
         <AppText variant="caption" style={styles.centerText}>
-          {categoryInfo(pack.category).emoji} {habit} · {t('packs.restDays', { count: pack.rest_days_per_week })}
+          {categoryInfo(pack.category).emoji} {habit} · {t('packs.restDays', { count: restDaysOn(pack, packDayOf(now, readableZone(pack.timezone))) })}
         </AppText>
 
         {pack.critters && (
@@ -211,6 +208,7 @@ export default function PackScreen() {
             memberCount={members.length}
             fedCount={fedCount}
             hatchCertain={hatchesTonight(members, fed, today, membersToday.data)}
+            hatching={hatchesAtClose(membersToday.data)}
             mood={awake.length > 0 ? fedCount / awake.length : 0}
             now={now}
           />
@@ -226,7 +224,8 @@ export default function PackScreen() {
             id: member.user_id,
             name: member.profiles?.display_name ?? null,
             state: memberState(member, fed, today),
-            avatarUrl: member.profiles?.avatar_path ? avatars.data?.get(member.profiles.avatar_path) : undefined,
+            avatarUrl: avatarOf(member),
+            self: member.user_id === userId,
             nudgeable:
               member.user_id !== userId &&
               !fed.has(member.user_id) &&
@@ -252,33 +251,42 @@ export default function PackScreen() {
             names={names}
           />
         )}
+        {feedFailed && <LoadFailed onRetry={() => void feed.refetch()} />}
         {feed.data && (
           <FeedList
             feeds={feed.data}
             events={shownEvents}
+            bought={bought.data}
             names={names}
             critterName={critterName}
             emoji={categoryInfo(pack.category).emoji}
-            now={now}
+            today={now.toDateString()}
+            someoneFed={fed.size > 0}
             userId={userId}
             onReact={onReact}
             onMore={onMore}
           />
         )}
-        {morePhotos && (
-          <Button
-            label={t('pack.showOlder')}
-            variant="secondary"
-            size="small"
-            onPress={() => setFeedLimit((limit) => limit + FEED_PAGE)}
-          />
+        {olderFailed === id ? (
+          <LoadFailed onRetry={showOlder} />
+        ) : (
+          morePhotos && (
+            <Button
+              label={t('pack.showOlder')}
+              variant="secondary"
+              size="small"
+              loading={feed.isPlaceholderData}
+              onPress={showOlder}
+            />
+          )
         )}
       </ScrollView>
 
       <View style={styles.actions}>
-        {pausedToday && dayStatus.data?.pause && (
+        {pause && (
           <AppText variant="caption" style={styles.centerText}>
-            {t('pack.pausedToday', { date: formatDay(dayStatus.data.pause.endsOn) })}
+            {t('pack.pausedToday', { date: formatDay(pause.endsOn), name: critterName })}
+            {canEndPause(pause.startsOn, pause.endsOn) && ` ${t('pack.pausedEndEarly')}`}
           </AppText>
         )}
         {!iFed && !pausedToday && dayStatus.data?.passToday && (
@@ -286,21 +294,23 @@ export default function PackScreen() {
             {dayStatus.data.passToday === 'rest' ? t('pack.restingToday') : t('pack.jokerToday')}
           </AppText>
         )}
-        {iFed && (
+        {iFed && !pausedToday && (
           <AppText variant="caption" style={styles.centerText}>
             {t('pack.doneToday')}
           </AppText>
         )}
-        {!iFed && members.some((member) => member.user_id === userId && member.status === 'sleeping') && (
+        {!iFed && !pausedToday && members.some((member) => member.user_id === userId && member.status === 'sleeping') && (
           <AppText variant="caption" style={styles.centerText}>
             {t('pack.asleepYou', { name: critterName })}
           </AppText>
         )}
-        {iFed ? (
-          <Button label={t('pack.postExtra')} variant="secondary" onPress={() => router.push(`/pack/${id}/feed?extra=1`)} />
-        ) : (
-          <Button label={t('pack.feed')} onPress={() => router.push(`/pack/${id}/feed`)} />
-        )}
+        {/* The day close doesn't count a paused member, whatever they send. */}
+        {!pausedToday &&
+          (iFed ? (
+            <Button label={t('pack.postExtra')} variant="secondary" onPress={() => router.push(`/pack/${id}/feed?extra=1`, NEW_SCREEN)} />
+          ) : (
+            <Button label={t('pack.feed')} onPress={() => router.push(`/pack/${id}/feed`, NEW_SCREEN)} />
+          ))}
         <View style={styles.row}>
           {!iFed && !pausedToday && (
             <View style={styles.fill}>
@@ -312,7 +322,8 @@ export default function PackScreen() {
               />
             </View>
           )}
-          {focusable && (
+          {/* A session a pause overtook still has to be ended, and an open timer has no other way. */}
+          {focusable && (!pausedToday || inSession) && (
             <View style={styles.fill}>
               <Button
                 label={t('pack.focus')}
@@ -338,8 +349,9 @@ export default function PackScreen() {
 }
 
 function memberState(member: PackMember, fed: Set<string>, today: TodayPasses): MemberState {
-  if (fed.has(member.user_id)) return 'fed';
+  // In the order of the day close: a pause comes before a feed, which then doesn't count.
   if (today.paused.has(member.user_id)) return 'paused';
+  if (fed.has(member.user_id)) return 'fed';
   if (member.status === 'sleeping') return 'asleep';
   return today.passes.has(member.user_id) ? 'pass' : 'waiting';
 }
@@ -350,17 +362,19 @@ type PanelProps = {
   memberCount: number;
   fedCount: number;
   hatchCertain: boolean;
+  hatching: boolean;
   mood: number;
   now: Date;
 };
 
-function CritterPanel({ pack, critter, memberCount, fedCount, hatchCertain, mood, now }: PanelProps) {
+function CritterPanel({ pack, critter, memberCount, fedCount, hatchCertain, hatching, mood, now }: PanelProps) {
   const { t } = useTranslation();
   const art = critterArt(critter, { category: pack.category, now, mood, cracking: memberCount >= 2 });
   const text = useCritterText(critter, art);
   const progress = stageProgress(critter.stage);
-  // Days close only once a second member joined.
-  const daysRun = memberCount >= 2;
+  // Days close once a second member has joined, and a friend leaving doesn't stop them. A hatched
+  // pet always had one.
+  const daysRun = memberCount >= 2 || critter.status !== 'egg';
 
   return (
     <View style={styles.critter}>
@@ -375,7 +389,7 @@ function CritterPanel({ pack, critter, memberCount, fedCount, hatchCertain, mood
       {art.look === 'egg' && (
         <>
           <Coins text={t('critter.coins', { count: critter.coins })} accessibilityLabel={t('critter.coinsLabel', { count: critter.coins })} />
-          <HatchSteps friendJoined={daysRun} fedToday={fedCount} certain={hatchCertain} />
+          <HatchSteps friendJoined={daysRun} fedToday={fedCount} certain={hatchCertain} hatching={hatching} />
         </>
       )}
       {memberCount < 2 && (
@@ -409,7 +423,7 @@ function CritterPanel({ pack, critter, memberCount, fedCount, hatchCertain, mood
         </View>
       )}
 
-      {daysRun && <DayCountdown timeZone={pack.timezone} now={now} />}
+      {daysRun && <DayCountdown timeZone={readableZone(pack.timezone)} now={now} />}
     </View>
   );
 }
@@ -424,8 +438,9 @@ function DayCountdown({ timeZone, now }: { timeZone: string; now: Date }) {
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.md },
-  headerLinks: { flexDirection: 'row', gap: spacing.lg },
+  header: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: spacing.sm, paddingVertical: spacing.md },
+  // On a line of its own at the largest text, it still keeps to the right.
+  headerLinks: { flexDirection: 'row', flexWrap: 'wrap', flexShrink: 1, justifyContent: 'flex-end', marginLeft: 'auto', rowGap: spacing.sm, columnGap: spacing.lg },
   membersHeader: { flexDirection: 'row', justifyContent: 'space-between' },
   actions: { gap: spacing.sm, paddingTop: spacing.sm },
   row: { flexDirection: 'row', gap: spacing.sm },

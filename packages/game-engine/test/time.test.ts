@@ -26,6 +26,10 @@ describe('pack days', () => {
     assert.equal(packDayOf(new Date('2026-09-27T00:30:00Z'), JERUSALEM), '2026-09-27');
   });
 
+  it('refuses a zone it can not read rather than guess the day', () => {
+    assert.throws(() => packDayOf(new Date('2026-09-27T00:30:00Z'), 'Mars/Olympus'), RangeError);
+  });
+
   it('measures minutes from the 03:00 start of the day', () => {
     assert.equal(minuteOfPackDay(new Date('2026-09-27T00:30:00Z'), JERUSALEM), 30);
     assert.equal(minuteOfPackDay(new Date('2026-09-26T21:30:00Z'), JERUSALEM), 21 * 60 + 30);

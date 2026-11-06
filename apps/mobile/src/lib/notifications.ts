@@ -1,10 +1,15 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { router, usePathname, type Href } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 
 import { FOCUS_CHANNEL } from '@/lib/channels';
+import { NEW_SCREEN } from '@/lib/navigation';
 import { registerPushToken } from '@/lib/push';
+
+/** Set once the app has opened the one prompt it opens by itself. */
+const ASKED_KEY = 'gozali.notifications-asked';
 
 if (Platform.OS !== 'web') {
   // Show notifications while the app is open too.
@@ -34,6 +39,22 @@ export async function allowNotifications(): Promise<boolean> {
   // The server needs this phone's token before it can send anything.
   if (granted) void registerPushToken();
   return granted;
+}
+
+/**
+ * The prompt the app opens by itself as the first home screen opens: a new account comes there
+ * from the profile setup, and an account on a new phone comes straight from signing in. The key
+ * makes it once, since Android lets the app ask again after a no.
+ */
+export async function askForNotificationsOnce(): Promise<void> {
+  if (await AsyncStorage.getItem(ASKED_KEY)) return;
+  await AsyncStorage.setItem(ASKED_KEY, '1');
+  await allowNotifications();
+}
+
+/** The profile setup promises a new account that prompt, whoever had it on this phone before. */
+export async function forgetNotificationsAsked(): Promise<void> {
+  await AsyncStorage.removeItem(ASKED_KEY).catch(() => undefined);
 }
 
 export type NotificationPermission = 'granted' | 'ask' | 'blocked';
@@ -87,15 +108,17 @@ export function useNotificationRoutes() {
   useEffect(() => {
     if (Platform.OS === 'web') return;
     const open = (response: Notifications.NotificationResponse | null) => {
-      const url: unknown = response?.notification.request.content.data?.url;
+      if (!response) return;
+      // The phone keeps every tap as the last response until the app clears it, and the next time
+      // these screens are built (a sign-in after the server ended the session, the profile setup
+      // again, Try again) it would open once more.
+      void Notifications.clearLastNotificationResponseAsync();
+      const url: unknown = response.notification.request.content.data?.url;
       // A tap for the screen already on top would stack a second copy of it. The path has no
       // query (the focus-end notice opens the camera with ?focus=).
-      if (typeof url === 'string' && url.split('?')[0] !== current.current) router.push(url as Href);
+      if (typeof url === 'string' && url.split('?')[0] !== current.current) router.push(url as Href, NEW_SCREEN);
     };
-    void Notifications.getLastNotificationResponseAsync().then((response) => {
-      open(response);
-      if (response) void Notifications.clearLastNotificationResponseAsync();
-    });
+    void Notifications.getLastNotificationResponseAsync().then(open);
     const subscription = Notifications.addNotificationResponseReceivedListener(open);
     return () => subscription.remove();
   }, []);

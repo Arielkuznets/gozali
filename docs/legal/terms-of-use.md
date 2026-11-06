@@ -1,8 +1,6 @@
 # Gozali Terms of Use
 
-> Draft for the pilot. It must be reviewed before the public launch. Published at gozali.app/terms.
-
-Last updated: September 27, 2026
+Last updated: November 4, 2026
 
 By using Gozali you agree to these terms. If you don't agree, please don't use the app. Contact: hello@gozali.app.
 
@@ -17,6 +15,8 @@ You must be at least **13 years old**. You are responsible for what happens unde
 
 ## What is not allowed
 
+Gozali has no tolerance for objectionable content or abusive users.
+
 - Offensive, hateful, harassing or threatening content, and bullying of any kind, including through nudges, reactions or names.
 - Nudity, sexual content, violence, self-harm content or illegal content.
 - Spam, impersonation, or trying to get around the app's rules or its security.
@@ -25,7 +25,7 @@ Captions and names are checked for offensive words, and some text will be refuse
 
 ## Reports and removal
 
-Every photo can be reported from its menu. We review reports **within 24 hours**. We may hide content, and we may remove members or delete accounts that break these terms. Several reports on the same photo hide it until it is reviewed. You can also block any member, and any member can leave a pack at any time; a pack admin can remove members.
+Every photo can be reported from its menu, and every member from theirs, for anything about them: their name, their profile photo or how they treat you. We review reports **within 24 hours**. We may hide content, and we may remove members or delete accounts that break these terms. Several reports on the same photo hide it until it is reviewed. You can also block any member, and any member can leave a pack at any time; a pack admin can remove members.
 
 ## The game
 
