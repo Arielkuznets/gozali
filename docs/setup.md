@@ -295,7 +295,7 @@ Run the audit again after every Expo SDK upgrade.
 
 ## 8. Sign in with Apple in the browser
 
-On iPhones and iPads the app signs in with Apple's own sheet. Where that sheet fails (App Review once couldn't sign in on an iPad), the welcome screen can also offer Apple's sign-in page in the browser. It needs the Apple provider set up for the web:
+On iPhones and iPads the app signs in with Apple's own sheet. Where that sheet fails (App Review once couldn't sign in on an iPad), the welcome screen can also offer Apple's sign-in page in the browser. It needs section 1, step 6 (without the app's redirect URL, Apple's page ends at the default site URL, and the browser says it can't connect to the server) and the Apple provider set up for the web:
 
 1. Apple Developer → Certificates, IDs & Profiles → Identifiers → + → Services IDs, for example `app.gozali.web`. Turn on Sign in with Apple and configure it: primary App ID `app.gozali`, domain `<project-ref>.supabase.co`, return URL `https://<project-ref>.supabase.co/auth/v1/callback`.
 2. Generate the client secret for the Services ID from a key with Sign in with Apple for `app.gozali` (the key from section 6 will do), with the tool in Supabase's guide to Apple sign-in. Apple lets a secret live six months at most, so put a reminder in the calendar to generate the next one.

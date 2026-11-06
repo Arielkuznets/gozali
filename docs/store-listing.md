@@ -6,7 +6,7 @@ Drafts for App Store Connect and the Google Play Console, and the answers the st
 
 | Field | Store | Limit | Text |
 | --- | --- | --- | --- |
-| Name | both | 30 | Gozali: Habit Pet |
+| Name | both | 30 | Gozali |
 | Subtitle | App Store | 30 | Raise a pet with your friends |
 | Short description | Google Play | 80 | Keep your habit with friends and raise a pet together. Feed it with a photo. |
 | Promotional text | App Store | 170 | Pick your critter, invite up to 7 friends, and feed it every day by doing your habit. Keep the streak going to earn coins for outfits. |
@@ -26,7 +26,7 @@ Start a pack for a habit you share (the gym, running, walking, yoga, meditation,
 **Keep the streak.** Every good day earns the pack coins, and a longer streak earns more. Spend them on hats, scarves and backgrounds in the outfit shop, and unlock special items with achievements.
 
 Also inside:
-- Home screen widgets on your phone, and lock screen widgets on iPhone, that show your critter and how many of you fed today. On iPhone they need iOS 17 or later.
+- Home screen widgets on your phone that show your critter and how many of you fed today, and lock screen widgets on iPhone with its health and the same count. On iPhone they need iOS 17 or later.
 - A focus timer for study, reading, meditation, language and music packs.
 - A weekly recap you can share as a story, with only your own photos.
 - Gentle reminders in your critter's voice, never more than a few a day, and never at night.
@@ -40,7 +40,7 @@ Photos are seen only by your pack, unless one is reported and the developer has 
 ## Categories and age
 
 - **Category:** Health & Fitness; secondary: Lifestyle (App Store). Google Play: Health & Fitness.
-- **Age:** the app is for 13 and over (the terms say so, and users confirm it in the profile setup). In Apple's questionnaire, select two capabilities: User-Generated Content, for the photos and captions that members of a pack see, with reporting and blocking, and Messaging and Chat, which Apple defines as users communicating directly in the app, group messaging included: a caption reaches the whole pack, and members nudge each other. Answer no to everything else. That includes social media: Apple describes it as a feed that spreads posts to many users, and a pack's feed reaches only its members, 8 at most. Apple's table of ratings puts user-generated content and messaging and chat at 4+, so these answers come to 4+, under the terms' 13 (Brazil's own table puts messaging and chat at A12). Apple says an app whose user agreement sets a higher minimum age than the calculated rating must override it, so under Age Categories and Override choose Override to Higher Age Rating and 13+, which applies in every region, and check that App Information shows 13+ before submitting. In Google Play's content rating, answer that users share photos with each other and can interact, and in Target audience choose ages 13-15, 16-17 and 18 and over.
+- **Age:** the app is for 13 and over (the terms say so, and users confirm it in the profile setup). In Apple's questionnaire, select two capabilities: User-Generated Content, for the photos and captions that members of a pack see, with reporting and blocking, and Messaging and Chat, which Apple defines as users communicating directly in the app, group messaging included: a caption reaches the whole pack, and members nudge each other. Answer no or none to everything else, except Contests, which is Infrequent: the weekly recap names the most consistent members, a weekly ranking. Health or Wellness Topics stays no, since Apple means self-care or lifestyle recommendations and the app gives none. Social media stays no too: Apple describes it as a feed that spreads posts to many users, and a pack's feed reaches only its members, 8 at most. Apple's table of ratings puts user-generated content and messaging and chat at 4+, so these answers come to 4+, under the terms' 13 (Brazil's own table puts messaging and chat at A12). Apple says an app whose user agreement sets a higher minimum age than the calculated rating must override it, so under Age Categories and Override choose Override to Higher Age Rating and 13+, which applies in every region, and check that App Information shows 13+ before submitting. With these answers App Store Connect warns that the app will not be sold in Afghanistan and Morocco, by their local laws. In Google Play's content rating, answer that users share photos with each other and can interact, and in Target audience choose ages 13-15, 16-17 and 18 and over.
 
 ## Privacy answers
 
@@ -52,14 +52,16 @@ What the app collects (see docs/legal/privacy-policy.md), including what Expo's 
 | Display name and profile photo | Contact info: name; User content: photos, linked | Personal info: name; Photos, collected, shared with pack members | App functionality |
 | Feed photos and captions | User content: photos, other user content, linked | Photos; other user-generated content, shared with pack members | App functionality |
 | Reactions, nudges, name suggestions, reports and blocks | User content: other, linked | Other user-generated content | App functionality |
-| Focus session lengths, rest days, jokers, pauses and outfit changes | Usage data: product interaction, linked | App activity: other actions | App functionality |
-| User ID | Identifiers: user ID, linked | Personal info: user IDs | App functionality |
+| Focus session lengths, rest days, jokers, pauses and outfit changes | Usage data: product interaction, linked | App activity: other actions | App functionality; Analytics |
+| User ID | Identifiers: user ID, linked | Personal info: user IDs | App functionality; Analytics |
 | Push token and widget token | Identifiers: device ID, linked | Device or other IDs | App functionality |
 | Time zone, language and reminder settings | Other data, linked | Personal info: other info (time zone and language); App activity: other actions (reminder settings) | App functionality |
 | Error reports (the error, stack trace, the screen, the app version, iPhone or Android, whether the app crashed, and on a sign-in report the system name and version) | Diagnostics: crash data, other diagnostic data, linked | App info and performance: crash logs, diagnostics, collected | App functionality; on Google Play also Analytics |
 | Network address and user agent of each signed-in phone (kept by the sign-in service until that phone signs out or the account is deleted) | Other data, linked | Device or other IDs, collected | App functionality |
 | Scrambled network address when a sign-in fails (a keyed hash kept apart from the report, used for an hour, deleted within about a day) | Other data, not linked | Device or other IDs, collected | App functionality; on Google Play: fraud prevention, security and compliance |
-| Update check that Expo's code sends to Expo each time the app starts: the network address, a random id kept for the installation, the app version and system, and an error that stopped the app while it was starting (Expo counts installations and failures per update for the developer) | Other data; Identifiers: device ID; Diagnostics: crash data (each already declared above, so the App Store answers don't change) | Device or other IDs; App info and performance: crash logs, collected (both already above) | App functionality; on Google Play also Analytics |
+| Update check that Expo's code sends to Expo each time the app starts: the network address, a random id kept for the installation, the app version and system, and an error that stopped the app while it was starting (Expo counts installations and failures per update for the developer) | Other data; Identifiers: device ID; Diagnostics: crash data (each already declared above, so the App Store answers don't change) | Device or other IDs; App info and performance: crash logs, collected (both already above) | App functionality; Analytics |
+
+App Store Connect takes one answer per data type. Every type is linked to the user and none is used for tracking; Other Data is linked too, although the scrambled address is not. User ID, Device ID and Product Interaction also list Analytics, because the developer counts users, active packs and installations (pilot_metrics, the daily summary push and Expo's update counts).
 
 Data is encrypted in transit, and users can delete their account inside the app (Settings → Delete account). That removes the account and its data right away, apart from what the privacy policy lists: copies in the daily backups on the developer's computer, outside the EU, for about 14 days (the 14 newest are kept), the account id in the packs' past results, the name or account id in records of notifications sent to others for up to 30 days, the sign-in service's security log, and report emails. Photos are deleted after 30 days (a photo in a weekly recap collage 8 weeks after that week). A reported photo reaches the developer by email, through a link that works for 7 days.
 
@@ -67,20 +69,39 @@ Google Play's form also asks for a web link where people can ask for their accou
 
 ## Notes for Apple's review
 
-To paste into App Store Connect → App Review Information → Notes, with the demo pack's code in place of `<invite code>`. The real code stays out of this file, because the repository is public. Notes also holds the answers to Apple's six questions of October 2026, which Apple asked to keep there for later submissions. This text replaces the answer to question 3 (how to reach the main features) and leaves the others. The field takes 4,000 bytes in all.
+The whole Notes field in App Store Connect → App Review Information, as sent with build 1.0.1 (5), with the demo pack's code in place of `<invite code>`. The real code stays out of this file, because the repository is public. It opens with a line on the iPad fix and holds the answers to Apple's six questions of October 2026, which Apple asked to keep there for later submissions. The field takes 4,000 bytes in all. This text is 3,907 with the code (3,936 if each line break counts as two), so measure it again after any change.
 
 ```text
+Thank you for the review. Build 1.0.1 (5) fixes Sign in with Apple on iPad, which failed in the last review; if Apple's sheet still doesn't open, the app offers "Continue with Apple in the browser". The screen recording is attached.
+
+1. Screen recording
+Recorded with build 1.0.0 (4) on an iPhone 16 Pro (iOS 27.0.1): from the first launch through sign-in, packs, feeding, reacting, reporting and blocking, to deleting the account. The app has no paid content.
+
+2. Purpose and target audience
+Gozali helps people keep a habit (the gym, running, reading and so on) together with a few friends. A "pack" of 2 to 8 friends raises one shared virtual pet, and each member feeds it by doing the habit and taking a photo in the app. When the pack keeps going, the pet hatches, grows and earns coins for outfits; when it doesn't, it gets weak and goes off to find food, and comes back after three good days in a row. The app is for people aged 13 and over.
+
+3. How to use the main features
 Gozali needs an account. You get one with Sign in with Apple, which has no user name or password to give here, so please use your own Apple ID: any Apple ID works.
-
 A new pack starts as an egg, which hatches at the end of the first day on which two members feed it and nobody misses (a feed is a photo taken in the app). With one account you can create a pack, use "Not today" (rest day, joker, pause) before that day's feed, feed it, open the pet's Profile with the monthly board and achievements, and change the settings. The Focus button (focus timer) appears on Study, Reading, Meditation, Language and Music packs.
-
-To see a hatched pet, a friend's photos, the outfit shop and a weekly recap, tap "Join with a code" on the home screen and enter <invite code>. An account can be in 3 packs at a time, and at 3 the home screen shows neither "Create a pack" nor "Join with a code": join before you create a third pack, or leave one first (Settings on its pack screen, then "Leave pack"). To hatch your own egg, a second account joins with the pack's code (Invite on the pack screen) and feeds the same day; the day closes around 04:00 in the pack's time zone.
-
-Feed photos are taken in the app only (no gallery uploads); the photo library is only for the optional profile photo. Photos are visible only to the pack, unless one is reported. Another member's photo can be reported from its ⋯ menu, in the feed, opened full screen or in a weekly recap. Press and hold a member in the members row to report them (for their name, their profile photo or how they treat others) or block them; the ⋯ menu of a photo offers both for its poster, also after they left the pack. Reports and blocks reach the developer by email and are handled within 24 hours.
-
+To see a hatched pet, a friend's photos, the outfit shop and a weekly recap (both in the pet's Profile), tap "Join with a code" on the home screen and enter <invite code>. Demo Friend there is our test account; a script posts its stand-in pictures. An account can be in 3 packs at a time, and at 3 the home screen shows neither "Create a pack" nor "Join with a code": join before you create a third pack, or leave one first (Settings on its pack screen, then "Leave pack"). To hatch your own egg, a second account joins with the pack's code (Invite on the pack screen) and feeds the same day; the day closes around 04:00 in the pack's time zone.
+Feed photos are taken in the app only (no gallery uploads); the photo library is used only to pick a profile photo and to save a weekly story. Photos are visible only to the pack, unless one is reported. Another member's photo can be reported from its ⋯ menu, in the feed, opened full screen or in a weekly recap. Press and hold a member in the members row to report them (for their name, their profile photo or how they treat others) or block them; the ⋯ menu of a photo offers both for its poster, also after they left the pack. Reports and blocks reach the developer by email and are handled within 24 hours.
 Captions, names (of members, packs and pets) and habit texts are checked against a list of offensive words, and text with one is refused. Users reach the developer at hello@gozali.app, shown in Me → Settings and in the terms.
-
 Account deletion: Me → Settings → Delete account.
+
+4. External services
+- Supabase: database, photo storage, authentication and server functions (EU, Ireland)
+- Sign in with Apple: authentication
+- Expo Push Notification Service, through APNs: notifications
+- Expo Application Services: building the app and delivering updates
+- Resend: emails to the developer about reports and blocks
+- Cloudflare: the gozali.app website and mail to hello@gozali.app
+The app uses no payment processors, advertising, analytics or AI services.
+
+5. Regional differences
+None: the same app and content in every region, in English.
+
+6. Regulated industries and third-party material
+Not applicable. Gozali is not a medical, financial or otherwise regulated service, and all characters and artwork are original, drawn in code for this app.
 ```
 
 The "Sign-in required" box stays unticked, though by Apple's wording it applies: App Store Connect asks for it when an app needs a login, and guideline 2.1(a) asks for demo account details. Its fields only take a user name and a password, and Sign in with Apple has neither to give: the sheet uses the Apple ID on the device, and a demo Apple ID would stop at a code sent to the owner's phone. So the notes open by saying this. App Review has worked that way so far: the last review tried Sign in with Apple and didn't ask for an account. If Apple does ask, the answer is a demo login in the app, which doesn't exist yet.
@@ -97,7 +118,7 @@ Once the app is approved, the admin removes the reviewer's account from Pack set
 
 ## App Store Connect, the first submission
 
-1. App Information: name `Gozali: Habit Pet`, subtitle, category Health & Fitness (secondary Lifestyle), content rights: no third-party content, the age rating questionnaire (User-Generated Content and Messaging and Chat: yes; everything else: no; then Override to Higher Age Rating, 13+, as in Categories and age), privacy policy URL `https://gozali.app/privacy`.
+1. App Information: name `Gozali`, subtitle, category Health & Fitness (secondary Lifestyle), content rights: no third-party content, the age rating questionnaire (User-Generated Content and Messaging and Chat: yes; Contests: Infrequent; everything else: no or none; then Override to Higher Age Rating, 13+, as in Categories and age), privacy policy URL `https://gozali.app/privacy`.
 2. Pricing and Availability: free, all countries.
 3. App Privacy: the answers above; data is not used for tracking.
 4. The version, numbered as `version` in `apps/mobile/app.json` (1.0.1 for build 5: first change the rejected 1.0 version's number to it, as `docs/setup.md` section 5 says, or build 5 isn't offered): the five screenshots from `e2e/store/output/app-store` (6.9"), the promotional text, description and keywords above, support URL `https://gozali.app/support`, marketing URL `https://gozali.app`, copyright `2026 Ariel Kuznets`, the build (after Apple processes it), the review notes above, and the contact details.
